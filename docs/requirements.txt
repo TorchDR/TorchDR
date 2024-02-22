@@ -1,0 +1,10 @@
+sphinx
+sphinx_gallery
+sphinx_rtd_theme
+numpydoc
+memory_profiler
+myst-parser
+ipython
+torch
+skorch
+matplotlib
