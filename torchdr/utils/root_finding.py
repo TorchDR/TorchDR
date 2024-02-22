@@ -66,7 +66,8 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
 
 def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=False):
     r"""
-    Performs a batched false position method to find the root of an increasing function f.
+    Performs a batched false position method to find the root
+    of an increasing function f.
 
     Parameters
     ----------

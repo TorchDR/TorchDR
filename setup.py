@@ -7,7 +7,8 @@ setup(
 
     # The project's main homepage.
     url='https://github.com/TorchDR/TorchDR',
-    download_url='https://github.com/TorchDR/TorchDR/archive/refs/tags/v0.0.0-alpha.tar.gz',
+    download_url='https://github.com/TorchDR/TorchDR/archive/ \
+    refs/tags/v0.0.0-alpha.tar.gz',
 
     # Author details
     author='Hugues Van Assel, TorchDR contributors',
