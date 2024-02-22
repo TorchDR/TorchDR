@@ -21,9 +21,9 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
         increasing function which root should be computed.
     n: int
         size of the input of f.
-    begin: tensor of shape (n) or float, optional
+    begin: torch.Tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end: tensor of shape (n) or float, optional
+    end: torch.Tensor of shape (n) or float, optional
         initial upper bound of the root.
     max_iter: int, optional
         maximum iterations of search.
@@ -34,14 +34,14 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
 
     Returns
     -------
-    m: tensor, shape (n)
+    m: torch.Tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(f=f, n=n, begin=begin, end=end)
     m = (begin+end)/2
     fm = f(m)
 
-    pbar = tqdm(range(max_iter), disable = not verbose)
+    pbar = tqdm(range(max_iter), disable=not verbose)
     for _ in pbar:
 
         if torch.max(torch.abs(fm)) < tol:
@@ -60,7 +60,7 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
                                  f'f std : {float(std_f): .3e}, '
                                  f'begin mean : {float(begin.mean().item()): .6e}, '
                                  f'end mean : {float(end.mean().item()): .6e} ')
-    
+
     return m
 
 
@@ -74,9 +74,9 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
         increasing function which root should be computed.
     n: int
         size of the input of f.
-    begin: tensor of shape (n) or float, optional
+    begin: torch.Tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end: tensor of shape (n) or float, optional
+    end: torch.Tensor of shape (n) or float, optional
         initial upper bound of the root.
     max_iter: int, optional
         maximum iterations of search.
@@ -87,7 +87,7 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
 
     Returns
     -------
-    m: tensor, shape (n)
+    m: torch.Tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(f=f, n=n, begin=begin, end=end)
@@ -95,7 +95,7 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
     m = begin - ((begin - end) / (f(begin) - f(end))) * f(begin)
     fm = f(m)
 
-    pbar = tqdm(range(max_iter), disable = not verbose)
+    pbar = tqdm(range(max_iter), disable=not verbose)
     for _ in pbar:
 
         if torch.max(torch.abs(fm)) < tol:
@@ -116,37 +116,39 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
                                  f'f std : {float(std_f): .3e}, '
                                  f'begin mean : {float(begin.mean().item()): .6e}, '
                                  f'end mean : {float(end.mean().item()): .6e} ')
-    
+
     return m
 
 
 def init_bounds(f, n, begin=None, end=None, dtype=torch.double, device='cpu'):
-    """Initializes the bounds of the root search (inf by default)."""
+    """Initializes the bounds of the root search."""
 
     if begin is None:
         begin = torch.ones(n, dtype=dtype, device=device)
     else:
-        assert isinstance(begin, (int, float, torch.Tensor)), 'begin must be a float, an int or a tensor.'
+        assert isinstance(begin, (int, float, torch.Tensor)
+                          ), 'begin must be a float, an int or a tensor.'
         begin = begin * torch.ones(n, dtype=dtype, device=device)
 
     if end is None:
         end = torch.ones(n, dtype=dtype, device=device)
     else:
-        assert isinstance(end, (int, float, torch.Tensor)), 'end must be a float, an int or a tensor.'
+        assert isinstance(end, (int, float, torch.Tensor)
+                          ), 'end must be a float, an int or a tensor.'
         end = end * torch.ones(n, dtype=dtype, device=device)
 
     # Ensure that begin lower bounds the root
-    out_begin = f(begin)>0
+    out_begin = f(begin) > 0
     while out_begin.any():
         end[out_begin] = torch.min(end[out_begin], begin[out_begin])
         begin[out_begin] /= 2
-        out_begin = f(begin)>0
+        out_begin = f(begin) > 0
 
     # Ensure that begin upper bounds the root
-    out_end = f(end)<0
+    out_end = f(end) < 0
     while out_end.any():
         begin[out_end] = torch.max(begin[out_end], end[out_end])
         end[out_end] *= 2
-        out_end = f(end)<0
-        
+        out_end = f(end) < 0
+
     return begin, end
