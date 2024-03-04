@@ -132,3 +132,5 @@ docs/source/auto_examples/
 docs/source/gen_modules/
 .DS_Store
 .vscode
+
+dev/

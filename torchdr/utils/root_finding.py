@@ -145,7 +145,7 @@ def init_bounds(f, n, begin=None, end=None, dtype=torch.double, device='cpu'):
         begin[out_begin] /= 2
         out_begin = f(begin) > 0
 
-    # Ensure that begin upper bounds the root
+    # Ensure that end upper bounds the root
     out_end = f(end) < 0
     while out_end.any():
         begin[out_end] = torch.max(begin[out_end], end[out_end])
