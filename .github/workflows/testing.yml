@@ -14,7 +14,8 @@ on:
       - '**'
 
 jobs:
-  Test-minimal:
+
+  Test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,51 +49,4 @@ jobs:
         python -m pip install --user -e .
     # Run Tests
     - name: Run Tests without torch
-      run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term  --ignore=torchdr/feature
-    # Codecov 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-
-  Test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    defaults:
-      run:
-        shell: bash -l {0}
-    steps:
-
-    # Install torchdr
-    - name: Checking Out Repository
-      uses: actions/checkout@v2
-    # Cache 'torchdr' datasets
-    - name: Create/Restore torchdr Data Cache
-      id: cache-torchdr_datasets
-      uses: actions/cache@v2
-      with:
-        path: ~/torchdr_datasets
-        key: ${{ runner.os }}-v3
-    # Install Python & Packages
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - run: which python
-    - name: Install dependencies
-      run: |
-        python -m pip install --user --upgrade --progress-bar off pip
-        python -m pip install --user -r requirements_full.txt
-        python -m pip install --user --upgrade pytest pytest-cov codecov 
-    - name: Install 'torchdr' package
-      run: |
-        python -m pip install --user -e .
-    # Run Tests
-    - name: Run Tests without torch
       run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
-    # Codecov 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
