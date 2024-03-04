@@ -92,7 +92,8 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
     m: torch.Tensor of shape (n)
         root of f.
     """
-    begin, end = init_bounds(f=f, n=n, begin=begin, end=end)
+    dtype = begin.dtype if begin is not None else torch.double
+    begin, end = init_bounds(f=f, n=n, begin=begin, end=end, dtype=dtype)
     f_begin, f_end = f(begin), f(end)
     m = begin - ((begin - end) / (f(begin) - f(end))) * f(begin)
     fm = f(m)
