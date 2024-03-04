@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='torchdr',
-    version='0',
+    version='0.0.1b0',
     description='Torch Dimensionality Reduction Library',
 
     # The project's main homepage.
