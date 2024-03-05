@@ -17,24 +17,24 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
 
     Parameters
     ----------
-    f: function :math:`\mathbb{R}^n \to \mathbb{R}^n`
+    f : function :math:`\mathbb{R}^n \to \mathbb{R}^n`
         increasing function which root should be computed.
-    n: int
+    n : int
         size of the input of f.
-    begin: torch.Tensor of shape (n) or float, optional
+    begin : torch.Tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end: torch.Tensor of shape (n) or float, optional
+    end : torch.Tensor of shape (n) or float, optional
         initial upper bound of the root.
-    max_iter: int, optional
+    max_iter : int, optional
         maximum iterations of search.
-    tol: float, optional
+    tol : float, optional
         precision threshold at which the algorithm stops.
-    verbose: bool, optional
+    verbose : bool, optional
         if True, prints current bounds.
 
     Returns
     -------
-    m: torch.Tensor of shape (n)
+    m : torch.Tensor of shape (n)
         root of f.
     """
     dtype = begin.dtype if begin is not None else torch.double
@@ -72,24 +72,24 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
 
     Parameters
     ----------
-    f: function :math:`\mathbb{R}^n \to \mathbb{R}^n`
+    f : function :math:`\mathbb{R}^n \to \mathbb{R}^n`
         increasing function which root should be computed.
-    n: int
+    n : int
         size of the input of f.
-    begin: torch.Tensor of shape (n) or float, optional
+    begin : torch.Tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end: torch.Tensor of shape (n) or float, optional
+    end : torch.Tensor of shape (n) or float, optional
         initial upper bound of the root.
-    max_iter: int, optional
+    max_iter : int, optional
         maximum iterations of search.
-    tol: float, optional
+    tol : float, optional
         precision threshold at which the algorithm stops.
-    verbose: bool, optional
+    verbose : bool, optional
         if True, prints current bounds.
 
     Returns
     -------
-    m: torch.Tensor of shape (n)
+    m : torch.Tensor of shape (n)
         root of f.
     """
     dtype = begin.dtype if begin is not None else torch.double

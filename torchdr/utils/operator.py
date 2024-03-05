@@ -18,11 +18,11 @@ def entropy(P: torch.Tensor,
 
     Parameters
     ----------
-    P: tensor
+    P : tensor
         input data.
-    log: bool
+    log : bool
         if True, assumes that P is in log domain.
-    dim: int
+    dim : int
         axis on which entropy is computed.
     """
     if log:
@@ -38,11 +38,11 @@ def kl_div(P: torch.Tensor, Q: torch.Tensor, log: bool = False):
 
     Parameters
     ----------
-    P: tensor
+    P : tensor
         input data.
-    Q: tensor
+    Q : tensor
         input data.
-    log: bool
+    log : bool
         if True, assumes that P and Q are in log domain.
     """
     if log:

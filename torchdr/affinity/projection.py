@@ -399,18 +399,25 @@ class SymmetricEntropicAffinity(LogAffinity):
                     self.log_['mu'].append(mu0)
                     if self.square_parametrization:
                         self.log_[
-                            'loss'].append(-Lagrangian(C, torch.exp(log_P.clone().detach()), eps0**2, mu0, self.perp).item())
+                            'loss'].append(
+                                -Lagrangian(C, torch.exp(log_P.clone().detach()),
+                                            eps0**2, mu0, self.perp).item())
                     else:
                         self.log_[
-                            'loss'].append(-Lagrangian(C, torch.exp(log_P.clone().detach()), eps0, mu0, self.perp).item())
+                            'loss'].append(
+                                -Lagrangian(C, torch.exp(log_P.clone().detach()),
+                                            eps0, mu0, self.perp).item())
 
                 perps = torch.exp(H - 1)
                 if self.verbose:
                     pbar.set_description(
-                        f'PERPLEXITY:{float(perps.mean().item()): .2e} (std:{float(perps.std().item()): .2e}), '
-                        f'MARGINAL:{float(P_sum.mean().item()): .2e} (std:{float(P_sum.std().item()): .2e})')
+                        f'PERPLEXITY:{float(perps.mean().item()): .2e} 
+                        (std:{float(perps.std().item()): .2e}), '
+                        f'MARGINAL:{float(P_sum.mean().item()): .2e} 
+                        (std:{float(P_sum.std().item()): .2e})')
 
-                if (torch.abs(H - math.log(self.perp)-1) < self.tol).all() and (torch.abs(P_sum - one) < self.tol).all():
+                if (torch.abs(H - math.log(self.perp)-1) < self.tol).all() \
+                and (torch.abs(P_sum - one) < self.tol).all():
                     self.log_['n_iter'] = k
                     self.n_iter_ = k
                     if self.verbose:
@@ -430,13 +437,15 @@ class SymmetricEntropicAffinity(LogAffinity):
 
 class BistochasticAffinity(LogAffinity):
     """
-    This class computes the symmetric doubly stochastic affinity matrix in log domain with Sinkhorn algorithm.
-    It normalizes a Gaussian RBF kernel or t-Student kernel to satisfy the doubly stochasticity constraints.
+    This class computes the symmetric doubly stochastic affinity matrix 
+    in log domain with Sinkhorn algorithm.
+    It normalizes a Gaussian RBF kernel or t-Student kernel to satisfy 
+    the doubly stochasticity constraints.
 
     Parameters
     ----------
     eps : float, optional
-        The strength of the regularization for the Sinkhorn algorithm. 
+        Regularization parameter for the Sinkhorn algorithm. 
         It corresponds to the square root of the length scale of the Gaussian kernel when student = False.
     f : torch.Tensor of shape (n_samples), optional
         Initialization for the dual variable of the Sinkhorn algorithm (default None).
