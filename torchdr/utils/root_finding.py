@@ -21,9 +21,9 @@ def binary_search(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=F
         increasing function which root should be computed.
     n : int
         size of the input of f.
-    begin : torch.Tensor of shape (n) or float, optional
+    begin : float or torch.Tensor of shape (n), optional
         initial lower bound of the root.
-    end : torch.Tensor of shape (n) or float, optional
+    end : float or torch.Tensor of shape (n), optional
         initial upper bound of the root.
     max_iter : int, optional
         maximum iterations of search.
@@ -115,10 +115,10 @@ def false_position(f, n, begin=None, end=None, max_iter=1000, tol=1e-9, verbose=
         if verbose:
             mean_f = fm.mean().item()
             std_f = fm.std().item()
-            pbar.set_description(f'f mean : {float(mean_f): .3e}, '
-                                 f'f std : {float(std_f): .3e}, '
-                                 f'begin mean : {float(begin.mean().item()): .6e}, '
-                                 f'end mean : {float(end.mean().item()): .6e} ')
+            pbar.set_description(f'f mean : {float(mean_f): .2e}, '
+                                 f'f std : {float(std_f): .2e}, '
+                                 f'begin mean : {float(begin.mean().item()): .2e}, '
+                                 f'end mean : {float(end.mean().item()): .2e} ')
 
     return m
 

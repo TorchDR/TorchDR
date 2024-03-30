@@ -14,7 +14,8 @@ def entropy(P: torch.Tensor,
             log: bool = False,
             dim: int = -1):
     r"""
-    Returns the entropy of P along axis dim, supports log domain input.
+    Returns the entropy of P along axis dim.
+    Supports log domain input.
 
     Parameters
     ----------
@@ -33,8 +34,8 @@ def entropy(P: torch.Tensor,
 
 def kl_div(P: torch.Tensor, Q: torch.Tensor, log: bool = False):
     r"""
-    Returns the Kullback-Leibler divergence between P and Q, supports log domain input
-    for both matrices.
+    Returns the Kullback-Leibler divergence between P and Q.
+    Supports log domain input for both matrices.
 
     Parameters
     ----------

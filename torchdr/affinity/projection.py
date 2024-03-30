@@ -72,8 +72,11 @@ class LogAffinity(BaseAffinity):
         """
         log_P = self.compute_log_affinity(X)
         self.log_affinity_matrix = log_P
-        self.affinity_matrix = torch.exp(log_P)
-        return self.affinity_matrix
+        if log_P is not None:
+            self.affinity_matrix = torch.exp(log_P)
+            return self.affinity_matrix
+        else:
+            return None
 
 
 class NormalizedGaussianAndStudentAffinity(LogAffinity):
@@ -88,7 +91,7 @@ class NormalizedGaussianAndStudentAffinity(LogAffinity):
     sigma : float, optional
         The length scale of the Gaussian kernel (default 1.0).
     p : int, optional
-        p value for the p-norm distance to calculate between each vector pair 
+        p value for the p-norm distance to calculate between each vector pair
         (default 2).
     """
 
@@ -123,8 +126,8 @@ class NormalizedGaussianAndStudentAffinity(LogAffinity):
 
 class EntropicAffinity(LogAffinity):
     """
-    This class computes the entropic affinity used in SNE and tSNE in log domain. 
-    It also corresponds to the Pe matrix in [1] in log domain (see also [2]). 
+    This class computes the entropic affinity used in SNE and tSNE in log domain.
+    It also corresponds to the Pe matrix in [1] in log domain (see also [2]).
     When normalize_as_sne = True, the affinity is symmetrized as (Pe + Pe.T)/2.
 
     Parameters
@@ -226,7 +229,7 @@ class EntropicAffinity(LogAffinity):
 
         eps_star, _, _ = false_position(
             f=f, n=n, begin=self.begin, end=self.end, tol=self.tol,
-            max_iter=self.max_iter, verbose=self.verbose, device=C.device
+            max_iter=self.max_iter, verbose=self.verbose,
             )
         log_affinity = log_Pe(C, eps_star)
 
@@ -245,7 +248,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                  tolog=False):
         """
         This class computes the solution to the symmetric entropic affinity problem
-        described in [1], in log space. 
+        described in [1], in log space.
         More precisely, it solves equation (SEA) in [1] with the dual ascent procedure
         described in the paper and returns the log of the affinity matrix.
 
@@ -253,11 +256,10 @@ class SymmetricEntropicAffinity(LogAffinity):
         ----------
         perp : int
             Perplexity parameter, related to the number of nearest neighbors that is
-            used in other manifold learning algorithms. 
+            used in other manifold learning algorithms.
             Larger datasets usually require a larger perplexity. Consider selecting a
-            value between 5 and the number of samples. 
-            Different values can result in significantly different results. The
-            perplexity must be less than the number of samples.
+            value between 5 and the number of samples.
+            Different values can result in significantly different results.
         lr : float, optional
             Learning rate used to update dual variables.
         square_parametrization : bool, optional
@@ -277,7 +279,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         Attributes
         ----------
         log_ : dictionary
-            Contains the loss and the dual variables at each iteration of the 
+            Contains the loss and the dual variables at each iteration of the
             optimization algorithm when tolog = True.
         n_iter_ : int
             Number of iterations run.
@@ -314,7 +316,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         Returns
         -------
         log_P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix in log space. 
+            Affinity matrix in log space.
         """
         C = torch.cdist(X, X, 2) ** 2
         log_P = self._solve_dual(C)
@@ -333,7 +335,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         Returns
         -------
         log_P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix in log space. 
+            Affinity matrix in log space.
 
         References
         ----------
@@ -411,13 +413,14 @@ class SymmetricEntropicAffinity(LogAffinity):
                 perps = torch.exp(H - 1)
                 if self.verbose:
                     pbar.set_description(
-                        f'PERPLEXITY:{float(perps.mean().item()): .2e} 
-                        (std:{float(perps.std().item()): .2e}), '
-                        f'MARGINAL:{float(P_sum.mean().item()): .2e} 
-                        (std:{float(P_sum.std().item()): .2e})')
+                        f'PERPLEXITY:{float(perps.mean().item()): .2e} '
+                        f'(std:{float(perps.std().item()): .2e}), '
+                        f'MARGINAL:{float(P_sum.mean().item()): .2e} '
+                        f'(std:{float(P_sum.std().item()): .2e})'
+                        )
 
                 if (torch.abs(H - math.log(self.perp)-1) < self.tol).all() \
-                and (torch.abs(P_sum - one) < self.tol).all():
+                        and (torch.abs(P_sum - one) < self.tol).all():
                     self.log_['n_iter'] = k
                     self.n_iter_ = k
                     if self.verbose:
@@ -437,20 +440,21 @@ class SymmetricEntropicAffinity(LogAffinity):
 
 class BistochasticAffinity(LogAffinity):
     """
-    This class computes the symmetric doubly stochastic affinity matrix 
+    This class computes the symmetric doubly stochastic affinity matrix
     in log domain with Sinkhorn algorithm.
-    It normalizes a Gaussian RBF kernel or t-Student kernel to satisfy 
+    It normalizes a Gaussian RBF kernel or t-Student kernel to satisfy
     the doubly stochasticity constraints.
 
     Parameters
     ----------
     eps : float, optional
-        Regularization parameter for the Sinkhorn algorithm. 
-        It corresponds to the square root of the length scale of the Gaussian kernel when student = False.
+        Regularization parameter for the Sinkhorn algorithm.
+        It corresponds to the square root of the length scale of the Gaussian kernel
+        when student = False.
     f : torch.Tensor of shape (n_samples), optional
         Initialization for the dual variable of the Sinkhorn algorithm (default None).
     tol : float, optional
-        Precision threshold at which the algorithm stops.    
+        Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the algorithm.
     student : bool, optional
@@ -490,7 +494,7 @@ class BistochasticAffinity(LogAffinity):
 
     def compute_log_affinity(self, X):
         """
-        Computes the doubly stochastic affinity matrix in log space. 
+        Computes the doubly stochastic affinity matrix in log space.
         Returns the log of the transport plan at convergence.
 
         Parameters
@@ -501,7 +505,7 @@ class BistochasticAffinity(LogAffinity):
         Returns
         -------
         log_P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix in log space. 
+            Affinity matrix in log space.
         """
         C = torch.cdist(X, X, 2)**2
         # If student is True, considers the Student-t kernel instead of Gaussian RBF
@@ -513,7 +517,7 @@ class BistochasticAffinity(LogAffinity):
     def _solve_dual(self, C):
         """
         Performs Sinkhorn iterations in log domain to solve the entropic "self" (or
-        "symmetric") OT problem with symmetric cost C and entropic regularization 
+        "symmetric") OT problem with symmetric cost C and entropic regularization
         eps.
 
         Parameters
@@ -524,7 +528,7 @@ class BistochasticAffinity(LogAffinity):
         Returns
         -------
         log_P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix in log space. 
+            Affinity matrix in log space.
         """
 
         if self.verbose:
@@ -566,7 +570,7 @@ class BistochasticAffinity(LogAffinity):
 
 def log_Pe(C, eps):
     """
-    Returns the log of the directed affinity matrix of SNE with prescribed kernel 
+    Returns the log of the directed affinity matrix of SNE with prescribed kernel
     bandwidth.
 
     Parameters
@@ -587,7 +591,7 @@ def log_Pe(C, eps):
 
 def log_Pse(C, eps, mu, to_square=False):
     """
-    Returns the log of the symmetric entropic affinity matrix with specified parameters 
+    Returns the log of the symmetric entropic affinity matrix with specified parameters
     epsilon and mu.
 
     Parameters
@@ -597,11 +601,11 @@ def log_Pse(C, eps, mu, to_square=False):
     eps : torch.Tensor of shape (n_samples)
         Symmetric entropic affinity dual variables associated to the entropy constraint.
     mu : torch.Tensor of shape (n_samples)
-        Symmetric entropic affinity dual variables associated to the marginal 
+        Symmetric entropic affinity dual variables associated to the marginal
         constraint.
     to_square : bool, optional
-        Whether to use the square of the dual variables associated to the entropy 
-        constraint, by default False. 
+        Whether to use the square of the dual variables associated to the entropy
+        constraint, by default False.
     """
     if to_square:
         return (mu[:, None] + mu[None, :] - 2*C) / (eps[:, None]**2 + eps[None, :]**2)
@@ -611,7 +615,7 @@ def log_Pse(C, eps, mu, to_square=False):
 
 def Lagrangian(C, log_P, eps, mu, perp):
     """
-    Computes the Lagrangian associated to the symmetric entropic affinity optimization 
+    Computes the Lagrangian associated to the symmetric entropic affinity optimization
     problem.
 
     Parameters
@@ -634,7 +638,7 @@ def Lagrangian(C, log_P, eps, mu, perp):
     """
     one = torch.ones(C.shape[0], dtype=C.dtype, device=C.device)
     target_entropy = math.log(perp) + 1
-    HP = entropy(log_P, log=True, ax=1)
+    HP = entropy(log_P, log=True, dim=1)
     linear_cost = torch.exp(torch.logsumexp(log_P + torch.log(C), (0, 1)))
     dual_entropy = torch.inner(eps, (target_entropy - HP))
     dual_marginal = torch.inner(mu, (one - torch.exp(torch.logsumexp(log_P, -1))))
