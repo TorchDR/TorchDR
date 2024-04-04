@@ -12,11 +12,22 @@ def test_binary_search(dtype):
         return x**2 - 1
 
     # test 1D
-    begin = torch.tensor([-.5, ], dtype=dtype)
-    end = torch.tensor([2.0, ], dtype=dtype)
+    begin = torch.tensor(
+        [
+            -0.5,
+        ],
+        dtype=dtype,
+    )
+    end = torch.tensor(
+        [
+            2.0,
+        ],
+        dtype=dtype,
+    )
 
-    m = binary_search(f, 1, begin=begin, end=end,
-                      max_iter=1000, tol=1e-9, verbose=False)
+    m = binary_search(
+        f, 1, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=False
+    )
     assert torch.allclose(m, torch.tensor([1.0], dtype=dtype), atol=1e-5)
 
     # test 2D
@@ -32,9 +43,19 @@ def test_false_position(dtype):
     def f(x):
         return x**2 - 1
 
-    # tes 1D
-    begin = torch.tensor([-.5, ], dtype=dtype)
-    end = torch.tensor([2.0, ], dtype=dtype)
+    # test 1D
+    begin = torch.tensor(
+        [
+            -0.5,
+        ],
+        dtype=dtype,
+    )
+    end = torch.tensor(
+        [
+            2.0,
+        ],
+        dtype=dtype,
+    )
 
     m = false_position(
         f, 1, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=False
