@@ -13,9 +13,8 @@ import math
 from tqdm import tqdm
 from pykeops.torch import LazyTensor
 
-from torchdr.utils.root_finding import false_position
+from torchdr.utils.optim import false_position, OPTIMIZERS
 from torchdr.utils.geometry import pairwise_distances
-from torchdr.utils.optim import OPTIMIZERS
 from torchdr.affinity.base import BaseAffinity, LogAffinity
 
 
@@ -72,7 +71,7 @@ def log_Pe(C, eps):
 
     References
     ----------
-    .. [] Stochastic Neighbor Embedding.
+    .. [1] Stochastic Neighbor Embedding.
         Geoffrey Hinton, Sam Roweis, NeurIPS 2002.
     """
     if isinstance(C, LazyTensor):
@@ -105,7 +104,7 @@ def log_Pse(C, eps, mu, eps_square=False):
 
     References
     ----------
-    .. [] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
+    .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
         Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
     """
     if isinstance(C, LazyTensor):
@@ -142,7 +141,7 @@ def log_Pds(log_K, f):
 
     References
     ----------
-    .. [] Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
+    .. [3] Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
         Jean Feydy, Thibault Séjourné, François-Xavier Vialard, et al. AISTATS 2019.
     """
     if isinstance(log_K, LazyTensor):
@@ -184,13 +183,13 @@ class EntropicAffinity(LogAffinity):
 
     References
     ----------
-    .. [] Stochastic Neighbor Embedding.
+    .. [1] Stochastic Neighbor Embedding.
         Geoffrey Hinton, Sam Roweis, NeurIPS 2002.
-    .. [] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
+    .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
         Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
-    .. [] Entropic Affinities: Properties and Efficient Numerical Computation.
+    .. [4] Entropic Affinities: Properties and Efficient Numerical Computation.
         Max Vladymyrov, Miguel A. Carreira-Perpinan, ICML 2013.
-    .. [] Visualizing Data using t-SNE.
+    .. [5] Visualizing Data using t-SNE.
         Laurens Van der Maaten, Geoffrey Hinton, JMLR 2008.
     """
 
@@ -247,7 +246,7 @@ class EntropicAffinity(LogAffinity):
 
         References
         ----------
-        .. [] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities, Hugues
+        .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities, Hugues
             Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
         """
         target_entropy = math.log(self.perplexity) + 1
@@ -302,9 +301,9 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
     References
     ----------
 
-    .. [] Visualizing Data using t-SNE.
+    .. [5] Visualizing Data using t-SNE.
         Laurens Van der Maaten, Geoffrey Hinton, JMLR 2008.
-    .. [] Stochastic Neighbor Embedding.
+    .. [1] Stochastic Neighbor Embedding.
         Geoffrey Hinton, Sam Roweis, NeurIPS 2002.
     """
 
@@ -340,7 +339,7 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
 
         Returns
         -------
-        log_P : lazy tensor of shape (n_samples, n_samples)
+        log_P : tensor or lazy tensor of shape (n_samples, n_samples)
             Affinity matrix.
         """
         EA = EntropicAffinity(
@@ -405,7 +404,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     References
     ----------
-    .. [] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
+    .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
         Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
     """
 
@@ -472,7 +471,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         References
         ----------
-        .. [] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
+        .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
             Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
         """
         n = C.shape[0]
@@ -597,9 +596,8 @@ class DoublyStochasticEntropic(LogAffinity):
 
     References
     ----------
-    .. [] Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
+    .. [3] Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
         Jean Feydy, Thibault Séjourné, François-Xavier Vialard, et al. AISTATS 2019.
-
     """
 
     def __init__(

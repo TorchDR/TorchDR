@@ -9,6 +9,8 @@ Spaces and associated metrics
 
 from pykeops.torch import Vi, Vj
 
+LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
+
 
 def pairwise_distances(X, metric="euclidean", keops=True):
     """
@@ -29,22 +31,33 @@ def pairwise_distances(X, metric="euclidean", keops=True):
     D : tensor or lazy tensor (if keops is True) of shape (n_samples, n_samples)
         Pairwise distances matrix.
     """
-    if keops:
+    assert metric in LIST_METRICS, f"The '{metric}' distance is not supported."
+
+    if keops:  # recommended for large datasets
         X_i = Vi(X)  # (N, 1, D) LazyTensor, equivalent to LazyTensor(X[:,None,:])
         X_j = Vj(X)  # (1, N, D) LazyTensor, equivalent to LazyTensor(X[None,:,:])
-    else:
-        X_i = X[:, None, :]
-        X_j = X[None, :, :]
 
-    if metric == "euclidean":
-        D = ((X_i - X_j) ** 2).sum(-1)
-    elif metric == "manhattan":
-        D = (X_i - X_j).abs().sum(-1)
-    elif metric == "angular":
-        D = -(X_i | X_j)
-    elif metric == "hyperbolic":
-        D = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
+        if metric == "euclidean":
+            D = ((X_i - X_j) ** 2).sum(-1)
+        elif metric == "manhattan":
+            D = (X_i - X_j).abs().sum(-1)
+        elif metric == "angular":
+            D = -(X_i | X_j)
+        elif metric == "hyperbolic":
+            D = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
+
     else:
-        raise NotImplementedError(f"The '{metric}' distance is not supported.")
+        if metric == "euclidean":
+            X_norm = (X**2).sum(-1)
+            D = X_norm[:, None] + X_norm[None, :] - 2 * X @ X.T
+        elif metric == "manhattan":
+            D = (X[:, None, :] - X[None, :, :]).abs().sum(-1)
+        elif metric == "angular":
+            D = -X @ X.T
+        elif metric == "hyperbolic":
+            X_norm = (X**2).sum(-1)
+            D = (X_norm[:, None] + X_norm[None, :] - 2 * X @ X.T) / (
+                X[:, 0][:, None] * X[:, 0][None, :]
+            )
 
     return D
