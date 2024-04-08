@@ -36,8 +36,8 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
 
     # check that the largest values are the same
     assert torch.allclose(
-        Largest_values, Largest_keops_values, atol=tol, rtol=tol
+        Largest_values, Largest_keops_values, atol=tol
     ), "Torch and Keops largest values are different"
     assert torch.allclose(
-        Largest_arg, Largest_keops_arg, atol=tol, rtol=tol
+        Largest_arg, Largest_keops_arg, atol=tol
     ), "Torch and Keops largest arguments are different"

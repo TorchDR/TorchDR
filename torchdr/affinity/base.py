@@ -17,8 +17,12 @@ class BaseAffinity(ABC):
         self.log_ = {}
 
     @abstractmethod
-    def compute_affinity(self, X):
+    def fit(self, X):
         pass
+
+    def fit_transform(self, X):
+        self.fit(X)
+        return self.P
 
 
 class GramAffinity(BaseAffinity):

@@ -1,6 +1,7 @@
 import torch
 import pytest
 
+from torchdr.tests.utils import check_equality_torch_keops
 from torchdr.utils.optim import binary_search, false_position
 from torchdr.utils.geometry import pairwise_distances, LIST_METRICS
 
@@ -60,19 +61,23 @@ def test_false_position(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_pairwise_distances(dtype):
+    n, p = 100, 10
+    x = torch.randn(n, p, dtype=dtype)
+    tol = 1e-5
+
     for metric in LIST_METRICS:
-        x = torch.rand(3, 2, dtype=dtype)
         distances = pairwise_distances(x, metric=metric, keops=False)
 
         # check shape, symmetry
-        assert distances.shape == (3, 3)
-        assert torch.allclose(distances, distances.T, atol=1e-5)
+        assert distances.shape == (n, n)
+        assert torch.allclose(distances, distances.T, atol=tol)
 
         # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
         assert torch.allclose(
-            distances.sum(0).view(-1, 1), distances_keops.sum(0), atol=1e-5
+            distances.sum(0).view(-1, 1), distances_keops.sum(0), atol=tol
         )
         assert torch.allclose(
-            distances.logsumexp(1).view(-1, 1), distances_keops.logsumexp(1), atol=1e-5
+            distances.logsumexp(1).view(-1, 1), distances_keops.logsumexp(1), atol=tol
         )
+        check_equality_torch_keops(distances, distances_keops, K=10, tol=tol)
