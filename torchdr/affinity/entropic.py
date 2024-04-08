@@ -9,7 +9,7 @@ Entropic projections to construct (entropic) affinity matrices
 # License: BSD 3-Clause License
 
 import torch
-import math
+import numpy as np
 from tqdm import tqdm
 from pykeops.torch import LazyTensor
 
@@ -28,7 +28,7 @@ class BadPerplexity(Exception):
 
 def entropy(P, log=True, dim=1):
     r"""
-    Returns the entropy of P along axis dim.
+    Computes the entropy of P along axis dim.
     Supports log domain input.
     Output of shape (n_samples, 1) to be consistent with keops.
 
@@ -56,12 +56,13 @@ def log_Pe(C, eps):
     r"""
     Returns the log of the directed entropic affinity matrix defined in [1]
     with prescribed kernel bandwidth epsilon.
+    eps has shape (n_samples, 1) to be consistent with keops.
 
     Parameters
     ----------
     C : tensor or lazy tensor of shape (n_samples, n_samples)
         Distance matrix between samples.
-    eps : tensor of shape (n_samples, 1) to be consistent with keops
+    eps : tensor of shape (n_samples, 1)
         Kernel bandwidths vector.
 
     Returns
@@ -84,14 +85,15 @@ def log_Pse(C, eps, mu, eps_square=False):
     r"""
     Returns the log of the symmetric entropic affinity matrix defined in [1]
     with given (dual) variables epsilon and mu.
+    eps and mu have shape (n_samples, 1) to be consistent with keops.
 
     Parameters
     ----------
     C : tensor or lazy tensor of shape (n_samples, n_samples)
         Distance matrix between samples.
-    eps : tensor of shape (n_samples, 1) to be consistent with keops
+    eps : tensor of shape (n_samples, 1)
         Sym. entropic affinity dual variables associated with the entropy constraint.
-    mu : tensor of shape (n_samples, 1) to be consistent with keops
+    mu : tensor of shape (n_samples, 1)
         Sym. entropic affinity dual variables associated with the marginal constraint.
     eps_square : bool, optional
         Whether to use the square of the dual variables associated with the entropy
@@ -124,20 +126,22 @@ def log_Pse(C, eps, mu, eps_square=False):
 
 def log_Pds(log_K, f):
     r"""
-    Returns the log of the doubly stochastic normalization of log_K (in log domain).
-    The scaling vector f can be computed via the Sinkhorn iterations described in [1].
+    Returns the log of the doubly stochastic normalization of log_K (in log domain)
+    given a scaling vector f which can be computed via the Sinkhorn iterations
+    described in [3].
+    f has shape (n_samples, 1) to be consistent with keops.
 
     Parameters
     ----------
     log_K : tensor or lazy tensor of shape (n_samples, n_samples)
         Log of the kernel matrix to normalize as doubly stochastic.
-    f : tensor of shape (n_samples, 1) to be consistent with keops
+    f : tensor of shape (n_samples, 1)
         Scaling vector or dual variable of symmetric OT divided by entropic regularizer.
 
     Returns
     -------
     log_P : lazy tensor of shape (n_samples, n_samples)
-        log of the doubly stochastic affinity matrix.
+        Log of the doubly stochastic affinity matrix.
 
     References
     ----------
@@ -174,10 +178,6 @@ class EntropicAffinity(LogAffinity):
         Number of maximum iterations for the root finding algorithm.
     verbose : bool, optional
         Verbosity.
-    begin : float or torch.Tensor, optional
-        Initial lower bound of the root (default None).
-    end : float or torch.Tensor, optional
-        Initial upper bound of the root (default None).
     keops : bool, optional
         Whether to use KeOps for computation (default True).
 
@@ -197,11 +197,9 @@ class EntropicAffinity(LogAffinity):
         self,
         perplexity,
         metric="euclidean",
-        tol=1e-5,
+        tol=1e-3,
         max_iter=1000,
         verbose=True,
-        begin=None,
-        end=None,
         keops=True,
     ):
         self.perplexity = perplexity
@@ -209,8 +207,6 @@ class EntropicAffinity(LogAffinity):
         self.tol = tol
         self.max_iter = max_iter
         self.verbose = verbose
-        self.begin = begin
-        self.end = end
         self.keops = keops
         super(EntropicAffinity, self).__init__()
 
@@ -244,12 +240,17 @@ class EntropicAffinity(LogAffinity):
         C : tensor or lazy tensor (if keops) of shape (n_samples, n_samples)
             Distance matrix between the samples.
 
+        Returns
+        -------
+        log_P : tensor or lazy tensor (if keops is True) of shape (n_samples, n_samples)
+            Affinity matrix in log space.
+
         References
         ----------
         .. [2] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities, Hugues
             Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
         """
-        target_entropy = math.log(self.perplexity) + 1
+        target_entropy = np.log(self.perplexity) + 1
         n = C.shape[0]
 
         if not 1 < self.perplexity <= n:
@@ -260,11 +261,13 @@ class EntropicAffinity(LogAffinity):
         def entropy_gap(eps):  # function to find the root of
             return entropy(log_Pe(C, eps), log=True) - target_entropy
 
+        begin, end = self.init_bounds(C)
+
         eps_star = false_position(
             f=entropy_gap,
             n=n,
-            begin=self.begin,
-            end=self.end,
+            begin=begin,
+            end=end,
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
@@ -274,6 +277,72 @@ class EntropicAffinity(LogAffinity):
         log_affinity = log_Pe(C, eps_star)
 
         return log_affinity
+
+    def init_bounds(self, C):
+        r"""
+        Computes the bounds derived in [4] for the entropic affinity root.
+
+        Parameters
+        ----------
+        C : tensor or lazy tensor (if keops) of shape (n_samples, n_samples)
+            Distance matrix between the samples.
+
+        Returns
+        -------
+        begin : tensor of shape (n_samples, 1)
+            Lower bound of the root.
+        end : tensor of shape (n_samples, 1)
+            Upper bound of the root.
+
+        References
+        ----------
+        .. [4] Entropic Affinities: Properties and Efficient Numerical Computation.
+            Max Vladymyrov, Miguel A. Carreira-Perpinan, ICML 2013.
+        """
+        N = C.shape[0]
+
+        # we use the same notations as in [4] for clarity purposes
+
+        # solve a unique 1D root finding problem
+        def find_p1(x):
+            return np.log(np.min([np.sqrt(2 * N), self.perplexity])) - 2 * (
+                1 - x
+            ) * np.log(N / (2 * (1 - x)))
+
+        begin = 3 / 4
+        end = 1 - 1e-6
+        p1 = false_position(
+            f=find_p1, n=1, begin=begin, end=end, max_iter=1000, tol=1e-6, verbose=True
+        ).item()
+
+        # retrieve greatest and smallest pairwise distances
+        dN = C.max(dim=1)
+        d12 = C.Kmin(K=2, dim=1)
+        d1 = d12[:, 0, None]
+        d2 = d12[:, 1, None]
+        Delta_N = dN - d1
+        Delta_2 = d2 - d1
+
+        # compute bounds
+        beta_L = (
+            torch.stack(
+                (
+                    (N * np.log(N / self.perplexity)) / ((N - 1) * Delta_N),
+                    torch.sqrt(np.log(N / self.perplexity) / (dN**2 - d1**2)),
+                ),
+                dim=0,
+            )
+            .max(dim=0)
+            .values
+        )
+
+        beta_U = (1 / Delta_2) * np.log((N - 1) * p1 / (1 - p1))
+
+        # convert to our notations
+        begin = 1 / beta_U
+        end = 1 / beta_L
+
+        return begin, end
 
 
 class L2SymmetricEntropicAffinity(BaseAffinity):
@@ -479,7 +548,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             BadPerplexity(
                 "The perplexity parameter must be between 1 and number of samples"
             )
-        target_entropy = math.log(self.perplexity) + 1
+        target_entropy = np.log(self.perplexity) + 1
 
         # dual variables, size (n_samples, 1) for keops
         eps = torch.ones((n, 1), dtype=self.dtype, device=self.device)
@@ -543,7 +612,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                         f"(std:{float(P_sum.std().item()): .2e})"
                     )
 
-                if (torch.abs(H - math.log(self.perplexity) - 1) < self.tol).all() and (
+                if (torch.abs(H - np.log(self.perplexity) - 1) < self.tol).all() and (
                     torch.abs(P_sum - one) < self.tol
                 ).all():
                     self.log_["n_iter"] = k

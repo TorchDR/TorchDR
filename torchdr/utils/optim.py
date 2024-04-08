@@ -184,6 +184,7 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE):
     # Ensure that begin lower bounds the root
     out_begin = f(begin) > 0
     while out_begin.any():
+        print("--- finding root init ---")
         end[out_begin] = torch.min(end[out_begin], begin[out_begin])
         begin[out_begin] /= 2
         out_begin = f(begin) > 0
@@ -191,6 +192,7 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE):
     # Ensure that end upper bounds the root
     out_end = f(end) < 0
     while out_end.any():
+        print("--- finding root init ---")
         begin[out_end] = torch.max(begin[out_end], end[out_end])
         end[out_end] *= 2
         out_end = f(end) < 0
