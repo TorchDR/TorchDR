@@ -124,7 +124,9 @@ def false_position(
     m : tensor of shape (n, 1)
         root of f.
     """
-    begin, end = init_bounds(f=f, n=n, begin=begin, end=end, dtype=dtype, device=device)
+    begin, end = init_bounds(
+        f=f, n=n, begin=begin, end=end, dtype=dtype, device=device, verbose=verbose
+    )
 
     f_begin, f_end = f(begin), f(end)
     m = begin - ((begin - end) / (f(begin) - f(end))) * f(begin)
@@ -158,7 +160,7 @@ def false_position(
     return m
 
 
-def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE):
+def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True):
     """Initializes the bounds of the root search."""
 
     if begin is None:
@@ -181,20 +183,27 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE):
             end = end.to(dtype=dtype, device=device)
         end = end * torch.ones((n, 1), dtype=dtype, device=device)
 
+    eval_counter = 0
+
     # Ensure that begin lower bounds the root
     out_begin = f(begin) > 0
     while out_begin.any():
-        print("--- finding root init ---")
         end[out_begin] = torch.min(end[out_begin], begin[out_begin])
         begin[out_begin] /= 2
         out_begin = f(begin) > 0
+        eval_counter += 1
 
     # Ensure that end upper bounds the root
     out_end = f(end) < 0
     while out_end.any():
-        print("--- finding root init ---")
         begin[out_end] = torch.max(begin[out_end], end[out_end])
         end[out_end] *= 2
         out_end = f(end) < 0
+        eval_counter += 1
+
+    if eval_counter and verbose:
+        print(
+            f"[TorchDR] {eval_counter} evaluations to compute initial bounds of the root search."
+        )
 
     return begin, end

@@ -316,14 +316,18 @@ class EntropicAffinity(LogAffinity):
         ).item()
 
         # retrieve greatest and smallest pairwise distances
-        dN = C.max(dim=1)
-        d12 = C.Kmin(K=2, dim=1)
+        if isinstance(C, LazyTensor):
+            dN = C.max(dim=1)
+            d12 = C.Kmin(K=2, dim=1)
+        else:
+            dN = C.max(dim=1).values.view(-1, 1)  # for consistency with keops
+            d12 = C.topk(k=2, dim=1, largest=False).values
         d1 = d12[:, 0, None]
         d2 = d12[:, 1, None]
         Delta_N = dN - d1
         Delta_2 = d2 - d1
 
-        # compute bounds
+        # compute bounds derived in [4]
         beta_L = (
             torch.stack(
                 (
@@ -360,10 +364,6 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
         Number of maximum iterations for the root finding algorithm.
     verbose : bool, optional
         Verbosity.
-    begin : float or torch.Tensor, optional
-        Initial lower bound of the root (default None).
-    end : float or torch.Tensor, optional
-        Initial upper bound of the root (default None).
     keops : bool, optional
         Whether to use KeOps for computation (default True).
 
@@ -383,8 +383,6 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
         tol=1e-5,
         max_iter=1000,
         verbose=True,
-        begin=None,
-        end=None,
         keops=True,
     ):
         self.perplexity = perplexity
@@ -392,8 +390,6 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
         self.tol = tol
         self.max_iter = max_iter
         self.verbose = verbose
-        self.begin = begin
-        self.end = end
         self.keops = keops
         super(L2SymmetricEntropicAffinity, self).__init__()
 
@@ -417,8 +413,6 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
-            begin=self.begin,
-            end=self.end,
             keops=self.keops,
         )
         log_P = EA.compute_log_affinity(X)
@@ -725,12 +719,12 @@ class DoublyStochasticEntropic(LogAffinity):
 
         Parameters
         ----------
-        C : lazy tensor of shape (n_samples, n_samples)
+        C : tensor or lazy tensor of shape (n_samples, n_samples)
             Distance matrix between samples.
 
         Returns
         -------
-        log_P : lazy tensor of shape (n_samples, n_samples)
+        log_P : tensor or lazy tensor of shape (n_samples, n_samples)
             Affinity matrix in log space.
         """
 

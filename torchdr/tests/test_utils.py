@@ -68,7 +68,7 @@ def test_pairwise_distances(dtype):
         assert distances.shape == (3, 3)
         assert torch.allclose(distances, distances.T, atol=1e-5)
 
-        # check constistency with keops
+        # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
         assert torch.allclose(
             distances.sum(0).view(-1, 1), distances_keops.sum(0), atol=1e-5
