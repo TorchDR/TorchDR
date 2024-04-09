@@ -7,9 +7,15 @@ Welcome to TorchDR's documentation!
 ===================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
+   self
+   all
+
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 
 Indices and tables
