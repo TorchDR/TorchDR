@@ -10,7 +10,11 @@ Welcome to TorchDR's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   self
+   all
 
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 Indices and tables
 ==================
