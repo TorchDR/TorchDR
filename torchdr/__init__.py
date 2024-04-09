@@ -1,2 +1,8 @@
+# Author: Rémi Flamary <remi.flamary@polytechnique.edu>
+#
+# License: BSD 3-Clause License
 
-import .utils
+from . import utils
+
+__all__ = ['utils']
+
