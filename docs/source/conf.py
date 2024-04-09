@@ -8,7 +8,6 @@
 
 
 import os
-import re
 import sys
 
 import sphinx_gallery  # noqa
@@ -40,8 +39,8 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
-   # "sphinx_gallery.gen_gallery",
-   # "sphinx.ext.graphviz",
+    # "sphinx_gallery.gen_gallery",
+    # "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx.ext.autosectionlabel",
 ]
@@ -85,5 +84,3 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-
-
