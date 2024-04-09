@@ -37,8 +37,11 @@
 
    .. _sphx_glr_backref_{{fullname}}.{{item}}:
 
-   .. minigallery:: {{fullname}}.{{item}}
-       :add-heading:
+   ..
+      .. minigallery:: {{fullname}}.{{item}}
+         :add-heading:
+   
+
 
    {%- endfor %}
    {% endif %}

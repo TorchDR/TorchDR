@@ -40,8 +40,8 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
-    "sphinx_gallery.gen_gallery",
-    "sphinx.ext.graphviz",
+   # "sphinx_gallery.gen_gallery",
+   # "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx.ext.autosectionlabel",
 ]
@@ -75,8 +75,6 @@ release = '0.0.0-alpha'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-
-extensions = []
 
 templates_path = ['_templates']
 exclude_patterns = []

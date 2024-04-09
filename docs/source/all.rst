@@ -19,6 +19,10 @@ Utility function :py:mod:`torchdr.utils`
    :no-members:
    :no-inherited-members:
 
+.. autosummary::
+   :toctree: gen_modules/
+   :template: function.rst
+   
    binary_search
    false_position
    init_bounds
