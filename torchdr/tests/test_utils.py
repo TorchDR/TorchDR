@@ -1,10 +1,10 @@
 import torch
 import pytest
 
+from torch.testing import assert_close
 from torchdr.tests.utils import check_equality_torch_keops
-from torchdr.utils.optim import binary_search, false_position
 from torchdr.utils.geometry import pairwise_distances, LIST_METRICS
-
+from torchdr.utils.root_finding import binary_search, false_position
 
 lst_types = [torch.double, torch.float]
 
@@ -31,7 +31,7 @@ def test_binary_search(dtype):
     m = binary_search(
         f, 2, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=True, dtype=dtype
     )
-    assert torch.allclose(m, torch.tensor([1.0, 1.0], dtype=dtype), atol=1e-5)
+    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -47,7 +47,7 @@ def test_false_position(dtype):
     m = false_position(
         f, 1, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=False, dtype=dtype
     )
-    assert torch.allclose(m, torch.tensor([1.0], dtype=dtype), atol=1e-5)
+    assert_close(m, torch.tensor([1.0], dtype=dtype))
 
     # test 2D, with end as tensor
     begin = None
@@ -56,7 +56,7 @@ def test_false_position(dtype):
     m = false_position(
         f, 2, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=True, dtype=dtype
     )
-    assert torch.allclose(m, torch.tensor([1.0, 1.0], dtype=dtype), atol=1e-5)
+    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -81,3 +81,4 @@ def test_pairwise_distances(dtype):
             distances.logsumexp(1).view(-1, 1), distances_keops.logsumexp(1), atol=tol
         )
         check_equality_torch_keops(distances, distances_keops, K=10, tol=tol)
+
