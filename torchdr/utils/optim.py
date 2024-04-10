@@ -4,6 +4,7 @@ Tools for optimization problems
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Rémi Flamary <remi.flamary@polytechnique.edu>
 #
 # License: BSD 3-Clause License
 
@@ -36,12 +37,12 @@ def binary_search(
     Parameters
     ----------
     f : function :math:`\mathbb{R}^n \to \mathbb{R}^n`
-        increasing function which root should be computed.
+        batched 1d increasing function which root should be computed.
     n : int
         size of the input of f.
-    begin : float or torch.Tensor of shape (n, 1), optional
+    begin : float or torch.Tensor of shape (n), optional
         initial lower bound of the root.
-    end : float or torch.Tensor of shape (n, 1), optional
+    end : float or torch.Tensor of shape (n), optional
         initial upper bound of the root.
     max_iter : int, optional
         maximum iterations of search.
@@ -52,7 +53,7 @@ def binary_search(
 
     Returns
     -------
-    m : tensor of shape (n, 1)
+    m : tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(f=f, n=n, begin=begin, end=end, dtype=dtype)
@@ -106,9 +107,9 @@ def false_position(
         increasing function which root should be computed.
     n : int
         size of the input of f.
-    begin : tensor of shape (n, 1) or float, optional
+    begin : tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end : tensor of shape (n, 1) or float, optional
+    end : tensor of shape (n) or float, optional
         initial upper bound of the root.
     max_iter : int, optional
         maximum iterations of search.
@@ -121,7 +122,7 @@ def false_position(
 
     Returns
     -------
-    m : tensor of shape (n, 1)
+    m : tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(
@@ -164,24 +165,24 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
     """Initializes the bounds of the root search."""
 
     if begin is None:
-        begin = torch.ones((n, 1), dtype=dtype, device=device)
+        begin = torch.ones(n, dtype=dtype, device=device)
     else:
         assert isinstance(
             begin, (int, float, torch.Tensor)
         ), "begin must be a float, an int or a tensor."
         if isinstance(begin, torch.Tensor):
             begin = begin.to(dtype=dtype, device=device)
-        begin = begin * torch.ones((n, 1), dtype=dtype, device=device)
+        begin = begin * torch.ones(n, dtype=dtype, device=device)
 
     if end is None:
-        end = torch.ones((n, 1), dtype=dtype, device=device)
+        end = torch.ones(n, dtype=dtype, device=device)
     else:
         assert isinstance(
             end, (int, float, torch.Tensor)
         ), "end must be a float, an int or a tensor."
         if isinstance(end, torch.Tensor):
             end = end.to(dtype=dtype, device=device)
-        end = end * torch.ones((n, 1), dtype=dtype, device=device)
+        end = end * torch.ones(n, dtype=dtype, device=device)
 
     eval_counter = 0
 
@@ -202,8 +203,6 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
         eval_counter += 1
 
     if eval_counter and verbose:
-        print(
-            f"[TorchDR] {eval_counter} evaluations to compute initial bounds of the root search."
-        )
+        print(f"[TorchDR] {eval_counter} evaluations to set bounds of the root search.")
 
     return begin, end

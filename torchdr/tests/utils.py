@@ -8,6 +8,8 @@ Useful functions for testing
 # License: BSD 3-Clause License
 
 import torch
+from torch.testing import assert_close
+
 from pykeops.torch import LazyTensor
 
 
@@ -35,9 +37,17 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
     Largest_values = topk.values
 
     # check that the largest values are the same
-    assert torch.allclose(
-        Largest_values, Largest_keops_values, atol=tol
-    ), "Torch and Keops largest values are different"
-    assert torch.allclose(
-        Largest_arg, Largest_keops_arg, atol=tol
-    ), "Torch and Keops largest arguments are different"
+    assert_close(
+        Largest_values,
+        Largest_keops_values,
+        atol=tol,
+        rtol=tol,
+        msg="Torch and Keops largest values are different",
+    )
+    assert_close(
+        Largest_arg,
+        Largest_keops_arg,
+        atol=tol,
+        rtol=tol,
+        msg="Torch and Keops largest arguments are different",
+    )

@@ -4,7 +4,7 @@ import pytest
 from torch.testing import assert_close
 from torchdr.tests.utils import check_equality_torch_keops
 from torchdr.utils.geometry import pairwise_distances, LIST_METRICS
-from torchdr.utils.root_finding import binary_search, false_position
+from torchdr.utils.optim import binary_search, false_position
 
 lst_types = [torch.double, torch.float]
 
@@ -19,17 +19,19 @@ def test_binary_search(dtype):
     begin = 0.5
     end = None
 
+    tol = 1e-9
+
     m = binary_search(
-        f, 1, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=False, dtype=dtype
+        f, 1, begin=begin, end=end, max_iter=1000, tol=tol, verbose=False, dtype=dtype
     )
-    assert torch.allclose(m, torch.tensor([1.0], dtype=dtype), atol=1e-5)
+    assert_close(m, torch.tensor([1.0], dtype=dtype))
 
     # test 2D, with begin as tensor
     begin = 0.5 * torch.ones((2, 1), dtype=torch.float16)
     end = None
 
     m = binary_search(
-        f, 2, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=True, dtype=dtype
+        f, 2, begin=begin, end=end, max_iter=1000, tol=tol, verbose=True, dtype=dtype
     )
     assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
@@ -44,8 +46,10 @@ def test_false_position(dtype):
     begin = None
     end = 2
 
+    tol = 1e-9
+
     m = false_position(
-        f, 1, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=False, dtype=dtype
+        f, 1, begin=begin, end=end, max_iter=1000, tol=tol, verbose=False, dtype=dtype
     )
     assert_close(m, torch.tensor([1.0], dtype=dtype))
 
@@ -70,15 +74,10 @@ def test_pairwise_distances(dtype):
 
         # check shape, symmetry
         assert distances.shape == (n, n)
-        assert torch.allclose(distances, distances.T, atol=tol)
+        assert_close(distances, distances.T, atol=tol)
 
         # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
-        assert torch.allclose(
-            distances.sum(0).view(-1, 1), distances_keops.sum(0), atol=tol
-        )
-        assert torch.allclose(
-            distances.logsumexp(1).view(-1, 1), distances_keops.logsumexp(1), atol=tol
-        )
+        assert_close(distances.sum(0), distances_keops.sum(0).squeeze())
+        assert_close(distances.logsumexp(1), distances_keops.logsumexp(1).squeeze())
         check_equality_torch_keops(distances, distances_keops, K=10, tol=tol)
-

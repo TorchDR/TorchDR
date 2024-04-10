@@ -8,64 +8,88 @@ Common (simple) affinity matrices
 # License: BSD 3-Clause License
 
 import torch
-
 from abc import ABC, abstractmethod
+
+from torchdr.utils.geometry import pairwise_distances
 
 
 class BaseAffinity(ABC):
     def __init__(self):
-        self.log_ = {}
-
-    # @abstractmethod
-    # def fit(self, X):
-    #     pass
-
-    # def fit_transform(self, X):
-    #     self.fit(X)
-    #     return self.P
+        self.log = {}
 
     @abstractmethod
-    def compute_affinity(self, X):
-        pass
+    def fit(self, X):
+        self.data_ = X
+
+    def get(self, X):
+        if not hasattr(self, "affinity_matrix_"):
+            self.fit(X)
+            assert hasattr(
+                self, "affinity_matrix_"
+            ), "affinity_matrix_ should be computed in fit method"
+        return self.affinity_matrix_  # type: ignore
 
 
-class GramAffinity(BaseAffinity):
+class ScalarProductAffinity(BaseAffinity):
     def __init__(self, centering=False):
-        super(GramAffinity, self).__init__()
+        super(ScalarProductAffinity, self).__init__()
         self.centering = centering
 
-    def compute_affinity(self, X):
+    def fit(self, X):
+        super(ScalarProductAffinity, self).fit(X)
         if self.centering:
             X = X - X.mean(0)
-        self.affinity_matrix = X @ X.T
-        return self.affinity_matrix
+        self.affinity_matrix_ = X @ X.T
 
 
 class LogAffinity(BaseAffinity):
-    @abstractmethod
-    def compute_log_affinity(self, X):
-        pass
+    """Computes an affinity matrix from an affinity matrix in log space."""
 
-    def compute_affinity(self, X):
-        """Computes an affinity matrix from an affinity matrix in log space.
+    def __init__(self):
+        super(LogAffinity, self).__init__()
 
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Data on which affinity is computed.
+    def get(self, X, log=True):
+        if not hasattr(self, "log_affinity_matrix_"):
+            self.fit(X)
+            assert hasattr(
+                self, "log_affinity_matrix_"
+            ), "log_affinity_matrix_ should be computed in fit method of a LogAffinity"
 
-        Returns
-        -------
-        P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix.
-        """
-        log_P = self.compute_log_affinity(X)
-        self.log_affinity_matrix = log_P
-        if log_P is not None:
-            self.affinity_matrix = log_P.exp()
-            return self.affinity_matrix
+        if log:
+            return self.log_affinity_matrix_  # type: ignore
         else:
-            return None
+            if not hasattr(self, "affinity_matrix_"):
+                self.affinity_matrix_ = self.log_affinity_matrix_.exp()  # type: ignore
+            return self.affinity_matrix_
+
+
+class GibbsAffinity(LogAffinity):
+    def __init__(self, sigma=1.0, dim=(0, 1), metric="euclidean", keops=False):
+        super(GibbsAffinity, self).__init__()
+        self.sigma = sigma
+        self.dim = dim
+        self.metric = metric
+        self.keops = keops
+
+    def fit(self, X):
+        super(GibbsAffinity, self).fit(X)
+        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        log_P = -C / self.sigma
+        self.log_affinity_matrix_ = log_P - log_P.logsumexp(dim=self.dim)
+
+
+class StudentAffinity(LogAffinity):
+    def __init__(self, metric="euclidean", keops=False):
+        super(StudentAffinity, self).__init__()
+        self.dim = (0, 1)
+        self.metric = metric
+        self.keops = keops
+
+    def fit(self, X):
+        super(StudentAffinity, self).fit(X)
+        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        log_P = -(1 + C).log()
+        self.log_affinity_matrix_ = log_P - log_P.logsumexp(dim=self.dim)
 
 
 class NormalizedGaussianAndStudentAffinity(LogAffinity):
