@@ -24,5 +24,3 @@ The library is distributed under the 3-Clause BSD license.
 [] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty. ["SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities."](https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf) Advances in Neural Information Processing Systems 36 (2024).
 
 [] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger. ["Manifold Learning with Sparse Regularised Optimal Transport."](https://arxiv.org/abs/2307.09816) arXiv preprint (2023).
-
-
