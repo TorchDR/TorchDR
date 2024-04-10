@@ -48,14 +48,14 @@ class LogAffinity(BaseAffinity):
     def __init__(self):
         super(LogAffinity, self).__init__()
 
-    def get(self, X, log=True):
+    def get(self, X, log=False):
         if not hasattr(self, "log_affinity_matrix_"):
             self.fit(X)
             assert hasattr(
                 self, "log_affinity_matrix_"
             ), "log_affinity_matrix_ should be computed in fit method of a LogAffinity"
 
-        if log:
+        if log:  # return the log of the affinity matrix
             return self.log_affinity_matrix_  # type: ignore
         else:
             if not hasattr(self, "affinity_matrix_"):

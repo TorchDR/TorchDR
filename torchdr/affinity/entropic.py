@@ -16,7 +16,7 @@ from tqdm import tqdm
 from torchdr.utils.optim import false_position, OPTIMIZERS
 from torchdr.utils.geometry import pairwise_distances
 from torchdr.utils.utils import (
-    keops_support,
+    unsqueeze_vectors,
     sum_matrix_vector,
     kmin,
     kmax,
@@ -36,7 +36,7 @@ def entropy(P, log=True, dim=1):
         return -(P * (P.log() - 1)).sum(dim).squeeze()
 
 
-@keops_support
+@unsqueeze_vectors
 def log_Pe(C, eps):
     r"""
     Returns the log of the directed entropic affinity matrix
@@ -46,7 +46,7 @@ def log_Pe(C, eps):
     return log_P - log_P.logsumexp(1)[:, None]
 
 
-@keops_support
+@unsqueeze_vectors
 def log_Pse(C, eps, mu, eps_square=False):
     r"""
     Returns the log of the symmetric entropic affinity matrix
@@ -58,7 +58,7 @@ def log_Pse(C, eps, mu, eps_square=False):
     return (mu + mu.T - 2 * C) / (eps + eps.T)
 
 
-@keops_support
+@unsqueeze_vectors
 def log_Pds(log_K, f):
     r"""
     Returns the log of the doubly stochastic normalization of log_K (in log domain)
@@ -228,7 +228,7 @@ class EntropicAffinity(LogAffinity):
         self.log_affinity_matrix_ = log_Pe(C, self.eps_)
 
 
-class L2SymmetricEntropicAffinity(BaseAffinity):
+class L2SymmetricEntropicAffinity(EntropicAffinity):
     r"""
     Computes the L2-symmetrized entropic affinity matrix of t-SNE [2].
 
@@ -261,30 +261,20 @@ class L2SymmetricEntropicAffinity(BaseAffinity):
         verbose=True,
         keops=True,
     ):
-        self.perplexity = perplexity
-        self.metric = metric
-        self.tol = tol
-        self.max_iter = max_iter
-        self.verbose = verbose
-        self.keops = keops
-        super(L2SymmetricEntropicAffinity, self).__init__()
+        super(L2SymmetricEntropicAffinity, self).__init__(
+            perplexity=perplexity,
+            metric=metric,
+            tol=tol,
+            max_iter=max_iter,
+            verbose=verbose,
+            keops=keops,
+        )
 
     def fit(self, X):
         super().fit(X)
-
-        EA = EntropicAffinity(
-            perplexity=self.perplexity,
-            metric=self.metric,
-            tol=self.tol,
-            max_iter=self.max_iter,
-            verbose=self.verbose,
-            keops=self.keops,
-        )
-        EA.fit(X)
-        self.eps_ = EA.eps_
-
-        log_P = EA.log_affinity_matrix_
+        log_P = self.log_affinity_matrix_
         self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / 2
+        self.log_affinity_matrix_ = self.affinity_matrix_.log()
 
 
 class SymmetricEntropicAffinity(LogAffinity):
@@ -322,7 +312,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     Attributes
     ----------
     log : dictionary
-        Contains the loss and the dual variables at each iteration of the
+        Contains the dual variables at each iteration of the
         optimization algorithm when tolog = True.
     n_iter_ : int
         Number of iterations run.
@@ -367,6 +357,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         super().fit(X)
 
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+
         n = X.shape[0]
         if not 1 < self.perplexity <= n:
             raise ValueError(
@@ -398,7 +389,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         for k in pbar:
             with torch.no_grad():
                 optimizer.zero_grad()
-                H = entropy(log_P, log=True)
+                H = entropy(log_P, log=True, dim=1)
 
                 if self.eps_square:
                     # the Jacobian must be corrected by 2 * diag(eps)

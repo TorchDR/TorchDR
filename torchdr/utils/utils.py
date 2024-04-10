@@ -13,25 +13,28 @@ import torch
 from pykeops.torch import LazyTensor
 
 
-def keops_support(func):
+def unsqueeze_vectors(func):
     r"""
+    Reshape all input vectors from size (n) to size (n, 1).
     If any input is a lazy tensor, convert all input vectors to lazy tensors.
-    For an input vector of size (n), the resulting lazy tensor has size (n, 1).
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if any(
+        use_keops = any(
             isinstance(arg, LazyTensor)
             for arg in itertools.chain(args, kwargs.values())
-        ):
-            args = [
-                LazyTensor(arg[:, None], 0) if arg.dim() == 1 else arg for arg in args
-            ]
-            kwargs = {
-                key: LazyTensor(value[:, None], 0) if value.dim() == 1 else value
-                for key, value in kwargs.items()
-            }
+        )
+        is_vector = lambda arg: isinstance(arg, torch.Tensor) and arg.ndim == 1
+        unsqueeze = lambda arg: (
+            LazyTensor(arg[:, None], 0) if use_keops else arg[:, None]
+        )
+
+        args = [unsqueeze(arg) if is_vector(arg) else arg for arg in args]
+        kwargs = {
+            key: (unsqueeze(value) if is_vector(value) else value)
+            for key, value in kwargs.items()
+        }
         return func(*args, **kwargs)
 
     return wrapper
@@ -67,7 +70,7 @@ def kmax(A, k=1, dim=0):
         )
 
 
-@keops_support
+@unsqueeze_vectors
 def sum_matrix_vector(M, v):
     r"""
     Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
