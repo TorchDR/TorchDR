@@ -42,12 +42,12 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
         Largest_keops_values,
         atol=tol,
         rtol=tol,
-        msg="Torch and Keops largest values are different",
+        msg="Torch and Keops largest values are different.",
     )
     assert_close(
         Largest_arg,
         Largest_keops_arg,
         atol=tol,
         rtol=tol,
-        msg="Torch and Keops largest arguments are different",
+        msg="Torch and Keops largest arguments are different.",
     )

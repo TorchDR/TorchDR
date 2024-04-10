@@ -7,7 +7,6 @@ Common (simple) affinity matrices
 #
 # License: BSD 3-Clause License
 
-import torch
 from abc import ABC, abstractmethod
 
 from torchdr.utils.geometry import pairwise_distances
@@ -31,15 +30,18 @@ class BaseAffinity(ABC):
 
 
 class ScalarProductAffinity(BaseAffinity):
-    def __init__(self, centering=False):
+    def __init__(self, centering=False, keops=False):
         super(ScalarProductAffinity, self).__init__()
         self.centering = centering
+        self.keops = keops
 
     def fit(self, X):
         super(ScalarProductAffinity, self).fit(X)
         if self.centering:
             X = X - X.mean(0)
-        self.affinity_matrix_ = X @ X.T
+        self.affinity_matrix_ = -pairwise_distances(
+            X, metric="angular", keops=self.keops
+        )
 
 
 class LogAffinity(BaseAffinity):
@@ -64,10 +66,9 @@ class LogAffinity(BaseAffinity):
 
 
 class GibbsAffinity(LogAffinity):
-    def __init__(self, sigma=1.0, dim=(0, 1), metric="euclidean", keops=False):
+    def __init__(self, sigma=1.0, metric="euclidean", keops=False):
         super(GibbsAffinity, self).__init__()
         self.sigma = sigma
-        self.dim = dim
         self.metric = metric
         self.keops = keops
 
@@ -75,13 +76,12 @@ class GibbsAffinity(LogAffinity):
         super(GibbsAffinity, self).fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         log_P = -C / self.sigma
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(dim=self.dim)
+        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
 
 
 class StudentAffinity(LogAffinity):
     def __init__(self, metric="euclidean", keops=False):
         super(StudentAffinity, self).__init__()
-        self.dim = (0, 1)
         self.metric = metric
         self.keops = keops
 
@@ -89,49 +89,4 @@ class StudentAffinity(LogAffinity):
         super(StudentAffinity, self).fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         log_P = -(1 + C).log()
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(dim=self.dim)
-
-
-class NormalizedGaussianAndStudentAffinity(LogAffinity):
-    """
-    This class computes the normalized affinity associated to a Gaussian or t-Student
-    kernel. The affinity matrix is normalized by given axis.
-
-    Parameters
-    ----------
-    student : bool, optional
-        If True, computes a t-Student kernel (default False).
-    sigma : float, optional
-        The length scale of the Gaussian kernel (default 1.0).
-    p : int, optional
-        p value for the p-norm distance to calculate between each vector pair
-        (default 2).
-    """
-
-    def __init__(self, student=False, sigma=1.0, p=2):
-        self.student = student
-        self.sigma = sigma
-        self.p = p
-        super(NormalizedGaussianAndStudentAffinity, self).__init__()
-
-    def compute_log_affinity(self, X, axis=(0, 1)):
-        """
-        Computes the pairwise affinity matrix in log space and normalize it by given
-        axis.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Data on which affinity is computed.
-
-        Returns
-        -------
-        log_P : torch.Tensor of shape (n_samples, n_samples)
-            Affinity matrix in log space.
-        """
-        C = torch.cdist(X, X, self.p) ** 2
-        if self.student:
-            log_P = -torch.log(1 + C)
-        else:
-            log_P = -C / (2 * self.sigma)
-        return log_P - torch.logsumexp(log_P, dim=axis)
+        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]

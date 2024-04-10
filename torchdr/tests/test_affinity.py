@@ -7,6 +7,11 @@ from pykeops.torch import LazyTensor
 
 from torchdr.tests.utils import check_equality_torch_keops
 from torchdr.utils.geometry import pairwise_distances
+from torchdr.affinity.base import (
+    ScalarProductAffinity,
+    GibbsAffinity,
+    StudentAffinity,
+)
 from torchdr.affinity.entropic import (
     entropy,
     log_Pe,
@@ -20,6 +25,85 @@ from torchdr.affinity.entropic import (
 lst_types = [torch.double, torch.float]
 
 LIST_METRICS_TEST = ["euclidean", "manhattan"]
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_scalar_product_affinity(dtype):
+    n, p = 100, 10
+    X = torch.randn(n, p, dtype=dtype)
+
+    # --- Without keops ---
+    affinity = ScalarProductAffinity(keops=False)
+    P = affinity.get(X)
+    assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
+    assert P.shape == (n, n), "Affinity matrix shape is incorrect"
+    assert_close(P, P.T, msg="Affinity matrix is not symmetric")
+
+    # --- With keops ---
+    affinity_keops = ScalarProductAffinity(keops=True)
+    P_keops = affinity_keops.get(X)
+    assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
+    assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
+    assert ((P_keops - P_keops.T) ** 2).sum() < 1e-5, "Affinity matrix is not symmetric"
+
+    # --- check equality between torch and keops ---
+    check_equality_torch_keops(P, P_keops, K=10, tol=1e-5)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_gibbs_affinity(dtype):
+    n, p = 100, 10
+    X = torch.randn(n, p, dtype=dtype)
+
+    for metric in LIST_METRICS_TEST:
+        # --- Without keops ---
+        affinity = GibbsAffinity(keops=False, metric=metric)
+        P = affinity.get(X)
+        assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
+        assert P.shape == (n, n), "Affinity matrix shape is incorrect"
+        # assert_close(P, P.T, msg="Affinity matrix is not symmetric")
+        assert P.min() >= 0, "Affinity matrix has negative values"
+
+        # --- With keops ---
+        affinity_keops = GibbsAffinity(keops=True, metric=metric)
+        P_keops = affinity_keops.get(X)
+        assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
+        assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
+        # assert (
+        #     (P_keops - P_keops.T) ** 2
+        # ).sum() < 1e-5, "Affinity matrix is not symmetric"
+        assert P_keops.min() >= 0, "Affinity matrix has negative values"
+
+        # --- check equality between torch and keops ---
+        check_equality_torch_keops(P, P_keops, K=10, tol=1e-5)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_student_affinity(dtype):
+    n, p = 100, 10
+    X = torch.randn(n, p, dtype=dtype)
+
+    for metric in LIST_METRICS_TEST:
+        # --- Without keops ---
+        affinity = StudentAffinity(keops=False, metric=metric)
+        P = affinity.get(X)
+        assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
+        assert P.shape == (n, n), "Affinity matrix shape is incorrect"
+        # assert_close(P, P.T, msg="Affinity matrix is not symmetric")
+        assert P.min() >= 0, "Affinity matrix has negative values"
+
+        # --- With keops ---
+        affinity_keops = StudentAffinity(keops=True, metric=metric)
+        P_keops = affinity_keops.get(X)
+        assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
+        assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
+        # assert (
+        #     (P_keops - P_keops.T) ** 2
+        # ).sum() < 1e-5, "Affinity matrix is not symmetric"
+        assert P_keops.min() >= 0, "Affinity matrix has negative values"
+
+        # --- check equality between torch and keops ---
+        check_equality_torch_keops(P, P_keops, K=10, tol=1e-3)
 
 
 @pytest.mark.parametrize("dtype", lst_types)

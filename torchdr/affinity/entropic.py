@@ -22,7 +22,7 @@ from torchdr.utils.utils import (
     kmax,
     check_NaNs,
 )
-from torchdr.affinity.base import BaseAffinity, LogAffinity
+from torchdr.affinity.base import LogAffinity
 
 
 def entropy(P, log=True, dim=1):
