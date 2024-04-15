@@ -13,7 +13,7 @@ import torch
 from pykeops.torch import LazyTensor
 
 
-def unsqueeze_vectors(func):
+def wrap_vectors(func):
     r"""
     Reshape all input vectors from size (n) to size (n, 1).
     If any input is a lazy tensor, convert all input vectors to lazy tensors.
@@ -70,7 +70,7 @@ def kmax(A, k=1, dim=0):
         )
 
 
-@unsqueeze_vectors
+@wrap_vectors
 def sum_matrix_vector(M, v):
     r"""
     Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.

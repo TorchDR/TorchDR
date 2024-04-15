@@ -6,13 +6,11 @@ from torch.testing import assert_close
 from pykeops.torch import LazyTensor
 
 from torchdr.tests.utils import check_equality_torch_keops
-from torchdr.utils.geometry import pairwise_distances
-from torchdr.affinity.base import (
+from torchdr.utils import pairwise_distances
+from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
     StudentAffinity,
-)
-from torchdr.affinity.entropic import (
     entropy,
     log_Pe,
     bounds_entropic_affinity,
@@ -234,7 +232,12 @@ def test_sym_entropic_affinity(dtype):
 
         # --- Without keops ---
         affinity_sea = SymmetricEntropicAffinity(
-            perplexity=perp, keops=False, metric=metric, tol=1e-5, verbose=False
+            perplexity=perp,
+            keops=False,
+            metric=metric,
+            tol=1e-5,
+            verbose=True,
+            tolog=True,
         )
         P_sea = affinity_sea.get(X)
         assert isinstance(P_sea, torch.Tensor), "Affinity matrix is not a torch.Tensor"
@@ -256,9 +259,34 @@ def test_sym_entropic_affinity(dtype):
             msg="Exp(Entropy-1) is not equal to the perplexity",
         )
 
+        # test eps_square
+        affinity_sea_eps_square = SymmetricEntropicAffinity(
+            perplexity=perp,
+            keops=False,
+            metric=metric,
+            tol=1e-5,
+            verbose=True,
+            tolog=True,
+            eps_square=True,
+            lr=1e-1,
+        )
+        P_sea_eps_square = affinity_sea_eps_square.get(X)
+        assert_close(
+            P_sea,
+            P_sea_eps_square,
+            atol=tol,
+            rtol=tol,
+            msg="Eps square trick does not yield the same affinity matrix",
+        )
+
         # --- With keops ---
         affinity_sea_keops = SymmetricEntropicAffinity(
-            perplexity=perp, keops=True, metric=metric, tol=1e-5, verbose=False
+            perplexity=perp,
+            keops=True,
+            metric=metric,
+            tol=1e-5,
+            verbose=True,
+            tolog=True,
         )
         P_sea_keops = affinity_sea_keops.get(X)
         assert isinstance(

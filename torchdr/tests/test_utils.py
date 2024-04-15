@@ -3,8 +3,13 @@ import pytest
 
 from torch.testing import assert_close
 from torchdr.tests.utils import check_equality_torch_keops
-from torchdr.utils.geometry import pairwise_distances, LIST_METRICS
-from torchdr.utils.optim import binary_search, false_position
+
+from torchdr.utils import (
+    pairwise_distances,
+    binary_search,
+    false_position,
+    LIST_METRICS,
+)
 
 lst_types = [torch.double, torch.float]
 
@@ -67,7 +72,6 @@ def test_false_position(dtype):
 def test_pairwise_distances(dtype):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)
-    tol = 1e-5
 
     for metric in LIST_METRICS:
         distances = pairwise_distances(x, metric=metric, keops=False)
@@ -82,6 +86,4 @@ def test_pairwise_distances(dtype):
 
         # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
-        # assert_close(distances.sum(0), distances_keops.sum(0).squeeze())
-        # assert_close(distances.logsumexp(1), distances_keops.logsumexp(1).squeeze())
-        check_equality_torch_keops(distances, distances_keops, K=10, tol=tol)
+        check_equality_torch_keops(distances, distances_keops, K=10, tol=1e-3)

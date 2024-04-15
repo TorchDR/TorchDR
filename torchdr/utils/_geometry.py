@@ -15,7 +15,7 @@ LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
 def pairwise_distances(X, metric="euclidean", keops=True):
     """
     Compute pairwise distances matrix between points in a dataset.
-    Returns the pairwise distance matrix as LazyTensor.
+    Returns the pairwise distance matrix as tensor or lazy tensor (if keops is True).
 
     Parameters
     ----------

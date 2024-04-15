@@ -9,7 +9,7 @@ Common (simple) affinity matrices
 
 from abc import ABC, abstractmethod
 
-from torchdr.utils.geometry import pairwise_distances
+from torchdr.utils import pairwise_distances
 
 
 class BaseAffinity(ABC):
@@ -31,12 +31,12 @@ class BaseAffinity(ABC):
 
 class ScalarProductAffinity(BaseAffinity):
     def __init__(self, centering=False, keops=False):
-        super(ScalarProductAffinity, self).__init__()
+        super().__init__()
         self.centering = centering
         self.keops = keops
 
     def fit(self, X):
-        super(ScalarProductAffinity, self).fit(X)
+        super().fit(X)
         if self.centering:
             X = X - X.mean(0)
         self.affinity_matrix_ = -pairwise_distances(
@@ -48,7 +48,7 @@ class LogAffinity(BaseAffinity):
     """Computes an affinity matrix from an affinity matrix in log space."""
 
     def __init__(self):
-        super(LogAffinity, self).__init__()
+        super().__init__()
 
     def get(self, X, log=False):
         if not hasattr(self, "log_affinity_matrix_"):
@@ -67,13 +67,13 @@ class LogAffinity(BaseAffinity):
 
 class GibbsAffinity(LogAffinity):
     def __init__(self, sigma=1.0, metric="euclidean", keops=False):
-        super(GibbsAffinity, self).__init__()
+        super().__init__()
         self.sigma = sigma
         self.metric = metric
         self.keops = keops
 
     def fit(self, X):
-        super(GibbsAffinity, self).fit(X)
+        super().fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         log_P = -C / self.sigma
         self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
@@ -81,12 +81,12 @@ class GibbsAffinity(LogAffinity):
 
 class StudentAffinity(LogAffinity):
     def __init__(self, metric="euclidean", keops=False):
-        super(StudentAffinity, self).__init__()
+        super().__init__()
         self.metric = metric
         self.keops = keops
 
     def fit(self, X):
-        super(StudentAffinity, self).fit(X)
+        super().fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         log_P = -(1 + C).log()
         self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
