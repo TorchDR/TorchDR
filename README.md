@@ -1,12 +1,21 @@
 # TorchDR - PyTorch Dimensionality Reduction 
 
 [![PyPI version](https://badge.fury.io/py/torchdr.svg)](https://badge.fury.io/py/torchdr)
+[![PyTorch](https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Build Status](https://github.com/torchdr/torchdr/actions/workflows/testing.yml/badge.svg)](https://github.com/torchdr/torchdr/actions)
 [![Codecov Status](https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg)](https://codecov.io/gh/torchdr/torchdr)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
+
 
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
+
+
+Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
+
+Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/TorchDR)
 
  
 ## License
