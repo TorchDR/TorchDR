@@ -1,5 +1,5 @@
 numpy>=1.20
 matplotlib
 torch
-tqdm
 pykeops
+tqdm
