@@ -331,10 +331,14 @@ def test_doubly_stochastic_entropic(dtype):
         P_ds = affinity_ds.get(X)
         assert isinstance(P_ds, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P_ds.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert torch.allclose(P_ds, P_ds.T), "Affinity matrix is not symmetric"
-        assert torch.allclose(
-            P_ds.sum(1), torch.ones(n, dtype=dtype)
-        ), "Affinity matrix is not normalized row-wise"
+        assert_close(P_ds, P_ds.T, msg="Affinity matrix is not symmetric")
+        assert_close(
+            P_ds.sum(1),
+            torch.ones(n, dtype=dtype),
+            atol=tol,
+            rtol=tol,
+            msg="Affinity matrix is not normalized row-wise",
+        )
 
         # --- With keops ---
         affinity_ds_keops = DoublyStochasticEntropic(eps=eps, keops=True, metric=metric)
@@ -344,9 +348,13 @@ def test_doubly_stochastic_entropic(dtype):
         assert (
             (P_ds_keops - P_ds_keops.T) ** 2
         ).sum() < tol, "Affinity matrix is not symmetric"
-        assert torch.allclose(
-            P_ds_keops.sum(1).squeeze(), torch.ones(n, dtype=dtype)
-        ), "Affinity matrix is not normalized row-wise"
+        assert_close(
+            P_ds_keops.sum(1).squeeze(),
+            torch.ones(n, dtype=dtype),
+            atol=tol,
+            rtol=tol,
+            msg="Affinity matrix is not normalized row-wise",
+        )
 
         # --- check equality between torch and keops ---
         check_equality_torch_keops(P_ds, P_ds_keops, K=10, tol=tol)

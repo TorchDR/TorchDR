@@ -176,6 +176,16 @@ class EntropicAffinity(LogAffinity):
     keops : bool, optional
         Whether to use KeOps for computation.
 
+    Attributes
+    ----------
+    log : dictionary
+        Contains the dual variable at each iteration of the
+        optimization algorithm when tolog = True.
+    n_iter_ : int
+        Number of iterations run.
+    eps_ : torch.Tensor of shape (n_samples)
+        Dual variable associated with the entropy constraint.
+
     References
     ----------
     .. [1]  Geoffrey Hinton, Sam Roweis (2002).
@@ -210,8 +220,7 @@ class EntropicAffinity(LogAffinity):
 
     def fit(self, X):
         r"""
-        Solves the problem (EA) in [1]_ to compute the entropic affinity matrix in
-        log space (which is **not** symmetric).
+        Solves the problem (EA) in [1]_ to compute the entropic affinity matrix from input data X.
 
         Parameters
         ----------
@@ -222,7 +231,7 @@ class EntropicAffinity(LogAffinity):
         -------
         self : EntropicAffinity
             The fitted instance.
-        """
+        """  # noqa: E501
         super().fit(X)
 
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
@@ -280,6 +289,16 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
     keops : bool, optional
         Whether to use KeOps for computation.
 
+    Attributes
+    ----------
+    log : dictionary
+        Contains the dual variable at each iteration of the
+        optimization algorithm when tolog = True.
+    n_iter_ : int
+        Number of iterations run.
+    eps_ : torch.Tensor of shape (n_samples)
+        Dual variable associated with the entropy constraint.
+
     References
     ----------
     .. [2] Visualizing Data using t-SNE.
@@ -305,6 +324,19 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         )
 
     def fit(self, X):
+        r"""
+        Computes the l2-symmetric entropic affinity matrix from input data X.
+
+        Parameters
+        ----------
+        X : tensor of shape (n_samples, n_features)
+            Data on which affinity is computed.
+
+        Returns
+        -------
+        self : L2SymmetricEntropicAffinity
+            The fitted instance.
+        """
         super().fit(X)
         log_P = self.log_affinity_matrix_
         self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / 2
@@ -372,9 +404,9 @@ class SymmetricEntropicAffinity(LogAffinity):
     n_iter_ : int
         Number of iterations run.
     eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated to the entropy constraint.
+        Dual variable associated with the entropy constraint.
     mu_ : torch.Tensor of shape (n_samples)
-        Dual variable associated to the marginal constraint.
+        Dual variable associated with the marginal constraint.
 
     References
     ----------
@@ -410,7 +442,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     def fit(self, X):
         r"""
-        Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity matrix.
+        Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity matrix from input data X.
 
         Parameters
         ----------
@@ -566,6 +598,16 @@ class DoublyStochasticEntropic(LogAffinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
 
+    Attributes
+    ----------
+    log : dictionary
+        Contains the dual variable at each iteration of the
+        optimization algorithm when tolog = True.
+    n_iter_ : int
+        Number of iterations run.
+    f_ : torch.Tensor of shape (n_samples)
+        Dual variable associated with the marginal constraint.
+
     References
     ----------
     .. [5]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
@@ -627,24 +669,26 @@ class DoublyStochasticEntropic(LogAffinity):
         log_K = -C / self.eps
 
         # Performs warm-start if a dual variable f is provided
-        f = torch.zeros(n, dtype=X.dtype, device=X.device) if self.f is None else self.f
+        self.f_ = (
+            torch.zeros(n, dtype=X.dtype, device=X.device) if self.f is None else self.f
+        )
 
         if self.tolog:
-            self.log["f"] = [f.clone().detach().cpu()]
+            self.log["f"] = [self.f_.clone().detach().cpu()]
 
         # Sinkhorn iterations
         for k in range(self.max_iter):
 
             # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
-            reduction = -sum_matrix_vector(log_K, f).logsumexp(0).squeeze()
-            f = 0.5 * (f + reduction)
+            reduction = -sum_matrix_vector(log_K, self.f_).logsumexp(0).squeeze()
+            self.f_ = 0.5 * (self.f_ + reduction)
 
             if self.tolog:
-                self.log["f"].append(f.clone().detach().cpu())
+                self.log["f"].append(self.f_.clone().detach().cpu())
 
-            check_NaNs(f, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
+            check_NaNs(self.f_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
 
-            if ((f - reduction).abs() < self.tol).all():
+            if ((self.f_ - reduction).abs() < self.tol).all():
                 if self.verbose:
                     print(f"[TorchDR] Affinity : breaking at iter {k}.")
                 break
@@ -656,6 +700,6 @@ class DoublyStochasticEntropic(LogAffinity):
                 )
 
         self.n_iter_ = k
-        self.log_affinity_matrix_ = log_Pds(log_K, f)
+        self.log_affinity_matrix_ = log_Pds(log_K, self.f_)
 
         return self
