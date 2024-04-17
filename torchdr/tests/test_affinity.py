@@ -5,13 +5,18 @@ import pytest
 from torch.testing import assert_close
 from pykeops.torch import LazyTensor
 
-from torchdr.tests.utils import check_equality_torch_keops
+from torchdr.utils import (
+    check_equality_torch_keops,
+    check_symmetry,
+    check_marginal,
+    check_entropy,
+    entropy,
+)
 from torchdr.utils import pairwise_distances
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
     StudentAffinity,
-    entropy,
     log_Pe,
     bounds_entropic_affinity,
     EntropicAffinity,
@@ -35,14 +40,14 @@ def test_scalar_product_affinity(dtype):
     P = affinity.get(X)
     assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
     assert P.shape == (n, n), "Affinity matrix shape is incorrect"
-    assert_close(P, P.T, msg="Affinity matrix is not symmetric")
+    check_symmetry(P)
 
     # --- With keops ---
     affinity_keops = ScalarProductAffinity(keops=True)
     P_keops = affinity_keops.get(X)
     assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
     assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-    assert ((P_keops - P_keops.T) ** 2).sum() < 1e-5, "Affinity matrix is not symmetric"
+    check_symmetry(P_keops)
 
     # --- check equality between torch and keops ---
     check_equality_torch_keops(P, P_keops, K=10, tol=1e-5)
@@ -59,7 +64,6 @@ def test_gibbs_affinity(dtype):
         P = affinity.get(X)
         assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P.shape == (n, n), "Affinity matrix shape is incorrect"
-        # assert_close(P, P.T, msg="Affinity matrix is not symmetric")
         assert P.min() >= 0, "Affinity matrix has negative values"
 
         # --- With keops ---
@@ -67,9 +71,6 @@ def test_gibbs_affinity(dtype):
         P_keops = affinity_keops.get(X)
         assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
         assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        # assert (
-        #     (P_keops - P_keops.T) ** 2
-        # ).sum() < 1e-5, "Affinity matrix is not symmetric"
         assert P_keops.min() >= 0, "Affinity matrix has negative values"
 
         # --- check equality between torch and keops ---
@@ -87,7 +88,6 @@ def test_student_affinity(dtype):
         P = affinity.get(X)
         assert isinstance(P, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P.shape == (n, n), "Affinity matrix shape is incorrect"
-        # assert_close(P, P.T, msg="Affinity matrix is not symmetric")
         assert P.min() >= 0, "Affinity matrix has negative values"
 
         # --- With keops ---
@@ -95,9 +95,6 @@ def test_student_affinity(dtype):
         P_keops = affinity_keops.get(X)
         assert isinstance(P_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
         assert P_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        # assert (
-        #     (P_keops - P_keops.T) ** 2
-        # ).sum() < 1e-5, "Affinity matrix is not symmetric"
         assert P_keops.min() >= 0, "Affinity matrix has negative values"
 
         # --- check equality between torch and keops ---
@@ -110,6 +107,8 @@ def test_entropic_affinity(dtype):
     perp = 5
     target_entropy = np.log(perp) + 1
     tol = 1e-5
+    one = torch.ones(n, dtype=dtype)
+    target_entropy = np.log(perp) * one + 1
 
     def entropy_gap(eps, C):  # function to find the root of
         return entropy(log_Pe(C, eps), log=True) - target_entropy
@@ -125,19 +124,8 @@ def test_entropic_affinity(dtype):
         P_ea = affinity_ea.get(X)
         assert isinstance(P_ea, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P_ea.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert_close(
-            P_ea.sum(1),
-            torch.ones(n, dtype=dtype),
-            msg="Affinity matrix is not normalized row-wise",
-        )
-        H_ea = entropy(P_ea, log=False, dim=1)
-        assert_close(
-            H_ea - 1,
-            np.log(perp) * torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Exp(Entropy-1) is not equal to the perplexity",
-        )
+        check_marginal(P_ea, one, dim=1)
+        check_entropy(P_ea, target_entropy, dim=1, tol=tol)
 
         C = pairwise_distances(X, metric=metric, keops=False)
         begin, end = bounds_entropic_affinity(C, perplexity=perp)
@@ -155,21 +143,8 @@ def test_entropic_affinity(dtype):
         P_ea_keops = affinity_ea_keops.get(X)
         assert isinstance(P_ea_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
         assert P_ea_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert_close(
-            P_ea_keops.sum(1).squeeze(),
-            torch.ones(n, dtype=dtype),
-            msg="Affinity matrix is not normalized row-wise",
-            atol=tol,
-            rtol=tol,
-        )
-        H_ea_keops = entropy(P_ea_keops, log=False, dim=1)
-        assert_close(
-            H_ea_keops - 1,
-            np.log(perp) * torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Exp(Entropy-1) is not equal to the perplexity",
-        )
+        check_marginal(P_ea_keops, one, dim=1)
+        check_entropy(P_ea_keops, target_entropy, dim=1, tol=tol)
 
         C_keops = pairwise_distances(X, metric=metric, keops=True)
         begin_keops, end_keops = bounds_entropic_affinity(C_keops, perplexity=perp)
@@ -201,7 +176,7 @@ def test_l2sym_entropic_affinity(dtype):
         P_l2ea = affinity_l2ea.get(X)
         assert isinstance(P_l2ea, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P_l2ea.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert_close(P_l2ea, P_l2ea.T, msg="Affinity matrix is not symmetric")
+        check_symmetry(P_l2ea)
 
         # --- With keops ---
         affinity_l2ea_keops = L2SymmetricEntropicAffinity(
@@ -212,9 +187,7 @@ def test_l2sym_entropic_affinity(dtype):
             P_l2ea_keops, LazyTensor
         ), "Affinity matrix is not a Lazy Tensor"
         assert P_l2ea_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert (
-            (P_l2ea_keops - P_l2ea_keops.T) ** 2
-        ).sum() < tol, "Affinity matrix is not symmetric"
+        check_symmetry(P_l2ea_keops)
 
         # --- check equality between torch and keops ---
         check_equality_torch_keops(P_l2ea, P_l2ea_keops, K=perp, tol=tol)
@@ -225,6 +198,8 @@ def test_sym_entropic_affinity(dtype):
     n, p = 100, 10
     perp = 5
     tol = 1e-3
+    one = torch.ones(n, dtype=dtype)
+    target_entropy = np.log(perp) * one + 1
 
     X = torch.randn(n, p, dtype=dtype)
 
@@ -242,22 +217,9 @@ def test_sym_entropic_affinity(dtype):
         P_sea = affinity_sea.get(X)
         assert isinstance(P_sea, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P_sea.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert_close(P_sea, P_sea.T, msg="Affinity matrix is not symmetric")
-        assert_close(
-            P_sea.sum(1),
-            torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Affinity matrix is not normalized row-wise",
-        )
-        H_sea = entropy(P_sea, log=False, dim=1)
-        assert_close(
-            H_sea - 1,
-            np.log(perp) * torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Exp(Entropy-1) is not equal to the perplexity",
-        )
+        check_symmetry(P_sea)
+        check_marginal(P_sea, one, dim=1, tol=tol)
+        check_entropy(P_sea, target_entropy, dim=1, tol=tol)
 
         # test eps_square
         affinity_sea_eps_square = SymmetricEntropicAffinity(
@@ -293,24 +255,9 @@ def test_sym_entropic_affinity(dtype):
             P_sea_keops, LazyTensor
         ), "Affinity matrix is not a LazyTensor"
         assert P_sea_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert (
-            (P_sea_keops - P_sea_keops.T) ** 2
-        ).sum() < 1e-5, "Affinity matrix is not symmetric"
-        assert_close(
-            P_sea_keops.sum(1).squeeze(),
-            torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Affinity matrix is not normalized row-wise",
-        )
-        H_sea_keops = entropy(P_sea_keops, log=False, dim=1)
-        assert_close(
-            H_sea_keops - 1,
-            np.log(perp) * torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Exp(Entropy-1) is not equal to the perplexity",
-        )
+        check_symmetry(P_sea_keops)
+        check_marginal(P_sea_keops, one, dim=1, tol=tol)
+        check_entropy(P_sea_keops, target_entropy, dim=1, tol=tol)
 
         # --- check equality between torch and keops ---
         check_equality_torch_keops(P_sea, P_sea_keops, K=perp, tol=tol)
@@ -321,6 +268,7 @@ def test_doubly_stochastic_entropic(dtype):
     n, p = 100, 10
     eps = 1.0
     tol = 1e-3
+    one = torch.ones(n, dtype=dtype)
 
     X = torch.randn(n, p, dtype=dtype)
 
@@ -331,30 +279,16 @@ def test_doubly_stochastic_entropic(dtype):
         P_ds = affinity_ds.get(X)
         assert isinstance(P_ds, torch.Tensor), "Affinity matrix is not a torch.Tensor"
         assert P_ds.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert_close(P_ds, P_ds.T, msg="Affinity matrix is not symmetric")
-        assert_close(
-            P_ds.sum(1),
-            torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Affinity matrix is not normalized row-wise",
-        )
+        check_symmetry(P_ds)
+        check_marginal(P_ds, one, dim=1, tol=tol)
 
         # --- With keops ---
         affinity_ds_keops = DoublyStochasticEntropic(eps=eps, keops=True, metric=metric)
         P_ds_keops = affinity_ds_keops.get(X)
         assert isinstance(P_ds_keops, LazyTensor), "Affinity matrix is not a LazyTensor"
         assert P_ds_keops.shape == (n, n), "Affinity matrix shape is incorrect"
-        assert (
-            (P_ds_keops - P_ds_keops.T) ** 2
-        ).sum() < tol, "Affinity matrix is not symmetric"
-        assert_close(
-            P_ds_keops.sum(1).squeeze(),
-            torch.ones(n, dtype=dtype),
-            atol=tol,
-            rtol=tol,
-            msg="Affinity matrix is not normalized row-wise",
-        )
+        check_symmetry(P_ds_keops)
+        check_marginal(P_ds_keops, one, dim=1, tol=tol)
 
         # --- check equality between torch and keops ---
         check_equality_torch_keops(P_ds, P_ds_keops, K=10, tol=tol)

@@ -7,9 +7,19 @@
 
 from ._optim import binary_search, false_position, OPTIMIZERS
 
-from ._utils import wrap_vectors, kmin, kmax, sum_matrix_vector, check_NaNs
+from ._wrappers import wrap_vectors, sum_matrix_vector
 
 from ._geometry import pairwise_distances, LIST_METRICS
+
+from ._validation import (
+    check_NaNs,
+    check_marginal,
+    check_symmetry,
+    check_equality_torch_keops,
+    check_entropy,
+)
+
+from ._operators import entropy, kmin, kmax
 
 
 __all__ = [
@@ -23,4 +33,9 @@ __all__ = [
     "check_NaNs",
     "pairwise_distances",
     "LIST_METRICS",
+    "check_marginal",
+    "check_symmetry",
+    "check_equality_torch_keops",
+    "check_entropy",
+    "entropy",
 ]

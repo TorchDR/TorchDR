@@ -2,7 +2,7 @@ import torch
 import pytest
 
 from torch.testing import assert_close
-from torchdr.tests.utils import check_equality_torch_keops
+from torchdr.utils._validation import check_equality_torch_keops
 
 from torchdr.utils import (
     pairwise_distances,

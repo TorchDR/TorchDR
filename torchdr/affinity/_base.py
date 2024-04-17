@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from torchdr.utils import pairwise_distances
 
 
-class BaseAffinity(ABC):
+class Affinity(ABC):
     def __init__(self):
         self.log = {}
 
@@ -25,11 +25,12 @@ class BaseAffinity(ABC):
             self.fit(X)
             assert hasattr(
                 self, "affinity_matrix_"
-            ), "affinity_matrix_ should be computed in fit method"
+            ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed \
+                in fit method"
         return self.affinity_matrix_  # type: ignore
 
 
-class ScalarProductAffinity(BaseAffinity):
+class ScalarProductAffinity(Affinity):
     def __init__(self, centering=False, keops=False):
         super().__init__()
         self.centering = centering
@@ -44,7 +45,7 @@ class ScalarProductAffinity(BaseAffinity):
         )
 
 
-class LogAffinity(BaseAffinity):
+class LogAffinity(Affinity):
     """Computes an affinity matrix from an affinity matrix in log space."""
 
     def __init__(self):
@@ -55,7 +56,8 @@ class LogAffinity(BaseAffinity):
             self.fit(X)
             assert hasattr(
                 self, "log_affinity_matrix_"
-            ), "log_affinity_matrix_ should be computed in fit method of a LogAffinity"
+            ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed \
+                in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix
             return self.log_affinity_matrix_  # type: ignore

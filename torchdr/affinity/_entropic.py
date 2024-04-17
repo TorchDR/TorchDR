@@ -14,6 +14,7 @@ import numpy as np
 from tqdm import tqdm
 
 from torchdr.utils import (
+    entropy,
     false_position,
     pairwise_distances,
     wrap_vectors,
@@ -24,17 +25,6 @@ from torchdr.utils import (
     OPTIMIZERS,
 )
 from torchdr.affinity._base import LogAffinity
-
-
-def entropy(P, log=True, dim=1):
-    r"""
-    Computes the entropy of P along axis dim.
-    Supports log domain input.
-    """
-    if log:
-        return -(P.exp() * (P - 1)).sum(dim).squeeze()
-    else:
-        return -(P * (P.log() - 1)).sum(dim).squeeze()
 
 
 @wrap_vectors

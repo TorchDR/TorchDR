@@ -4,14 +4,13 @@
 # License: BSD 3-Clause License
 
 
-from ._base import ScalarProductAffinity, GibbsAffinity, StudentAffinity
+from ._base import Affinity, ScalarProductAffinity, GibbsAffinity, StudentAffinity
 
 from ._entropic import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
-    entropy,
     log_Pe,
     log_Pse,
     log_Pds,
@@ -19,6 +18,7 @@ from ._entropic import (
 )
 
 __all__ = [
+    "Affinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
     "StudentAffinity",
@@ -26,7 +26,6 @@ __all__ = [
     "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "DoublyStochasticEntropic",
-    "entropy",
     "log_Pe",
     "log_Pse",
     "log_Pds",

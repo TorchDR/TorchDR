@@ -12,6 +12,8 @@ from torch.testing import assert_close
 
 from pykeops.torch import LazyTensor
 
+from torchdr.utils._operators import entropy
+
 
 def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
     """
@@ -44,6 +46,8 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
         rtol=tol,
         msg="Torch and Keops largest values are different.",
     )
+
+    # check that the largest arguments are the same
     assert_close(
         Largest_arg,
         Largest_keops_arg,
@@ -51,3 +55,53 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
         rtol=tol,
         msg="Torch and Keops largest arguments are different.",
     )
+
+
+def check_symmetry(P, tol=1e-6):
+    """
+    Check if a torch.Tensor or LazyTensor is symmetric.
+    """
+    n = P.shape[0]
+    also_n = P.shape[1]
+    assert n == also_n, "Matrix is not square."
+    assert (((P - P.T) ** 2).sum() / n**2) < tol, "Matrix is not symmetric."
+
+
+def check_marginal(P, marg, dim=1, tol=1e-6):
+    """
+    Check if a torch.Tensor or LazyTensor has the correct marginal.
+    """
+    assert_close(
+        P.sum(dim).squeeze(),
+        marg,
+        atol=tol,
+        rtol=tol,
+        msg="Matrix has the wrong marginal.",
+    )
+
+
+def check_entropy(P, entropy_target, dim=1, tol=1e-6):
+    """
+    Check if a torch.Tensor or LazyTensor has the correct entropy.
+    """
+    assert_close(
+        entropy(P, log=False, dim=dim),
+        entropy_target,
+        atol=tol,
+        rtol=tol,
+        msg="Matrix has the wrong entropy",
+    )
+
+
+def check_NaNs(input, msg=None):
+    """
+    Check if a tensor contains NaN values.
+    """
+    if isinstance(input, list):
+        for tensor in input:
+            check_NaNs(tensor, msg)
+    elif isinstance(input, torch.Tensor):
+        if torch.isnan(input).any():
+            raise ValueError(msg or "Tensor contains NaN values.")
+    else:
+        raise TypeError("Input must be a tensor or a list of tensors.")
