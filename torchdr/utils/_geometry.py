@@ -12,7 +12,7 @@ from pykeops.torch import Vi, Vj
 LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
 
 
-def pairwise_distances(X, metric="euclidean", keops=True):
+def pairwise_distances(X, metric="euclidean", keops=False):
     """
     Compute pairwise distances matrix between points in a dataset.
     Returns the pairwise distance matrix as tensor or lazy tensor (if keops is True).
@@ -24,7 +24,7 @@ def pairwise_distances(X, metric="euclidean", keops=True):
     metric : str, optional
         Metric to use for computing distances. The default is "euclidean".
     keops : bool, optional
-        If True, uses KeOps for computing the distances. The default is True.
+        If True, uses KeOps for computing the distances. The default is False.
 
     Returns
     -------

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Useful functions for testing
+Useful functions for testing, compatible with KeOps
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -57,40 +57,61 @@ def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
     )
 
 
+def check_similarity(P, P_target, tol=1e-6, msg=None):
+    """
+    Check if a torch.Tensor or LazyTensor is close to a target matrix.
+    """
+    (n, p) = P.shape
+    (also_n, also_p) = P_target.shape
+    assert (
+        n == also_n and p == also_p
+    ), "Matrix and target matrix do not have the same shape."
+    assert (((P - P_target) ** 2).sum() / (n * p)) < tol, (
+        msg or "Matrix is not close to the target matrix."
+    )
+
+
 def check_symmetry(P, tol=1e-6):
     """
     Check if a torch.Tensor or LazyTensor is symmetric.
     """
-    n = P.shape[0]
-    also_n = P.shape[1]
-    assert n == also_n, "Matrix is not square."
-    assert (((P - P.T) ** 2).sum() / n**2) < tol, "Matrix is not symmetric."
+    check_similarity(P, P.T, tol=tol, msg="Matrix is not symmetric.")
 
 
 def check_marginal(P, marg, dim=1, tol=1e-6):
     """
-    Check if a torch.Tensor or LazyTensor has the correct marginal.
+    Check if a torch.Tensor or LazyTensor has the correct marginal along axis dim.
     """
     assert_close(
         P.sum(dim).squeeze(),
         marg,
         atol=tol,
         rtol=tol,
-        msg="Matrix has the wrong marginal.",
+        msg=f"Matrix has the wrong marginal for dim={dim}.",
     )
 
 
 def check_entropy(P, entropy_target, dim=1, tol=1e-6):
     """
-    Check if a torch.Tensor or LazyTensor has the correct entropy.
+    Check if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
     """
     assert_close(
         entropy(P, log=False, dim=dim),
         entropy_target,
         atol=tol,
         rtol=tol,
-        msg="Matrix has the wrong entropy",
+        msg=f"Matrix has the wrong entropy for dim={dim}",
     )
+
+
+def check_type(P, keops):
+    """
+    Check if a tensor is a torch.Tensor or a LazyTensor.
+    """
+    if keops:
+        assert isinstance(P, LazyTensor), "Input is not a LazyTensor."
+    else:
+        assert isinstance(P, torch.Tensor), "Input is not a torch.Tensor."
 
 
 def check_NaNs(input, msg=None):

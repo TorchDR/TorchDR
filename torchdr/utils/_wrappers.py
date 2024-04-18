@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Various useful wrappers
+Useful wrappers for dealing with KeOps, vector dimensions etc...
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -14,7 +14,7 @@ from pykeops.torch import LazyTensor
 
 
 def wrap_vectors(func):
-    r"""
+    """
     Reshape all input vectors from size (n) to size (n, 1).
     If any input is a lazy tensor, convert all input vectors to lazy tensors.
     """
@@ -42,7 +42,7 @@ def wrap_vectors(func):
 
 @wrap_vectors
 def sum_matrix_vector(M, v):
-    r"""
+    """
     Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
     """
     return M + v
