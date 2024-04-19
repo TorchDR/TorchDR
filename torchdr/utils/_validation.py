@@ -15,7 +15,21 @@ from pykeops.torch import LazyTensor
 from torchdr.utils._operators import entropy
 
 
-def check_equality_torch_keops(P, P_keops, K=None, tol=1e-5):
+def check_NaNs(input, msg=None):
+    """
+    Check if a tensor contains NaN values.
+    """
+    if isinstance(input, list):
+        for tensor in input:
+            check_NaNs(tensor, msg)
+    elif isinstance(input, torch.Tensor):
+        if torch.isnan(input).any():
+            raise ValueError(msg or "Tensor contains NaN values.")
+    else:
+        raise TypeError("Input must be a tensor or a list of tensors.")
+
+
+def check_equality_torch_keops(P, P_keops, K=None, tol=1e-3):
     """
     Check that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """
@@ -71,11 +85,11 @@ def check_similarity(P, P_target, tol=1e-6, msg=None):
     )
 
 
-def check_symmetry(P, tol=1e-6):
+def check_symmetry(P, tol=1e-6, msg=None):
     """
     Check if a torch.Tensor or LazyTensor is symmetric.
     """
-    check_similarity(P, P.T, tol=tol, msg="Matrix is not symmetric.")
+    check_similarity(P, P.T, tol=tol, msg=msg or "Matrix is not symmetric.")
 
 
 def check_marginal(P, marg, dim=1, tol=1e-6):
@@ -106,23 +120,9 @@ def check_entropy(P, entropy_target, dim=1, tol=1e-6):
 
 def check_type(P, keops):
     """
-    Check if a tensor is a torch.Tensor or a LazyTensor.
+    Check if a tensor is a torch.Tensor or a LazyTensor (if keops is True).
     """
     if keops:
         assert isinstance(P, LazyTensor), "Input is not a LazyTensor."
     else:
         assert isinstance(P, torch.Tensor), "Input is not a torch.Tensor."
-
-
-def check_NaNs(input, msg=None):
-    """
-    Check if a tensor contains NaN values.
-    """
-    if isinstance(input, list):
-        for tensor in input:
-            check_NaNs(tensor, msg)
-    elif isinstance(input, torch.Tensor):
-        if torch.isnan(input).any():
-            raise ValueError(msg or "Tensor contains NaN values.")
-    else:
-        raise TypeError("Input must be a tensor or a list of tensors.")

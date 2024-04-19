@@ -2,7 +2,7 @@ import torch
 import pytest
 
 from torch.testing import assert_close
-from torchdr.utils._validation import check_equality_torch_keops
+from torchdr.utils import check_equality_torch_keops, check_symmetry
 
 from torchdr.utils import (
     pairwise_distances,
@@ -78,9 +78,8 @@ def test_pairwise_distances(dtype):
 
         # check shape, symmetry
         assert distances.shape == (n, n)
-        assert_close(
+        check_symmetry(
             distances,
-            distances.T,
             msg=f"Pairwise distance matrix with metric = {metric} if not symmetric.",
         )
 

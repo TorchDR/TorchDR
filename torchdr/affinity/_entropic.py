@@ -22,6 +22,7 @@ from torchdr.utils import (
     kmin,
     kmax,
     check_NaNs,
+    normalize_matrix,
     OPTIMIZERS,
 )
 from torchdr.affinity._base import LogAffinity
@@ -34,7 +35,7 @@ def log_Pe(C, eps):
     with prescribed kernel bandwidth epsilon.
     """
     log_P = -C / eps
-    return log_P - log_P.logsumexp(1)[:, None]
+    return normalize_matrix(log_P, dim=1, log=True)
 
 
 @wrap_vectors
@@ -82,9 +83,8 @@ def bounds_entropic_affinity(C, perplexity):
             Entropic Affinities: Properties and Efficient Numerical Computation.
             International Conference on Machine Learning (ICML).
     """
-    N = C.shape[0]
-
     # we use the same notations as in [4] for clarity purposes
+    N = C.shape[0]
 
     # solve a unique 1D root finding problem
     def find_p1(x):
@@ -137,7 +137,7 @@ class EntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**, with the perplexity parameter :math:`\xi` acting as :math:`k`. Each point distributes a unit mass among its closest neighbors to minimize a transport cost given by :math:`\mathbf{C}`.
+    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**, with the perplexity parameter :math:`\xi` acting as :math:`k`. Each point distributes a unit mass among its closest neighbors while minimizing a transport cost given by :math:`\mathbf{C}`.
 
     The entropic constraint is saturated at the optimum and governs mass spread. With small :math:`\xi`, mass concentrates on a few neighbors; with large :math:`\xi`, it spreads across more neighbors thus capturing larger scales of dependencies.
 
@@ -198,7 +198,7 @@ class EntropicAffinity(LogAffinity):
         tol=1e-3,
         max_iter=1000,
         verbose=True,
-        keops=True,
+        keops=False,
     ):
         self.perplexity = perplexity
         self.metric = metric
@@ -210,7 +210,8 @@ class EntropicAffinity(LogAffinity):
 
     def fit(self, X):
         r"""
-        Solves the problem (EA) in [1]_ to compute the entropic affinity matrix from input data X.
+        Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
+        from input data X.
 
         Parameters
         ----------
@@ -221,7 +222,7 @@ class EntropicAffinity(LogAffinity):
         -------
         self : EntropicAffinity
             The fitted instance.
-        """  # noqa: E501
+        """
         super().fit(X)
 
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
@@ -291,8 +292,9 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
     References
     ----------
-    .. [2] Visualizing Data using t-SNE.
-        Laurens Van der Maaten, Geoffrey Hinton, JMLR 2008.
+    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+            Visualizing Data using t-SNE.
+            The Journal of Machine Learning Research 9.11 (JMLR).
     """  # noqa: E501
 
     def __init__(
@@ -302,7 +304,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         tol=1e-5,
         max_iter=1000,
         verbose=True,
-        keops=True,
+        keops=False,
     ):
         super().__init__(
             perplexity=perplexity,
@@ -335,7 +337,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
 class SymmetricEntropicAffinity(LogAffinity):
     r"""
-    Computes the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic affinity problem (SEA) described in [3]_ with the dual ascent procedure.
+    Computes the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
+    affinity problem (SEA) described in [3]_ with the dual ascent procedure.
     It amounts to the following convex optimization problem:
 
     .. math::
@@ -353,7 +356,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`, where we simply added symmetry as a constraint in the optimization problem.
 
-    The algorithm computes the optimal dual variable :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent. The affinity matrix is then given by
+    The algorithm computes the optimal dual variables :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent. The affinity matrix is then given by
 
     .. math::
         \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
@@ -415,7 +418,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         optimizer="Adam",
         verbose=True,
         tolog=False,
-        keops=True,
+        keops=False,
     ):
         self.perplexity = perplexity
         self.lr = lr
@@ -432,7 +435,8 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     def fit(self, X):
         r"""
-        Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity matrix from input data X.
+        Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
+        matrix from input data X.
 
         Parameters
         ----------
@@ -443,7 +447,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         -------
         self : SymmetricEntropicAffinity
             The fitted instance.
-        """  # noqa: E501
+        """
         super().fit(X)
 
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
@@ -538,7 +542,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 class DoublyStochasticEntropic(LogAffinity):
     r"""
     Computes the symmetric doubly stochastic affinity matrix :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the symmetric Sinkhorn algorithm [5].
-    Consists in solving the following convex optimization problem:
+    Consists in solving the following symmetric entropic optimal transport problem [6]:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C},
@@ -553,14 +557,16 @@ class DoublyStochasticEntropic(LogAffinity):
     - :math:`\mathrm{H}`: (global) Shannon entropy such that :math:`\mathrm{H}(\mathbf{P}) := - \sum_{ij} P_{ij} (\log P_{ij} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    The algorithm computes the optimal dual variable :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
+    The algorithm computes the optimal dual variable
+    :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{ds}}_{ij} = \exp(f^\star_i + f^\star_j - C_{ij} / \varepsilon) \:.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration.
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]).
 
-    **Bregman projection.** Another way to write this problem is to consider the KL projection of the Gibbs kernel onto the set of doubly stochastic matrices:
+    **Bregman projection.** Another way to write this problem is to consider the
+    KL projection of the Gibbs kernel onto the set of doubly stochastic matrices:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon) \:.
@@ -600,7 +606,15 @@ class DoublyStochasticEntropic(LogAffinity):
 
     References
     ----------
-    .. [5]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
+    .. [5]  Richard Sinkhorn, Paul Knopp (1967).
+            Concerning nonnegative matrices and doubly stochastic matrices.
+            Pacific Journal of Mathematics, 21(2), 343-348.
+
+    .. [6]  Marco Cuturi (2013).
+            Sinkhorn Distances: Lightspeed Computation of Optimal Transport.
+            Advances in Neural Information Processing Systems 26 (NeurIPS).
+
+    .. [7]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
             Alain Trouvé, Gabriel Peyré (2019).
             Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
             International Conference on Artificial Intelligence and Statistics
@@ -617,7 +631,7 @@ class DoublyStochasticEntropic(LogAffinity):
         verbose=False,
         tolog=False,
         metric="euclidean",
-        keops=True,
+        keops=False,
     ):
         self.eps = eps
         self.f = f

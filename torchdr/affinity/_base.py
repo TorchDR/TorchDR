@@ -9,16 +9,22 @@ Common (simple) affinity matrices
 
 from abc import ABC, abstractmethod
 
-from torchdr.utils import pairwise_distances
+from torchdr.utils import pairwise_distances, normalize_matrix
 
 
 class Affinity(ABC):
+    """Base class for affinity matrices."""
+
     def __init__(self):
         self.log = {}
 
     @abstractmethod
     def fit(self, X):
         self.data_ = X
+
+    def fit_get(self, X, *args, **kwargs):
+        self.fit(X)
+        return self.get(X, *args, **kwargs)
 
     def get(self, X):
         if not hasattr(self, "affinity_matrix_"):
@@ -68,27 +74,29 @@ class LogAffinity(Affinity):
 
 
 class GibbsAffinity(LogAffinity):
-    def __init__(self, sigma=1.0, metric="euclidean", keops=False):
+    def __init__(self, sigma=1.0, metric="euclidean", dim=(0, 1), keops=False):
         super().__init__()
         self.sigma = sigma
         self.metric = metric
+        self.dim = dim
         self.keops = keops
 
     def fit(self, X):
         super().fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         log_P = -C / self.sigma
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
+        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
 
 class StudentAffinity(LogAffinity):
-    def __init__(self, metric="euclidean", keops=False):
+    def __init__(self, metric="euclidean", dim=(0, 1), keops=False):
         super().__init__()
         self.metric = metric
+        self.dim = dim
         self.keops = keops
 
     def fit(self, X):
         super().fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
-        log_P = -(1 + C).log()
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
+        log_P = -(1 + C).log()  # student kernel in log domain
+        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)

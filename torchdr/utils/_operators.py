@@ -88,43 +88,73 @@ def svd_flip(u, v):
     return u, v
 
 
+def _sum(P, dim):
+    r"""
+    Sums a 2d tensor along axis dim.
+    If input is a torch tensor, returns a tensor with the same shape.
+    If input is a lazy tensor, returns a lazy tensor that can be summed with P.
+    """
+    assert dim in [0, 1, (0, 1)]
+
+    if isinstance(P, torch.Tensor):
+        return P.sum(dim, keepdim=True)
+    elif isinstance(P, LazyTensor):
+        if dim == (0, 1):
+            return P.sum(0).sum()  # scalar
+        elif dim == 1:
+            return P.sum(dim)[:, None]  # shape (n, 1, 1)
+        elif dim == 0:
+            return P.sum(dim)[None, :]  # shape (1, n, 1)
+    else:
+        raise ValueError("P should be a tensor or a lazy tensor.")
+
+
+def _logsumexp(log_P, dim):
+    r"""
+    Logsumexp of a 2d tensor along axis dim.
+    If input is a torch tensor, returns a tensor with the same shape.
+    If input is a lazy tensor, returns a lazy tensor that can be summed with P.
+    """
+    assert dim in [0, 1, (0, 1)]
+
+    if isinstance(log_P, torch.Tensor):
+        return log_P.logsumexp(dim, keepdim=True)
+
+    elif isinstance(log_P, LazyTensor):
+        if dim == (0, 1):
+            return log_P.logsumexp(0).logsumexp(0).squeeze()  # scalar
+        elif dim == 1:
+            return log_P.logsumexp(dim)[:, None]  # shape (n, 1, 1)
+        elif dim == 0:
+            return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
+
+    else:
+        raise ValueError("log_P should be a tensor or a lazy tensor.")
+
+
 def normalize_matrix(P, dim=1, log=False):
     r"""
     Normalizes a matrix along axis dim.
     If log, consider P in log domain and returns the normalized matrix in log domain.
-
-    .. note::
-        KeOps always reduces the last dimension so we have to add a transpose
-        when dim=0.
+    Handles both torch tensors and lazy tensors.
     """
     assert dim in [0, 1, (0, 1), None]
 
     if dim is None:
         return P
 
-    elif isinstance(P, torch.Tensor):
-        if log:
-            return P - P.logsumexp(dim, keepdim=True)
-        else:
-            return P / P.sum(dim, keepdim=True)
-
-    elif isinstance(P, LazyTensor):
-        if log:
-            if dim == (0, 1):
-                vectorial_reduction = P.logsumexp(0)
-                return P - vectorial_reduction.logsumexp(0)
-            elif dim == 1:
-                return P - P.logsumexp(dim)
-            elif dim == 0:
-                return P - P.logsumexp(dim).T
-        else:
-            if dim == (0, 1):
-                vectorial_reduction = P.sum(0)
-                return P / vectorial_reduction.sum()
-            elif dim == 1:
-                return P / P.sum(dim)
-            elif dim == 0:
-                return P / P.sum(dim).T
-
+    if log:
+        return P - _logsumexp(P, dim)
     else:
-        raise ValueError("P should be a tensor or a lazy tensor.")
+        return P / _sum(P, dim)
+
+
+def center_kernel(K):
+    r"""
+    Centers a kernel matrix.
+    """
+    n = K.shape[0]
+    K = K - _sum(K, dim=0) / n
+    K = K - _sum(K, dim=1) / n
+    K = K + _sum(K, dim=(0, 1)) / (n**2)
+    return K

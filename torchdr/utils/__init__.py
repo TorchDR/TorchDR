@@ -28,6 +28,8 @@ from ._operators import (
     cross_entropy_loss,
     square_loss,
     normalize_matrix,
+    svd_flip,
+    center_kernel,
 )
 
 
@@ -52,4 +54,6 @@ __all__ = [
     "cross_entropy_loss",
     "square_loss",
     "normalize_matrix",
+    "svd_flip",
+    "center_kernel",
 ]

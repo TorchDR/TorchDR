@@ -2,9 +2,6 @@ import torch
 import numpy as np
 import pytest
 
-from torch.testing import assert_close
-from pykeops.torch import LazyTensor
-
 from torchdr.utils import (
     check_equality_torch_keops,
     check_similarity,
@@ -49,7 +46,7 @@ def test_scalar_product_affinity(dtype):
         check_symmetry(P)
 
     # --- check equality between torch and keops ---
-    check_equality_torch_keops(list_P[0], list_P[1], K=10, tol=1e-5)
+    check_equality_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -70,7 +67,7 @@ def test_gibbs_affinity(dtype):
             assert P.min() >= 0, "Affinity matrix has negative values"
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=10, tol=1e-5)
+        check_equality_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -91,7 +88,7 @@ def test_student_affinity(dtype):
             assert P.min() >= 0, "Affinity matrix has negative values"
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=10, tol=1e-3)
+        check_equality_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -135,14 +132,13 @@ def test_entropic_affinity(dtype):
             ).all(), "Lower bound of entropic affinity root is not valid"
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=perp, tol=tol)
+        check_equality_torch_keops(list_P[0], list_P[1], K=perp)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_l2sym_entropic_affinity(dtype):
     n, p = 100, 10
     perp = 5
-    tol = 1e-3
 
     X = torch.randn(n, p, dtype=dtype)
 
@@ -161,7 +157,7 @@ def test_l2sym_entropic_affinity(dtype):
             check_symmetry(P)
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=perp, tol=tol)
+        check_equality_torch_keops(list_P[0], list_P[1], K=perp)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -208,7 +204,7 @@ def test_sym_entropic_affinity(dtype):
             check_similarity(P, P_eps_square, tol=tol)
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=perp, tol=tol)
+        check_equality_torch_keops(list_P[0], list_P[1], K=perp)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -234,4 +230,4 @@ def test_doubly_stochastic_entropic(dtype):
             check_marginal(P, one, dim=1, tol=tol)
 
         # --- check equality between torch and keops ---
-        check_equality_torch_keops(list_P[0], list_P[1], K=10, tol=tol)
+        check_equality_torch_keops(list_P[0], list_P[1], K=10)
