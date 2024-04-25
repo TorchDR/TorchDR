@@ -4,7 +4,13 @@
 # License: BSD 3-Clause License
 
 
-from ._base import Affinity, ScalarProductAffinity, GibbsAffinity, StudentAffinity
+from ._base import (
+    Affinity,
+    LogAffinity,
+    ScalarProductAffinity,
+    GibbsAffinity,
+    StudentAffinity,
+)
 
 from ._entropic import (
     EntropicAffinity,
@@ -19,6 +25,7 @@ from ._entropic import (
 
 __all__ = [
     "Affinity",
+    "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
     "StudentAffinity",

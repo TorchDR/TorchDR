@@ -13,7 +13,10 @@ from torchdr.utils import pairwise_distances, normalize_matrix
 
 
 class Affinity(ABC):
-    """Base class for affinity matrices."""
+    """
+    Base class for affinity matrices.
+    Each children class should implement a fit method.
+    """
 
     def __init__(self):
         self.log = {}
@@ -31,8 +34,8 @@ class Affinity(ABC):
             self.fit(X)
             assert hasattr(
                 self, "affinity_matrix_"
-            ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed \
-                in fit method"
+            ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed "
+            "in fit method."
         return self.affinity_matrix_  # type: ignore
 
 
@@ -88,9 +91,12 @@ class GibbsAffinity(LogAffinity):
         self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
 
-class StudentAffinity(LogAffinity):
-    def __init__(self, metric="euclidean", dim=(0, 1), keops=False):
+class StudentAffinity(Affinity):
+    def __init__(
+        self, degrees_of_freedom=1, metric="euclidean", dim=(0, 1), keops=False
+    ):
         super().__init__()
+        self.degrees_of_freedom = degrees_of_freedom
         self.metric = metric
         self.dim = dim
         self.keops = keops
@@ -98,5 +104,7 @@ class StudentAffinity(LogAffinity):
     def fit(self, X):
         super().fit(X)
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
-        log_P = -(1 + C).log()  # student kernel in log domain
-        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
+        C /= self.degrees_of_freedom
+        C += 1.0
+        C **= -(self.degrees_of_freedom + 1) / 2
+        self.affinity_matrix_ = normalize_matrix(C, dim=self.dim, log=False)

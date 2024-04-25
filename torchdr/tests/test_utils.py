@@ -2,7 +2,7 @@ import torch
 import pytest
 
 from torch.testing import assert_close
-from torchdr.utils import check_equality_torch_keops, check_symmetry
+from torchdr.utils import check_similarity_torch_keops, check_symmetry
 
 from torchdr.utils import (
     pairwise_distances,
@@ -85,4 +85,4 @@ def test_pairwise_distances(dtype):
 
         # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
-        check_equality_torch_keops(distances, distances_keops, K=10, tol=1e-3)
+        check_similarity_torch_keops(distances, distances_keops, K=10)
