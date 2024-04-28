@@ -91,7 +91,7 @@ class GibbsAffinity(LogAffinity):
         self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
 
-class StudentAffinity(Affinity):
+class StudentAffinity(LogAffinity):
     def __init__(
         self, degrees_of_freedom=1, metric="euclidean", dim=(0, 1), keops=False
     ):
@@ -106,5 +106,5 @@ class StudentAffinity(Affinity):
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         C /= self.degrees_of_freedom
         C += 1.0
-        C **= -(self.degrees_of_freedom + 1) / 2
-        self.affinity_matrix_ = normalize_matrix(C, dim=self.dim, log=False)
+        log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()
+        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
