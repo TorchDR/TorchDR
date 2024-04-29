@@ -40,9 +40,17 @@ def wrap_vectors(func):
     return wrapper
 
 
-@wrap_vectors
-def sum_matrix_vector(M, v):
+def sum_all_axis(func):
     """
-    Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
+    Sum the output matrix over all axis.
     """
-    return M + v
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        output = func(*args, **kwargs)
+        assert isinstance(output, torch.Tensor) or isinstance(
+            output, LazyTensor
+        ), "sum_all_axis can be applied to a tensor or lazy tensor."
+        return output.sum(1).sum()  # for compatibility with KeOps
+
+    return wrapper

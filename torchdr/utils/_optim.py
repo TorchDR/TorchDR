@@ -74,11 +74,11 @@ def binary_search(
         fm = f(m)
 
         if verbose:
-            mean_f = fm.mean().item()
-            std_f = fm.std().item()
+            mean_f = fm.abs().mean().item()
+            std_f = fm.abs().std().item()
             pbar.set_description(
-                f"f mean : {float(mean_f): .2e}, "
-                f"f std : {float(std_f): .2e}, "
+                f"|f| mean : {float(mean_f): .2e}, "
+                f"|f| std : {float(std_f): .2e}, "
                 f"begin mean : {float(begin.mean().item()): .2e}, "
                 f"end mean : {float(end.mean().item()): .2e} "
             )
@@ -151,11 +151,11 @@ def false_position(
         fm = f(m)
 
         if verbose:
-            mean_f = fm.mean().item()
-            std_f = fm.std().item()
+            mean_f = fm.abs().mean().item()
+            std_f = fm.abs().std().item()
             pbar.set_description(
-                f"f mean : {float(mean_f): .2e}, "
-                f"f std : {float(std_f): .2e}, "
+                f"|f| mean : {float(mean_f): .2e}, "
+                f"|f| std : {float(std_f): .2e}, "
                 f"begin mean : {float(begin.mean().item()): .2e}, "
                 f"end mean : {float(end.mean().item()): .2e} "
             )

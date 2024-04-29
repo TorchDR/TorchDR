@@ -8,8 +8,9 @@ Useful functions for defining objectives and constraints
 # License: BSD 3-Clause License
 
 import torch
-
 from pykeops.torch import LazyTensor
+
+from torchdr.utils._wrappers import wrap_vectors, sum_all_axis
 
 
 def entropy(P, log=True, dim=1):
@@ -23,52 +24,60 @@ def entropy(P, log=True, dim=1):
         return -(P * (P.log() - 1)).sum(dim).squeeze()
 
 
+@sum_all_axis
 def cross_entropy_loss(P, Q, log_Q=False):
     r"""
     Computes the cross-entropy between P and Q.
     Supports log domain input for Q.
     """
     if log_Q:
-        return -(P * Q).sum(1).sum()  # sum over both axis
+        return -P * Q
     else:
-        return -(P * Q.log()).sum(1).sum()
+        return -P * Q.log()
 
 
+@sum_all_axis
 def square_loss(P, Q):
     r"""
     Computes the square loss between P and Q.
     """
-    return ((P - Q) ** 2).sum(1).sum()
+    return (P - Q) ** 2
 
 
 def kmin(A, k=1, dim=0):
     r"""
-    Returns the k smallest element of a tensor or lazy tensor along axis dim.
+    Returns the k smallest elements of a tensor or lazy tensor along axis dim,
+    along with corresponding indices.
+    Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
+    assert isinstance(dim, int), "dim should be an integer."
     if isinstance(A, LazyTensor):
-        A_min = A.Kmin(K=k, dim=dim).squeeze()
-        return A_min.T if dim == 0 else A_min
+        dim_red = lambda P: (
+            P.T if dim == 0 else P
+        )  # reduces the same axis as torch.topk
+        values, indices = A.Kmin_argKmin(K=k, dim=dim)
+        return dim_red(values), dim_red(indices)
     else:
-        return (
-            A.topk(k=k, dim=dim, largest=False).values
-            if k > 1
-            else A.min(dim=dim).values
-        )
+        values, indices = A.topk(k=k, dim=dim, largest=False)
+        return values, indices
 
 
 def kmax(A, k=1, dim=0):
     r"""
-    Returns the k largest element of a tensor or lazy tensor along axis dim.
+    Returns the k largest elements of a tensor or lazy tensor along axis dim,
+    along with corresponding indices.
+    Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
+    assert isinstance(dim, int), "dim should be an integer."
     if isinstance(A, LazyTensor):
-        A_max = -(-A).Kmin(K=k, dim=dim).squeeze()
-        return A_max.T if dim == 0 else A_max
+        dim_red = lambda P: (
+            P.T if dim == 0 else P
+        )  # reduces the same axis as torch.topk
+        values, indices = (-A).Kmin_argKmin(K=k, dim=dim)
+        return -dim_red(values), dim_red(indices)
     else:
-        return (
-            A.topk(k=k, dim=dim, largest=True).values
-            if k > 1
-            else A.max(dim=dim).values
-        )
+        values, indices = A.topk(k=k, dim=dim, largest=True)
+        return values, indices
 
 
 # inspired from svd_flip from sklearn.utils.extmath
@@ -92,19 +101,21 @@ def _sum(P, dim):
     r"""
     Sums a 2d tensor along axis dim.
     If input is a torch tensor, returns a tensor with the same shape.
-    If input is a lazy tensor, returns a lazy tensor that can be summed with P.
+    If input is a lazy tensor, returns a lazy tensor that can be multiplied with P.
     """
     assert dim in [0, 1, (0, 1)]
 
     if isinstance(P, torch.Tensor):
         return P.sum(dim, keepdim=True)
+
     elif isinstance(P, LazyTensor):
         if dim == (0, 1):
-            return P.sum(0).sum()  # scalar
+            return P.sum(0).sum()  # shape (1)
         elif dim == 1:
             return P.sum(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
             return P.sum(dim)[None, :]  # shape (1, n, 1)
+
     else:
         raise ValueError("P should be a tensor or a lazy tensor.")
 
@@ -122,7 +133,7 @@ def _logsumexp(log_P, dim):
 
     elif isinstance(log_P, LazyTensor):
         if dim == (0, 1):
-            return log_P.logsumexp(0).logsumexp(0).squeeze()  # scalar
+            return log_P.logsumexp(1).logsumexp(0)  # shape (1)
         elif dim == 1:
             return log_P.logsumexp(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
@@ -138,10 +149,10 @@ def normalize_matrix(P, dim=1, log=False):
     If log, consider P in log domain and returns the normalized matrix in log domain.
     Handles both torch tensors and lazy tensors.
     """
-    assert dim in [0, 1, (0, 1), None]
-
     if dim is None:
         return P
+
+    assert dim in [0, 1, (0, 1)]
 
     if log:
         return P - _logsumexp(P, dim)
@@ -158,3 +169,27 @@ def center_kernel(K):
     K = K - _sum(K, dim=1) / n
     K = K + _sum(K, dim=(0, 1)) / (n**2)
     return K
+
+
+@wrap_vectors
+def sum_matrix_vector(M, v):
+    r"""
+    Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
+    Equivalent to M + v[:, None].
+    """
+    return M + v
+
+
+def identity_matrix(n, keops, device, dtype):
+    r"""
+    Returns the identity matrix of size n with corresponding device and dtype.
+    Outputs a lazy tensor if keops is True.
+    """
+    if keops:  # (complicated) workaround for identity matrix with KeOps
+        i = torch.arange(n).to(device=device, dtype=dtype)
+        j = torch.arange(n).to(device=device, dtype=dtype)
+        i = LazyTensor(i[:, None, None])
+        j = LazyTensor(j[None, :, None])
+        return (0.5 - (i - j) ** 2).step()
+    else:
+        return torch.eye(n, device=device, dtype=dtype)

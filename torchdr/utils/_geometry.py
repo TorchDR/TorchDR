@@ -9,10 +9,13 @@ Spaces and associated metrics
 
 from pykeops.torch import Vi, Vj
 
+from torchdr.utils._operators import identity_matrix
+
 LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
 
 
-def pairwise_distances(X, metric="euclidean", keops=False):
+# inspired from the benchmark_KNN from KeOps
+def pairwise_distances(X, metric="euclidean", keops=False, large_diag=True):
     """
     Compute pairwise distances matrix between points in a dataset.
     Returns the pairwise distance matrix as tensor or lazy tensor (if keops is True).
@@ -24,7 +27,7 @@ def pairwise_distances(X, metric="euclidean", keops=False):
     metric : str, optional
         Metric to use for computing distances. The default is "euclidean".
     keops : bool, optional
-        If True, uses KeOps for computing the distances. The default is False.
+        If True, uses KeOps for computing the distances.
 
     Returns
     -------
@@ -59,5 +62,8 @@ def pairwise_distances(X, metric="euclidean", keops=False):
             D = (X_norm[:, None] + X_norm[None, :] - 2 * X @ X.T) / (
                 X[:, 0][:, None] * X[:, 0][None, :]
             )
+
+    if large_diag:  # add large value on the diagonal
+        D += 1e12 * identity_matrix(X.shape[0], keops, X.device, X.dtype)
 
     return D
