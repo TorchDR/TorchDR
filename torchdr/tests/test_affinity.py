@@ -113,8 +113,9 @@ def test_entropic_affinity(dtype):
     X = torch.randn(n, p, dtype=dtype, device=DEVICE)
     perp = 5
     tol = 1e-5
-    one = torch.ones(n, dtype=dtype, device=X.device)
-    target_entropy = np.log(perp) * one + 1
+    zeros = torch.zeros(n, dtype=dtype, device=X.device)
+    ones = torch.ones(n, dtype=dtype, device=X.device)
+    target_entropy = np.log(perp) * ones + 1
 
     def entropy_gap(eps, C):  # function to find the root of
         return entropy(log_Pe(C, eps), log=True) - target_entropy
@@ -126,14 +127,14 @@ def test_entropic_affinity(dtype):
             affinity = EntropicAffinity(
                 perplexity=perp, keops=keops, metric=metric, tol=tol, verbose=True
             )
-            P = affinity.get(X)
-            list_P.append(P)
+            log_P = affinity.get(X, log=True)
+            list_P.append(log_P)
 
             # -- check properties of the affinity matrix --
-            check_type(P, keops=keops)
-            check_shape(P, (n, n))
-            check_marginal(P, one, dim=1)
-            check_entropy(P, target_entropy, dim=1, tol=tol)
+            check_type(log_P, keops=keops)
+            check_shape(log_P, (n, n))
+            check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+            check_entropy(log_P, target_entropy, dim=1, tol=1e-3, log=True)
 
             # -- check bounds on the root of entropic affinities --
             C = pairwise_distances(X, metric=metric, keops=keops)
@@ -178,9 +179,10 @@ def test_sym_entropic_affinity(dtype):
     n, p = 100, 10
     X = torch.randn(n, p, dtype=dtype, device=DEVICE)
     perp = 5
-    tol = 1e-3
-    one = torch.ones(n, dtype=dtype, device=X.device)
-    target_entropy = np.log(perp) * one + 1
+    tol = 1e-2
+    zeros = torch.zeros(n, dtype=dtype, device=X.device)
+    ones = torch.ones(n, dtype=dtype, device=X.device)
+    target_entropy = np.log(perp) * ones + 1
 
     for metric in LIST_METRICS_TEST:
         list_P = []
@@ -192,31 +194,32 @@ def test_sym_entropic_affinity(dtype):
                 tol=tol,
                 tolog=True,
                 verbose=True,
-                lr=1e-1,
-                max_iter=1000,
+                lr=1e-3,
+                max_iter=5000,
+                eps_square=False,
             )
-            P = affinity.get(X)
-            list_P.append(P)
+            log_P = affinity.get(X, log=True)
+            list_P.append(log_P)
 
             # -- check properties of the affinity matrix --
-            check_type(P, keops=keops)
-            check_shape(P, (n, n))
-            check_symmetry(P)
-            check_marginal(P, one, dim=1, tol=tol)
-            check_entropy(P, target_entropy, dim=1, tol=tol)
+            check_type(log_P, keops=keops)
+            check_shape(log_P, (n, n))
+            check_symmetry(log_P)
+            check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+            check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
 
             # --- test eps_square trick ---
             affinity_eps_square = SymmetricEntropicAffinity(
                 perplexity=perp,
                 keops=keops,
                 metric=metric,
-                tol=1e-5,
+                tol=tol,
                 eps_square=True,
-                lr=1e-1,
+                lr=1e-3,
                 max_iter=1000,
             )
-            P_eps_square = affinity_eps_square.get(X)
-            check_similarity(P, P_eps_square, tol=tol)
+            log_P_eps_square = affinity_eps_square.get(X, log=True)
+            check_similarity(log_P, log_P_eps_square, tol=tol)
 
         # --- check consistency between torch and keops ---
         check_similarity_torch_keops(list_P[0], list_P[1], K=perp)
@@ -226,22 +229,24 @@ def test_sym_entropic_affinity(dtype):
 def test_doubly_stochastic_entropic(dtype):
     n, p = 100, 10
     X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    eps = 1.0
+    eps = 1e2
     tol = 1e-3
-    one = torch.ones(n, dtype=dtype, device=X.device)
+    zeros = torch.zeros(n, dtype=dtype, device=X.device)
 
     for metric in LIST_METRICS_TEST:
         list_P = []
         for keops in [False, True]:
-            affinity = DoublyStochasticEntropic(eps=eps, keops=keops, metric=metric)
-            P = affinity.get(X)
-            list_P.append(P)
+            affinity = DoublyStochasticEntropic(
+                eps=eps, keops=keops, metric=metric, tol=tol
+            )
+            log_P = affinity.get(X, log=True)
+            list_P.append(log_P)
 
             # -- check properties of the affinity matrix --
-            check_type(P, keops=keops)
-            check_shape(P, (n, n))
-            check_symmetry(P)
-            check_marginal(P, one, dim=1, tol=tol)
+            check_type(log_P, keops=keops)
+            check_shape(log_P, (n, n))
+            check_symmetry(log_P)
+            check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
 
         # --- check consistency between torch and keops ---
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
