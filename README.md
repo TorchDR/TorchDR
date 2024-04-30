@@ -32,7 +32,11 @@ The library is distributed under the 3-Clause BSD license.
 
 [4] Max Vladymyrov, Miguel A. Carreira-Perpinan (2013). [Entropic Affinities: Properties and Efficient Numerical Computation](https://proceedings.mlr.press/v28/vladymyrov13.pdf). International Conference on Machine Learning (ICML).
 
-[5] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). [Interpolating between Optimal Transport and MMD using Sinkhorn Divergences](https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf). International Conference on Artificial Intelligence and Statistics (AISTATS).
+[5] Richard Sinkhorn, Paul Knopp (1967). [Concerning nonnegative matrices and doubly stochastic matrices](https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf). Pacific Journal of Mathematics, 21(2), 343-348.
+
+[6] Marco Cuturi (2013). [Sinkhorn Distances: Lightspeed Computation of Optimal Transport](https://proceedings.neurips.cc/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf). Advances in Neural Information Processing Systems 26 (NeurIPS).
+
+[7] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). [Interpolating between Optimal Transport and MMD using Sinkhorn Divergences](https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf). International Conference on Artificial Intelligence and Statistics (AISTATS).
 
 
 <!-- [] Yao Lu, Jukka Corander, Zhirong Yang. ["Doubly Stochastic Neighbor Embedding on Spheres."](https://www.sciencedirect.com/science/article/pii/S0167865518305099) Pattern Recognition Letters 128 (2019): 100-106.

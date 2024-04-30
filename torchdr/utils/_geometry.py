@@ -10,7 +10,7 @@ Spaces and associated metrics
 import torch
 from pykeops.torch import Vi, Vj
 
-from torchdr.utils._operators import identity_matrix
+from torchdr.utils._utils import identity_matrix
 
 LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
 

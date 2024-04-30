@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Tests for functions in utils module.
+"""
+
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
 import torch
 import pytest
 

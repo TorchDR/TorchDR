@@ -7,7 +7,7 @@
 
 from ._optim import binary_search, false_position, OPTIMIZERS
 
-from ._wrappers import wrap_vectors
+from ._wrappers import wrap_vectors, to_torch, torch_to_backend, handle_backend
 
 from ._geometry import pairwise_distances, LIST_METRICS
 
@@ -27,7 +27,7 @@ from ._validation import (
     check_total_sum,
 )
 
-from ._operators import (
+from ._utils import (
     entropy,
     kmin,
     kmax,
@@ -37,7 +37,6 @@ from ._operators import (
     svd_flip,
     center_kernel,
     sum_matrix_vector,
-    to_torch,
 )
 
 
@@ -71,4 +70,6 @@ __all__ = [
     "svd_flip",
     "center_kernel",
     "to_torch",
+    "torch_to_backend",
+    "handle_backend",
 ]

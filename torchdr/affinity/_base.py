@@ -15,7 +15,6 @@ from torchdr.utils import pairwise_distances, normalize_matrix, to_torch
 class Affinity(ABC):
     """
     Base class for affinity matrices.
-    Each children class should implement a fit method.
     """
 
     def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
@@ -28,6 +27,7 @@ class Affinity(ABC):
     @abstractmethod
     def fit(self, X):
         self.X_ = to_torch(X, device=self.device, verbose=self.verbose)
+        return self
 
     def _ground_cost_matrix(self, X):
         return pairwise_distances(X, metric=self.metric, keops=self.keops)

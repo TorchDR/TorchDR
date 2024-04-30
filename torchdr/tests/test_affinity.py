@@ -1,6 +1,15 @@
+# -*- coding: utf-8 -*-
+"""
+Tests for affinity matrices.
+"""
+
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
+import pytest
 import torch
 import numpy as np
-import pytest
 from sklearn.datasets import make_moons
 
 from torchdr.utils import (

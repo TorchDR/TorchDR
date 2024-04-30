@@ -8,7 +8,6 @@ Useful functions for defining objectives and constraints
 # License: BSD 3-Clause License
 
 import torch
-import numpy as np
 from pykeops.torch import LazyTensor
 
 from torchdr.utils._wrappers import wrap_vectors, sum_all_axis
@@ -194,32 +193,3 @@ def identity_matrix(n, keops, device, dtype):
         return (0.5 - (i - j) ** 2).step()
     else:
         return torch.eye(n, device=device, dtype=dtype)
-
-
-def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
-    use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
-    new_device = torch.device("cuda:0" if use_gpu else "cpu")
-
-    if verbose:
-        print(f"[TorchDR] Using device: {new_device}.")
-
-    if isinstance(x, torch.Tensor):
-        input_backend = "torch"
-        input_device = x.device
-        if input_device != new_device:
-            x_ = x.to(new_device)
-        else:
-            x_ = x
-
-    elif isinstance(x, np.ndarray):
-        input_backend = "numpy"
-        input_device = "cpu"
-        x_ = torch.from_numpy(x).to(new_device)  # memory efficient
-
-    else:
-        raise ValueError(f"Unsupported type {type(x)}.")
-
-    if return_backend_device:
-        return x_, input_backend, input_device
-    else:
-        return x_
