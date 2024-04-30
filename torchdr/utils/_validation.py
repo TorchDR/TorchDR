@@ -74,7 +74,7 @@ def relative_similarity(P, P_target):
     """
     Computes similarity between a torch.Tensor or LazyTensor and a target.
     """
-    return ((P - P_target) ** 2).sum() / (P_target**2).sum()
+    return (P - P_target).abs().sum() / P_target.abs().sum()
 
 
 def check_similarity(P, P_target, tol=1e-6, msg=None):
@@ -121,7 +121,9 @@ def check_total_sum(P, total_sum, tol=1e-6):
     """
     Check if a torch.Tensor or LazyTensor has the correct total sum.
     """
-    assert (P.sum(0).sum() - total_sum) ** 2 < tol, "Matrix has the wrong total sum."
+    assert (
+        (P.sum(0).sum() - total_sum) / total_sum
+    ).abs() < tol, "Matrix has the wrong total sum."
 
 
 def check_entropy(P, entropy_target, dim=1, tol=1e-6, log=True):

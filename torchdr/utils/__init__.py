@@ -37,6 +37,7 @@ from ._operators import (
     svd_flip,
     center_kernel,
     sum_matrix_vector,
+    to_torch,
 )
 
 
@@ -69,4 +70,5 @@ __all__ = [
     "normalize_matrix",
     "svd_flip",
     "center_kernel",
+    "to_torch",
 ]

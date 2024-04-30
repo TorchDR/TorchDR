@@ -7,6 +7,7 @@ Spaces and associated metrics
 #
 # License: BSD 3-Clause License
 
+import torch
 from pykeops.torch import Vi, Vj
 
 from torchdr.utils._operators import identity_matrix
@@ -14,8 +15,13 @@ from torchdr.utils._operators import identity_matrix
 LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
 
 
-# inspired from the benchmark_KNN from KeOps
-def pairwise_distances(X, metric="euclidean", keops=False, large_diag=True):
+# inspired from the benchmark_KNN of KeOps
+def pairwise_distances(
+    X: torch.Tensor,
+    metric: str = "euclidean",
+    keops: bool = False,
+    add_diagonal: float = 1e12,
+):
     """
     Compute pairwise distances matrix between points in a dataset.
     Returns the pairwise distance matrix as tensor or lazy tensor (if keops is True).
@@ -63,7 +69,7 @@ def pairwise_distances(X, metric="euclidean", keops=False, large_diag=True):
                 X[:, 0][:, None] * X[:, 0][None, :]
             )
 
-    if large_diag:  # add large value on the diagonal
-        D += 1e12 * identity_matrix(X.shape[0], keops, X.device, X.dtype)
+    if add_diagonal is not None:  # add mass on the diagonal
+        D += add_diagonal * identity_matrix(X.shape[0], keops, X.device, X.dtype)
 
     return D

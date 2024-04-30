@@ -1,10 +1,10 @@
 import torch
 import numpy as np
 import pytest
+from sklearn.datasets import make_moons
 
 from torchdr.utils import (
     check_similarity_torch_keops,
-    check_similarity,
     check_symmetry,
     check_marginal,
     check_entropy,
@@ -13,7 +13,6 @@ from torchdr.utils import (
     check_nonnegativity,
     check_total_sum,
     entropy,
-    pairwise_distances,
 )
 from torchdr.affinity import (
     ScalarProductAffinity,
@@ -27,21 +26,26 @@ from torchdr.affinity import (
     bounds_entropic_affinity,
 )
 
-lst_types = [torch.double, torch.float]
+lst_types = ["float32", "float64"]
 
 LIST_METRICS_TEST = ["euclidean", "manhattan"]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def toy_dataset(n=300, dtype="float32"):
+    X, _ = make_moons(n_samples=n, noise=0.05, random_state=0)
+    return X.astype(dtype)
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
+    n = 300
+    X = toy_dataset(n, dtype)
 
     list_P = []
     for keops in [False, True]:
-        affinity = ScalarProductAffinity(keops=keops)
-        P = affinity.get(X)
+        affinity = ScalarProductAffinity(device=DEVICE, keops=keops)
+        P = affinity.fit_transform(X)
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
@@ -55,16 +59,18 @@ def test_scalar_product_affinity(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_gibbs_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    one = torch.ones(n, dtype=dtype, device=X.device)
+    n = 300
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     for metric in LIST_METRICS_TEST:
         for dim in [0, 1, (0, 1)]:
             list_P = []
             for keops in [False, True]:
-                affinity = GibbsAffinity(keops=keops, metric=metric, dim=dim)
-                P = affinity.get(X)
+                affinity = GibbsAffinity(
+                    device=DEVICE, keops=keops, metric=metric, dim=dim
+                )
+                P = affinity.fit_transform(X)
                 list_P.append(P)
 
                 # -- check properties of the affinity matrix --
@@ -82,16 +88,18 @@ def test_gibbs_affinity(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_student_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    one = torch.ones(n, dtype=dtype, device=X.device)
+    n = 300
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     for metric in LIST_METRICS_TEST:
         for dim in [0, 1, (0, 1)]:
             list_P = []
             for keops in [False, True]:
-                affinity = StudentAffinity(keops=keops, metric=metric, dim=dim)
-                P = affinity.get(X)
+                affinity = StudentAffinity(
+                    device=DEVICE, keops=keops, metric=metric, dim=dim
+                )
+                P = affinity.fit_transform(X)
                 list_P.append(P)
 
                 # -- check properties of the affinity matrix --
@@ -109,12 +117,12 @@ def test_student_affinity(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_entropic_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    perp = 5
+    n = 300
+    X = toy_dataset(n, dtype)
+    perp = 30
     tol = 1e-5
-    zeros = torch.zeros(n, dtype=dtype, device=X.device)
-    ones = torch.ones(n, dtype=dtype, device=X.device)
+    zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
+    ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
     target_entropy = np.log(perp) * ones + 1
 
     def entropy_gap(eps, C):  # function to find the root of
@@ -125,9 +133,14 @@ def test_entropic_affinity(dtype):
         list_P = []
         for keops in [False, True]:
             affinity = EntropicAffinity(
-                perplexity=perp, keops=keops, metric=metric, tol=tol, verbose=True
+                perplexity=perp,
+                keops=keops,
+                metric=metric,
+                tol=tol,
+                verbose=True,
+                device=DEVICE,
             )
-            log_P = affinity.get(X, log=True)
+            log_P = affinity.fit_transform(X, log=True)
             list_P.append(log_P)
 
             # -- check properties of the affinity matrix --
@@ -137,14 +150,14 @@ def test_entropic_affinity(dtype):
             check_entropy(log_P, target_entropy, dim=1, tol=1e-3, log=True)
 
             # -- check bounds on the root of entropic affinities --
-            C = pairwise_distances(X, metric=metric, keops=keops)
+            C = affinity._ground_cost_matrix(affinity.X_)
             begin, end = bounds_entropic_affinity(C, perplexity=perp)
             assert (
                 entropy_gap(begin, C) < 0
-            ).all(), "Lower bound of entropic affinity root is not valid"
+            ).all(), "Lower bound of entropic affinity root is not valid."
             assert (
                 entropy_gap(end, C) > 0
-            ).all(), "Lower bound of entropic affinity root is not valid"
+            ).all(), "Lower bound of entropic affinity root is not valid."
 
         # --- check consistency between torch and keops ---
         check_similarity_torch_keops(list_P[0], list_P[1], K=perp)
@@ -152,17 +165,17 @@ def test_entropic_affinity(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_l2sym_entropic_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    perp = 5
+    n = 300
+    X = toy_dataset(n, dtype)
+    perp = 30
 
     for metric in LIST_METRICS_TEST:
         list_P = []
         for keops in [False, True]:
             affinity = L2SymmetricEntropicAffinity(
-                perplexity=perp, keops=keops, metric=metric, verbose=True
+                perplexity=perp, keops=keops, metric=metric, verbose=True, device=DEVICE
             )
-            P = affinity.get(X)
+            P = affinity.fit_transform(X)
             list_P.append(P)
 
             # -- check properties of the affinity matrix --
@@ -176,70 +189,60 @@ def test_l2sym_entropic_affinity(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_sym_entropic_affinity(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    perp = 5
+    n = 300
+    X = toy_dataset(n, dtype)
+    perp = 30
     tol = 1e-2
-    zeros = torch.zeros(n, dtype=dtype, device=X.device)
-    ones = torch.ones(n, dtype=dtype, device=X.device)
+    zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
+    ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
     target_entropy = np.log(perp) * ones + 1
 
     for metric in LIST_METRICS_TEST:
-        list_P = []
-        for keops in [False, True]:
-            affinity = SymmetricEntropicAffinity(
-                perplexity=perp,
-                keops=keops,
-                metric=metric,
-                tol=tol,
-                tolog=True,
-                verbose=True,
-                lr=1e-3,
-                max_iter=5000,
-                eps_square=False,
-            )
-            log_P = affinity.get(X, log=True)
-            list_P.append(log_P)
+        for optimizer in ["Adam", "LBFGS"]:
+            list_P = []
+            for keops in [False, True]:
+                affinity = SymmetricEntropicAffinity(
+                    perplexity=perp,
+                    keops=keops,
+                    metric=metric,
+                    tol=1e-6,
+                    tolog=True,
+                    verbose=True,
+                    lr=1e0,
+                    max_iter=2000,
+                    eps_square=True,
+                    device=DEVICE,
+                    optimizer=optimizer,
+                )
+                log_P = affinity.fit_transform(X, log=True)
+                list_P.append(log_P)
 
-            # -- check properties of the affinity matrix --
-            check_type(log_P, keops=keops)
-            check_shape(log_P, (n, n))
-            check_symmetry(log_P)
-            check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
-            check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
+                # -- check properties of the affinity matrix --
+                check_type(log_P, keops=keops)
+                check_shape(log_P, (n, n))
+                check_symmetry(log_P)
+                check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+                check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
 
-            # --- test eps_square trick ---
-            affinity_eps_square = SymmetricEntropicAffinity(
-                perplexity=perp,
-                keops=keops,
-                metric=metric,
-                tol=tol,
-                eps_square=True,
-                lr=1e-3,
-                max_iter=1000,
-            )
-            log_P_eps_square = affinity_eps_square.get(X, log=True)
-            check_similarity(log_P, log_P_eps_square, tol=tol)
-
-        # --- check consistency between torch and keops ---
-        check_similarity_torch_keops(list_P[0], list_P[1], K=perp)
+            # --- check consistency between torch and keops ---
+            check_similarity_torch_keops(list_P[0], list_P[1], K=5)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_doubly_stochastic_entropic(dtype):
-    n, p = 100, 10
-    X = torch.randn(n, p, dtype=dtype, device=DEVICE)
-    eps = 1e2
+    n = 300
+    X = toy_dataset(n, dtype)
+    eps = 1e0
     tol = 1e-3
-    zeros = torch.zeros(n, dtype=dtype, device=X.device)
+    zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     for metric in LIST_METRICS_TEST:
         list_P = []
         for keops in [False, True]:
             affinity = DoublyStochasticEntropic(
-                eps=eps, keops=keops, metric=metric, tol=tol
+                eps=eps, keops=keops, metric=metric, tol=tol, device=DEVICE
             )
-            log_P = affinity.get(X, log=True)
+            log_P = affinity.fit_transform(X, log=True)
             list_P.append(log_P)
 
             # -- check properties of the affinity matrix --

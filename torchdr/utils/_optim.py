@@ -33,6 +33,7 @@ def binary_search(
 ):
     r"""
     Performs a batched binary search to find the root of an increasing function f.
+    The domain of f is restricted to positive floats.
 
     Parameters
     ----------
@@ -100,6 +101,7 @@ def false_position(
     r"""
     Performs a batched false position method to find the root
     of an increasing function f.
+    The domain of f is restricted to positive floats.
 
     Parameters
     ----------

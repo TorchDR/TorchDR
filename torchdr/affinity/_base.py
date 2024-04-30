@@ -9,7 +9,7 @@ Common (simple) affinity matrices
 
 from abc import ABC, abstractmethod
 
-from torchdr.utils import pairwise_distances, normalize_matrix
+from torchdr.utils import pairwise_distances, normalize_matrix, to_torch
 
 
 class Affinity(ABC):
@@ -18,18 +18,22 @@ class Affinity(ABC):
     Each children class should implement a fit method.
     """
 
-    def __init__(self):
+    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
         self.log = {}
+        self.metric = metric
+        self.device = device
+        self.keops = keops
+        self.verbose = verbose
 
     @abstractmethod
     def fit(self, X):
-        self.data_ = X
+        self.X_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-    def fit_get(self, X, *args, **kwargs):
+    def _ground_cost_matrix(self, X):
+        return pairwise_distances(X, metric=self.metric, keops=self.keops)
+
+    def fit_transform(self, X):
         self.fit(X)
-        return self.get(X, *args, **kwargs)
-
-    def get(self, X):
         if not hasattr(self, "affinity_matrix_"):
             self.fit(X)
             assert hasattr(
@@ -40,33 +44,29 @@ class Affinity(ABC):
 
 
 class ScalarProductAffinity(Affinity):
-    def __init__(self, centering=False, keops=False):
-        super().__init__()
+    def __init__(self, device="cuda", keops=True, verbose=True, centering=False):
+        super().__init__(metric="angular", device=device, keops=keops, verbose=verbose)
         self.centering = centering
-        self.keops = keops
 
     def fit(self, X):
         super().fit(X)
         if self.centering:
-            X = X - X.mean(0)
-        self.affinity_matrix_ = -pairwise_distances(
-            X, metric="angular", keops=self.keops
-        )
+            self.X_ = self.X_ - self.X_.mean(0)
+        self.affinity_matrix_ = -self._ground_cost_matrix(self.X_)
 
 
 class LogAffinity(Affinity):
     """Computes an affinity matrix from an affinity matrix in log space."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
 
-    def get(self, X, log=False):
-        if not hasattr(self, "log_affinity_matrix_"):
-            self.fit(X)
-            assert hasattr(
-                self, "log_affinity_matrix_"
-            ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed \
-                in  fit method of a LogAffinity."
+    def fit_transform(self, X, log=False):
+        self.fit(X)
+        assert hasattr(
+            self, "log_affinity_matrix_"
+        ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed "
+        "in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix
             return self.log_affinity_matrix_  # type: ignore
@@ -77,33 +77,43 @@ class LogAffinity(Affinity):
 
 
 class GibbsAffinity(LogAffinity):
-    def __init__(self, sigma=1.0, metric="euclidean", dim=(0, 1), keops=False):
-        super().__init__()
+    def __init__(
+        self,
+        sigma=1.0,
+        dim=(0, 1),
+        metric="euclidean",
+        device=None,
+        keops=True,
+        verbose=True,
+    ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.sigma = sigma
-        self.metric = metric
         self.dim = dim
-        self.keops = keops
 
     def fit(self, X):
         super().fit(X)
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C = self._ground_cost_matrix(self.X_)
         log_P = -C / self.sigma
         self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
 
 class StudentAffinity(LogAffinity):
     def __init__(
-        self, degrees_of_freedom=1, metric="euclidean", dim=(0, 1), keops=False
+        self,
+        degrees_of_freedom=1,
+        dim=(0, 1),
+        metric="euclidean",
+        device=None,
+        keops=True,
+        verbose=True,
     ):
-        super().__init__()
-        self.degrees_of_freedom = degrees_of_freedom
-        self.metric = metric
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.dim = dim
-        self.keops = keops
+        self.degrees_of_freedom = degrees_of_freedom
 
     def fit(self, X):
         super().fit(X)
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C = self._ground_cost_matrix(self.X_)
         C /= self.degrees_of_freedom
         C += 1.0
         log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()

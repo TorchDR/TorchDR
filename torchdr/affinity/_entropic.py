@@ -16,7 +16,6 @@ from tqdm import tqdm
 from torchdr.utils import (
     entropy,
     false_position,
-    pairwise_distances,
     wrap_vectors,
     sum_matrix_vector,
     kmin,
@@ -156,14 +155,19 @@ class EntropicAffinity(LogAffinity):
         Consider selecting a value between 2 and the number of samples.
     tol : float, optional
         Precision threshold at which the root finding algorithm stops.
-    metric : str, optional
-        Metric to use for computing distances (default "euclidean").
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
-    verbose : bool, optional
-        Verbosity.
+    sparsity: bool, optional
+        If True, keeps only the 3 * perplexity smallest element on each row of
+        the ground cost matrix. Recommended if perplexity is small (<50).
+    metric : str, optional
+        Metric to use for computing distances (default "euclidean").
+    device : str, optional
+        Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
+    verbose : bool, optional
+        Verbosity.
 
     Attributes
     ----------
@@ -193,21 +197,19 @@ class EntropicAffinity(LogAffinity):
     def __init__(
         self,
         perplexity,
-        metric="euclidean",
         tol=1e-3,
         max_iter=1000,
-        verbose=True,
-        keops=True,
         sparsity=False,
+        metric="euclidean",
+        device=None,
+        keops=True,
+        verbose=True,
     ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.perplexity = perplexity
-        self.metric = metric
         self.tol = tol
         self.max_iter = max_iter
-        self.verbose = verbose
-        self.keops = keops
         self.sparsity = sparsity
-        super().__init__()
 
     def fit(self, X):
         r"""
@@ -226,7 +228,7 @@ class EntropicAffinity(LogAffinity):
         """
         super().fit(X)
 
-        C_full = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C_full = self._ground_cost_matrix(self.X_)
         if self.sparsity:
             print(
                 "[TorchDR] Affinity : Sparsity mode enabled, computing "
@@ -260,8 +262,8 @@ class EntropicAffinity(LogAffinity):
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
-            dtype=X.dtype,
-            device=X.device,
+            dtype=self.X_.dtype,
+            device=self.X_.device,
         )
 
         self.log_affinity_matrix_ = log_Pe(C_full, self.eps_)
@@ -287,10 +289,17 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         Precision threshold at which the root finding algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
-    verbose : bool, optional
-        Verbosity.
+    sparsity: bool, optional
+        If True, keeps only the 3 * perplexity smallest element on each row of
+        the ground cost matrix. Recommended if perplexity is small (<50).
+    metric: str, optional
+        Metric to use for computing distances, by default "euclidean".
+    device : str, optional
+        Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
+    verbose : bool, optional
+        Verbosity.
 
     Attributes
     ----------
@@ -312,21 +321,23 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
     def __init__(
         self,
         perplexity,
-        metric="euclidean",
         tol=1e-5,
         max_iter=1000,
-        verbose=True,
-        keops=False,
         sparsity=False,
+        metric="euclidean",
+        device=None,
+        keops=False,
+        verbose=True,
     ):
         super().__init__(
             perplexity=perplexity,
-            metric=metric,
             tol=tol,
             max_iter=max_iter,
-            verbose=verbose,
-            keops=keops,
             sparsity=sparsity,
+            metric=metric,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
 
     def fit(self, X):
@@ -345,7 +356,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         """
         super().fit(X)
         log_P = self.log_affinity_matrix_
-        n = X.shape[0]
+        n = log_P.shape[0]
         self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / (2 * n)
         self.log_affinity_matrix_ = self.affinity_matrix_.log()
 
@@ -389,20 +400,22 @@ class SymmetricEntropicAffinity(LogAffinity):
     eps_square : bool, optional
         Whether to optimize on the square of the dual variables.
         May be more stable in practice.
-    metric : str, optional
-        Metric to use for computing distances, by default "euclidean".
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-5.
     max_iter : int, optional
         Number of maximum iterations for the algorithm, by default 500.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
+    optimizer : {'SGD', 'Adam', 'NAdam', 'LBFGS}, optional
         Which pytorch optimizer to use (default 'Adam').
-    verbose : bool, optional
-        Verbosity (default True).
     tolog : bool, optional
         Whether to store intermediate result in a dictionary (default False).
+    metric : str, optional
+        Metric to use for computing distances, by default "euclidean".
+    device : str, optional
+        Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
+    verbose : bool, optional
+        Verbosity (default True).
 
     Attributes
     ----------
@@ -427,26 +440,23 @@ class SymmetricEntropicAffinity(LogAffinity):
         perplexity,
         lr=1e0,
         eps_square=False,
-        metric="euclidean",
         tol=1e-3,
         max_iter=500,
         optimizer="Adam",
+        metric="euclidean",
+        device=None,
+        keops=False,
         verbose=True,
         tolog=False,
-        keops=False,
     ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.perplexity = perplexity
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
         self.optimizer = optimizer
-        self.verbose = verbose
         self.tolog = tolog
-        self.n_iter_ = 0
         self.eps_square = eps_square
-        self.metric = metric
-        self.keops = keops
-        super().__init__()
 
     def fit(self, X):
         r"""
@@ -471,9 +481,9 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         super().fit(X)
 
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C = self._ground_cost_matrix(self.X_)
 
-        n = X.shape[0]
+        n = C.shape[0]
         if not 1 < self.perplexity <= n:
             raise ValueError(
                 "[TorchDR] Affinity : The perplexity parameter must be between "
@@ -481,11 +491,11 @@ class SymmetricEntropicAffinity(LogAffinity):
             )
 
         target_entropy = np.log(self.perplexity) + 1
-        one = torch.ones(n, dtype=X.dtype, device=X.device)
+        one = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
 
         # dual variables, size (n_samples)
-        self.eps_ = torch.ones(n, dtype=X.dtype, device=X.device)
-        self.mu_ = torch.ones(n, dtype=X.dtype, device=X.device)
+        self.eps_ = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
+        self.mu_ = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
 
         if self.optimizer == "LBFGS":
 
@@ -653,10 +663,16 @@ class DoublyStochasticEntropic(LogAffinity):
         Number of maximum iterations for the algorithm.
     student : bool, optional
         Whether to use a t-Student kernel instead of a Gaussian kernel.
-    verbose : bool, optional
-        Verbosity.
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
+    metric : str, optional
+        Metric to use for computing distances (default "euclidean").
+    device : str, optional
+        Device to use for computation.
+    keops : bool, optional
+        Whether to use KeOps for computation.
+    verbose : bool, optional
+        Verbosity.
 
     Attributes
     ----------
@@ -692,21 +708,19 @@ class DoublyStochasticEntropic(LogAffinity):
         tol=1e-5,
         max_iter=1000,
         student=False,
-        verbose=False,
         tolog=False,
         metric="euclidean",
+        device=None,
         keops=False,
+        verbose=False,
     ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.eps = eps
         self.f = f
         self.tol = tol
         self.max_iter = max_iter
         self.student = student
-        self.verbose = verbose
         self.tolog = tolog
-        self.metric = metric
-        self.keops = keops
-        super().__init__()
 
     def fit(self, X):
         r"""Computes the entropic doubly stochastic affinity matrix from input data X.
@@ -723,7 +737,7 @@ class DoublyStochasticEntropic(LogAffinity):
         """
         super().fit(X)
 
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C = self._ground_cost_matrix(self.X_)
         if self.student:
             C = (1 + C).log()
 
@@ -738,7 +752,9 @@ class DoublyStochasticEntropic(LogAffinity):
 
         # Performs warm-start if a dual variable f is provided
         self.f_ = (
-            torch.zeros(n, dtype=X.dtype, device=X.device) if self.f is None else self.f
+            torch.zeros(n, dtype=self.X_.dtype, device=self.X_.device)
+            if self.f is None
+            else self.f
         )
 
         if self.tolog:
