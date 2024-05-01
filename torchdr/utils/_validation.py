@@ -28,7 +28,7 @@ def check_NaNs(input, msg=None):
         raise TypeError("Input must be a tensor or a list of tensors.")
 
 
-def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-3):
+def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-6):
     """
     Check that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """

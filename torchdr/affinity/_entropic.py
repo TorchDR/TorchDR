@@ -439,7 +439,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self,
         perplexity,
         lr=1e0,
-        eps_square=False,
+        eps_square=True,
         tol=1e-3,
         max_iter=500,
         optimizer="Adam",
