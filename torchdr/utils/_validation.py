@@ -16,7 +16,7 @@ from torchdr.utils._utils import entropy
 
 def check_NaNs(input, msg=None):
     """
-    Check if a tensor contains NaN values.
+    Checks if a tensor contains NaN values.
     """
     if isinstance(input, list):
         for tensor in input:
@@ -30,7 +30,7 @@ def check_NaNs(input, msg=None):
 
 def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-6):
     """
-    Check that a torch.Tensor and a LazyTensor are equal on their largest entries.
+    Checks that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """
     assert isinstance(P, torch.Tensor), "P is not a torch.Tensor."
     assert isinstance(P_keops, LazyTensor), "P_keops is not a LazyTensor."
@@ -79,7 +79,7 @@ def relative_similarity(P, P_target):
 
 def check_similarity(P, P_target, tol=1e-6, msg=None):
     """
-    Check if a torch.Tensor or LazyTensor is close to a target matrix.
+    Checks if a torch.Tensor or LazyTensor is close to a target matrix.
     """
     (n, p) = P.shape
     (also_n, also_p) = P_target.shape
@@ -93,14 +93,14 @@ def check_similarity(P, P_target, tol=1e-6, msg=None):
 
 def check_symmetry(P, tol=1e-6, msg=None):
     """
-    Check if a torch.Tensor or LazyTensor is symmetric.
+    Checks if a torch.Tensor or LazyTensor is symmetric.
     """
     check_similarity(P, P.T, tol=tol, msg=msg or "Matrix is not symmetric.")
 
 
 def check_marginal(P, marg, dim=1, tol=1e-6, log=False):
     """
-    Check if a torch.Tensor or LazyTensor has the correct marginal along axis dim.
+    Checks if a torch.Tensor or LazyTensor has the correct marginal along axis dim.
     If log is True, considers that both P and marg are in log domain.
     """
     if log:
@@ -119,7 +119,7 @@ def check_marginal(P, marg, dim=1, tol=1e-6, log=False):
 
 def check_total_sum(P, total_sum, tol=1e-6):
     """
-    Check if a torch.Tensor or LazyTensor has the correct total sum.
+    Checks if a torch.Tensor or LazyTensor has the correct total sum.
     """
     assert (
         (P.sum(0).sum() - total_sum) / total_sum
@@ -128,7 +128,7 @@ def check_total_sum(P, total_sum, tol=1e-6):
 
 def check_entropy(P, entropy_target, dim=1, tol=1e-6, log=True):
     """
-    Check if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
+    Checks if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
     """
     assert_close(
         entropy(P, log=log, dim=dim),
@@ -141,7 +141,7 @@ def check_entropy(P, entropy_target, dim=1, tol=1e-6, log=True):
 
 def check_entropy_lower_bound(P, entropy_target, dim=1, log=True):
     """
-    Check if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
+    Checks if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
     """
     H = entropy(P, log=log, dim=dim)
     assert ((H - entropy_target) >= 0).all(), "Matrix entropy is lower than the target."
@@ -149,7 +149,7 @@ def check_entropy_lower_bound(P, entropy_target, dim=1, log=True):
 
 def check_type(P, keops):
     """
-    Check if a tensor is a torch.Tensor or a LazyTensor (if keops is True).
+    Checks if a tensor is a torch.Tensor or a LazyTensor (if keops is True).
     """
     if keops:
         assert isinstance(P, LazyTensor), "Input is not a LazyTensor."
@@ -159,21 +159,21 @@ def check_type(P, keops):
 
 def check_shape(P, shape):
     """
-    Check if a tensor has the correct shape.
+    Checks if a tensor has the correct shape.
     """
     assert P.shape == shape, "Input shape is incorrect."
 
 
 def check_nonnegativity(P):
     """
-    Check if a tensor contains only non-negative values.
+    Checks if a tensor contains only non-negative values.
     """
     assert P.min() >= 0, "Input contains negative values."
 
 
 def check_nonnegativity_eigenvalues(lambdas, tol_neg_ratio=1e-3, small_pos_ratio=1e-6):
     """
-    Check if vector of eigenvalues lambdas contains only non-negative entries.
+    Checks if vector of eigenvalues lambdas contains only non-negative entries.
     """
     max_lam = lambdas.max()
     min_lam = lambdas.min()

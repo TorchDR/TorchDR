@@ -97,11 +97,12 @@ def svd_flip(u, v):
     return u, v
 
 
-def _sum(P, dim):
+def sum_red(P, dim):
     r"""
     Sums a 2d tensor along axis dim.
     If input is a torch tensor, returns a tensor with the same shape.
-    If input is a lazy tensor, returns a lazy tensor that can be multiplied with P.
+    If input is a lazy tensor, returns a lazy tensor that can be summed or
+    multiplied with P.
     """
     assert dim in [0, 1, (0, 1)]
 
@@ -120,11 +121,12 @@ def _sum(P, dim):
         raise ValueError("P should be a tensor or a lazy tensor.")
 
 
-def _logsumexp(log_P, dim):
+def logsumexp_red(log_P, dim):
     r"""
     Logsumexp of a 2d tensor along axis dim.
     If input is a torch tensor, returns a tensor with the same shape.
-    If input is a lazy tensor, returns a lazy tensor that can be summed with P.
+    If input is a lazy tensor, returns a lazy tensor that can be summed
+    or multiplied with P.
     """
     assert dim in [0, 1, (0, 1)]
 
@@ -155,9 +157,9 @@ def normalize_matrix(P, dim=1, log=False):
     assert dim in [0, 1, (0, 1)]
 
     if log:
-        return P - _logsumexp(P, dim)
+        return P - logsumexp_red(P, dim)
     else:
-        return P / _sum(P, dim)
+        return P / sum_red(P, dim)
 
 
 def center_kernel(K):
@@ -165,9 +167,9 @@ def center_kernel(K):
     Centers a kernel matrix.
     """
     n = K.shape[0]
-    K = K - _sum(K, dim=0) / n
-    K = K - _sum(K, dim=1) / n
-    K = K + _sum(K, dim=(0, 1)) / (n**2)
+    K = K - sum_red(K, dim=0) / n
+    K = K - sum_red(K, dim=1) / n
+    K = K + sum_red(K, dim=(0, 1)) / (n**2)
     return K
 
 

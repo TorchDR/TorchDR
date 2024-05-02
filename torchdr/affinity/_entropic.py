@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Entropic projections to construct (entropic) affinity matrices
+Affinity matrices with entropic constraints
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -48,12 +48,12 @@ def log_Pse(C, eps, mu, eps_square=False):
 
 
 @wrap_vectors
-def log_Pds(log_K, f):
+def log_Pds(log_K, dual):
     r"""
     Returns the log of the doubly stochastic normalization of log_K (in log domain)
     given a scaling vector f which can be computed via the Sinkhorn iterations.
     """
-    return f + f.T + log_K
+    return dual + dual.T + log_K
 
 
 def bounds_entropic_affinity(C, perplexity):
@@ -507,7 +507,6 @@ class SymmetricEntropicAffinity(LogAffinity):
                 lr=self.lr,
                 max_iter=self.max_iter,
                 tolerance_grad=self.tol,
-                tolerance_change=self.tol,
                 line_search_fn="strong_wolfe",
             )
 
@@ -559,17 +558,16 @@ class SymmetricEntropicAffinity(LogAffinity):
 
                     log_P = log_Pse(C, self.eps_, self.mu_, eps_square=self.eps_square)
                     H = entropy(log_P, log=True, dim=1)
+                    P_sum = log_P.logsumexp(1).exp().squeeze()  # squeeze for keops
 
+                    grad_eps = H - target_entropy
                     if self.eps_square:
                         # the Jacobian must be corrected by 2 * diag(eps)
-                        self.eps_.grad = (
-                            2 * self.eps_.clone().detach() * (H - target_entropy)
-                        )
-                    else:
-                        self.eps_.grad = H - target_entropy
+                        grad_eps = 2 * self.eps_.clone().detach() * grad_eps
+                    grad_mu = P_sum - one
 
-                    P_sum = log_P.logsumexp(1).exp().squeeze()  # squeeze for keops
-                    self.mu_.grad = P_sum - one
+                    self.eps_.grad = grad_eps
+                    self.mu_.grad = grad_mu
                     optimizer.step()
 
                     if not self.eps_square:  # optimize on eps > 0
@@ -596,11 +594,15 @@ class SymmetricEntropicAffinity(LogAffinity):
                             f"(std:{float(P_sum.std().item()): .2e})"
                         )
 
-                    if ((H - np.log(self.perplexity) - 1).abs() < self.tol).all() and (
-                        (P_sum - one).abs() < self.tol
-                    ).all():
+                    if (
+                        torch.norm(grad_eps) < self.tol
+                        and torch.norm(grad_mu) < self.tol
+                    ):
                         if self.verbose:
-                            print(f"[TorchDR] Affinity : breaking at iter {k}.")
+                            print(
+                                f"[TorchDR] Affinity : convergence reached "
+                                "at iter {k}."
+                            )
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
@@ -704,7 +706,7 @@ class DoublyStochasticEntropic(LogAffinity):
     def __init__(
         self,
         eps=1.0,
-        f=None,
+        init_dual=None,
         tol=1e-5,
         max_iter=1000,
         student=False,
@@ -716,7 +718,7 @@ class DoublyStochasticEntropic(LogAffinity):
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.eps = eps
-        self.f = f
+        self.init_dual = init_dual
         self.tol = tol
         self.max_iter = max_iter
         self.student = student
@@ -751,30 +753,30 @@ class DoublyStochasticEntropic(LogAffinity):
         log_K = -C / self.eps
 
         # Performs warm-start if a dual variable f is provided
-        self.f_ = (
+        self.dual_ = (
             torch.zeros(n, dtype=self.X_.dtype, device=self.X_.device)
-            if self.f is None
-            else self.f
+            if self.init_dual is None
+            else self.init_dual
         )
 
         if self.tolog:
-            self.log["f"] = [self.f_.clone().detach().cpu()]
+            self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
         # Sinkhorn iterations
         for k in range(self.max_iter):
 
             # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
-            reduction = -sum_matrix_vector(log_K, self.f_).logsumexp(0).squeeze()
-            self.f_ = 0.5 * (self.f_ + reduction)
+            reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
+            self.dual_ = 0.5 * (self.dual_ + reduction)
 
             if self.tolog:
-                self.log["f"].append(self.f_.clone().detach().cpu())
+                self.log["dual"].append(self.dual_.clone().detach().cpu())
 
-            check_NaNs(self.f_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
+            check_NaNs(self.dual_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
 
-            if ((self.f_ - reduction).abs() < self.tol).all():
+            if torch.norm(self.dual_ - reduction) < self.tol:
                 if self.verbose:
-                    print(f"[TorchDR] Affinity : breaking at iter {k}.")
+                    print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
                 break
 
             if k == self.max_iter - 1 and self.verbose:
@@ -784,6 +786,6 @@ class DoublyStochasticEntropic(LogAffinity):
                 )
 
         self.n_iter_ = k
-        self.log_affinity_matrix_ = log_Pds(log_K, self.f_)
+        self.log_affinity_matrix_ = log_Pds(log_K, self.dual_)
 
         return self

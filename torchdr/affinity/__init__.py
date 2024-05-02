@@ -23,6 +23,8 @@ from ._entropic import (
     bounds_entropic_affinity,
 )
 
+from ._quadratic import DoublyStochasticQuadratic
+
 __all__ = [
     "Affinity",
     "LogAffinity",
@@ -37,4 +39,5 @@ __all__ = [
     "log_Pse",
     "log_Pds",
     "bounds_entropic_affinity",
+    "DoublyStochasticQuadratic",
 ]

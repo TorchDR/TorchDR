@@ -37,6 +37,8 @@ from ._utils import (
     svd_flip,
     center_kernel,
     sum_matrix_vector,
+    sum_red,
+    logsumexp_red,
 )
 
 
@@ -48,6 +50,8 @@ __all__ = [
     "kmin",
     "kmax",
     "sum_matrix_vector",
+    "sum_red",
+    "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
     "LIST_METRICS",

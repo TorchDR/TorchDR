@@ -31,6 +31,7 @@ from torchdr.affinity import (
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
+    DoublyStochasticQuadratic,
     log_Pe,
     bounds_entropic_affinity,
 )
@@ -228,7 +229,13 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     affinity = DoublyStochasticEntropic(
-        eps=eps, keops=keops, metric=metric, tol=tol, device=DEVICE
+        eps=eps,
+        keops=keops,
+        metric=metric,
+        tol=tol,
+        device=DEVICE,
+        tolog=True,
+        verbose=True,
     )
     log_P = affinity.fit_transform(X, log=True)
 
@@ -237,3 +244,31 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
     check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("keops", [True, False])
+def test_doubly_stochastic_quadratic(dtype, metric, keops):
+    n = 300
+    X = toy_dataset(n, dtype)
+    eps = 1e0
+    tol = 1e-3
+    ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    affinity = DoublyStochasticQuadratic(
+        eps=eps,
+        keops=keops,
+        metric=metric,
+        tol=tol,
+        device=DEVICE,
+        tolog=True,
+        verbose=True,
+    )
+    P = affinity.fit_transform(X)
+
+    # -- check properties of the affinity matrix --
+    check_type(P, keops=keops)
+    check_shape(P, (n, n))
+    check_symmetry(P)
+    check_marginal(P, ones, dim=1, tol=tol, log=False)
