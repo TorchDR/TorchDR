@@ -51,7 +51,7 @@ class DRModule(ABC, BaseEstimator):
         """
         if self.verbose:
             print("[TorchDR] Fitting DR model ...")
-        self.X_, self.input_backend, self.input_device = to_torch(
+        self.data_, self.input_backend, self.input_device = to_torch(
             X, device=self.device, verbose=self.verbose, return_backend_device=True
         )
         return self

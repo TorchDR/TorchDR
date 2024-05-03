@@ -22,8 +22,8 @@ class PCA(DRModule):
 
     def fit(self, X):
         super().fit(X)
-        self.mean_ = self.X_.mean(0, keepdim=True)
-        U, _, V = torch.linalg.svd(self.X_ - self.mean_, full_matrices=False)
+        self.mean_ = self.data_.mean(0, keepdim=True)
+        U, _, V = torch.linalg.svd(self.data_ - self.mean_, full_matrices=False)
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
         return self

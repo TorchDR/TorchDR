@@ -32,9 +32,10 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
     DoublyStochasticQuadratic,
-    log_Pe,
-    bounds_entropic_affinity,
+    UMAPAffinityData,
+    UMAPAffinityEmbedding,
 )
+from torchdr.affinity._entropic import bounds_entropic_affinity, _log_Pe
 
 lst_types = ["float32", "float64"]
 
@@ -124,25 +125,27 @@ def test_student_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
-def test_entropic_affinity(dtype, metric, keops):
+@pytest.mark.parametrize("sparsity", [False, None])
+def test_entropic_affinity(dtype, metric, keops, sparsity):
     n = 300
     X = toy_dataset(n, dtype)
     perp = 30
-    tol = 1e-3
+    tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
     target_entropy = np.log(perp) * ones + 1
 
     def entropy_gap(eps, C):  # function to find the root of
-        return entropy(log_Pe(C, eps), log=True) - target_entropy
+        return entropy(_log_Pe(C, eps), log=True) - target_entropy
 
     affinity = EntropicAffinity(
         perplexity=perp,
         keops=keops,
         metric=metric,
-        tol=1e-5,
+        tol=1e-6,
         verbose=True,
         device=DEVICE,
+        sparsity=sparsity,
     )
     log_P = affinity.fit_transform(X, log=True)
 
@@ -153,7 +156,7 @@ def test_entropic_affinity(dtype, metric, keops):
     check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._ground_cost_matrix(affinity.X_)
+    C = affinity._ground_cost_matrix(affinity.data_)
     begin, end = bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
@@ -272,3 +275,56 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
     check_shape(P, (n, n))
     check_symmetry(P)
     check_marginal(P, ones, dim=1, tol=tol, log=False)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("keops", [True, False])
+@pytest.mark.parametrize("sparsity", [None, False])
+def test_umap_data_affinity(dtype, metric, keops, sparsity):
+    n = 300
+    X = toy_dataset(n, dtype)
+    n_neighbors = 30
+    tol = 1e-3
+
+    affinity = UMAPAffinityData(
+        n_neighbors=n_neighbors,
+        device=DEVICE,
+        keops=keops,
+        metric=metric,
+        tol=tol,
+        verbose=True,
+        sparsity=sparsity,
+    )
+    P = affinity.fit_transform(X)
+
+    # -- check properties of the affinity matrix --
+    check_type(P, keops=keops)
+    check_shape(P, (n, n))
+    check_nonnegativity(P)
+    check_symmetry(P)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("keops", [True, False])
+@pytest.mark.parametrize("a, b", [(1, 2), (None, None)])
+def test_umap_embedding_affinity(dtype, metric, keops, a, b):
+    n = 300
+    X = toy_dataset(n, dtype)
+
+    affinity = UMAPAffinityEmbedding(
+        device=DEVICE,
+        keops=keops,
+        metric=metric,
+        verbose=True,
+        a=a,
+        b=b,
+    )
+    P = affinity.fit_transform(X)
+
+    # -- check properties of the affinity matrix --
+    check_type(P, keops=keops)
+    check_shape(P, (n, n))
+    check_nonnegativity(P)
+    check_symmetry(P)

@@ -17,13 +17,11 @@ from ._entropic import (
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
-    log_Pe,
-    log_Pse,
-    log_Pds,
-    bounds_entropic_affinity,
 )
 
 from ._quadratic import DoublyStochasticQuadratic
+
+from ._umap import UMAPAffinityData, UMAPAffinityEmbedding
 
 __all__ = [
     "Affinity",
@@ -35,9 +33,7 @@ __all__ = [
     "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "DoublyStochasticEntropic",
-    "log_Pe",
-    "log_Pse",
-    "log_Pds",
-    "bounds_entropic_affinity",
     "DoublyStochasticQuadratic",
+    "UMAPAffinityData",
+    "UMAPAffinityEmbedding",
 ]

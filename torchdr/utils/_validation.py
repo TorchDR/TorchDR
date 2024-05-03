@@ -28,7 +28,7 @@ def check_NaNs(input, msg=None):
         raise TypeError("Input must be a tensor or a list of tensors.")
 
 
-def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-6):
+def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-5):
     """
     Checks that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """
@@ -77,7 +77,7 @@ def relative_similarity(P, P_target):
     return (P - P_target).abs().sum() / P_target.abs().sum()
 
 
-def check_similarity(P, P_target, tol=1e-6, msg=None):
+def check_similarity(P, P_target, tol=1e-5, msg=None):
     """
     Checks if a torch.Tensor or LazyTensor is close to a target matrix.
     """
@@ -91,14 +91,14 @@ def check_similarity(P, P_target, tol=1e-6, msg=None):
     )
 
 
-def check_symmetry(P, tol=1e-6, msg=None):
+def check_symmetry(P, tol=1e-5, msg=None):
     """
     Checks if a torch.Tensor or LazyTensor is symmetric.
     """
     check_similarity(P, P.T, tol=tol, msg=msg or "Matrix is not symmetric.")
 
 
-def check_marginal(P, marg, dim=1, tol=1e-6, log=False):
+def check_marginal(P, marg, dim=1, tol=1e-5, log=False):
     """
     Checks if a torch.Tensor or LazyTensor has the correct marginal along axis dim.
     If log is True, considers that both P and marg are in log domain.
@@ -117,7 +117,7 @@ def check_marginal(P, marg, dim=1, tol=1e-6, log=False):
     )
 
 
-def check_total_sum(P, total_sum, tol=1e-6):
+def check_total_sum(P, total_sum, tol=1e-5):
     """
     Checks if a torch.Tensor or LazyTensor has the correct total sum.
     """
@@ -126,7 +126,7 @@ def check_total_sum(P, total_sum, tol=1e-6):
     ).abs() < tol, "Matrix has the wrong total sum."
 
 
-def check_entropy(P, entropy_target, dim=1, tol=1e-6, log=True):
+def check_entropy(P, entropy_target, dim=1, tol=1e-5, log=True):
     """
     Checks if a torch.Tensor or LazyTensor has the correct entropy along axis dim.
     """

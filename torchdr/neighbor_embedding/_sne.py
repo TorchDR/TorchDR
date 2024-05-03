@@ -203,6 +203,8 @@ class TSNE(AffinityMatcher):
         tolog=False,
         device=None,
         keops=True,
+        early_exaggeration=12,
+        early_exaggeration_iter=250,
         verbose=True,
     ):
 
@@ -217,7 +219,7 @@ class TSNE(AffinityMatcher):
         )
         affinity_embedding = StudentAffinity(
             metric=metric,
-            dim=(0, 1),
+            dim=None,  # only performs normalization when computing the loss
             device=device,
             keops=keops,
             verbose=False,
@@ -241,3 +243,6 @@ class TSNE(AffinityMatcher):
             keops=keops,
             verbose=verbose,
         )
+
+        self.early_exaggeration = early_exaggeration
+        self.early_exaggeration_iter = early_exaggeration_iter

@@ -28,7 +28,7 @@ from torchdr.affinity._base import LogAffinity
 
 
 @wrap_vectors
-def log_Pe(C, eps):
+def _log_Pe(C, eps):
     r"""
     Returns the log of the directed entropic affinity matrix
     with prescribed kernel bandwidth epsilon.
@@ -38,7 +38,7 @@ def log_Pe(C, eps):
 
 
 @wrap_vectors
-def log_Pse(C, eps, mu, eps_square=False):
+def _log_Pse(C, eps, mu, eps_square=False):
     r"""
     Returns the log of the symmetric entropic affinity matrix
     with given (dual) variables epsilon and mu.
@@ -48,10 +48,11 @@ def log_Pse(C, eps, mu, eps_square=False):
 
 
 @wrap_vectors
-def log_Pds(log_K, dual):
+def _log_Pds(log_K, dual):
     r"""
     Returns the log of the doubly stochastic normalization of log_K (in log domain)
-    given a scaling vector f which can be computed via the Sinkhorn iterations.
+    given a scaling vector (dual variable) which can be computed via the
+    Sinkhorn iterations.
     """
     return dual + dual.T + log_K
 
@@ -199,7 +200,7 @@ class EntropicAffinity(LogAffinity):
         perplexity,
         tol=1e-3,
         max_iter=1000,
-        sparsity=False,
+        sparsity=None,
         metric="euclidean",
         device=None,
         keops=True,
@@ -209,7 +210,7 @@ class EntropicAffinity(LogAffinity):
         self.perplexity = perplexity
         self.tol = tol
         self.max_iter = max_iter
-        self.sparsity = sparsity
+        self._sparsity = self.perplexity < 50 if sparsity is None else sparsity
 
     def fit(self, X):
         r"""
@@ -228,8 +229,8 @@ class EntropicAffinity(LogAffinity):
         """
         super().fit(X)
 
-        C_full = self._ground_cost_matrix(self.X_)
-        if self.sparsity:
+        C_full = self._ground_cost_matrix(self.data_)
+        if self._sparsity:
             print(
                 "[TorchDR] Affinity : Sparsity mode enabled, computing "
                 "nearest neighbors."
@@ -250,7 +251,7 @@ class EntropicAffinity(LogAffinity):
             )
 
         def entropy_gap(eps):  # function to find the root of
-            return entropy(log_Pe(C_reduced, eps), log=True) - target_entropy
+            return entropy(_log_Pe(C_reduced, eps), log=True) - target_entropy
 
         begin, end = bounds_entropic_affinity(C_reduced, self.perplexity)
 
@@ -262,11 +263,11 @@ class EntropicAffinity(LogAffinity):
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
-            dtype=self.X_.dtype,
-            device=self.X_.device,
+            dtype=self.data_.dtype,
+            device=self.data_.device,
         )
 
-        self.log_affinity_matrix_ = log_Pe(C_full, self.eps_)
+        self.log_affinity_matrix_ = _log_Pe(C_full, self.eps_)
 
         return self
 
@@ -323,7 +324,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         perplexity,
         tol=1e-5,
         max_iter=1000,
-        sparsity=False,
+        sparsity=None,
         metric="euclidean",
         device=None,
         keops=False,
@@ -481,7 +482,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.X_)
+        C = self._ground_cost_matrix(self.data_)
 
         n = C.shape[0]
         if not 1 < self.perplexity <= n:
@@ -491,11 +492,11 @@ class SymmetricEntropicAffinity(LogAffinity):
             )
 
         target_entropy = np.log(self.perplexity) + 1
-        one = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
+        one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
 
         # dual variables, size (n_samples)
-        self.eps_ = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
-        self.mu_ = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
+        self.eps_ = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
+        self.mu_ = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
 
         if self.optimizer == "LBFGS":
 
@@ -514,7 +515,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 if torch.is_grad_enabled():
                     optimizer.zero_grad()
                 _eps = self.eps_**2 if self.eps_square else self.eps_
-                log_P = log_Pse(C, _eps, self.mu_, eps_square=False)
+                log_P = _log_Pse(C, _eps, self.mu_, eps_square=False)
                 H = entropy(log_P, log=True, dim=1)
                 loss = (  # Negative Lagrangian loss
                     -(log_P.exp() * C).sum(0).sum()
@@ -539,7 +540,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 self.log["eps"] = [self.eps_.clone().detach().cpu()]
                 self.log["mu"] = [self.eps_.clone().detach().cpu()]
 
-            self.log_affinity_matrix_ = log_Pse(
+            self.log_affinity_matrix_ = _log_Pse(
                 C, self.eps_, self.mu_, eps_square=self.eps_square
             )
 
@@ -556,7 +557,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 with torch.no_grad():
                     optimizer.zero_grad()
 
-                    log_P = log_Pse(C, self.eps_, self.mu_, eps_square=self.eps_square)
+                    log_P = _log_Pse(C, self.eps_, self.mu_, eps_square=self.eps_square)
                     H = entropy(log_P, log=True, dim=1)
                     P_sum = log_P.logsumexp(1).exp().squeeze()  # squeeze for keops
 
@@ -600,8 +601,8 @@ class SymmetricEntropicAffinity(LogAffinity):
                     ):
                         if self.verbose:
                             print(
-                                f"[TorchDR] Affinity : convergence reached "
-                                "at iter {k}."
+                                "[TorchDR] Affinity : convergence reached "
+                                f"at iter {k}."
                             )
                         break
 
@@ -739,7 +740,7 @@ class DoublyStochasticEntropic(LogAffinity):
         """
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.X_)
+        C = self._ground_cost_matrix(self.data_)
         if self.student:
             C = (1 + C).log()
 
@@ -754,7 +755,7 @@ class DoublyStochasticEntropic(LogAffinity):
 
         # Performs warm-start if a dual variable f is provided
         self.dual_ = (
-            torch.zeros(n, dtype=self.X_.dtype, device=self.X_.device)
+            torch.zeros(n, dtype=self.data_.dtype, device=self.data_.device)
             if self.init_dual is None
             else self.init_dual
         )
@@ -786,6 +787,6 @@ class DoublyStochasticEntropic(LogAffinity):
                 )
 
         self.n_iter_ = k
-        self.log_affinity_matrix_ = log_Pds(log_K, self.dual_)
+        self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
 
         return self

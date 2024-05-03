@@ -26,20 +26,21 @@ class Affinity(ABC):
 
     @abstractmethod
     def fit(self, X):
-        self.X_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         return self
 
     def _ground_cost_matrix(self, X):
         return pairwise_distances(X, metric=self.metric, keops=self.keops)
 
     def fit_transform(self, X):
+        """
+        Computes the affinity matrix from input data X.
+        """
         self.fit(X)
-        if not hasattr(self, "affinity_matrix_"):
-            self.fit(X)
-            assert hasattr(
-                self, "affinity_matrix_"
-            ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed "
-            "in fit method."
+        assert hasattr(
+            self, "affinity_matrix_"
+        ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed "
+        "in fit method."
         return self.affinity_matrix_  # type: ignore
 
 
@@ -51,8 +52,8 @@ class ScalarProductAffinity(Affinity):
     def fit(self, X):
         super().fit(X)
         if self.centering:
-            self.X_ = self.X_ - self.X_.mean(0)
-        self.affinity_matrix_ = -self._ground_cost_matrix(self.X_)
+            self.data_ = self.data_ - self.data_.mean(0)
+        self.affinity_matrix_ = -self._ground_cost_matrix(self.data_)
 
 
 class LogAffinity(Affinity):
@@ -92,7 +93,7 @@ class GibbsAffinity(LogAffinity):
 
     def fit(self, X):
         super().fit(X)
-        C = self._ground_cost_matrix(self.X_)
+        C = self._ground_cost_matrix(self.data_)
         log_P = -C / self.sigma
         self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
@@ -113,7 +114,7 @@ class StudentAffinity(LogAffinity):
 
     def fit(self, X):
         super().fit(X)
-        C = self._ground_cost_matrix(self.X_)
+        C = self._ground_cost_matrix(self.data_)
         C /= self.degrees_of_freedom
         C += 1.0
         log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()

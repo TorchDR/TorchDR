@@ -15,7 +15,7 @@ from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs
 
 
 @wrap_vectors
-def Pds(C, dual, eps):
+def _Pds(C, dual, eps):
     r"""
     Returns the quadratic doubly stochastic matrix P
     from the dual variable f and log_K = -C / eps.
@@ -70,14 +70,14 @@ class DoublyStochasticQuadratic(Affinity):
 
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.X_)
+        C = self._ground_cost_matrix(self.data_)
 
         n = C.shape[0]
-        one = torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
+        one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
 
         # Performs warm-start if an initial dual variable is provided
         self.dual_ = (
-            torch.ones(n, dtype=self.X_.dtype, device=self.X_.device)
+            torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
             if self.init_dual is None
             else self.init_dual
         )
@@ -90,7 +90,7 @@ class DoublyStochasticQuadratic(Affinity):
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for k in pbar:
             with torch.no_grad():
-                P = Pds(C, self.dual_, self.eps)
+                P = _Pds(C, self.dual_, self.eps)
                 P_sum = P.sum(1).squeeze()
                 grad_dual = P_sum - one
                 self.dual_.grad = grad_dual
@@ -125,6 +125,6 @@ class DoublyStochasticQuadratic(Affinity):
                 )
 
         self.n_iter_ = k
-        self.affinity_matrix_ = Pds(C, self.dual_, self.eps)
+        self.affinity_matrix_ = _Pds(C, self.dual_, self.eps)
 
         return self
