@@ -4,21 +4,28 @@
 # License: BSD 3-Clause License
 
 
-from ._base import ScalarProductAffinity, GibbsAffinity, StudentAffinity
+from ._base import (
+    Affinity,
+    LogAffinity,
+    ScalarProductAffinity,
+    GibbsAffinity,
+    StudentAffinity,
+)
 
 from ._entropic import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
-    entropy,
-    log_Pe,
-    log_Pse,
-    log_Pds,
-    bounds_entropic_affinity,
 )
 
+from ._quadratic import DoublyStochasticQuadratic
+
+from ._umap import UMAPAffinityData, UMAPAffinityEmbedding
+
 __all__ = [
+    "Affinity",
+    "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
     "StudentAffinity",
@@ -26,9 +33,7 @@ __all__ = [
     "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "DoublyStochasticEntropic",
-    "entropy",
-    "log_Pe",
-    "log_Pse",
-    "log_Pds",
-    "bounds_entropic_affinity",
+    "DoublyStochasticQuadratic",
+    "UMAPAffinityData",
+    "UMAPAffinityEmbedding",
 ]

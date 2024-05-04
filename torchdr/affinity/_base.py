@@ -9,53 +9,65 @@ Common (simple) affinity matrices
 
 from abc import ABC, abstractmethod
 
-from torchdr.utils import pairwise_distances
+from torchdr.utils import pairwise_distances, normalize_matrix, to_torch
 
 
-class BaseAffinity(ABC):
-    def __init__(self):
+class Affinity(ABC):
+    """
+    Base class for affinity matrices.
+    """
+
+    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
         self.log = {}
+        self.metric = metric
+        self.device = device
+        self.keops = keops
+        self.verbose = verbose
 
     @abstractmethod
     def fit(self, X):
-        self.data_ = X
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        return self
 
-    def get(self, X):
-        if not hasattr(self, "affinity_matrix_"):
-            self.fit(X)
-            assert hasattr(
-                self, "affinity_matrix_"
-            ), "affinity_matrix_ should be computed in fit method"
+    def _ground_cost_matrix(self, X):
+        return pairwise_distances(X, metric=self.metric, keops=self.keops)
+
+    def fit_transform(self, X):
+        """
+        Computes the affinity matrix from input data X.
+        """
+        self.fit(X)
+        assert hasattr(
+            self, "affinity_matrix_"
+        ), "[TorchDR] Affinity (Error) : affinity_matrix_ should be computed "
+        "in fit method."
         return self.affinity_matrix_  # type: ignore
 
 
-class ScalarProductAffinity(BaseAffinity):
-    def __init__(self, centering=False, keops=False):
-        super().__init__()
+class ScalarProductAffinity(Affinity):
+    def __init__(self, device="cuda", keops=True, verbose=True, centering=False):
+        super().__init__(metric="angular", device=device, keops=keops, verbose=verbose)
         self.centering = centering
-        self.keops = keops
 
     def fit(self, X):
         super().fit(X)
         if self.centering:
-            X = X - X.mean(0)
-        self.affinity_matrix_ = -pairwise_distances(
-            X, metric="angular", keops=self.keops
-        )
+            self.data_ = self.data_ - self.data_.mean(0)
+        self.affinity_matrix_ = -self._ground_cost_matrix(self.data_)
 
 
-class LogAffinity(BaseAffinity):
+class LogAffinity(Affinity):
     """Computes an affinity matrix from an affinity matrix in log space."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
 
-    def get(self, X, log=False):
-        if not hasattr(self, "log_affinity_matrix_"):
-            self.fit(X)
-            assert hasattr(
-                self, "log_affinity_matrix_"
-            ), "log_affinity_matrix_ should be computed in fit method of a LogAffinity"
+    def fit_transform(self, X, log=False):
+        self.fit(X)
+        assert hasattr(
+            self, "log_affinity_matrix_"
+        ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed "
+        "in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix
             return self.log_affinity_matrix_  # type: ignore
@@ -66,27 +78,44 @@ class LogAffinity(BaseAffinity):
 
 
 class GibbsAffinity(LogAffinity):
-    def __init__(self, sigma=1.0, metric="euclidean", keops=False):
-        super().__init__()
+    def __init__(
+        self,
+        sigma=1.0,
+        dim=(0, 1),
+        metric="euclidean",
+        device=None,
+        keops=True,
+        verbose=True,
+    ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.sigma = sigma
-        self.metric = metric
-        self.keops = keops
+        self.dim = dim
 
     def fit(self, X):
         super().fit(X)
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
+        C = self._ground_cost_matrix(self.data_)
         log_P = -C / self.sigma
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
+        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
 
 
 class StudentAffinity(LogAffinity):
-    def __init__(self, metric="euclidean", keops=False):
-        super().__init__()
-        self.metric = metric
-        self.keops = keops
+    def __init__(
+        self,
+        degrees_of_freedom=1,
+        dim=(0, 1),
+        metric="euclidean",
+        device=None,
+        keops=True,
+        verbose=True,
+    ):
+        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        self.dim = dim
+        self.degrees_of_freedom = degrees_of_freedom
 
     def fit(self, X):
         super().fit(X)
-        C = pairwise_distances(X, metric=self.metric, keops=self.keops)
-        log_P = -(1 + C).log()
-        self.log_affinity_matrix_ = log_P - log_P.logsumexp(1)[:, None]
+        C = self._ground_cost_matrix(self.data_)
+        C /= self.degrees_of_freedom
+        C += 1.0
+        log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()
+        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)

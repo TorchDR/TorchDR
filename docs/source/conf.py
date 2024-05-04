@@ -58,7 +58,6 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 source_suffix = [".rst", ".md"]
-# source_suffix = '.rst'
 
 # The encoding of source files.
 source_encoding = "utf-8-sig"
@@ -67,20 +66,20 @@ source_encoding = "utf-8-sig"
 master_doc = "index"
 
 
-project = 'TorchDR'
-copyright = '2024, TorchDR team'
-author = 'TorchDR team'
-release = '0.0.0-alpha'
+project = "TorchDR"
+copyright = "2024, TorchDR team"
+author = "TorchDR team"
+release = "0.0.0-alpha"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_theme = "sphinx_rtd_theme"
+html_static_path = ["_static"]
