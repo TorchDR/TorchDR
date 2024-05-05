@@ -24,7 +24,7 @@ from torchdr.utils import (
     normalize_matrix,
     OPTIMIZERS,
 )
-from torchdr.affinity._base import LogAffinity
+from torchdr.affinity.base import LogAffinity
 
 
 @wrap_vectors

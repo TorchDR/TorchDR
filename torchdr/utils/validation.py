@@ -11,7 +11,7 @@ import torch
 from torch.testing import assert_close
 from pykeops.torch import LazyTensor
 
-from torchdr.utils._utils import entropy
+from torchdr.utils.utils import entropy
 
 
 def check_NaNs(input, msg=None):

@@ -81,7 +81,7 @@ class GibbsAffinity(LogAffinity):
     def __init__(
         self,
         sigma=1.0,
-        dim=(0, 1),
+        dim_normalization=(0, 1),
         metric="euclidean",
         device=None,
         keops=True,
@@ -89,27 +89,29 @@ class GibbsAffinity(LogAffinity):
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.sigma = sigma
-        self.dim = dim
+        self.dim_normalization = dim_normalization
 
     def fit(self, X):
         super().fit(X)
         C = self._ground_cost_matrix(self.data_)
         log_P = -C / self.sigma
-        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
+        self.log_affinity_matrix_ = normalize_matrix(
+            log_P, dim=self.dim_normalization, log=True
+        )
 
 
 class StudentAffinity(LogAffinity):
     def __init__(
         self,
         degrees_of_freedom=1,
-        dim=(0, 1),
+        dim_normalization=(0, 1),
         metric="euclidean",
         device=None,
         keops=True,
         verbose=True,
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
-        self.dim = dim
+        self.dim_normalization = dim_normalization
         self.degrees_of_freedom = degrees_of_freedom
 
     def fit(self, X):
@@ -118,4 +120,6 @@ class StudentAffinity(LogAffinity):
         C /= self.degrees_of_freedom
         C += 1.0
         log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()
-        self.log_affinity_matrix_ = normalize_matrix(log_P, dim=self.dim, log=True)
+        self.log_affinity_matrix_ = normalize_matrix(
+            log_P, dim=self.dim_normalization, log=True
+        )

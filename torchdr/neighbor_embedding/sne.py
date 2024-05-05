@@ -109,7 +109,7 @@ class SNE(AffinityMatcher):
         )
         affinity_embedding = GibbsAffinity(
             metric=metric,
-            dim=1,
+            dim_normalization=1,
             device=device,
             keops=keops,
             verbose=False,
@@ -219,7 +219,7 @@ class TSNE(AffinityMatcher):
         )
         affinity_embedding = StudentAffinity(
             metric=metric,
-            dim=None,  # only performs normalization when computing the loss
+            dim_normalization=None,  # performs normalization when computing the loss
             device=device,
             keops=keops,
             verbose=False,

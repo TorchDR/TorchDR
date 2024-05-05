@@ -5,13 +5,13 @@
 # License: BSD 3-Clause License
 
 
-from ._optim import binary_search, false_position, OPTIMIZERS
+from .optim import binary_search, false_position, OPTIMIZERS
 
-from ._wrappers import wrap_vectors, to_torch, torch_to_backend, handle_backend
+from .wrappers import wrap_vectors, to_torch, torch_to_backend, handle_backend
 
-from ._geometry import pairwise_distances, LIST_METRICS
+from .geometry import pairwise_distances, LIST_METRICS
 
-from ._validation import (
+from .validation import (
     check_NaNs,
     check_marginal,
     relative_similarity,
@@ -27,7 +27,7 @@ from ._validation import (
     check_total_sum,
 )
 
-from ._utils import (
+from .utils import (
     entropy,
     kmin,
     kmax,

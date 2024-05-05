@@ -10,7 +10,7 @@ Useful functions for defining objectives and constraints
 import torch
 from pykeops.torch import LazyTensor
 
-from torchdr.utils._wrappers import wrap_vectors, sum_all_axis
+from torchdr.utils.wrappers import wrap_vectors, sum_all_axis
 
 
 def entropy(P, log=True, dim=1):
