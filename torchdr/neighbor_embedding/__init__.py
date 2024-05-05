@@ -4,6 +4,6 @@
 # License: BSD 3-Clause License
 
 
-from ._sne import SNE, TSNE
+from .sne import SNE, TSNE
 
 __all__ = ["SNE", "TSNE"]

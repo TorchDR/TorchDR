@@ -4,7 +4,7 @@
 # License: BSD 3-Clause License
 
 
-from ._base import (
+from .base import (
     Affinity,
     LogAffinity,
     ScalarProductAffinity,
@@ -12,16 +12,16 @@ from ._base import (
     StudentAffinity,
 )
 
-from ._entropic import (
+from .entropic import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
 )
 
-from ._quadratic import DoublyStochasticQuadratic
+from .quadratic import DoublyStochasticQuadratic
 
-from ._umap import UMAPAffinityData, UMAPAffinityEmbedding
+from .umap import UMAPAffinityData, UMAPAffinityEmbedding
 
 __all__ = [
     "Affinity",
