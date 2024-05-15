@@ -28,3 +28,12 @@ test = [
     "coverage",
     "numpydoc",
 ]
+
+doc = [
+    "sphinx",
+    "sphinx_gallery",
+    "sphinx_rtd_theme",
+    "numpydoc",
+    "memory_profiler",
+    "myst-parser",
+]
