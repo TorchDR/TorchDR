@@ -1,0 +1,30 @@
+[project]
+name = "torchdr"
+description = "Torch Dimensionality Reduction Library"
+authors = [
+    {name = "Hugues Van Assel", email = "vanasselhugues@gmail.com"},
+    {name = " TorchDR contributors"}
+]
+license = {text = "BSD (3-Clause)"}
+readme = {file = "README.md", content-type = "text/markdown"}
+dependencies = [
+    "numpy>=1.20",
+    "matplotlib",
+    "scikit-learn",
+    "torch",
+    "pykeops",
+    "tqdm",
+]
+dynamic = ["version"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "torchdr.__version__"}
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "flake8",
+    "coverage",
+    "numpydoc",
+]
