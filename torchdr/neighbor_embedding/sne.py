@@ -80,7 +80,7 @@ class SNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
+        perplexity=10,
         n_components=2,
         optimizer="Adam",
         optimizer_kwargs=None,
@@ -142,7 +142,7 @@ class TSNE(AffinityMatcher):
 
     Parameters
     ----------
-    perplexity : float
+    perplexity : float, optional (default=10)
         Number of 'effective' nearest neighbors.
         Consider selecting a value between 2 and the number of samples.
         Different values can result in significantly different results.
@@ -187,7 +187,7 @@ class TSNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
+        perplexity=10,
         n_components=2,
         optimizer="Adam",
         optimizer_kwargs=None,
