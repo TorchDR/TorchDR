@@ -62,12 +62,12 @@ class DoublyStochasticQuadratic(Affinity):
         self : DoublyStochasticQuadratic
             The fitted instance.
         """
+        self.log_ = {}
         if self.verbose:
             print(
                 "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
                 "Affinity matrix."
             )
-
         super().fit(X)
 
         C = self._ground_cost_matrix(self.data_)
@@ -82,7 +82,7 @@ class DoublyStochasticQuadratic(Affinity):
             else self.init_dual
         )
         if self.tolog:
-            self.log["dual"] = [self.dual_.clone().detach().cpu()]
+            self.log_["dual"] = [self.dual_.clone().detach().cpu()]
 
         optimizer = OPTIMIZERS[self.optimizer]([self.dual_], lr=self.lr)
 
@@ -105,7 +105,7 @@ class DoublyStochasticQuadratic(Affinity):
             )
 
             if self.tolog:
-                self.log["dual"].append(self.dual_.clone().detach().cpu())
+                self.log_["dual"].append(self.dual_.clone().detach().cpu())
 
             if self.verbose:
                 pbar.set_description(

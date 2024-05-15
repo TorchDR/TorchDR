@@ -10,6 +10,7 @@ Affinity matcher base classes
 
 from tqdm import tqdm
 import torch
+from sklearn.base import TransformerMixin
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -24,11 +25,12 @@ from torchdr.affinity import Affinity, LogAffinity
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
 
+
 LOG_LOSSES = ["kl_loss", "cross_entropy_loss"]
 LOSSES = LOG_LOSSES + ["square_loss"]
 
 
-class AffinityMatcher(DRModule):
+class AffinityMatcher(DRModule, TransformerMixin):
     def __init__(
         self,
         affinity_data,
@@ -58,7 +60,7 @@ class AffinityMatcher(DRModule):
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
-        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.optimizer_kwargs = optimizer_kwargs
         self.scheduler = scheduler
 
         self.init = init
@@ -84,7 +86,7 @@ class AffinityMatcher(DRModule):
             )
         self.affinity_embedding = affinity_embedding
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         super().fit(X)
 
         n = self.data_.shape[0]
@@ -116,8 +118,9 @@ class AffinityMatcher(DRModule):
         embedding_ = embedding_ / embedding_[:, 0].std() * self.init_scaling
 
         embedding_.requires_grad = True
+        optimizer_kwargs = self.optimizer_kwargs or {}
         optimizer = OPTIMIZERS[self.optimizer](
-            [embedding_], lr=self.lr, **self.optimizer_kwargs
+            [embedding_], lr=self.lr, **optimizer_kwargs
         )
 
         scheduler = self._make_scheduler(optimizer)

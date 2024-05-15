@@ -16,3 +16,6 @@ from sklearn.utils.estimator_checks import check_estimator
 @pytest.mark.parametrize("klass", [SNE, TSNE])
 def test_check_estimator(klass):
     check_estimator(klass())
+
+
+check_estimator(SNE())
