@@ -4,6 +4,8 @@
 # License: BSD 3-Clause License
 
 
-from .sne import SNE, TSNE
+from .sne import SNE
+from .tsne import TSNE
+from .umap import UMAP
 
-__all__ = ["SNE", "TSNE"]
+__all__ = ["SNE", "TSNE", "UMAP"]

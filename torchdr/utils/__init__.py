@@ -32,6 +32,7 @@ from .utils import (
     kmin,
     kmax,
     cross_entropy_loss,
+    binary_cross_entropy_loss,
     square_loss,
     normalize_matrix,
     svd_flip,
@@ -39,6 +40,7 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     logsumexp_red,
+    batch_transpose,
 )
 
 
@@ -69,6 +71,7 @@ __all__ = [
     "check_total_sum",
     "entropy",
     "cross_entropy_loss",
+    "binary_cross_entropy_loss",
     "square_loss",
     "normalize_matrix",
     "svd_flip",
@@ -76,4 +79,5 @@ __all__ = [
     "to_torch",
     "torch_to_backend",
     "handle_backend",
+    "batch_transpose",
 ]

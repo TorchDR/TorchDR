@@ -9,16 +9,16 @@ Stochastic Neighbor embedding algorithms (SNE, tSNE)
 
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.affinity import (
-    EntropicAffinity,
-    GibbsAffinity,
+    L2SymmetricEntropicAffinity,
+    StudentAffinity,
 )
-from torchdr.utils import cross_entropy_loss
+from torchdr.utils import cross_entropy_loss, logsumexp_red
 
 
-class SNE(AffinityMatcher):
+class TSNE(AffinityMatcher):
     """
-    Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
-    introduced in [1]_.
+    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
+    introduced in [2]_.
 
     Parameters
     ----------
@@ -27,33 +27,31 @@ class SNE(AffinityMatcher):
         Consider selecting a value between 2 and the number of samples.
         Different values can result in significantly different results.
     n_components : int, optional
-        Dimension of the embedded space (corresponds to the number of features of Z).
+        Dimension of the embedding space.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use.
+        Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
-        Arguments for the optimizer.
+        Arguments for the optimizer, by default None.
     lr : float, optional
-        Learning rate for the algorithm.
+        Learning rate for the algorithm, by default 1.0.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z.
+        Initialization for the embedding Z, default 'pca'.
     metric : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation.
+        Metric to use for the affinity computation, by default 'euclidean'.
     tol : float, optional
-        Precision threshold at which the algorithm stops.
+        Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm.
-    tol_ea : _type_, optional
+        Number of maximum iterations for the descent algorithm, by default 100.
+    tol_affinity : _type_, optional
         Precision threshold for the entropic affinity root search.
-    max_iter_ea : int, optional
+    max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     verbose : bool, optional
         Verbosity, by default True.
     tolog : bool, optional
-        Whether to store intermediate results in a dictionary.
-    keops : bool, optional
-        Whether to use KeOps for the entropic affinity computation.
+        Whether to store intermediate results in a dictionary, by default False.
 
     Attributes
     ----------
@@ -64,17 +62,7 @@ class SNE(AffinityMatcher):
     embedding_ : torch.Tensor of shape (n_samples, n_components)
         Stores the embedding coordinates.
     PX_ :  torch.Tensor of shape (n_samples, n_samples)
-        Fitted entropic affinity matrix in the input space.
-
-    References
-    ----------
-    .. [1]  Geoffrey Hinton, Sam Roweis (2002).
-            Stochastic Neighbor Embedding.
-            Advances in neural information processing systems 15 (NeurIPS).
-
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
+        Entropic affinity matrix fitted from input data X.
     """  # noqa: E501
 
     def __init__(
@@ -90,32 +78,35 @@ class SNE(AffinityMatcher):
         metric="euclidean",
         tol=1e-4,
         max_iter=1000,
-        tol_ea=1e-3,
-        max_iter_ea=100,
-        verbose=True,
+        tol_affinity=1e-3,
+        max_iter_affinity=100,
         tolog=False,
         device=None,
         keops=True,
+        early_exaggeration=12,
+        early_exaggeration_iter=250,
+        verbose=True,
     ):
-        affinity_input = EntropicAffinity(
+
+        entropic_affinity = L2SymmetricEntropicAffinity(
             perplexity=perplexity,
             metric=metric,
-            tol=tol_ea,
-            max_iter=max_iter_ea,
+            tol=tol_affinity,
+            max_iter=max_iter_affinity,
             device=device,
             keops=keops,
             verbose=verbose,
         )
-        affinity_embedding = GibbsAffinity(
+        affinity_embedding = StudentAffinity(
             metric=metric,
-            normalization_dim=1,
+            dim_normalization=None,  # we perform normalization when computing the loss
             device=device,
             keops=keops,
             verbose=False,
         )
 
         super().__init__(
-            affinity_data=affinity_input,
+            affinity_data=entropic_affinity,
             affinity_embedding=affinity_embedding,
             n_components=n_components,
             optimizer=optimizer,
@@ -132,7 +123,19 @@ class SNE(AffinityMatcher):
             verbose=verbose,
         )
 
+        if early_exaggeration is None or early_exaggeration_iter is None:
+            self.early_exaggeration = 1
+            early_exaggeration_iter = None
+        else:
+            self.early_exaggeration = early_exaggeration
+            self.early_exaggeration_iter = early_exaggeration_iter
+
     def _loss(self):
+        """
+        Dimensionality reduction objective.
+        """
         log_Q = self.affinity_embedding.fit_transform(self.embedding_, log=True)
-        loss = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
+        attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
+        repulsive_term = logsumexp_red(log_Q, dim=(0, 1))
+        loss = self.early_exaggeration * attractive_term + repulsive_term
         return loss

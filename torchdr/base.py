@@ -40,7 +40,7 @@ class DRModule(ABC, BaseEstimator):
         ----------
         X : tensor of shape (n_samples, n_features)
             or tensor of shape (n_samples, n_samples)
-            Input data or input affinity matrix if affinity_data="precomputed".
+            Input data or input affinity matrix if it is precomputed.
         y : None
             Ignored.
 

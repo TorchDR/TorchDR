@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UMAP algorithm
+Noise-constrastive SNE algorithms
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -8,22 +8,16 @@ UMAP algorithm
 # License: BSD 3-Clause License
 
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.affinity import (
-    UMAPAffinityData,
-    UMAPAffinityEmbedding,
-)
-from torchdr.utils import binary_cross_entropy_loss
+from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
+import torch
+from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
-class UMAP(AffinityMatcher):
+class InfoTSNE(AffinityMatcher):
     def __init__(
         self,
-        n_neighbors,
+        perplexity,
         n_components=2,
-        min_dist=0.1,
-        spread=1.0,
-        a=None,
-        b=None,
         optimizer="Adam",
         optimizer_kwargs=None,
         lr=1.0,
@@ -35,14 +29,16 @@ class UMAP(AffinityMatcher):
         max_iter=1000,
         tol_affinity=1e-3,
         max_iter_affinity=100,
-        verbose=True,
         tolog=False,
         device=None,
         keops=True,
-        coeff_repulsion=1.0,
+        verbose=True,
+        negative_samples=5,
+        batch_size=1000,
     ):
-        affinity_data = UMAPAffinityData(
-            n_neighbors=n_neighbors,
+
+        entropic_affinity = L2SymmetricEntropicAffinity(
+            perplexity=perplexity,
             metric=metric,
             tol=tol_affinity,
             max_iter=max_iter_affinity,
@@ -50,19 +46,16 @@ class UMAP(AffinityMatcher):
             keops=keops,
             verbose=verbose,
         )
-        affinity_embedding = UMAPAffinityEmbedding(
-            min_dist=min_dist,
-            spread=spread,
-            a=a,
-            b=b,
+        affinity_embedding = StudentAffinity(
             metric=metric,
+            dim_normalization=None,  # we perform normalization when computing the loss
             device=device,
             keops=keops,
             verbose=False,
         )
 
         super().__init__(
-            affinity_data=affinity_data,
+            affinity_data=entropic_affinity,
             affinity_embedding=affinity_embedding,
             n_components=n_components,
             optimizer=optimizer,
@@ -79,16 +72,24 @@ class UMAP(AffinityMatcher):
             verbose=verbose,
         )
 
-        self.coeff_repulsion = coeff_repulsion
+        self.negative_samples = negative_samples
+        self.batch_size = batch_size
 
-    def _loss(self, embedding_):
+    def _loss(self):
         """
         Dimensionality reduction objective.
         """
+        N = self.data_.shape[0]
+        indices = torch.randperm(N)
+        indices = indices.reshape(-1, self.batch_size)
 
-        Q = self.affinity_embedding.fit_transform(embedding_)
-        Q = Q / (Q + 1)
-        # Q = Q.clamp(1e-4, 1)
-        return binary_cross_entropy_loss(
-            self.PX_, Q, coeff_repulsion=self.coeff_repulsion
-        )
+        PX_batch = self.affinity_data.get_batch(indices)
+        Z_batch = self.embedding_[indices]
+
+        log_Q = self.affinity_embedding.fit_transform(Z_batch, log=True)
+        info_log_Q = log_Q - logsumexp_red(log_Q, dim=1)
+
+        losses = cross_entropy_loss(PX_batch, info_log_Q, log_Q=True)
+        loss = losses.sum()
+
+        return loss

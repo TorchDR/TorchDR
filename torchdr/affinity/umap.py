@@ -90,7 +90,7 @@ class UMAPAffinityData(Affinity):
         else:
             C_reduced = C_full
 
-        self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze()
+        self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze().contiguous()
 
         n = C_full.shape[0]
 
