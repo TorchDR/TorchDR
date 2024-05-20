@@ -9,6 +9,7 @@ Affinity matrices with quadratic constraints
 
 import torch
 from tqdm import tqdm
+import numpy as np
 
 from torchdr.affinity import Affinity
 from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs
@@ -26,18 +27,18 @@ def _Pds(C, dual, eps):
 class DoublyStochasticQuadratic(Affinity):
     def __init__(
         self,
-        eps=1.0,
-        init_dual=None,
-        tol=1e-5,
-        max_iter=1000,
-        optimizer="Adam",
-        lr=1e0,
-        student=False,
-        tolog=False,
-        metric="euclidean",
-        device=None,
-        keops=True,
-        verbose=True,
+        eps: float = 1.0,
+        init_dual: torch.Tensor = None,
+        tol: float = 1e-5,
+        max_iter: int = 1000,
+        optimizer: str = "Adam",
+        lr: float = 1e0,
+        student: bool = False,
+        tolog: bool = False,
+        metric: str = "euclidean",
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.eps = eps
@@ -49,7 +50,7 @@ class DoublyStochasticQuadratic(Affinity):
         self.student = student
         self.tolog = tolog
 
-    def fit(self, X):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""Computes the quadratic doubly stochastic affinity matrix from input data X.
 
         Parameters
@@ -62,7 +63,6 @@ class DoublyStochasticQuadratic(Affinity):
         self : DoublyStochasticQuadratic
             The fitted instance.
         """
-        self.log_ = {}
         if self.verbose:
             print(
                 "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
@@ -82,7 +82,7 @@ class DoublyStochasticQuadratic(Affinity):
             else self.init_dual
         )
         if self.tolog:
-            self.log_["dual"] = [self.dual_.clone().detach().cpu()]
+            self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
         optimizer = OPTIMIZERS[self.optimizer]([self.dual_], lr=self.lr)
 
@@ -105,7 +105,7 @@ class DoublyStochasticQuadratic(Affinity):
             )
 
             if self.tolog:
-                self.log_["dual"].append(self.dual_.clone().detach().cpu())
+                self.log["dual"].append(self.dual_.clone().detach().cpu())
 
             if self.verbose:
                 pbar.set_description(

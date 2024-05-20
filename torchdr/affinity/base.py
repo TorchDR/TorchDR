@@ -20,7 +20,6 @@ class Affinity(ABC):
     Base class for affinity matrices.
     """
 
-<<<<<<< HEAD
     def __init__(
         self,
         metric: str = "euclidean",
@@ -29,21 +28,17 @@ class Affinity(ABC):
         verbose: bool = True,
     ):
         self.log = {}
-=======
-    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
-        self.log_ = {}
->>>>>>> origin/main
         self.metric = metric
         self.device = device
         self.keops = keops
         self.verbose = verbose
 
     @abstractmethod
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         return self
 
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit_transform(self, X: torch.Tensor | np.ndarray):
         """
         Computes the affinity matrix from input data X.
         """
@@ -81,7 +76,7 @@ class ScalarProductAffinity(Affinity):
         super().__init__(metric="angular", device=device, keops=keops, verbose=verbose)
         self.centering = centering
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         super().fit(X)
         if self.centering:
             self.data_ = self.data_ - self.data_.mean(0)
@@ -100,7 +95,7 @@ class LogAffinity(Affinity):
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
 
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray], log: bool = False):
+    def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
         self.fit(X)
         assert hasattr(
             self, "log_affinity_matrix_"
@@ -119,7 +114,7 @@ class GibbsAffinity(LogAffinity):
     def __init__(
         self,
         sigma: float = 1.0,
-        normalization_dim: Union[int, Tuple[int]] = (0, 1),
+        normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         device: str = None,
         keops: bool = True,
@@ -129,7 +124,7 @@ class GibbsAffinity(LogAffinity):
         self.sigma = sigma
         self.normalization_dim = normalization_dim
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         super().fit(X)
         C = self._ground_cost_matrix(self.data_)
         log_P = -C / self.sigma
@@ -142,7 +137,7 @@ class StudentAffinity(LogAffinity):
     def __init__(
         self,
         degrees_of_freedom: int = 1,
-        normalization_dim: Union[int, Tuple[int]] = (0, 1),
+        normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         device: str = None,
         keops: bool = True,
@@ -152,7 +147,7 @@ class StudentAffinity(LogAffinity):
         self.normalization_dim = normalization_dim
         self.degrees_of_freedom = degrees_of_freedom
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         super().fit(X)
         C = self._ground_cost_matrix(self.data_)
         C /= self.degrees_of_freedom

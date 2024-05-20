@@ -12,7 +12,6 @@ Affinity matrices with entropic constraints
 import torch
 import numpy as np
 from tqdm import tqdm
-from typing import Union
 
 from torchdr.utils import (
     entropy,
@@ -222,7 +221,7 @@ class EntropicAffinity(LogAffinity):
                 "for a large value of perplexity."
             )
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
         from input data X.
@@ -367,7 +366,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
             verbose=verbose,
         )
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Computes the l2-symmetric entropic affinity matrix from input data X.
 
@@ -489,7 +488,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.tolog = tolog
         self.eps_square = eps_square
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
         matrix from input data X.
@@ -768,7 +767,7 @@ class DoublyStochasticEntropic(LogAffinity):
         self.base_kernel = base_kernel
         self.tolog = tolog
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""Computes the entropic doubly stochastic affinity matrix from input data X.
 
         Parameters
@@ -804,7 +803,7 @@ class DoublyStochasticEntropic(LogAffinity):
         )
 
         if self.tolog:
-            self.log_["dual"] = [self.dual_.clone().detach().cpu()]
+            self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
         # Sinkhorn iterations
         for k in range(self.max_iter):
@@ -814,7 +813,7 @@ class DoublyStochasticEntropic(LogAffinity):
             self.dual_ = 0.5 * (self.dual_ + reduction)
 
             if self.tolog:
-                self.log_["dual"].append(self.dual_.clone().detach().cpu())
+                self.log["dual"].append(self.dual_.clone().detach().cpu())
 
             check_NaNs(self.dual_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
 
