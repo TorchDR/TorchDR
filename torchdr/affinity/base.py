@@ -18,7 +18,7 @@ class Affinity(ABC):
     """
 
     def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
-        self.log = {}
+        self.log_ = {}
         self.metric = metric
         self.device = device
         self.keops = keops

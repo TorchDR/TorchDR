@@ -80,10 +80,10 @@ class SNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
+        perplexity=10,
         n_components=2,
         optimizer="Adam",
-        optimizer_kwargs=None,
+        optimizer_kwargs={},
         lr=1.0,
         scheduler="constant",
         init="pca",
@@ -98,6 +98,24 @@ class SNE(AffinityMatcher):
         device=None,
         keops=True,
     ):
+        self.perplexity = perplexity
+        self.n_components = n_components
+        self.optimizer = optimizer
+        self.optimizer_kwargs = optimizer_kwargs
+        self.lr = lr
+        self.scheduler = scheduler
+        self.init = init
+        self.init_scaling = init_scaling
+        self.metric = metric
+        self.tol = tol
+        self.max_iter = max_iter
+        self.tol_ea = tol_ea
+        self.max_iter_ea = max_iter_ea
+        self.verbose = verbose
+        self.tolog = tolog
+        self.device = device
+        self.keops = keops
+
         entropic_affinity = EntropicAffinity(
             perplexity=perplexity,
             metric=metric,
@@ -142,7 +160,7 @@ class TSNE(AffinityMatcher):
 
     Parameters
     ----------
-    perplexity : float
+    perplexity : float, optional (default=10)
         Number of 'effective' nearest neighbors.
         Consider selecting a value between 2 and the number of samples.
         Different values can result in significantly different results.
@@ -187,10 +205,10 @@ class TSNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
+        perplexity=10,
         n_components=2,
         optimizer="Adam",
-        optimizer_kwargs=None,
+        optimizer_kwargs={},
         lr=1.0,
         scheduler="constant",
         init="pca",
