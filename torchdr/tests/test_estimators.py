@@ -4,6 +4,7 @@ Tests estimators for scikit-learn compatibility.
 """
 
 # Author: Mathurin Massias
+#         Hugues Van Assel
 #
 # License: BSD 3-Clause License
 
@@ -16,6 +17,3 @@ from sklearn.utils.estimator_checks import check_estimator
 @pytest.mark.parametrize("klass", [SNE, TSNE])
 def test_check_estimator(klass):
     check_estimator(klass())
-
-
-check_estimator(SNE())

@@ -37,7 +37,7 @@ def binary_search(
 
     Parameters
     ----------
-    f : function :math:`\mathbb{R}^n \to \mathbb{R}^n`
+    f : function :math:`\mathbb{R}_{>0} \to \mathbb{R}`
         batched 1d increasing function which root should be computed.
     n : int
         size of the input of f.
@@ -105,7 +105,7 @@ def false_position(
 
     Parameters
     ----------
-    f : function :math:`\mathbb{R}^n \to \mathbb{R}^n`
+    f : function :math:`\mathbb{R}_{>0} \to \mathbb{R}`
         increasing function which root should be computed.
     n : int
         size of the input of f.

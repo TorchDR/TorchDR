@@ -537,8 +537,8 @@ class SymmetricEntropicAffinity(LogAffinity):
             )
 
             if self.tolog:
-                selg.log_["eps"] = [self.eps_.clone().detach().cpu()]
-                selg.log_["mu"] = [self.eps_.clone().detach().cpu()]
+                self.log_["eps"] = [self.eps_.clone().detach().cpu()]
+                self.log_["mu"] = [self.eps_.clone().detach().cpu()]
 
             self.log_affinity_matrix_ = _log_Pse(
                 C, self.eps_, self.mu_, eps_square=self.eps_square
@@ -549,8 +549,8 @@ class SymmetricEntropicAffinity(LogAffinity):
             optimizer = OPTIMIZERS[self.optimizer]([self.eps_, self.mu_], lr=self.lr)
 
             if self.tolog:
-                selg.log_["eps"] = [self.eps_.clone().detach().cpu()]
-                selg.log_["mu"] = [self.eps_.clone().detach().cpu()]
+                self.log_["eps"] = [self.eps_.clone().detach().cpu()]
+                self.log_["mu"] = [self.eps_.clone().detach().cpu()]
 
             pbar = tqdm(range(self.max_iter), disable=not self.verbose)
             for k in pbar:
@@ -583,8 +583,8 @@ class SymmetricEntropicAffinity(LogAffinity):
                     )
 
                     if self.tolog:
-                        selg.log_["eps"].append(self.eps_.clone().detach())
-                        selg.log_["mu"].append(self.mu_.clone().detach())
+                        self.log_["eps"].append(self.eps_.clone().detach())
+                        self.log_["mu"].append(self.mu_.clone().detach())
 
                     perps = (H - 1).exp()
                     if self.verbose:
@@ -761,7 +761,7 @@ class DoublyStochasticEntropic(LogAffinity):
         )
 
         if self.tolog:
-            selg.log_["dual"] = [self.dual_.clone().detach().cpu()]
+            self.log_["dual"] = [self.dual_.clone().detach().cpu()]
 
         # Sinkhorn iterations
         for k in range(self.max_iter):
@@ -771,7 +771,7 @@ class DoublyStochasticEntropic(LogAffinity):
             self.dual_ = 0.5 * (self.dual_ + reduction)
 
             if self.tolog:
-                selg.log_["dual"].append(self.dual_.clone().detach().cpu())
+                self.log_["dual"].append(self.dual_.clone().detach().cpu())
 
             check_NaNs(self.dual_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
 
