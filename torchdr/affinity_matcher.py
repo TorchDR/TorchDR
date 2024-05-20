@@ -9,9 +9,13 @@ Affinity matcher base classes
 # License: BSD 3-Clause License
 
 import torch
+<<<<<<< HEAD
 import numpy as np
 from typing import Union
 from tqdm import tqdm
+=======
+from sklearn.base import TransformerMixin
+>>>>>>> origin/main
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -23,11 +27,12 @@ from torchdr.affinity import Affinity
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
 
+
 LOG_LOSSES = ["kl_loss", "cross_entropy_loss"]
 LOSSES = LOG_LOSSES + ["square_loss"]
 
 
-class AffinityMatcher(DRModule):
+class AffinityMatcher(DRModule, TransformerMixin):
     def __init__(
         self,
         affinity_data: Affinity,
@@ -56,7 +61,7 @@ class AffinityMatcher(DRModule):
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
-        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.optimizer_kwargs = optimizer_kwargs
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs or {}
 
@@ -83,7 +88,11 @@ class AffinityMatcher(DRModule):
             )
         self.affinity_embedding = affinity_embedding
 
+<<<<<<< HEAD
     def fit(self, X: Union[torch.Tensor, np.ndarray]):
+=======
+    def fit(self, X, y=None):
+>>>>>>> origin/main
         super().fit(X)
 
         n = self.data_.shape[0]
@@ -101,10 +110,33 @@ class AffinityMatcher(DRModule):
         else:
             self.PX_ = self.affinity_data.fit_transform(self.data_)
 
+<<<<<<< HEAD
         self._init_embedding()
         self._set_params()
         optimizer = self._set_optimizer()
         scheduler = self._set_scheduler(optimizer)
+=======
+        # --- initialize embedding ---
+        if self.init == "random":
+            embedding_ = torch.randn(
+                n, self.n_components, device=self.data_.device, dtype=self.data_.dtype
+            )
+        elif self.init == "pca":
+            embedding_ = PCA(n_components=self.n_components).fit_transform(self.data_)
+        else:
+            raise ValueError(
+                f"[TorchDR] {self.init} init not (yet) supported in AffinityMatcher."
+            )
+        embedding_ = embedding_ / embedding_[:, 0].std() * self.init_scaling
+
+        embedding_.requires_grad = True
+        optimizer_kwargs = self.optimizer_kwargs or {}
+        optimizer = OPTIMIZERS[self.optimizer](
+            [embedding_], lr=self.lr, **optimizer_kwargs
+        )
+
+        scheduler = self._make_scheduler(optimizer)
+>>>>>>> origin/main
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for k in pbar:

@@ -79,10 +79,10 @@ class SNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
+        perplexity=10,
         n_components=2,
         optimizer="Adam",
-        optimizer_kwargs=None,
+        optimizer_kwargs={},
         lr=1.0,
         scheduler="constant",
         init="pca",

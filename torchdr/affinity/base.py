@@ -20,6 +20,7 @@ class Affinity(ABC):
     Base class for affinity matrices.
     """
 
+<<<<<<< HEAD
     def __init__(
         self,
         metric: str = "euclidean",
@@ -28,6 +29,10 @@ class Affinity(ABC):
         verbose: bool = True,
     ):
         self.log = {}
+=======
+    def __init__(self, metric="euclidean", device="cuda", keops=True, verbose=True):
+        self.log_ = {}
+>>>>>>> origin/main
         self.metric = metric
         self.device = device
         self.keops = keops

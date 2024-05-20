@@ -26,7 +26,6 @@ class DRModule(ABC, BaseEstimator):
         keops: bool = True,
         verbose: bool = True,
     ):
-        self.log = {}
         self.n_components = n_components
         self.device = device
         self.keops = keops
