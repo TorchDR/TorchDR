@@ -5,3 +5,4 @@
 from . import utils
 
 __all__ = ['utils']
+__version__ = "0.0.1"

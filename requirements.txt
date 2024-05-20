@@ -1,6 +1,0 @@
-numpy>=1.20
-matplotlib
-torch
-pykeops
-scikit-learn
-tqdm
