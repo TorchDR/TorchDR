@@ -64,6 +64,8 @@ def kmin(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     assert isinstance(dim, int), "dim should be an integer."
+    if k >= A.shape[dim]:
+        return A, torch.arange(A.shape[dim])
     if isinstance(A, LazyTensor):
         dim_red = lambda P: (
             P.T if dim == 0 else P

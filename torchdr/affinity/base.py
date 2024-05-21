@@ -8,7 +8,7 @@ Common (simple) affinity matrices
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
-from typing import Union, Tuple
+from typing import Tuple
 
 import torch
 import numpy as np

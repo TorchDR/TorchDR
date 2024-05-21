@@ -11,6 +11,7 @@ import functools
 import torch
 import numpy as np
 from pykeops.torch import LazyTensor
+from sklearn.utils.validation import check_array
 
 
 def contiguous_output(func):
@@ -42,17 +43,28 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
         print(f"[TorchDR] Using device: {new_device}.")
 
     if isinstance(x, torch.Tensor):
+
+        if torch.is_complex(x):
+            raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
+        if not torch.isfinite(x).all():
+            raise ValueError("[TorchDR] ERROR : input contains infinite values.")
+
         input_backend = "torch"
         input_device = x.device
         x_ = x.to(new_device) if input_device != new_device else x
 
-    elif isinstance(x, np.ndarray):
+    else:
+        x = check_array(x, accept_sparse=False)  # check if contains only finite values
         input_backend = "numpy"
         input_device = "cpu"
-        x_ = torch.from_numpy(x).to(new_device)  # memory efficient
 
-    else:
-        raise ValueError(f"Unsupported type {type(x)}.")
+        if np.iscomplex(x).any():
+            raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
+
+        x_ = torch.from_numpy(x.copy()).to(new_device)  # memory efficient
+
+    if not x_.dtype.is_floating_point:
+        x_ = x_.float()  # KeOps does not support int
 
     if return_backend_device:
         return x_, input_backend, input_device
@@ -128,11 +140,11 @@ def handle_backend(func):
     """
 
     @functools.wraps(func)
-    def wrapper(self, X):
+    def wrapper(self, X, *args, **kwargs):
         X_, input_backend, input_device = to_torch(
             X, device=self.device, verbose=False, return_backend_device=True
         )
-        output = func(self, X_).detach()
+        output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
 
     return wrapper

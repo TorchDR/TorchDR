@@ -79,7 +79,7 @@ def test_gibbs_affinity(dtype, metric, dim):
     list_P = []
     for keops in [False, True]:
         affinity = GibbsAffinity(
-            device=DEVICE, keops=keops, metric=metric, dim_normalization=dim
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
         list_P.append(P)
@@ -108,7 +108,7 @@ def test_student_affinity(dtype, metric, dim):
     list_P = []
     for keops in [False, True]:
         affinity = StudentAffinity(
-            device=DEVICE, keops=keops, metric=metric, dim_normalization=dim
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
         list_P.append(P)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Stochastic Neighbor embedding algorithms (SNE, tSNE)
+Stochastic Neighbor embedding (SNE) algorithm 
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -79,35 +79,42 @@ class SNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity=10,
-        n_components=2,
-        optimizer="Adam",
-        optimizer_kwargs={},
-        lr=1.0,
-        scheduler="constant",
-        init="pca",
-        init_scaling=1e-4,
-        metric="euclidean",
-        tol=1e-4,
-        max_iter=1000,
-        tol_ea=1e-3,
-        max_iter_ea=100,
-        verbose=True,
-        tolog=False,
-        device=None,
-        keops=True,
+        perplexity: float = 30,
+        n_components: int = 2,
+        lr: float = 1e0,
+        optimizer: str = "Adam",
+        # optimizer_kwargs: dict = None,
+        scheduler: str = "constant",
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tol: float = 1e-4,
+        max_iter: int = 1000,
+        tol_affinity: float = 1e-3,
+        max_iter_affinity: int = 100,
+        metric_data: str = "euclidean",
+        metric_embedding: str = "euclidean",
+        verbose: bool = True,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = True,
     ):
-        affinity_input = EntropicAffinity(
+        self.metric_data = metric_data
+        self.metric_embedding = metric_embedding
+        self.perplexity = perplexity
+        self.max_iter_affinity = max_iter_affinity
+        self.tol_affinity = tol_affinity
+
+        affinity_data = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric,
-            tol=tol_ea,
-            max_iter=max_iter_ea,
+            metric=metric_data,
+            tol=tol_affinity,
+            max_iter=max_iter_affinity,
             device=device,
             keops=keops,
             verbose=verbose,
         )
         affinity_embedding = GibbsAffinity(
-            metric=metric,
+            metric=metric_embedding,
             normalization_dim=1,
             device=device,
             keops=keops,
@@ -115,11 +122,11 @@ class SNE(AffinityMatcher):
         )
 
         super().__init__(
-            affinity_data=affinity_input,
+            affinity_data=affinity_data,
             affinity_embedding=affinity_embedding,
             n_components=n_components,
             optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
+            # optimizer_kwargs=optimizer_kwargs,
             tol=tol,
             max_iter=max_iter,
             lr=lr,

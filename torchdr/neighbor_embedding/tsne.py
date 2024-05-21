@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Stochastic Neighbor embedding algorithms (SNE, tSNE)
+t-distributed Stochastic Neighbor embedding (t-SNE) algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -67,30 +67,37 @@ class TSNE(AffinityMatcher):
 
     def __init__(
         self,
-        perplexity,
-        n_components=2,
-        optimizer="Adam",
-        optimizer_kwargs=None,
-        lr=1.0,
-        scheduler="constant",
-        init="pca",
-        init_scaling=1e-4,
-        metric="euclidean",
-        tol=1e-4,
-        max_iter=1000,
-        tol_affinity=1e-3,
-        max_iter_affinity=100,
-        tolog=False,
-        device=None,
-        keops=True,
-        early_exaggeration=12,
-        early_exaggeration_iter=250,
-        verbose=True,
+        perplexity: float = 30,
+        n_components: int = 2,
+        lr: float = 1.0,
+        optimizer: str = "Adam",
+        # optimizer_kwargs: dict = None,
+        scheduler: str = "constant",
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        metric_data: str = "euclidean",
+        metric_embedding: str = "euclidean",
+        tol: float = 1e-4,
+        max_iter: int = 1000,
+        tol_affinity: float = 1e-3,
+        max_iter_affinity: int = 100,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = True,
+        early_exaggeration: int = 12,
+        early_exaggeration_iter: int = 250,
+        verbose: bool = True,
     ):
 
-        entropic_affinity = L2SymmetricEntropicAffinity(
+        self.metric_data = metric_data
+        self.metric_embedding = metric_embedding
+        self.perplexity = perplexity
+        self.max_iter_affinity = max_iter_affinity
+        self.tol_affinity = tol_affinity
+
+        affinity_data = L2SymmetricEntropicAffinity(
             perplexity=perplexity,
-            metric=metric,
+            metric=metric_data,
             tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
@@ -98,19 +105,19 @@ class TSNE(AffinityMatcher):
             verbose=verbose,
         )
         affinity_embedding = StudentAffinity(
-            metric=metric,
-            dim_normalization=None,  # we perform normalization when computing the loss
+            metric=metric_embedding,
+            normalization_dim=None,  # we perform normalization when computing the loss
             device=device,
             keops=keops,
             verbose=False,
         )
 
         super().__init__(
-            affinity_data=entropic_affinity,
+            affinity_data=affinity_data,
             affinity_embedding=affinity_embedding,
             n_components=n_components,
             optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
+            # optimizer_kwargs=optimizer_kwargs,
             tol=tol,
             max_iter=max_iter,
             lr=lr,
@@ -137,5 +144,5 @@ class TSNE(AffinityMatcher):
         log_Q = self.affinity_embedding.fit_transform(self.embedding_, log=True)
         attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
         repulsive_term = logsumexp_red(log_Q, dim=(0, 1))
-        loss = self.early_exaggeration * attractive_term + repulsive_term
+        loss = self.early_exaggeration_ * attractive_term + repulsive_term
         return loss

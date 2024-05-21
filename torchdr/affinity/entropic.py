@@ -255,8 +255,9 @@ class EntropicAffinity(LogAffinity):
 
         if not 1 < self.perplexity <= n:
             raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be between "
-                "2 and number of samples."
+                "[TorchDR] Affinity : The perplexity parameter must be greater than "
+                "1 and smaller than the number of samples "
+                "(not possible if n_samples = 1)."
             )
 
         def entropy_gap(eps):  # function to find the root of
@@ -265,6 +266,7 @@ class EntropicAffinity(LogAffinity):
             return entropy(log_P_normalized, log=True) - target_entropy
 
         begin, end = _bounds_entropic_affinity(C_reduced, self.perplexity)
+        begin += 1e-6  # avoid numerical issues
 
         self.eps_ = false_position(
             f=entropy_gap,
@@ -516,8 +518,9 @@ class SymmetricEntropicAffinity(LogAffinity):
         n = C.shape[0]
         if not 1 < self.perplexity <= n:
             raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be between "
-                "1 and number of samples."
+                "[TorchDR] Affinity : The perplexity parameter must be greater than "
+                "1 and smaller than the number of samples "
+                "(not possible if n_samples = 1)."
             )
 
         target_entropy = np.log(self.perplexity) + 1

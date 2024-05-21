@@ -9,13 +9,8 @@ Affinity matcher base classes
 # License: BSD 3-Clause License
 
 import torch
-<<<<<<< HEAD
 import numpy as np
-from typing import Union
 from tqdm import tqdm
-=======
-from sklearn.base import TransformerMixin
->>>>>>> origin/main
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -28,11 +23,7 @@ from torchdr.spectral import PCA
 from torchdr.base import DRModule
 
 
-LOG_LOSSES = ["kl_loss", "cross_entropy_loss"]
-LOSSES = LOG_LOSSES + ["square_loss"]
-
-
-class AffinityMatcher(DRModule, TransformerMixin):
+class AffinityMatcher(DRModule):
     def __init__(
         self,
         affinity_data: Affinity,
@@ -58,10 +49,10 @@ class AffinityMatcher(DRModule, TransformerMixin):
 
         assert optimizer in OPTIMIZERS, f"Optimizer {optimizer} not supported."
         self.optimizer = optimizer
+        self.optimizer_kwargs = optimizer_kwargs or {}
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
-        self.optimizer_kwargs = optimizer_kwargs
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs or {}
 
@@ -88,55 +79,32 @@ class AffinityMatcher(DRModule, TransformerMixin):
             )
         self.affinity_embedding = affinity_embedding
 
-<<<<<<< HEAD
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
-=======
-    def fit(self, X, y=None):
->>>>>>> origin/main
-        super().fit(X)
+    def _fit(self, X: torch.Tensor | np.ndarray):
+        n, p = X.shape
 
-        n = self.data_.shape[0]
+        self.n_features_in_ = p
+        self._check_n_neighbors(n)  # check perplexity or n_neighbors parameter
 
         # --- check if affinity_data is precomputed else compute it ---
         if self.affinity_data == "precomputed":
-            if self.data_.shape[1] != n:
+            if p != n:
                 raise ValueError(
                     '[TorchDR] (Error) : When affinity_data="precomputed" the input X '
                     "in fit must be a tensor of lazy tensor of shape "
                     "(n_samples, n_samples)."
                 )
-            check_nonnegativity(self.data_)
-            self.PX_ = self.data_
+            check_nonnegativity(X)
+            self.PX_ = X
         else:
-            self.PX_ = self.affinity_data.fit_transform(self.data_)
+            self.PX_ = self.affinity_data.fit_transform(X)
 
-<<<<<<< HEAD
-        self._init_embedding()
+        if hasattr(self, "early_exaggeration"):
+            self.early_exaggeration_ = self.early_exaggeration
+
+        self._init_embedding(X)
         self._set_params()
         optimizer = self._set_optimizer()
         scheduler = self._set_scheduler(optimizer)
-=======
-        # --- initialize embedding ---
-        if self.init == "random":
-            embedding_ = torch.randn(
-                n, self.n_components, device=self.data_.device, dtype=self.data_.dtype
-            )
-        elif self.init == "pca":
-            embedding_ = PCA(n_components=self.n_components).fit_transform(self.data_)
-        else:
-            raise ValueError(
-                f"[TorchDR] {self.init} init not (yet) supported in AffinityMatcher."
-            )
-        embedding_ = embedding_ / embedding_[:, 0].std() * self.init_scaling
-
-        embedding_.requires_grad = True
-        optimizer_kwargs = self.optimizer_kwargs or {}
-        optimizer = OPTIMIZERS[self.optimizer](
-            [embedding_], lr=self.lr, **optimizer_kwargs
-        )
-
-        scheduler = self._make_scheduler(optimizer)
->>>>>>> origin/main
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for k in pbar:
@@ -158,22 +126,39 @@ class AffinityMatcher(DRModule, TransformerMixin):
             if (  # stop early exaggeration phase
                 hasattr(self, "early_exaggeration")
                 and k == self.early_exaggeration_iter
-                and self.early_exaggeration != 1
             ):
-                self.early_exaggeration = 1
+                self.early_exaggeration_ = 1
                 self._set_optimizer()
                 self._set_scheduler(optimizer)
+
+        self.n_iter_ = k
 
         return self
 
     @handle_backend
-    def transform(self, X: Union[torch.Tensor, np.ndarray]):
-        if not hasattr(self, "embedding_"):
-            self.fit(X)
-            assert hasattr(
-                self, "embedding_"
-            ), "The embedding embedding_ should be computed in fit method."
-        return self.embedding_  # type: ignore
+    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+        self._fit(X)
+        return self.embedding_
+
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+        super().fit(X)
+        self.fit_transform(X)
+        return self
+
+    # @handle_backend
+    # def transform(self, X: torch.Tensor | np.ndarray):
+    #     if X.shape[1] != self.n_features_:
+    #         raise ValueError(
+    #             "Input data should have the same number of features as the "
+    #             f"training data. Got {X.shape[1]} features, "
+    #             f"expected {self.n_features_}."
+    #         )
+    #     if not hasattr(self, "embedding_"):
+    #         self.fit(X)
+    #         assert hasattr(
+    #             self, "embedding_"
+    #         ), "The embedding embedding_ should be computed in fit method."
+    #     return self.embedding_  # type: ignore
 
     def _set_params(self):
         self.params_ = [{"params": self.embedding_}]
@@ -206,16 +191,16 @@ class AffinityMatcher(DRModule, TransformerMixin):
         else:
             raise ValueError(f"[TorchDR] scheduler : {self.scheduler} not supported.")
 
-    def _init_embedding(self):
-        n = self.data_.shape[0]
+    def _init_embedding(self, X):
+        n = X.shape[0]
 
         if self.init == "normal":
             embedding_ = torch.randn(
-                n, self.n_components, device=self.data_.device, dtype=self.data_.dtype
+                n, self.n_components, device=X.device, dtype=X.dtype
             )
 
         elif self.init == "pca":
-            embedding_ = PCA(n_components=self.n_components).fit_transform(self.data_)
+            embedding_ = PCA(n_components=self.n_components).fit_transform(X)
 
         else:
             raise ValueError(
@@ -224,3 +209,22 @@ class AffinityMatcher(DRModule, TransformerMixin):
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()
+
+    def _check_n_neighbors(self, n):
+        param_list = ["perplexity", "n_neighbors"]
+
+        for param_name in param_list:
+            if hasattr(self, param_name):
+                param_value = getattr(self, param_name)
+                if n <= param_value:
+                    if self.verbose:
+                        print(
+                            "[TorchDR] WARNING : Number of samples is smaller than "
+                            f"{param_name} ({n} <= {param_value}), setting "
+                            f"{param_name} to {n//2} (which corresponds to n//2)."
+                        )
+                    new_value = n // 2
+                    setattr(self, param_name + "_", new_value)
+                    setattr(self.affinity_data, param_name, new_value)
+
+        return self
