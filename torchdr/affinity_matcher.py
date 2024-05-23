@@ -8,133 +8,110 @@ Affinity matcher base classes
 #
 # License: BSD 3-Clause License
 
-from tqdm import tqdm
 import torch
-from sklearn.base import TransformerMixin
+import numpy as np
+from tqdm import tqdm
 
 from torchdr.utils import (
     OPTIMIZERS,
-    cross_entropy_loss,
-    square_loss,
     check_nonnegativity,
     check_NaNs,
     handle_backend,
-    logsumexp_red,
 )
-from torchdr.affinity import Affinity, LogAffinity
+from torchdr.affinity import Affinity
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
 
 
-LOG_LOSSES = ["kl_loss", "cross_entropy_loss"]
-LOSSES = LOG_LOSSES + ["square_loss"]
-
-
-class AffinityMatcher(DRModule, TransformerMixin):
+class AffinityMatcher(DRModule):
     def __init__(
         self,
-        affinity_data,
-        affinity_embedding,
-        n_components,
-        loss_fun="cross_entropy_loss",
-        optimizer="Adam",
-        optimizer_kwargs=None,
-        lr=1e-3,
-        scheduler="linear",
-        tol=1e-6,
-        max_iter=1000,
-        init="pca",
-        init_scaling=1e-4,
-        tolog=False,
-        device=None,
-        keops=True,
-        verbose=True,
+        affinity_in: Affinity,
+        affinity_out: Affinity,
+        n_components: int = 2,
+        optimizer: str = "Adam",
+        optimizer_kwargs: dict = None,
+        lr: float = 1e0,
+        scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
+        tol: float = 1e-3,
+        max_iter: int = 1000,
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
+        seed: float = 0,
     ):
         super().__init__(
             n_components=n_components, device=device, keops=keops, verbose=verbose
         )
-        self.loss_fun = loss_fun
 
         assert optimizer in OPTIMIZERS, f"Optimizer {optimizer} not supported."
         self.optimizer = optimizer
+        self.optimizer_kwargs = optimizer_kwargs or {}
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
-        self.optimizer_kwargs = optimizer_kwargs
         self.scheduler = scheduler
+        self.scheduler_kwargs = scheduler_kwargs or {}
 
         self.init = init
         self.init_scaling = init_scaling
 
         self.tolog = tolog
         self.verbose = verbose
+        self.seed = seed
 
-        # --- check affinity_data ---
-        if (
-            not isinstance(affinity_data, Affinity)
-            and not affinity_data == "precomputed"
-        ):
+        # --- check affinity_in ---
+        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
-                '[TorchDR] affinity_data must be an Affinity instance or "precomputed".'
+                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
             )
-        self.affinity_data = affinity_data
+        self.affinity_in = affinity_in
 
-        # --- check affinity_embedding ---
-        if not isinstance(affinity_embedding, Affinity):
-            raise ValueError(
-                "[TorchDR] affinity_embedding must be an Affinity instance."
-            )
-        self.affinity_embedding = affinity_embedding
+        # --- check affinity_out ---
+        if not isinstance(affinity_out, Affinity):
+            raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
+        self.affinity_out = affinity_out
 
-    def fit(self, X, y=None):
-        super().fit(X)
+    def _fit(self, X: torch.Tensor):
+        self.n_samples_in_, self.n_features_in_ = X.shape
 
-        n = self.data_.shape[0]
+        self._check_n_neighbors(self.n_samples_in_)
 
-        # --- check if affinity_data is precomputed else compute it ---
-        if self.affinity_data == "precomputed":
-            if self.data_.shape[1] != n:
+        # --- check if affinity_in is precomputed else compute it ---
+        if self.affinity_in == "precomputed":
+            if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
-                    '[TorchDR] (Error) : When affinity_data="precomputed" the input X '
+                    '[TorchDR] (Error) : When affinity_in="precomputed" the input X '
                     "in fit must be a tensor of lazy tensor of shape "
                     "(n_samples, n_samples)."
                 )
-            check_nonnegativity(self.data_)
-            self.PX_ = self.data_
+            check_nonnegativity(X)
+            self.PX_ = X
         else:
-            self.PX_ = self.affinity_data.fit_transform(self.data_)
+            self.PX_ = self.affinity_in.fit_transform(X)
 
-        # --- initialize embedding ---
-        if self.init == "random":
-            embedding_ = torch.randn(
-                n, self.n_components, device=self.data_.device, dtype=self.data_.dtype
-            )
-        elif self.init == "pca":
-            embedding_ = PCA(n_components=self.n_components).fit_transform(self.data_)
-        else:
-            raise ValueError(
-                f"[TorchDR] {self.init} init not (yet) supported in AffinityMatcher."
-            )
-        embedding_ = embedding_ / embedding_[:, 0].std() * self.init_scaling
+        if hasattr(self, "early_exaggeration"):
+            self.early_exaggeration_ = self.early_exaggeration
 
-        embedding_.requires_grad = True
-        optimizer_kwargs = self.optimizer_kwargs or {}
-        optimizer = OPTIMIZERS[self.optimizer](
-            [embedding_], lr=self.lr, **optimizer_kwargs
-        )
-
-        scheduler = self._make_scheduler(optimizer)
+        self._init_embedding(X)
+        self._set_params()
+        optimizer = self._set_optimizer()
+        scheduler = self._set_scheduler(optimizer)
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for k in pbar:
             optimizer.zero_grad()
-            loss = self._loss(embedding_)
+            loss = self._loss()
             loss.backward()
             optimizer.step()
             scheduler.step(loss.item())
 
             check_NaNs(
-                embedding_,
+                self.embedding_,
                 msg="[TorchDR] AffinityMatcher : NaNs in the embeddings "
                 f"at iter {k}.",
             )
@@ -142,71 +119,192 @@ class AffinityMatcher(DRModule, TransformerMixin):
             if self.verbose:
                 pbar.set_description(f"Loss : {loss.item():.2e}")
 
-            if (
+            if (  # stop early exaggeration phase
                 hasattr(self, "early_exaggeration")
                 and k == self.early_exaggeration_iter
             ):
-                self.early_exaggeration = 1
-                optimizer = OPTIMIZERS[self.optimizer](
-                    [embedding_], lr=self.lr, **self.optimizer_kwargs
-                )
+                self.early_exaggeration_ = 1
+                optimizer = self._set_optimizer()
+                self._set_scheduler(optimizer)
 
-        self.embedding_ = embedding_.detach()
+        self.n_iter_ = k
+
+        return self
 
     @handle_backend
-    def transform(self, X):
-        if not hasattr(self, "embedding_"):
-            self.fit(X)
-            assert hasattr(
-                self, "embedding_"
-            ), "The embedding embedding_ should be computed in fit method."
-        return self.embedding_  # type: ignore
+    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+        self._fit(X)
+        return self.embedding_
 
-    def _make_scheduler(self, optimizer):
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+        super().fit(X)
+        self.fit_transform(X)
+        return self
+
+    def _set_params(self):
+        self.params_ = [{"params": self.embedding_}]
+        return self.params_
+
+    def _set_optimizer(self):
+        optimizer = OPTIMIZERS[self.optimizer](
+            self.params_, lr=self.lr, **self.optimizer_kwargs
+        )
+        return optimizer
+
+    def _set_scheduler(self, optimizer: torch.optim.Optimizer):
         if self.scheduler == "constant":
             return torch.optim.lr_scheduler.ConstantLR(
                 optimizer, factor=1, total_iters=0
             )
 
         elif self.scheduler == "linear":
-            lambda1 = lambda epoch: (1 - epoch / self.max_iter)
-            return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+            linear_decay = lambda epoch: (1 - epoch / self.max_iter)
+            return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=linear_decay)
 
         elif self.scheduler == "plateau":
             return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min")
 
-        elif self.scheduler == "exponential":
-            return torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        elif self.scheduler == "exponential":  # param gamma
+            return torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, **self.scheduler_kwargs
+            )
+
+        else:
+            raise ValueError(f"[TorchDR] scheduler : {self.scheduler} not supported.")
+
+    def _init_embedding(self, X):
+        n = X.shape[0]
+
+        if self.init == "normal":
+            generator = torch.Generator(device=X.device).manual_seed(self.seed)
+            embedding_ = torch.randn(
+                n,
+                self.n_components,
+                device=X.device,
+                dtype=X.dtype,
+                generator=generator,
+            )
+
+        elif self.init == "pca":
+            embedding_ = PCA(n_components=self.n_components).fit_transform(X)
 
         else:
             raise ValueError(
-                f"[TorchDR] {self.scheduler} scheduler not (yet) supported."
+                f"[TorchDR] init : {self.init} not supported in AffinityMatcher."
             )
 
-    def _loss(self, embedding_):
-        """
-        Dimensionality reduction objective.
-        """
-        if self.loss_fun == "cross_entropy_loss":
-            if isinstance(self.affinity_embedding, LogAffinity):
-                log_Q = self.affinity_embedding.fit_transform(embedding_, log=True)
-                loss = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
-                if hasattr(self, "early_exaggeration"):
-                    loss = self.early_exaggeration * loss + logsumexp_red(
-                        log_Q, dim=(0, 1)
-                    )
-            else:
-                Q = self.affinity_embedding.fit_transform(embedding_)
-                loss = cross_entropy_loss(self.PX_, Q, log_Q=False)
+        self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
+        return self.embedding_.requires_grad_()
 
-        elif self.loss_fun == "square_loss":
-            Q = self.affinity_embedding.fit_transform(embedding_)
-            loss = square_loss(self.PX_, Q)
+    def _check_n_neighbors(self, n):
+        param_list = ["perplexity", "n_neighbors"]
 
-        else:
+        for param_name in param_list:
+            if hasattr(self, param_name):
+                param_value = getattr(self, param_name)
+                if n <= param_value:
+                    if self.verbose:
+                        print(
+                            "[TorchDR] WARNING : Number of samples is smaller than "
+                            f"{param_name} ({n} <= {param_value}), setting "
+                            f"{param_name} to {n//2} (which corresponds to n//2)."
+                        )
+                    new_value = n // 2
+                    setattr(self, param_name + "_", new_value)
+                    setattr(self.affinity_in, param_name, new_value)
+
+        return self
+
+
+class BatchedAffinityMatcher(AffinityMatcher):
+    def __init__(
+        self,
+        affinity_in: Affinity,
+        affinity_out: Affinity,
+        n_components: int = 2,
+        optimizer: str = "Adam",
+        optimizer_kwargs: dict = None,
+        lr: float = 1e0,
+        scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
+        tol: float = 1e-3,
+        max_iter: int = 1000,
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
+        batch_size: int = None,
+    ):
+
+        super().__init__(
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
+            n_components=n_components,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+            lr=lr,
+            scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
+            tol=tol,
+            max_iter=max_iter,
+            init=init,
+            init_scaling=init_scaling,
+            tolog=tolog,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+
+        self.batch_size = batch_size
+
+    def _instantiate_generator(self):
+        self.generator_ = np.random.default_rng(
+            seed=self.seed
+        )  # we use numpy because torch.Generator is not picklable
+        return self.generator_
+
+    def _batched_affinity_and_embedding(self):
+        if (
+            not hasattr(self, "batch_size_")
+            or self.n_samples_in_ % getattr(self, "batch_size_") != 0
+        ):
+            self._set_batch_size()
+
+        indices = self.generator_.permutation(self.n_samples_in_).reshape(
+            -1, self.batch_size_
+        )
+
+        batched_affinity_in_ = self.affinity_in.get_batch(indices)
+        batched_embedding_ = self.embedding_[indices]
+
+        return batched_affinity_in_, batched_embedding_
+
+    def _set_batch_size(self):
+        if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
+            self.batch_size_ = self.batch_size
+            return self.batch_size_
+
+        else:  # looking for a suitable batch_size
+            for candidate_n_batches_ in np.arange(10, 1, -1):
+
+                if self.n_samples_in_ % candidate_n_batches_ == 0:
+                    self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
+
+                    if self.verbose:
+                        print(
+                            f"[TorchDR] WARNING : batch_size not provided or suitable, "
+                            f"setting batch_size to {self.batch_size_}."
+                        )
+                    return self.batch_size_
+
             raise ValueError(
-                f"[TorchDR] {self.loss_fun} loss_fun not supported "
-                "in Affinity Matcher."
+                "[TorchDR] ERROR : could not find a suitable batch size. "
+                "Please provide one. It should be a diviser of n_samples "
+                f"({self.n_samples_in_} here). "
             )
 
-        return loss
+    def _fit(self, X: torch.Tensor):
+        self._instantiate_generator()
+        super()._fit(X)

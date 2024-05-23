@@ -37,6 +37,19 @@ def cross_entropy_loss(P, Q, log_Q=False):
 
 
 @sum_all_axis
+def binary_cross_entropy_loss(P, Q, coeff_repulsion=1):
+    r"""
+    Computes the binary cross-entropy between P and Q.
+    Supports log domain input for Q.
+    """
+    # return -P * Q.log() - coeff_repulsion * (1 - P) * (1 - Q).log()
+    return (
+        -P * Q.clamp(1e-4, 1).log()
+        - coeff_repulsion * (1 - P) * (1 - Q).clamp(1e-4, 1).log()
+    )
+
+
+@sum_all_axis
 def square_loss(P, Q):
     r"""
     Computes the square loss between P and Q.
@@ -51,12 +64,17 @@ def kmin(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     assert isinstance(dim, int), "dim should be an integer."
+
+    if k >= A.shape[dim]:
+        return A, torch.arange(A.shape[dim])
+
     if isinstance(A, LazyTensor):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = A.Kmin_argKmin(K=k, dim=dim)
         return dim_red(values), dim_red(indices)
+
     else:
         values, indices = A.topk(k=k, dim=dim, largest=False)
         return values, indices
@@ -69,12 +87,17 @@ def kmax(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     assert isinstance(dim, int), "dim should be an integer."
+
+    if k >= A.shape[dim]:
+        return A, torch.arange(A.shape[dim])
+
     if isinstance(A, LazyTensor):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = (-A).Kmin_argKmin(K=k, dim=dim)
         return -dim_red(values), dim_red(indices)
+
     else:
         values, indices = A.topk(k=k, dim=dim, largest=True)
         return values, indices
@@ -187,7 +210,7 @@ def identity_matrix(n, keops, device, dtype):
     Returns the identity matrix of size n with corresponding device and dtype.
     Outputs a lazy tensor if keops is True.
     """
-    if keops:  # (complicated) workaround for identity matrix with KeOps
+    if keops:
         i = torch.arange(n).to(device=device, dtype=dtype)
         j = torch.arange(n).to(device=device, dtype=dtype)
         i = LazyTensor(i[:, None, None])
@@ -195,3 +218,16 @@ def identity_matrix(n, keops, device, dtype):
         return (0.5 - (i - j) ** 2).step()
     else:
         return torch.eye(n, device=device, dtype=dtype)
+
+
+def batch_transpose(arg):
+    r"""
+    Transposes a tensor or lazy tensor that can have a batch dimension.
+    The batch dimension is the first, thus only the last two axis are transposed.
+    """
+    if isinstance(arg, LazyTensor):
+        return arg.T
+    elif isinstance(arg, torch.Tensor):
+        return arg.transpose(-2, -1)
+    else:
+        raise ValueError("Unsupported input shape for transpose_vec function.")

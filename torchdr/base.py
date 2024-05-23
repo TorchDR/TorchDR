@@ -8,15 +8,15 @@ Base classes for DR methods
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 
 from torchdr.utils import to_torch
 
 
-class DRModule(ABC, BaseEstimator):
+class DRModule(TransformerMixin, BaseEstimator, ABC):
     """
     Base class for DR methods.
-    Each children class should implement the fit and transform methods.
+    Each children class should implement the fit method.
     """
 
     def __init__(
@@ -31,15 +31,22 @@ class DRModule(ABC, BaseEstimator):
         self.keops = keops
         self.verbose = verbose
 
+    def _process_input(self, X):
+        self.data_, self.input_backend_, self.input_device_ = to_torch(
+            X, device=self.device, verbose=self.verbose, return_backend_device=True
+        )
+        self.n_features_ = self.data_.shape[1]
+        return self
+
     @abstractmethod
     def fit(self, X, y=None):
         """Projects input data X onto a low-dimensional space.
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
-            or tensor of shape (n_samples, n_samples)
-            Input data or input affinity matrix if affinity_data="precomputed".
+        X : array-like object of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
         y : None
             Ignored.
 
@@ -50,18 +57,4 @@ class DRModule(ABC, BaseEstimator):
         """
         if self.verbose:
             print("[TorchDR] Fitting DR model ...")
-        self.data_, self.input_backend, self.input_device = to_torch(
-            X, device=self.device, verbose=self.verbose, return_backend_device=True
-        )
         return self
-
-    @abstractmethod
-    def transform(self, X):
-        pass
-
-    def forward(self, X):
-        return self.transform(X)
-
-    def fit_transform(self, X):
-        self.fit(X)
-        return self.transform(X)

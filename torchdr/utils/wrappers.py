@@ -8,12 +8,33 @@ Useful wrappers for dealing with backends and devices
 # License: BSD 3-Clause License
 
 import functools
-import itertools
 import torch
 import numpy as np
 from pykeops.torch import LazyTensor
+from sklearn.utils.validation import check_array
 
 
+def contiguous_output(func):
+    """
+    Convert all output torch tensors to contiguous.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        output = func(*args, **kwargs)
+        if isinstance(output, tuple):
+            output = (
+                out.contiguous() if isinstance(out, torch.Tensor) else out
+                for out in output
+            )
+        elif isinstance(output, torch.Tensor):
+            output = output.contiguous()
+        return output
+
+    return wrapper
+
+
+@contiguous_output
 def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
     use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
     new_device = torch.device("cuda:0" if use_gpu else "cpu")
@@ -22,17 +43,28 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
         print(f"[TorchDR] Using device: {new_device}.")
 
     if isinstance(x, torch.Tensor):
+
+        if torch.is_complex(x):
+            raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
+        if not torch.isfinite(x).all():
+            raise ValueError("[TorchDR] ERROR : input contains infinite values.")
+
         input_backend = "torch"
         input_device = x.device
         x_ = x.to(new_device) if input_device != new_device else x
 
-    elif isinstance(x, np.ndarray):
+    else:
+        x = check_array(x, accept_sparse=False)  # check if contains only finite values
         input_backend = "numpy"
         input_device = "cpu"
-        x_ = torch.from_numpy(x).to(new_device)  # memory efficient
 
-    else:
-        raise ValueError(f"Unsupported type {type(x)}.")
+        if np.iscomplex(x).any():
+            raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
+
+        x_ = torch.from_numpy(x.copy()).to(new_device)  # memory efficient
+
+    if not x_.dtype.is_floating_point:
+        x_ = x_.float()  # KeOps does not support int
 
     if return_backend_device:
         return x_, input_backend, input_device
@@ -45,29 +77,42 @@ def torch_to_backend(x, backend="torch", device="cpu"):
     return x.numpy() if backend == "numpy" else x
 
 
+def keops_unsqueeze(arg):
+    """
+    Apply unsqueeze(-1) to an input vector or batched vector.
+    Then converts it to a KeOps lazy tensor.
+    """
+    if arg.ndim == 1:  # arg is a vector
+        return LazyTensor(arg.unsqueeze(-1), 0)
+    elif arg.ndim == 2:  # arg is a batched vector
+        return LazyTensor(
+            arg.unsqueeze(-1).unsqueeze(-1)
+        )  # specifying to KeOps that we have a batch dimension
+    else:
+        raise ValueError("Unsupported input shape for keops_unsqueeze function.")
+
+
 def wrap_vectors(func):
     """
-    Reshape all input vectors from size (n) to size (n, 1).
-    If any input is a lazy tensor, convert all input vectors to lazy tensors.
+    If the cost matrix C is a lazy tensor, convert all other input tensors to KeOps
+    lazy tensors while applying unsqueeze(-1).
+    These tensors should be vectors or batched vectors.
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        use_keops = any(
-            isinstance(arg, LazyTensor)
-            for arg in itertools.chain(args, kwargs.values())
-        )
-        is_vector = lambda arg: isinstance(arg, torch.Tensor) and arg.ndim == 1
-        unsqueeze = lambda arg: (
-            LazyTensor(arg[:, None], 0) if use_keops else arg[:, None]
-        )
+    def wrapper(C, *args, **kwargs):
+        use_keops = isinstance(C, LazyTensor)
 
-        args = [unsqueeze(arg) if is_vector(arg) else arg for arg in args]
+        unsqueeze = lambda arg: keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
+
+        args = [
+            (unsqueeze(arg) if isinstance(arg, torch.Tensor) else arg) for arg in args
+        ]
         kwargs = {
-            key: (unsqueeze(value) if is_vector(value) else value)
+            key: (unsqueeze(value) if isinstance(value, torch.Tensor) else value)
             for key, value in kwargs.items()
         }
-        return func(*args, **kwargs)
+        return func(C, *args, **kwargs)
 
     return wrapper
 
@@ -82,7 +127,7 @@ def sum_all_axis(func):
         output = func(*args, **kwargs)
         assert isinstance(output, torch.Tensor) or isinstance(
             output, LazyTensor
-        ), "sum_all_axis can be applied to a tensor or lazy tensor."
+        ), "sum_all_axis can only be applied to a tensor or lazy tensor."
         return output.sum(1).sum()  # for compatibility with KeOps
 
     return wrapper
@@ -95,11 +140,11 @@ def handle_backend(func):
     """
 
     @functools.wraps(func)
-    def wrapper(self, X):
+    def wrapper(self, X, *args, **kwargs):
         X_, input_backend, input_device = to_torch(
             X, device=self.device, verbose=False, return_backend_device=True
         )
-        output = func(self, X_)
+        output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
 
     return wrapper

@@ -7,6 +7,7 @@ Affinity matrices used in UMAP.
 #
 # License: BSD 3-Clause License
 
+import torch
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -41,14 +42,14 @@ def find_ab_params(spread, min_dist):
 class UMAPAffinityData(Affinity):
     def __init__(
         self,
-        n_neighbors=30,  # analog of the perplexity parameter of SNE / TSNE
-        tol=1e-5,
-        max_iter=1000,
-        sparsity=None,
-        metric="euclidean",
-        device=None,
-        keops=True,
-        verbose=True,
+        n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
+        tol: float = 1e-5,
+        max_iter: int = 1000,
+        sparsity: bool = None,
+        metric: str = "euclidean",
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.n_neighbors = n_neighbors
@@ -56,7 +57,7 @@ class UMAPAffinityData(Affinity):
         self.max_iter = max_iter
         self.sparsity = self.n_neighbors < 100 if sparsity is None else sparsity
 
-    def fit(self, X):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""Computes the input affinity matrix of UMAP from input data X.
 
         Parameters
@@ -90,7 +91,7 @@ class UMAPAffinityData(Affinity):
         else:
             C_reduced = C_full
 
-        self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze()
+        self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze().contiguous()
 
         n = C_full.shape[0]
 
@@ -123,14 +124,14 @@ class UMAPAffinityData(Affinity):
 class UMAPAffinityEmbedding(Affinity):
     def __init__(
         self,
-        min_dist=0.1,
-        spread=1,
-        a=None,
-        b=None,
-        metric="euclidean",
-        device=None,
-        keops=True,
-        verbose=True,
+        min_dist: float = 0.1,
+        spread: float = 1,
+        a: float = None,
+        b: float = None,
+        metric: str = "euclidean",
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.min_dist = min_dist
@@ -143,7 +144,7 @@ class UMAPAffinityEmbedding(Affinity):
             self._a = a
             self._b = b
 
-    def fit(self, X):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Computes the embedding affinity matrix of UMAP from input data X.
 

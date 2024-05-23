@@ -35,7 +35,7 @@ from torchdr.affinity import (
     UMAPAffinityData,
     UMAPAffinityEmbedding,
 )
-from torchdr.affinity.entropic import bounds_entropic_affinity, _log_Pe
+from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 
 lst_types = ["float32", "float64"]
 
@@ -79,7 +79,7 @@ def test_gibbs_affinity(dtype, metric, dim):
     list_P = []
     for keops in [False, True]:
         affinity = GibbsAffinity(
-            device=DEVICE, keops=keops, metric=metric, dim_normalization=dim
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
         list_P.append(P)
@@ -108,7 +108,7 @@ def test_student_affinity(dtype, metric, dim):
     list_P = []
     for keops in [False, True]:
         affinity = StudentAffinity(
-            device=DEVICE, keops=keops, metric=metric, dim_normalization=dim
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
         list_P.append(P)
@@ -161,7 +161,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
 
     # -- check bounds on the root of entropic affinities --
     C = affinity._ground_cost_matrix(affinity.data_)
-    begin, end = bounds_entropic_affinity(C, perplexity=perp)
+    begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
     ).all(), "Lower bound of entropic affinity root is not valid."
