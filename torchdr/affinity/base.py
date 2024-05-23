@@ -59,7 +59,7 @@ class Affinity(ABC):
     def get_batch(self, indices: torch.Tensor):
         self._check_is_fitted()
         assert (
-            indices.dim() == 2
+            indices.ndim == 2
         ), '[TorchDR] Error : indices in "get_batch" should be a 2D torch tensor '
         "of shape (n_batch, batch_size)."
         return self

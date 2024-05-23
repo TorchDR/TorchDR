@@ -26,8 +26,8 @@ from torchdr.base import DRModule
 class AffinityMatcher(DRModule):
     def __init__(
         self,
-        affinity_data: Affinity,
-        affinity_embedding: Affinity,
+        affinity_in: Affinity,
+        affinity_out: Affinity,
         n_components: int = 2,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
@@ -42,6 +42,7 @@ class AffinityMatcher(DRModule):
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
+        seed: float = 0,
     ):
         super().__init__(
             n_components=n_components, device=device, keops=keops, verbose=verbose
@@ -61,42 +62,37 @@ class AffinityMatcher(DRModule):
 
         self.tolog = tolog
         self.verbose = verbose
+        self.seed = seed
 
-        # --- check affinity_data ---
-        if (
-            not isinstance(affinity_data, Affinity)
-            and not affinity_data == "precomputed"
-        ):
+        # --- check affinity_in ---
+        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
-                '[TorchDR] affinity_data must be an Affinity instance or "precomputed".'
+                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
             )
-        self.affinity_data = affinity_data
+        self.affinity_in = affinity_in
 
-        # --- check affinity_embedding ---
-        if not isinstance(affinity_embedding, Affinity):
-            raise ValueError(
-                "[TorchDR] affinity_embedding must be an Affinity instance."
-            )
-        self.affinity_embedding = affinity_embedding
+        # --- check affinity_out ---
+        if not isinstance(affinity_out, Affinity):
+            raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
+        self.affinity_out = affinity_out
 
-    def _fit(self, X: torch.Tensor | np.ndarray):
-        n, p = X.shape
+    def _fit(self, X: torch.Tensor):
+        self.n_samples_in_, self.n_features_in_ = X.shape
 
-        self.n_features_in_ = p
-        self._check_n_neighbors(n)  # check perplexity or n_neighbors parameter
+        self._check_n_neighbors(self.n_samples_in_)
 
-        # --- check if affinity_data is precomputed else compute it ---
-        if self.affinity_data == "precomputed":
-            if p != n:
+        # --- check if affinity_in is precomputed else compute it ---
+        if self.affinity_in == "precomputed":
+            if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
-                    '[TorchDR] (Error) : When affinity_data="precomputed" the input X '
+                    '[TorchDR] (Error) : When affinity_in="precomputed" the input X '
                     "in fit must be a tensor of lazy tensor of shape "
                     "(n_samples, n_samples)."
                 )
             check_nonnegativity(X)
             self.PX_ = X
         else:
-            self.PX_ = self.affinity_data.fit_transform(X)
+            self.PX_ = self.affinity_in.fit_transform(X)
 
         if hasattr(self, "early_exaggeration"):
             self.early_exaggeration_ = self.early_exaggeration
@@ -128,7 +124,7 @@ class AffinityMatcher(DRModule):
                 and k == self.early_exaggeration_iter
             ):
                 self.early_exaggeration_ = 1
-                self._set_optimizer()
+                optimizer = self._set_optimizer()
                 self._set_scheduler(optimizer)
 
         self.n_iter_ = k
@@ -144,21 +140,6 @@ class AffinityMatcher(DRModule):
         super().fit(X)
         self.fit_transform(X)
         return self
-
-    # @handle_backend
-    # def transform(self, X: torch.Tensor | np.ndarray):
-    #     if X.shape[1] != self.n_features_:
-    #         raise ValueError(
-    #             "Input data should have the same number of features as the "
-    #             f"training data. Got {X.shape[1]} features, "
-    #             f"expected {self.n_features_}."
-    #         )
-    #     if not hasattr(self, "embedding_"):
-    #         self.fit(X)
-    #         assert hasattr(
-    #             self, "embedding_"
-    #         ), "The embedding embedding_ should be computed in fit method."
-    #     return self.embedding_  # type: ignore
 
     def _set_params(self):
         self.params_ = [{"params": self.embedding_}]
@@ -195,8 +176,13 @@ class AffinityMatcher(DRModule):
         n = X.shape[0]
 
         if self.init == "normal":
+            generator = torch.Generator(device=X.device).manual_seed(self.seed)
             embedding_ = torch.randn(
-                n, self.n_components, device=X.device, dtype=X.dtype
+                n,
+                self.n_components,
+                device=X.device,
+                dtype=X.dtype,
+                generator=generator,
             )
 
         elif self.init == "pca":
@@ -225,6 +211,100 @@ class AffinityMatcher(DRModule):
                         )
                     new_value = n // 2
                     setattr(self, param_name + "_", new_value)
-                    setattr(self.affinity_data, param_name, new_value)
+                    setattr(self.affinity_in, param_name, new_value)
 
         return self
+
+
+class BatchedAffinityMatcher(AffinityMatcher):
+    def __init__(
+        self,
+        affinity_in: Affinity,
+        affinity_out: Affinity,
+        n_components: int = 2,
+        optimizer: str = "Adam",
+        optimizer_kwargs: dict = None,
+        lr: float = 1e0,
+        scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
+        tol: float = 1e-3,
+        max_iter: int = 1000,
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
+        batch_size: int = None,
+    ):
+
+        super().__init__(
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
+            n_components=n_components,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+            lr=lr,
+            scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
+            tol=tol,
+            max_iter=max_iter,
+            init=init,
+            init_scaling=init_scaling,
+            tolog=tolog,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+
+        self.batch_size = batch_size
+
+    def _instantiate_generator(self):
+        self.generator_ = np.random.default_rng(
+            seed=self.seed
+        )  # we use numpy because torch.Generator is not picklable
+        return self.generator_
+
+    def _batched_affinity_and_embedding(self):
+        if (
+            not hasattr(self, "batch_size_")
+            or self.n_samples_in_ % getattr(self, "batch_size_") != 0
+        ):
+            self._set_batch_size()
+
+        indices = self.generator_.permutation(self.n_samples_in_).reshape(
+            -1, self.batch_size_
+        )
+
+        batched_affinity_in_ = self.affinity_in.get_batch(indices)
+        batched_embedding_ = self.embedding_[indices]
+
+        return batched_affinity_in_, batched_embedding_
+
+    def _set_batch_size(self):
+        if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
+            self.batch_size_ = self.batch_size
+            return self.batch_size_
+
+        else:  # looking for a suitable batch_size
+            for candidate_n_batches_ in np.arange(10, 1, -1):
+
+                if self.n_samples_in_ % candidate_n_batches_ == 0:
+                    self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
+
+                    if self.verbose:
+                        print(
+                            f"[TorchDR] WARNING : batch_size not provided or suitable, "
+                            f"setting batch_size to {self.batch_size_}."
+                        )
+                    return self.batch_size_
+
+            raise ValueError(
+                "[TorchDR] ERROR : could not find a suitable batch size. "
+                "Please provide one. It should be a diviser of n_samples "
+                f"({self.n_samples_in_} here). "
+            )
+
+    def _fit(self, X: torch.Tensor):
+        self._instantiate_generator()
+        super()._fit(X)

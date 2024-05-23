@@ -56,7 +56,7 @@ class TSNE(AffinityMatcher):
     Attributes
     ----------
     log_ : dictionary
-        Contains the log of affinity_embedding, affinity_data and the loss at each iteration (if tolog is True).
+        Contains the log of affinity_out, affinity_in and the loss at each iteration (if tolog is True).
     n_iter_: int
         Number of iterations run.
     embedding_ : torch.Tensor of shape (n_samples, n_components)
@@ -75,8 +75,8 @@ class TSNE(AffinityMatcher):
         scheduler: str = "constant",
         init: str = "pca",
         init_scaling: float = 1e-4,
-        metric_data: str = "euclidean",
-        metric_embedding: str = "euclidean",
+        metric_in: str = "euclidean",
+        metric_out: str = "euclidean",
         tol: float = 1e-4,
         max_iter: int = 1000,
         tol_affinity: float = 1e-3,
@@ -89,23 +89,23 @@ class TSNE(AffinityMatcher):
         verbose: bool = True,
     ):
 
-        self.metric_data = metric_data
-        self.metric_embedding = metric_embedding
+        self.metric_in = metric_in
+        self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_data = L2SymmetricEntropicAffinity(
+        affinity_in = L2SymmetricEntropicAffinity(
             perplexity=perplexity,
-            metric=metric_data,
+            metric=metric_in,
             tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             keops=keops,
             verbose=verbose,
         )
-        affinity_embedding = StudentAffinity(
-            metric=metric_embedding,
+        affinity_out = StudentAffinity(
+            metric=metric_out,
             normalization_dim=None,  # we perform normalization when computing the loss
             device=device,
             keops=keops,
@@ -113,8 +113,8 @@ class TSNE(AffinityMatcher):
         )
 
         super().__init__(
-            affinity_data=affinity_data,
-            affinity_embedding=affinity_embedding,
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             # optimizer_kwargs=optimizer_kwargs,
@@ -141,7 +141,7 @@ class TSNE(AffinityMatcher):
         """
         Dimensionality reduction objective.
         """
-        log_Q = self.affinity_embedding.fit_transform(self.embedding_, log=True)
+        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
         attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
         repulsive_term = logsumexp_red(log_Q, dim=(0, 1))
         loss = self.early_exaggeration_ * attractive_term + repulsive_term

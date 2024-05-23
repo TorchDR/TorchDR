@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Stochastic Neighbor embedding (SNE) algorithm 
+Stochastic Neighbor embedding (SNE) algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -58,7 +58,7 @@ class SNE(AffinityMatcher):
     Attributes
     ----------
     log_ : dictionary
-        Contains the log of affinity_embedding, affinity_data and the loss at each iteration (if tolog is True).
+        Contains the log of affinity_out, affinity_in and the loss at each iteration (if tolog is True).
     n_iter_: int
         Number of iterations run.
     embedding_ : torch.Tensor of shape (n_samples, n_components)
@@ -91,30 +91,30 @@ class SNE(AffinityMatcher):
         max_iter: int = 1000,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_data: str = "euclidean",
-        metric_embedding: str = "euclidean",
+        metric_in: str = "euclidean",
+        metric_out: str = "euclidean",
         verbose: bool = True,
         tolog: bool = False,
         device: str = None,
         keops: bool = True,
     ):
-        self.metric_data = metric_data
-        self.metric_embedding = metric_embedding
+        self.metric_in = metric_in
+        self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_data = EntropicAffinity(
+        affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_data,
+            metric=metric_in,
             tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             keops=keops,
             verbose=verbose,
         )
-        affinity_embedding = GibbsAffinity(
-            metric=metric_embedding,
+        affinity_out = GibbsAffinity(
+            metric=metric_out,
             normalization_dim=1,
             device=device,
             keops=keops,
@@ -122,8 +122,8 @@ class SNE(AffinityMatcher):
         )
 
         super().__init__(
-            affinity_data=affinity_data,
-            affinity_embedding=affinity_embedding,
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             # optimizer_kwargs=optimizer_kwargs,
@@ -140,6 +140,6 @@ class SNE(AffinityMatcher):
         )
 
     def _loss(self):
-        log_Q = self.affinity_embedding.fit_transform(self.embedding_, log=True)
+        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
         loss = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
         return loss
