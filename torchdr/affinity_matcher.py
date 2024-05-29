@@ -50,12 +50,12 @@ class AffinityMatcher(DRModule):
 
         assert optimizer in OPTIMIZERS, f"Optimizer {optimizer} not supported."
         self.optimizer = optimizer
-        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
         self.tol = tol
         self.max_iter = max_iter
         self.scheduler = scheduler
-        self.scheduler_kwargs = scheduler_kwargs or {}
+        self.scheduler_kwargs = scheduler_kwargs
 
         self.init = init
         self.init_scaling = init_scaling
@@ -147,7 +147,7 @@ class AffinityMatcher(DRModule):
 
     def _set_optimizer(self):
         optimizer = OPTIMIZERS[self.optimizer](
-            self.params_, lr=self.lr, **self.optimizer_kwargs
+            self.params_, lr=self.lr, **(self.optimizer_kwargs or {})
         )
         return optimizer
 
@@ -166,7 +166,7 @@ class AffinityMatcher(DRModule):
 
         elif self.scheduler == "exponential":  # param gamma
             return torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **self.scheduler_kwargs
+                optimizer, **(self.scheduler_kwargs or {})
             )
 
         else:
