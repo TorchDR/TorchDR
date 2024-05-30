@@ -12,12 +12,26 @@
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
+TorchDR is an open-source dimensionality reduction library using PyTorch.
 
 Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
 
 Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/TorchDR)
 
- 
+## Why ``TorchDR``?
+
+``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
+There are several reasons to opt for ``TorchDR`` among which:
+
+|  |  |
+| ----- | -------------- |
+| **Modularity** | All of it is written in python in a highly modular way, making it easy to create or transform components.|
+| **Speed** | Supports GPU acceleration and batching strategies.|
+| **Memory efficiency** | Relies on [KeOps](https://www.kernel-operations.io/keops/index.html) symbolic tensors to avoid memory overflows. |
+| **Compatibility** | Implemented methods are **fully compatible with the ``scikit-learn`` API**. |
+|  |  |
+
+
 ## License
 
 The library is distributed under the 3-Clause BSD license.
