@@ -21,14 +21,26 @@ Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/Tor
 ## Why ``TorchDR``?
 
 ``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
+
+**The dimensionality redution problem.** Let $\mathbf{X} = (\mathbf{x}_1, ... , \mathbf{x}_n)^\top \in \mathbb{R}^{n \times p}$ be an input dataset of $n$ samples of dimensionality $p$. DR aims to construct a low-dimensional representation (or embedding) $\mathbf{Z} = (\mathbf{z}_1, ... , \mathbf{z}_n)^\top \in \mathbb{R}^{n \times d}$ with $d < p$ that preserves a prescribed geometry for the input dataset. This geometry is encoded via a pairwise affinity matrix $\mathbf{A_X}$. For instance it can simply be the Gaussian kernel such that $[\mathbf{A_X}]_{ij} = \exp(\| \mathbf{x}_i - \mathbf{x}_j \|^2)$. 
+
+To this end, most popular DR methods
+optimize $\mathbf{Z}$ such that a well-chosesn pairwise affinity matrix in
+the embedding space (denoted $\mathbf{A_Z}$) matches $\mathbf{A_X}$ according to some criteria. This general problem can thus be written as
+
+$$\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \:.$$
+
+
+
+
 There are several reasons to opt for ``TorchDR`` among which:
 
 |  |  |
 | ----- | -------------- |
 | **Modularity** | All of it is written in python in a highly modular way, making it easy to create or transform components.|
-| **Speed** | Supports GPU acceleration and batching strategies.|
-| **Memory efficiency** | Relies on [KeOps](https://www.kernel-operations.io/keops/index.html) symbolic tensors to avoid memory overflows. |
-| **Compatibility** | Implemented methods are **fully compatible with the ``scikit-learn`` API**. |
+| **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
+| **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
+| **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
 |  |  |
 
 
