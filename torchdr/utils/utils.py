@@ -10,7 +10,7 @@ Useful functions for defining objectives and constraints
 import torch
 from pykeops.torch import LazyTensor
 
-from torchdr.utils.wrappers import wrap_vectors, sum_all_axis
+from torchdr.utils.wrappers import wrap_vectors
 
 
 def entropy(P, log=True, dim=1):
@@ -22,39 +22,6 @@ def entropy(P, log=True, dim=1):
         return -(P.exp() * (P - 1)).sum(dim).squeeze()
     else:
         return -(P * (P.log() - 1)).sum(dim).squeeze()
-
-
-@sum_all_axis
-def cross_entropy_loss(P, Q, log_Q=False):
-    r"""
-    Computes the cross-entropy between P and Q.
-    Supports log domain input for Q.
-    """
-    if log_Q:
-        return -P * Q
-    else:
-        return -P * Q.log()
-
-
-@sum_all_axis
-def binary_cross_entropy_loss(P, Q, coeff_repulsion=1):
-    r"""
-    Computes the binary cross-entropy between P and Q.
-    Supports log domain input for Q.
-    """
-    # return -P * Q.log() - coeff_repulsion * (1 - P) * (1 - Q).log()
-    return (
-        -P * Q.clamp(1e-4, 1).log()
-        - coeff_repulsion * (1 - P) * (1 - Q).clamp(1e-4, 1).log()
-    )
-
-
-@sum_all_axis
-def square_loss(P, Q):
-    r"""
-    Computes the square loss between P and Q.
-    """
-    return (P - Q) ** 2
 
 
 def kmin(A, k=1, dim=0):
