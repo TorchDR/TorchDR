@@ -12,12 +12,39 @@
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
+TorchDR is an open-source dimensionality reduction (DR) library using PyTorch.
 
 Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
 
 Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/TorchDR)
 
- 
+## Why ``TorchDR``?
+
+``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
+
+DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
+```math
+\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR)}
+```
+where $`L`$ is typically the $`\ell_2`$, $`\mathrm{KL}`$ or $`\mathrm{BCE}`$ loss.
+Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_Z})`$.
+
+``TorchDR`` is structured around the above formulation $`\text{(DR)}`$.
+Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
+Code for other aspects, including optimization, is shared across methods, allowing a fair benchmarking focusing on core differences.
+
+Advantages of ``TorchDR`` also include:
+
+|  |  |
+| ----- | -------------- |
+| **Modularity** | All of it is written in python in a highly modular way, making it easy to create or transform components.|
+| **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
+| **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
+| **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
+| **Parametric estimators** | Neural estimators are seamelessly integrated for all methods. |
+|  |  |
+
+
 ## License
 
 The library is distributed under the 3-Clause BSD license.
