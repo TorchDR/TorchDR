@@ -28,11 +28,14 @@ the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This ge
 ```math
 \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij})
 ```
-where L is typically the $`\ell_2`$, $`\mathrm{KL}`$ or $`\mathrm{BCE}`$ loss.
-
+where $`L`$ is typically the $`\ell_2`$, $`\mathrm{KL}`$ or $`\mathrm{BCE}`$ loss.
 Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_Z})`$.
 
-There are several reasons to opt for ``TorchDR`` among which:
+``TorchDR`` is structured around this characterization.
+Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
+Aspects like embedding initialization and optimization are shared across methods, allowing to focus on the core differences between them.
+
+Advantages of ``TorchDR`` also include:
 
 |  |  |
 | ----- | -------------- |
@@ -40,6 +43,7 @@ There are several reasons to opt for ``TorchDR`` among which:
 | **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
 | **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
 | **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
+| **Integration of parametric estimators** | |
 |  |  |
 
 
