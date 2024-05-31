@@ -22,7 +22,7 @@ Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/Tor
 
 ``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
 
-**Dimensionality Reduction.** DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
+DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
 \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR)}
 ```
