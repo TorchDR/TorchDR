@@ -36,6 +36,9 @@ def contiguous_output(func):
 
 @contiguous_output
 def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
+    """
+    Convert input to torch tensor and specified device while performing some checks.
+    """
     use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
     new_device = torch.device("cuda:0" if use_gpu else "cpu")
 
@@ -73,6 +76,9 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
 
 
 def torch_to_backend(x, backend="torch", device="cpu"):
+    """
+    Convert a torch tensor to specified backend and device.
+    """
     x = x.to(device=device)
     return x.numpy() if backend == "numpy" else x
 
