@@ -26,14 +26,14 @@ Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/Tor
 optimize $`\mathbf{Z}`$ such that a well-chosen pairwise affinity matrix in
 the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
-\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij})
+\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR problem)}
 ```
 where $`L`$ is typically the $`\ell_2`$, $`\mathrm{KL}`$ or $`\mathrm{BCE}`$ loss.
 Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_Z})`$.
 
-``TorchDR`` is structured around this characterization.
+``TorchDR`` is structured around the above formulation.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
-Aspects like embedding initialization and optimization are shared across methods, allowing to focus on the core differences between them.
+Other aspects like embedding initialization and optimization are shared across methods, allowing to focus on the core differences between them.
 
 Advantages of ``TorchDR`` also include:
 
