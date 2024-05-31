@@ -22,18 +22,16 @@ Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/Tor
 
 ``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
 
-**Dimensionality Reduction.** Let $`\mathbf{X} = (\mathbf{x}_1, ... , \mathbf{x}_n)^\top \in \mathbb{R}^{n \times p}`$ be an input dataset of $n$ samples of dimensionality $p$. DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z} = (\mathbf{z}_1, ... , \mathbf{z}_n)^\top \in \mathbb{R}^{n \times d}`$ with $d < p$ that best preserves the geometry of the input dataset. This geometry is encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, most popular DR methods
-optimize $`\mathbf{Z}`$ such that a well-chosen pairwise affinity matrix in
-the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
+**Dimensionality Reduction.** DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
-\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR problem)}
+\min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR)}
 ```
 where $`L`$ is typically the $`\ell_2`$, $`\mathrm{KL}`$ or $`\mathrm{BCE}`$ loss.
 Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_Z})`$.
 
-``TorchDR`` is structured around the above formulation.
+``TorchDR`` is structured around the above formulation $`\text{(DR)}`$.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
-Other aspects like embedding initialization and optimization are shared across methods, allowing to focus on the core differences between them.
+Other aspects are shared across methods, allowing to focus on the core differences between them.
 
 Advantages of ``TorchDR`` also include:
 
