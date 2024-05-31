@@ -45,6 +45,8 @@ Advantages of ``TorchDR`` also include:
 |  |  |
 
 
+## Implemented Methods
+
 ## License
 
 The library is distributed under the 3-Clause BSD license.

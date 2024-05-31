@@ -12,6 +12,7 @@ Welcome to TorchDR's documentation!
 
    self
    all
+   torchdr.notation
 
 
 .. include:: ../../README.md
