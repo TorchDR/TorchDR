@@ -31,7 +31,7 @@ Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_
 
 ``TorchDR`` is structured around the above formulation $`\text{(DR)}`$.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
-Other aspects are shared across methods, allowing to focus on the core differences between them.
+Code for other aspects, including optimization, is shared across methods, allowing a fair benchmarking focusing on core differences.
 
 Advantages of ``TorchDR`` also include:
 
@@ -41,7 +41,7 @@ Advantages of ``TorchDR`` also include:
 | **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
 | **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
 | **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
-| **Integration of parametric estimators** | |
+| **Parametric estimators** | Neural estimators are seamelessly integrated for all methods. |
 |  |  |
 
 
