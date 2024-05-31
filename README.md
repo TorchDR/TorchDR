@@ -12,7 +12,7 @@
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
-TorchDR is an open-source dimensionality reduction library using PyTorch.
+TorchDR is an open-source dimensionality reduction (DR) library using PyTorch.
 
 Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
 
@@ -22,9 +22,7 @@ Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/Tor
 
 ``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
 
-**Dimensionality Reduction.** Let $`\mathbf{X} = (\mathbf{x}_1, ... , \mathbf{x}_n)^\top \in \mathbb{R}^{n \times p}`$ be an input dataset of $n$ samples of dimensionality $p$. DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z} = (\mathbf{z}_1, ... , \mathbf{z}_n)^\top \in \mathbb{R}^{n \times d}`$ with $d < p$ that preserves a prescribed geometry for the input dataset. This geometry is encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. A basic example is the Gaussian kernel $`[\mathbf{A_X}]_{ij} = \exp(- \| \mathbf{x}_i - \mathbf{x}_j \|^2_2)`$.
-
-To this end, most popular DR methods
+**Dimensionality Reduction.** Let $`\mathbf{X} = (\mathbf{x}_1, ... , \mathbf{x}_n)^\top \in \mathbb{R}^{n \times p}`$ be an input dataset of $n$ samples of dimensionality $p$. DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z} = (\mathbf{z}_1, ... , \mathbf{z}_n)^\top \in \mathbb{R}^{n \times d}`$ with $d < p$ that best preserves the geometry of the input dataset. This geometry is encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, most popular DR methods
 optimize $`\mathbf{Z}`$ such that a well-chosen pairwise affinity matrix in
 the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
