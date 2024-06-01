@@ -1,3 +1,8 @@
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/torchdr_logo.png
+   :width: 500px
+   :alt: torchdr logo
+   :align: center
+
 # TorchDR - PyTorch Dimensionality Reduction 
 
 [![PyPI version](https://badge.fury.io/py/torchdr.svg)](https://badge.fury.io/py/torchdr)
