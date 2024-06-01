@@ -3,9 +3,6 @@
   <img src="docs/source/figures/torchdr_logo.png"  width="600" >
 </p>
 
-
-# TorchDR - PyTorch Dimensionality Reduction 
-
 [![PyPI version](https://badge.fury.io/py/torchdr.svg)](https://badge.fury.io/py/torchdr)
 [![PyTorch](https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
