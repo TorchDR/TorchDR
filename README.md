@@ -12,7 +12,7 @@
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 
 
-[**Documentation**](#documentation) |
+[**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**Licence**](#licence)
 
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
@@ -53,7 +53,6 @@ Advantages of ``TorchDR`` also include:
 ## Documentation
 
 The TorchDR documentation can be found [here](https://torchdr.github.io/).
-It contains tutorials and API references.
 
 
 ## License
