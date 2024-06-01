@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 
-[**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**Licence**](#licence) | [**References**](#references)
+[**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**References**](#references)
 
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
@@ -49,10 +49,6 @@ Advantages of ``TorchDR`` also include:
 
 The TorchDR documentation can be found [here](https://torchdr.github.io/).
 
-
-## License
-
-The library is distributed under the 3-Clause BSD license.
 
 ## References
 
