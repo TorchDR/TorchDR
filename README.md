@@ -39,7 +39,7 @@ Advantages of ``TorchDR`` also include:
 |  |  |
 | ----- | -------------- |
 | **Modularity** | All of it is written in python in a highly modular way, making it easy to create or transform components.|
-| **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
+| **Speed** | Supports GPU acceleration and batching strategies with constrastive learning techniques.|
 | **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
 | **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
 | **Parametric estimators** | Neural estimators are seamelessly integrated for all methods. |
