@@ -11,19 +11,14 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 
-
-[**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**Licence**](#licence)
+[**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**Licence**](#licence) | [**References**](#references)
 
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
 TorchDR is an open-source dimensionality reduction (DR) library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
-
-Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/TorchDR)
-
-## Why ``TorchDR``?
+## Introduction
 
 DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
