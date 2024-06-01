@@ -1,7 +1,8 @@
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/torchdr_logo.png
-   :width: 500px
-   :alt: torchdr logo
-   :align: center
+
+<p align="center">
+  <img src="docs/source/figures/torchdr_logo.png"  width="400" >
+</p>
+
 
 # TorchDR - PyTorch Dimensionality Reduction 
 
