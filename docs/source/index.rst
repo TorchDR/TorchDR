@@ -12,11 +12,13 @@ Welcome to TorchDR's documentation!
 
    self
    all
+   torchdr.overview
+   torchdr.affinities
    torchdr.notation
 
 
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
+.. .. include:: ../../README.md
+..    :parser: myst_parser.sphinx_
 
 
 Indices and tables
