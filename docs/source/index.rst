@@ -1,26 +1,28 @@
-.. TorchDR documentation master file, created by
-   sphinx-quickstart on Thu Feb 22 15:52:22 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+TorchDR: a Pytorch library for dimensionality reduction
+==================================================================
 
-Welcome to TorchDR's documentation!
-===================================
+
+Github repository: `<https://github.com/torchdr/torchdr>`_.
+
+**TorchDR** provides a simple unified framework for :ref:`dimensionality reduction <overview>` methods.
+
+The library offers:
+
+* A large collection of :ref:`affinity matrices <affinities>`.
+* A simple and unified interface for :ref:`neighbor embedding <neighbor-embedding>` methods.
+
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Contents
 
-   self
-   all
-
-
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
+   torchdr.overview
+   torchdr.affinities
+   torchdr.neighbor-embedding
+   torchdr.notation
 
 
-Indices and tables
+Finding Help
 ==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+If you have any questions or suggestions, feel free to open an issue on the
+`issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.

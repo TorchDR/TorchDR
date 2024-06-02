@@ -1,4 +1,7 @@
-# TorchDR - PyTorch Dimensionality Reduction 
+
+<p align="center">
+  <img src="docs/source/figures/torchdr_logo.png"  width="600" >
+</p>
 
 [![PyPI version](https://badge.fury.io/py/torchdr.svg)](https://badge.fury.io/py/torchdr)
 [![PyTorch](https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
@@ -8,19 +11,14 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 
+[**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**References**](#references)
 
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
-TorchDR is an open-source dimensionality reduction (DR) library using PyTorch.
+``TorchDR`` is an open-source dimensionality reduction (DR) library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-Website and documentation: [https://torchdr.github.io/](https://torchdr.github.io/)
-
-Source code: [https://github.com/TorchDR/TorchDR](https://github.com/TorchDR/TorchDR)
-
-## Why ``TorchDR``?
-
-``TorchDR`` aims to accelerate the development of new DR methods by providing a common simplified framework.
+## Introduction
 
 DR aims to construct a low-dimensional representation (or embedding) $`\mathbf{Z}`$ of an input dataset $`\mathbf{X}`$ that best preserves its geometry, encoded via a pairwise affinity matrix $`\mathbf{A_X}`$. To this end, DR methods optimize $`\mathbf{Z}`$ such that a pairwise affinity matrix in the embedding space (denoted $`\mathbf{A_Z}`$) matches $`\mathbf{A_X}`$. This general problem is as follows
 ```math
@@ -31,23 +29,32 @@ Each DR method is thus characterized by a triplet $`(L, \mathbf{A_X}, \mathbf{A_
 
 ``TorchDR`` is structured around the above formulation $`\text{(DR)}`$.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
-Code for other aspects, including optimization, is shared across methods, allowing a fair benchmarking focusing on core differences.
+Code for other aspects, including optimization, is shared across methods. It ensures a fair benchmarking focusing on core differences.
 
 Advantages of ``TorchDR`` also include:
 
 |  |  |
 | ----- | -------------- |
 | **Modularity** | All of it is written in python in a highly modular way, making it easy to create or transform components.|
-| **Speed** | Supports GPU acceleration and batching strategies inspired from constrastive learning.|
+| **Speed** | Supports GPU acceleration and batching strategies with constrastive learning techniques.|
 | **Memory efficiency** | Relies on [``KeOps``](https://www.kernel-operations.io/keops/index.html) symbolic tensors to completely avoid memory overflows. |
 | **Compatibility** | Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem. |
 | **Parametric estimators** | Neural estimators are seamelessly integrated for all methods. |
 |  |  |
 
 
-## License
+## Implemented Methods
 
-The library is distributed under the 3-Clause BSD license.
+* SNE [1]
+* t-SNE [2]
+* SNEkhorn / t-SNEkhorn [3]
+* UMAP [8]
+
+
+## Documentation
+
+The TorchDR documentation can be found [here](https://torchdr.github.io/).
+
 
 ## References
 
@@ -64,6 +71,8 @@ The library is distributed under the 3-Clause BSD license.
 [6] Marco Cuturi (2013). [Sinkhorn Distances: Lightspeed Computation of Optimal Transport](https://proceedings.neurips.cc/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf). Advances in Neural Information Processing Systems 26 (NeurIPS).
 
 [7] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). [Interpolating between Optimal Transport and MMD using Sinkhorn Divergences](https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf). International Conference on Artificial Intelligence and Statistics (AISTATS).
+
+[8] Leland McInnes, John Healy, James Melville (2018). UMAP: [Uniform manifold approximation and projection for dimension reduction](https://arxiv.org/abs/1802.03426). arXiv preprint arXiv:1802.03426.
 
 
 <!-- [] Yao Lu, Jukka Corander, Zhirong Yang. ["Doubly Stochastic Neighbor Embedding on Spheres."](https://www.sciencedirect.com/science/article/pii/S0167865518305099) Pattern Recognition Letters 128 (2019): 100-106.
