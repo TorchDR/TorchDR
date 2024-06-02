@@ -9,15 +9,16 @@ Github repository: `<https://github.com/torchdr/torchdr>`_.
 The library offers:
 
 * A large collection of :ref:`affinity matrices <affinities>`.
+* A simple and unified interface for :ref:`neighbor embedding <neighbor-embedding>` methods.
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents
 
-   all
    torchdr.overview
    torchdr.affinities
+   torchdr.neighbor-embedding
    torchdr.notation
 
 
