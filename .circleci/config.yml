@@ -78,7 +78,7 @@ jobs:
         # Save the outputs
         - store_artifacts:
             path: docs/build/html/
-            # destination: dev
+            destination: dev
         - persist_to_workspace:
             root: docs/build
             paths:
@@ -113,11 +113,12 @@ jobs:
                 git fetch origin
                 git reset --hard origin/main
                 git clean -xdf
-                echo "Deploying docs for ${CIRCLE_BRANCH}.";
+                echo "Deploying dev docs for ${CIRCLE_BRANCH}.";
+                cd dev
                 cp -a /tmp/build/html/* .;
                 touch .nojekyll;
                 git add -A;
-                git commit -m "CircleCI update of docs (${CIRCLE_BUILD_NUM}).";
+                git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
                 git push origin main;
               else
                 echo "No deployment (build: ${CIRCLE_BRANCH}).";
@@ -151,11 +152,11 @@ jobs:
               git fetch origin
               git reset --hard origin/main
               git clean -xdf
-              echo "Deploying docs for ${CIRCLE_BRANCH}.";
+              echo "Deploying dev docs for ${CIRCLE_BRANCH}.";
               cp -a /tmp/build/html/* .;
               touch .nojekyll;
               git add -A;
-              git commit -m "CircleCI update of docs (${CIRCLE_BUILD_NUM}).";
+              git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
               git push origin main;
 
 
