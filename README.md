@@ -16,7 +16,7 @@
 > [!WARNING]
 > This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
-TorchDR is an open-source dimensionality reduction (DR) library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
+``TorchDR`` is an open-source dimensionality reduction (DR) library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
 ## Introduction
 
@@ -45,6 +45,12 @@ Advantages of ``TorchDR`` also include:
 
 ## Implemented Methods
 
+* SNE [1]
+* t-SNE [2]
+* SNEkhorn / t-SNEkhorn [3]
+* UMAP [8]
+
+
 ## Documentation
 
 The TorchDR documentation can be found [here](https://torchdr.github.io/).
@@ -65,6 +71,8 @@ The TorchDR documentation can be found [here](https://torchdr.github.io/).
 [6] Marco Cuturi (2013). [Sinkhorn Distances: Lightspeed Computation of Optimal Transport](https://proceedings.neurips.cc/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf). Advances in Neural Information Processing Systems 26 (NeurIPS).
 
 [7] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). [Interpolating between Optimal Transport and MMD using Sinkhorn Divergences](https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf). International Conference on Artificial Intelligence and Statistics (AISTATS).
+
+[8] Leland McInnes, John Healy, James Melville (2018). UMAP: Uniform manifold approximation and projection for dimension reduction. arXiv preprint arXiv:1802.03426.
 
 
 <!-- [] Yao Lu, Jukka Corander, Zhirong Yang. ["Doubly Stochastic Neighbor Embedding on Spheres."](https://www.sciencedirect.com/science/article/pii/S0167865518305099) Pattern Recognition Letters 128 (2019): 100-106.

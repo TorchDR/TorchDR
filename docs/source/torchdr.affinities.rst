@@ -1,17 +1,13 @@
+.. _affinities:
+
 Affinities
 =============
 
-.. currentmodule:: torchdr.affinity
-
-.. automodule:: torchdr.affinity
-   :no-members:
-   :no-inherited-members:
-
 .. autosummary::
-   :toctree: gen_modules/
-   :template: function.rst
+   :toctree: stubs
+   :template: myclass_template.rst
    
-   EntropicAffinity
-   SymmetricEntropicAffinity
-   L2SymmetricEntropicAffinity
-   DoublyStochasticEntropic
+   torchdr.affinity.EntropicAffinity
+   torchdr.affinity.SymmetricEntropicAffinity
+   torchdr.affinity.L2SymmetricEntropicAffinity
+   torchdr.affinity.DoublyStochasticEntropic
