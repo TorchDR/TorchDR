@@ -72,7 +72,7 @@ The TorchDR documentation can be found [here](https://torchdr.github.io/).
 
 [7] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). [Interpolating between Optimal Transport and MMD using Sinkhorn Divergences](https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf). International Conference on Artificial Intelligence and Statistics (AISTATS).
 
-[8] Leland McInnes, John Healy, James Melville (2018). UMAP: Uniform manifold approximation and projection for dimension reduction. arXiv preprint arXiv:1802.03426.
+[8] Leland McInnes, John Healy, James Melville (2018). UMAP: [Uniform manifold approximation and projection for dimension reduction](https://arxiv.org/abs/1802.03426). arXiv preprint arXiv:1802.03426.
 
 
 <!-- [] Yao Lu, Jukka Corander, Zhirong Yang. ["Doubly Stochastic Neighbor Embedding on Spheres."](https://www.sciencedirect.com/science/article/pii/S0167865518305099) Pattern Recognition Letters 128 (2019): 100-106.
