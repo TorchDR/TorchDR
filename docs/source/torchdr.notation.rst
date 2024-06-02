@@ -1,5 +1,5 @@
-Math Notations
-=============
+Math notations
+==============
 
 The documentation of ``torchdr`` uses the following mathematical notations.
 

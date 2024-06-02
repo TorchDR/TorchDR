@@ -53,7 +53,7 @@ Advantages of ``TorchDR`` also include:
 
 ## Documentation
 
-The TorchDR documentation can be found [here](https://torchdr.github.io/).
+The ``TorchDR`` documentation can be found [here](https://torchdr.github.io/).
 
 
 ## References
