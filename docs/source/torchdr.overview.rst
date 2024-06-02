@@ -40,6 +40,10 @@ Spectral methods
 
     \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
+.. note::
+
+    PCA (available at :class:`torchdr.spectral.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
+
 
 Metric MDS
 ----------
