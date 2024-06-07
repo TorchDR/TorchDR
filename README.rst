@@ -8,14 +8,14 @@
 |Pytorch| |Black| |Test Status| |codecov| |License| |Python 3.10+|
 
 
-.. contents:: Table of Contents
-   :depth: 1
-   :local:
+.. .. contents:: Table of Contents
+..    :depth: 1
+..    :local:
 
-  **Introduction**_
-  | **Implemented Methods**_
-  | **Documentation**_
-  | **References**_
+..   **Introduction**_
+..   | **Implemented Methods**_
+..   | **Documentation**_
+..   | **References**_
 
 .. [**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**References**](#references)
 
@@ -104,9 +104,9 @@ References
 
 .. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
-.. [9] Yao Lu, Jukka Corander, Zhirong Yang. `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`. Pattern Recognition Letters 128 (2019): 100-106.
+.. [9] Yao Lu, Jukka Corander, Zhirong Yang. `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 (2019): 100-106.
 
-.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger. `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`. arXiv preprint (2023).
+.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger. `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint (2023).
 
 
 
