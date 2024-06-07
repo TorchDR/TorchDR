@@ -25,7 +25,7 @@ DR aims to construct a low-dimensional representation (or embedding) of an input
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as an objective function.
 Code for other aspects, including optimization, is shared across methods. It ensures a fair benchmarking focusing on core differences.
 
-Advantages of ``TorchDR`` also include:
+Benefits of ``TorchDR`` include:
 
 .. list-table:: 
    :widths: auto
@@ -84,9 +84,9 @@ References
 
 .. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
-.. [9] Yao Lu, Jukka Corander, Zhirong Yang. `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 (2019): 100-106.
+.. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
 
-.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger. `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint (2023).
+.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
 
 
 

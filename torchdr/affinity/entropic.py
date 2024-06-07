@@ -632,7 +632,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 class DoublyStochasticEntropic(LogAffinity):
     r"""
     Computes the symmetric doubly stochastic affinity matrix :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
-    Consists in solving the following symmetric entropic optimal transport problem [6]:
+    Consists in solving the following symmetric entropic optimal transport problem [6]_:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C},
@@ -653,7 +653,7 @@ class DoublyStochasticEntropic(LogAffinity):
     .. math::
         \mathbf{P}^{\mathrm{ds}} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{ds}}_{ij} = \exp(f^\star_i + f^\star_j - C_{ij} / \varepsilon) \:.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]).
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
 
     **Bregman projection.** Another way to write this problem is to consider the
     KL projection of the Gibbs kernel onto the set of doubly stochastic matrices:
