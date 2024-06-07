@@ -26,7 +26,6 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.doctest",
     "sphinx_gallery.gen_gallery",
-    "sphinxemoji.sphinxemoji",
     "sphinx_copybutton",
 ]
 

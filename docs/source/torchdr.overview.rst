@@ -8,7 +8,7 @@ DR estimators
 Introduction
 ------------
 
-DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z}` of an input dataset :math:`\mathbf{X}` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
+DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
 
 .. math::
 
@@ -19,19 +19,6 @@ Each DR method is thus characterized by a triplet :math:`(L, \mathbf{A_X}, \math
 
 ``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`L`.
-
-This package provides a large collection of **dimensionality reduction** (DR) algorithms. DR focuses on solving problems of the form
-
-.. math::
-
-    \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij})
-
-where 
-
-  - :math:`\mathbf{A_X}` is the pairwise affinity matrix between input samples :math:`(\mathbf{x}_1, ..., \mathbf{x}_n)`.
-  - :math:`\mathbf{A_Z}` is the pairwise affinity matrix between low-dimensional embeddings :math:`(\mathbf{z}_1, ..., \mathbf{z}_n)`.
-  - :math:`L` is a loss function.
-
 
 All DR estimators inherit the structure of the :meth:`DRModule` class:
 
