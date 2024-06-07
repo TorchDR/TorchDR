@@ -173,16 +173,6 @@ class EntropicAffinity(LogAffinity):
     verbose : bool, optional
         Verbosity.
 
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
-
     References
     ----------
     .. [1]  Geoffrey Hinton, Sam Roweis (2002).
@@ -329,16 +319,6 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
     verbose : bool, optional
         Verbosity.
 
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
-
     References
     ----------
     .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
@@ -448,18 +428,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity (default True).
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variables at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
-    mu_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the marginal constraint.
 
     References
     ----------
@@ -721,16 +689,6 @@ class DoublyStochasticEntropic(LogAffinity):
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity.
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    f_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the marginal constraint.
 
     References
     ----------
