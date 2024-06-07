@@ -62,30 +62,7 @@ sphinx_gallery_conf = {
 
 # how to define macros: https://docs.mathjax.org/en/latest/input/tex/macros.html
 mathjax3_config = {
-    "tex": {
-        "equationNumbers": {"autoNumber": "AMS", "useLabelIds": True},
-        "macros": {
-            "forw": [r"{A\left({#1}\right)}", 1],
-            "noise": [r"{N\left({#1}\right)}", 1],
-            "inverse": [r"{R\left({#1}\right)}", 1],
-            "inversef": [r"{R\left({#1},{#2}\right)}", 2],
-            "reg": [r"{g_\sigma\left({#1}\right)}", 1],
-            "regname": r"g_\sigma",
-            "sensor": [r"{\eta\left({#1}\right)}", 1],
-            "datafid": [r"{f\left({#1},{#2}\right)}", 2],
-            "datafidname": r"f",
-            "distance": [r"{d\left({#1},{#2}\right)}", 2],
-            "distancename": r"d",
-            "denoiser": [r"{\operatorname{D}_{{#2}}\left({#1}\right)}", 2],
-            "denoisername": r"\operatorname{D}_{\sigma}",
-            "xset": r"\mathcal{X}",
-            "yset": r"\mathcal{Y}",
-            "group": r"\mathcal{G}",
-            "metric": [r"{d\left({#1},{#2}\right)}", 2],
-            "loss": [r"{\mathcal\left({#1}\right)}", 1],
-            "conj": [r"{\overline{#1}^{\top}}", 1],
-        },
-    }
+    "tex": {"equationNumbers": {"autoNumber": "AMS", "useLabelIds": True}}
 }
 
 math_numfig = True
@@ -97,10 +74,10 @@ numfig_secnum_depth = 3
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = []
-# html_favicon = "figures/logo.ico"
+html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"
 html_theme_options = {
-    # "analytics_id": "G-NSEKFKYSGR",  # Provided by Google in your dashboard G-
+    # "analytics_id": "",  # Provided by Google in your dashboard G-
     "analytics_anonymize_ip": False,
     "logo_only": True,
     "display_version": True,

@@ -6,7 +6,7 @@
 
 |Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
 
-Github repository: `<https://github.com/torchdr/torchdr>`_.
+Github repository: `<https://github.com/torchdr/torchdr/>`_.
 
 Documentation: `<https://torchdr.github.io/>`_.
 
