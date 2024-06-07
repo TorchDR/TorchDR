@@ -154,7 +154,7 @@ class EntropicAffinity(LogAffinity):
 
     Parameters
     ----------
-    perplexity : float
+    perplexity : float, optional
         Perplexity parameter, related to the number of 'effective' nearest neighbors.
         Consider selecting a value between 2 and the number of samples.
     tol : float, optional
@@ -228,7 +228,7 @@ class EntropicAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns

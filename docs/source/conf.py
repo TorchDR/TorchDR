@@ -2,89 +2,108 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-
-import os
-import sys
-
-import sphinx_gallery  # noqa
-import sphinx_rtd_theme  # noqa
-from numpydoc import docscrape, numpydoc  # noqa
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath("../.."))
-
-
-# -- General configuration ------------------------------------------------
-
-# If your documentation needs a minimal Sphinx version, state it here.
-# needs_sphinx = '1.0'
-
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named #'sphinx.ext.*') or your custom
-# ones.
-
-extensions = [
-    "sphinx.ext.autodoc",
-    "numpydoc",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.doctest",
-    "sphinx.ext.intersphinx",
-    "sphinx.ext.todo",
-    "sphinx.ext.coverage",
-    "sphinx.ext.mathjax",
-    # "sphinx_gallery.gen_gallery",
-    # "sphinx.ext.graphviz",
-    "myst_parser",
-    "sphinx.ext.autosectionlabel",
-]
-
-# autodoc / autosummary
-autosummary_generate = True
-# autodoc_default_options = {'inherited-members': None}
-numpydoc_show_class_members = False
-
-# napoleon_numpy_docstring = True
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
-
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-source_suffix = [".rst", ".md"]
-
-# The encoding of source files.
-source_encoding = "utf-8-sig"
-
-# The master toctree document.
-master_doc = "index"
-
-
 project = "TorchDR"
 copyright = "2024, TorchDR team"
-author = "TorchDR team"
+author = "Hugues Van Assel"
 release = "0.0.0-alpha"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-templates_path = ["_templates"]
-exclude_patterns = []
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.doctest",
+    "sphinx_gallery.gen_gallery",
+    "sphinxemoji.sphinxemoji",
+    "sphinx_copybutton",
+]
 
+copybutton_exclude = ".linenos, .gp"
+
+intersphinx_mapping = {
+    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
+    "torch": ("https://docs.pytorch.org/2.0/", None),
+    "python": ("https://docs.python.org/3.4", None),
+}
+
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+sphinx_gallery_conf = {
+    "examples_dirs": ["../../examples/"],
+    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
+    "filename_pattern": "/demo_",
+    "run_stale_examples": True,
+    "ignore_pattern": r"__init__\.py",
+    "reference_url": {
+        # The module you locally document uses None
+        "sphinx_gallery": None
+    },
+    # directory where function/class granular galleries are stored
+    "backreferences_dir": "gen_modules/backreferences",
+    # Modules for which function/class level galleries are created. In
+    # this case sphinx_gallery and numpy in a tuple of strings.
+    "doc_module": ("torchdr"),
+    # objects to exclude from implicit backreferences. The default option
+    # is an empty set, i.e. exclude nothing.
+    "exclude_implicit_doc": {},
+    "nested_sections": False,
+}
+
+# how to define macros: https://docs.mathjax.org/en/latest/input/tex/macros.html
+mathjax3_config = {
+    "tex": {
+        "equationNumbers": {"autoNumber": "AMS", "useLabelIds": True},
+        "macros": {
+            "forw": [r"{A\left({#1}\right)}", 1],
+            "noise": [r"{N\left({#1}\right)}", 1],
+            "inverse": [r"{R\left({#1}\right)}", 1],
+            "inversef": [r"{R\left({#1},{#2}\right)}", 2],
+            "reg": [r"{g_\sigma\left({#1}\right)}", 1],
+            "regname": r"g_\sigma",
+            "sensor": [r"{\eta\left({#1}\right)}", 1],
+            "datafid": [r"{f\left({#1},{#2}\right)}", 2],
+            "datafidname": r"f",
+            "distance": [r"{d\left({#1},{#2}\right)}", 2],
+            "distancename": r"d",
+            "denoiser": [r"{\operatorname{D}_{{#2}}\left({#1}\right)}", 2],
+            "denoisername": r"\operatorname{D}_{\sigma}",
+            "xset": r"\mathcal{X}",
+            "yset": r"\mathcal{Y}",
+            "group": r"\mathcal{G}",
+            "metric": [r"{d\left({#1},{#2}\right)}", 2],
+            "loss": [r"{\mathcal\left({#1}\right)}", 1],
+            "conj": [r"{\overline{#1}^{\top}}", 1],
+        },
+    }
+}
+
+math_numfig = True
+numfig = True
+numfig_secnum_depth = 3
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+html_static_path = []
+# html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"
 html_theme_options = {
+    # "analytics_id": "G-NSEKFKYSGR",  # Provided by Google in your dashboard G-
+    "analytics_anonymize_ip": False,
     "logo_only": True,
     "display_version": True,
     "prev_next_buttons_location": "bottom",
@@ -98,3 +117,10 @@ html_theme_options = {
     "includehidden": True,
     "titles_only": False,
 }
+
+# Separator substition : Writing |sep| in the rst file will display a horizontal line.
+rst_prolog = """
+.. |sep| raw:: html
+
+   <hr />
+"""

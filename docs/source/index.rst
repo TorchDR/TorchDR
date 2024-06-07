@@ -2,6 +2,9 @@ TorchDR: a Pytorch library for dimensionality reduction
 ==================================================================
 
 
+.. include:: ../../README.rst
+
+
 Github repository: `<https://github.com/torchdr/torchdr>`_.
 
 **TorchDR** provides a simple unified framework for :ref:`dimensionality reduction <overview>` methods.
