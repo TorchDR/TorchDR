@@ -4,43 +4,28 @@
    :alt: torchdr logo
    :align: center
 
+|Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
 
-|Pytorch| |Black| |Test Status| |codecov| |License| |Python 3.10+|
+Github repository: `<https://github.com/torchdr/torchdr>`_.
 
+Documentation: `<https://torchdr.github.io/>`_.
 
-.. .. contents:: Table of Contents
-..    :depth: 1
-..    :local:
-
-..   **Introduction**_
-..   | **Implemented Methods**_
-..   | **Documentation**_
-..   | **References**_
-
-.. [**Introduction**](#introduction) | [**Implemented Methods**](#implemented-methods) | [**Documentation**](#documentation) | [**References**](#references)
 
 .. warning::
   This library is currently in a phase of active development. All features are subject to change without prior notice. If you are interested in collaborating, please feel free to reach out by opening an issue or starting a discussion.
 
-``TorchDR`` is an open-source dimensionality reduction (DR) library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
+``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
 .. _Introduction:
 
 Introduction
-============
+------------
 
 
-DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z}` of an input dataset :math:`\mathbf{X}` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
+DR aims to construct a low-dimensional representation (or embedding) representation of an input dataset that best preserves its geometry encoded via a pairwise affinity matrix . To this end, DR methods optimize the embedding such that a pairwise affinity matrix built from it matches the input affinity.
 
-.. math::
-
-  \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR)}
-
-where :math:`L` is typically the :math:`\ell_2`, :math:`\mathrm{KL}` or :math:`\mathrm{BCE}` loss.
-Each DR method is thus characterized by a triplet :math:`(L, \mathbf{A_X}, \mathbf{A_Z})`.
-
-``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
-Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function $`L`$.
+``TorchDR`` provides a general framework for solving problems of this form.
+Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as an objective function.
 Code for other aspects, including optimization, is shared across methods. It ensures a fair benchmarking focusing on core differences.
 
 Advantages of ``TorchDR`` also include:
@@ -64,8 +49,7 @@ Advantages of ``TorchDR`` also include:
 .. _Implemented Methods:
 
 Implemented Methods
-===================
-
+-------------------
 
 * SNE [1]_
 * t-SNE [2]_
@@ -73,20 +57,19 @@ Implemented Methods
 * UMAP [8]_
 
 
-.. _Documentation:
+.. _Finding Help:
 
-Documentation
-=============
+Finding Help
+------------
 
-
-The ``TorchDR`` documentation can be found [here](https://torchdr.github.io/).
+If you have any questions or suggestions, feel free to open an issue on the
+`issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
 
 
 .. _References:
 
 References
-==========
-
+----------
 
 .. [1] Geoffrey Hinton, Sam Roweis (2002). `Stochastic Neighbor Embedding <https://proceedings.neurips.cc/paper_files/paper/2002/file/6150ccc6069bea6b5716254057a194ef-Paper.pdf>`_. Advances in Neural Information Processing Systems 15 (NeurIPS).
 
