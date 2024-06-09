@@ -35,6 +35,11 @@ class Affinity(ABC):
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
+        """
+        Computes the affinity matrix from input data X.
+        Must be overriden by subclasses.
+        Here it simply converts the input data to a torch tensor in the _data attribute.
+        """
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         return self
 
@@ -48,24 +53,43 @@ class Affinity(ABC):
         )
         return self.affinity_matrix_  # type: ignore
 
-    def _ground_cost_matrix(self, X: torch.Tensor):
+    def _pairwise_distance_matrix(self, X: torch.Tensor):
+        """
+        Computes the pairwise distance matrix.
+        """
         return pairwise_distances(X, metric=self.metric, keops=self.keops)
 
     def _check_is_fitted(self, msg: str = None):
+        """
+        Checks if the affinity matrix has been computed.
+        """
         assert hasattr(self, "affinity_matrix_"), (
             msg or "[TorchDR] Error : Affinity not fitted."
         )
 
+    @abstractmethod
     def get_batch(self, indices: torch.Tensor):
+        """
+        This method decomposes the affinity into batches according to the indices.
+        Must be overriden by subclasses.
+        Here it simply returns the batched pairwise distance matrix.
+        """
         self._check_is_fitted()
         assert (
             indices.ndim == 2
         ), '[TorchDR] Error : indices in "get_batch" should be a 2D torch tensor '
         "of shape (n_batch, batch_size)."
-        return self
+        data_batch = self.data_[indices]
+        C_batch = self._pairwise_distance_matrix(data_batch)
+        return C_batch
 
 
 class ScalarProductAffinity(Affinity):
+    """
+    Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^T`
+    where :math:`\mathbf{X}` is the input data.
+    """
+
     def __init__(
         self,
         device: str = "cuda",
@@ -80,7 +104,7 @@ class ScalarProductAffinity(Affinity):
         super().fit(X)
         if self.centering:
             self.data_ = self.data_ - self.data_.mean(0)
-        self.affinity_matrix_ = -self._ground_cost_matrix(self.data_)
+        self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
 
 
 class LogAffinity(Affinity):
@@ -145,7 +169,7 @@ class GibbsAffinity(LogAffinity):
 
     def fit(self, X: torch.Tensor | np.ndarray):
         super().fit(X)
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
         log_P = -C / self.sigma
         self.log_affinity_matrix_ = normalize_matrix(
             log_P, dim=self.normalization_dim, log=True
@@ -168,7 +192,7 @@ class StudentAffinity(LogAffinity):
 
     def fit(self, X: torch.Tensor | np.ndarray):
         super().fit(X)
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
         C /= self.degrees_of_freedom
         C += 1.0
         log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()

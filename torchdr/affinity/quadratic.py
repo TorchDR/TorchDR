@@ -70,7 +70,7 @@ class DoublyStochasticQuadratic(Affinity):
             )
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
 
         n = C.shape[0]
         one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)

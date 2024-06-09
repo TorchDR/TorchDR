@@ -228,7 +228,7 @@ class EntropicAffinity(LogAffinity):
         """
         super().fit(X)
 
-        C_full = self._ground_cost_matrix(self.data_)
+        C_full = self._pairwise_distance_matrix(self.data_)
         if self._sparsity and self.verbose:
             print(
                 "[TorchDR] Affinity : sparsity mode enabled, computing "
@@ -277,9 +277,22 @@ class EntropicAffinity(LogAffinity):
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
-        super().get_batch(indices)
-        data_batch = self.data_[indices]
-        C_batch = self._ground_cost_matrix(data_batch)
+        r"""
+        Computes the entropic affinity matrix for a batch of indices.
+
+        Parameters
+        ----------
+        indices : tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch of indices.
+        """
+        C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
 
@@ -369,6 +382,19 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         self.log_affinity_matrix_ = self.affinity_matrix_.log()
 
     def get_batch(self, indices: torch.Tensor):
+        r"""
+        Computes batched version of the l2 symmetric entropic affinity matrix.
+
+        Parameters
+        ----------
+        indices : tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch of indices.
+        """
         P_batch = super().get_batch(indices, log=False)
         return (P_batch + batch_transpose(P_batch)) / (2 * self.N)
 
@@ -443,11 +469,11 @@ class SymmetricEntropicAffinity(LogAffinity):
         tol: float = 1e-3,
         max_iter: int = 500,
         optimizer: str = "Adam",
+        tolog: bool = False,
         metric: str = "euclidean",
         device: str = None,
         keops: bool = False,
         verbose: bool = True,
-        tolog: bool = False,
     ):
         super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
         self.perplexity = perplexity
@@ -481,7 +507,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
 
         n = C.shape[0]
         if not 1 < self.perplexity <= n:
@@ -616,9 +642,22 @@ class SymmetricEntropicAffinity(LogAffinity):
             self.log_affinity_matrix_ = log_P
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
-        super().get_batch(indices)
-        data_batch = self.data_[indices]
-        C_batch = self._ground_cost_matrix(data_batch)
+        r"""
+        Computes the batched version of the symmetric entropic affinity matrix.
+
+        Parameters
+        ----------
+        indices : tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch of indices.
+        """
+        C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         mu_batch = self.mu_[indices]
         log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
@@ -671,7 +710,7 @@ class DoublyStochasticEntropic(LogAffinity):
     ----------
     eps : float, optional
         Regularization parameter for the Sinkhorn algorithm.
-    f : tensor of shape (n_samples), optional
+    init_dual : tensor of shape (n_samples), optional
         Initialization for the dual variable of the Sinkhorn algorithm (default None).
     tol : float, optional
         Precision threshold at which the algorithm stops.
@@ -743,7 +782,7 @@ class DoublyStochasticEntropic(LogAffinity):
         """
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
@@ -793,3 +832,28 @@ class DoublyStochasticEntropic(LogAffinity):
         self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
 
         return self
+
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Computes the batched version of doubly stochastic entropic affinity matrix.
+
+        Parameters
+        ----------
+        indices : tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch of indices.
+        """
+        C_batch = super().get_batch(indices)
+        dual_batch = self.dual_[indices]
+        log_P_batch = _log_Pds(C_batch, dual_batch)
+
+        if log:
+            return log_P_batch
+        else:
+            return log_P_batch.exp()

@@ -78,7 +78,7 @@ class UMAPAffinityData(Affinity):
 
         super().fit(X)
 
-        C_full = self._ground_cost_matrix(self.data_)
+        C_full = self._pairwise_distance_matrix(self.data_)
 
         if self.sparsity:
             print(
@@ -160,7 +160,7 @@ class UMAPAffinityEmbedding(Affinity):
         """
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
         self.affinity_matrix_ = 1 / (1 + self._a * C ** (2 * self._b))
 
         return self
