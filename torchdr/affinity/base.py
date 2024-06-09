@@ -111,6 +111,25 @@ class LogAffinity(Affinity):
 
 
 class GibbsAffinity(LogAffinity):
+    """
+    Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)` where :math:`\mathbf{C}` is the pairwise distance matrix and :math:`\sigma` is the bandwidth parameter.
+
+    Parameters
+    ----------
+    sigma : float, optional
+        Bandwidth parameter.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    """  # noqa
+
     def __init__(
         self,
         sigma: float = 1.0,

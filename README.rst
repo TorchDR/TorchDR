@@ -13,11 +13,9 @@ Documentation: `<https://torchdr.github.io/>`_.
 
 ``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-.. _Introduction:
 
 Introduction
 ------------
-
 
 DR aims to construct a low-dimensional representation (or embedding) of an input dataset that best preserves its geometry encoded via a pairwise affinity matrix . To this end, DR methods optimize the embedding such that its associated pairwise affinity matches the input affinity.
 
@@ -43,8 +41,6 @@ Benefits of ``TorchDR`` include:
      - Neural estimators are seamlessly integrated for all methods.
 
 
-.. _Implemented Methods:
-
 Implemented Methods
 -------------------
 
@@ -54,16 +50,12 @@ Implemented Methods
 * UMAP [8]_
 
 
-.. _Finding Help:
-
 Finding Help
 ------------
 
 If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
 
-
-.. _References:
 
 References
 ----------

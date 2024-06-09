@@ -58,3 +58,5 @@ Neighbor Embedding
 .. math::
 
     \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{A_X}]_{ij} \log [\mathbf{A_Z}]_{ij}
+
+For more details, see :ref:`Neighbor embedding algorithms <neighbor-embedding>`.
