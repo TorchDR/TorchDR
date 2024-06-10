@@ -216,12 +216,9 @@ class EntropicAffinity(LogAffinity):
         Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
         from input data X.
 
-        This method overrides the base class implementation to add steps for
-        computing the entropic affinity matrix.
-
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -285,14 +282,15 @@ class EntropicAffinity(LogAffinity):
 
         Parameters
         ----------
-        indices : tensor of shape (n_batch, batch_size)
+        indices : torch.Tensor of shape (n_batch, batch_size)
             Indices of the batch.
         log : bool, optional
             If True, returns the log of the affinity matrix.
 
         Returns
         -------
-        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
             The affinity matrix for the batch of indices.
         """
         C_batch = super().get_batch(indices)
@@ -368,12 +366,9 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         r"""
         Computes the l2-symmetric entropic affinity matrix from input data X.
 
-        This method overrides the base class implementation to add steps for
-        computing the l2 symmetric entropic affinity matrix.
-
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -393,12 +388,13 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
         Parameters
         ----------
-        indices : tensor of shape (n_batch, batch_size)
+        indices : torch.Tensor of shape (n_batch, batch_size)
             Indices of the batch.
 
         Returns
         -------
-        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
             The affinity matrix for the batch of indices.
         """
         P_batch = super().get_batch(indices, log=False)
@@ -495,12 +491,9 @@ class SymmetricEntropicAffinity(LogAffinity):
         Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
         matrix from input data X.
 
-        This method overrides the base class implementation to add steps for
-        computing the symmetric entropic affinity matrix.
-
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -656,14 +649,15 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         Parameters
         ----------
-        indices : tensor of shape (n_batch, batch_size)
+        indices : torch.Tensor of shape (n_batch, batch_size)
             Indices of the batch.
         log : bool, optional
             If True, returns the log of the affinity matrix.
 
         Returns
         -------
-        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
             The affinity matrix for the batch of indices.
         """
         C_batch = super().get_batch(indices)
@@ -780,12 +774,9 @@ class DoublyStochasticEntropic(LogAffinity):
         r"""
         Computes the entropic doubly stochastic affinity matrix from input data X.
 
-        This method overrides the base class implementation to add steps for
-        computing the doubly stochastic affinity matrix.
-
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -852,14 +843,15 @@ class DoublyStochasticEntropic(LogAffinity):
 
         Parameters
         ----------
-        indices : tensor of shape (n_batch, batch_size)
+        indices : torch.Tensor of shape (n_batch, batch_size)
             Indices of the batch.
         log : bool, optional
             If True, returns the log of the affinity matrix.
 
         Returns
         -------
-        P_batch : tensor or lazy tensor of shape (n_batch, batch_size, batch_size)
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
             The affinity matrix for the batch of indices.
         """
         C_batch = super().get_batch(indices)

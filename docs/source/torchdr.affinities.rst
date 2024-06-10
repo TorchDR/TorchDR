@@ -3,14 +3,26 @@
 Affinities
 =============
 
-All affinities inherit the structure of the :meth:`Affinity` class:
+Base structure and simple examples
+-----------------------------------
 
-.. currentmodule:: torchdr.affinity
+All affinities inherit the structure of the :meth:`Affinity` class.
 
-.. autoclass:: Affinity
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.affinity.Affinity
+
+If computations should be performed in log domain, the :meth:`LogAffinity` class should be used.
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.affinity.LogAffinity
 
 
 They can be used as a building block for plug-and-play restoration, for building unrolled architectures
@@ -24,6 +36,11 @@ They can be used as a building block for plug-and-play restoration, for building
    
    torchdr.affinity.GibbsAffinity
    torchdr.affinity.StudentAffinity
+
+
+Affinities based on entropic normalization
+------------------------------------------
+
 
 .. autosummary::
    :toctree: stubs

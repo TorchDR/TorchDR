@@ -28,6 +28,8 @@ extensions = [
     "sphinx_gallery.gen_gallery",
 ]
 
+autosummary_generate = True
+
 copybutton_exclude = ".linenos, .gp"
 
 intersphinx_mapping = {

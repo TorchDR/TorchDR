@@ -87,10 +87,11 @@ class Affinity(ABC):
         affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
 
-        Notes
-        -----
-        Subclasses should ensure that the `affinity_matrix_` attribute is properly set
-        during the `fit` method.
+        Raises
+        ------
+        AssertionError
+            If the `affinity_matrix_` attribute is not set during the `fit` method,
+            an assertion error is raised.
         """
         self.fit(X)
         self._check_is_fitted(
@@ -150,7 +151,7 @@ class Affinity(ABC):
     @abstractmethod
     def get_batch(self, indices: torch.Tensor):
         r"""
-        Decomposes the affinity into batches based on the provided indices.
+        Decomposes the fitted affinity into batches based on the provided indices.
 
         This method must be overridden by subclasses. The base implementation returns
         the batched pairwise distance matrix. Subclasses should call
@@ -180,6 +181,7 @@ class Affinity(ABC):
             indices.shape[0] * indices.shape[1] == self.data_.shape[0]
         ), '[TorchDR] Error: indices in "get_batch" should have a product '
         "of dimensions equal to the number of samples."
+
         data_batch = self.data_[indices]
         C_batch = self._pairwise_distance_matrix(data_batch)
         return C_batch
