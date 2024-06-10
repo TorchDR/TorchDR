@@ -124,25 +124,25 @@ class StudentAffinity(LogAffinity):
         C /= self.degrees_of_freedom
         C += 1.0
         log_P = -0.5 * (self.degrees_of_freedom + 1) * C.log()
-        self.log_affinity_matrix_ = normalize_matrix(
-            log_P, dim=self.normalization_dim, log=True
-        )
+        self.log_normalization_ = logsumexp_red(log_P, self.normalization_dim)
+        self.log_affinity_matrix_ = log_P - self.log_normalization_
 
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
-        r"""
-        Returns the batched version of the fitted Student affinity matrix.
 
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
+#     def get_batch(self, indices: torch.Tensor, log: bool = False):
+#         r"""
+#         Returns the batched version of the fitted Student affinity matrix.
 
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
-        """
+#         Parameters
+#         ----------
+#         indices : torch.Tensor of shape (n_batch, batch_size)
+#             Indices of the batch.
+#         log : bool, optional
+#             If True, returns the log of the affinity matrix.
+
+#         Returns
+#         -------
+#         P_batch : torch.Tensor or pykeops.torch.LazyTensor
+#             of shape (n_batch, batch_size, batch_size)
+#             The affinity matrix for the batch indices.
+#             In log domain if `log` is True.
+#         """

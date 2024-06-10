@@ -185,7 +185,7 @@ class Affinity(ABC):
 
 class LogAffinity(Affinity):
     r"""
-    Computes an affinity matrix from an affinity matrix in log space.
+    Base class for affinity matrices in log space.
 
     This class inherits from the `Affinity` base class and is designed to work with
     affinity matrices in log space. It provides methods to fit the model to input
