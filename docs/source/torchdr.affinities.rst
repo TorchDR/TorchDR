@@ -3,10 +3,18 @@
 Affinities
 =============
 
-Affinities are :class:`torch.nn.Module` that take a noisy image as input and return a denoised image.
-They can be used as a building block for plug-and-play restoration, for building unrolled architectures,
-or as a standalone denoiser. All denoisers have a ``forward`` method that takes a noisy image and a noise level
-(which generally corresponds to the standard deviation of the noise) as input and returns a denoised image:
+All affinities inherit the structure of the :meth:`Affinity` class:
+
+.. currentmodule:: torchdr.affinity
+
+.. autoclass:: Affinity
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+They can be used as a building block for plug-and-play restoration, for building unrolled architectures
+
 
    >>> import torch
 

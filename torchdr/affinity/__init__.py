@@ -4,13 +4,9 @@
 # License: BSD 3-Clause License
 
 
-from .base import (
-    Affinity,
-    LogAffinity,
-    ScalarProductAffinity,
-    GibbsAffinity,
-    StudentAffinity,
-)
+from .base import Affinity, LogAffinity
+
+from .simple import ScalarProductAffinity, GibbsAffinity, StudentAffinity
 
 from .entropic import (
     EntropicAffinity,

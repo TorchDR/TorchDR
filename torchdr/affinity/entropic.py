@@ -216,6 +216,9 @@ class EntropicAffinity(LogAffinity):
         Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
         from input data X.
 
+        This method overrides the base class implementation to add steps for
+        computing the entropic affinity matrix.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -365,6 +368,9 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         r"""
         Computes the l2-symmetric entropic affinity matrix from input data X.
 
+        This method overrides the base class implementation to add steps for
+        computing the l2 symmetric entropic affinity matrix.
+
         Parameters
         ----------
         X : tensor of shape (n_samples, n_features)
@@ -488,6 +494,9 @@ class SymmetricEntropicAffinity(LogAffinity):
         r"""
         Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
         matrix from input data X.
+
+        This method overrides the base class implementation to add steps for
+        computing the symmetric entropic affinity matrix.
 
         Parameters
         ----------
@@ -768,7 +777,11 @@ class DoublyStochasticEntropic(LogAffinity):
         self.tolog = tolog
 
     def fit(self, X: torch.Tensor | np.ndarray):
-        r"""Computes the entropic doubly stochastic affinity matrix from input data X.
+        r"""
+        Computes the entropic doubly stochastic affinity matrix from input data X.
+
+        This method overrides the base class implementation to add steps for
+        computing the doubly stochastic affinity matrix.
 
         Parameters
         ----------

@@ -34,6 +34,7 @@ intersphinx_mapping = {
     "numpy": ("http://docs.scipy.org/doc/numpy/", None),
     "torch": ("https://docs.pytorch.org/2.0/", None),
     "python": ("https://docs.python.org/3.4", None),
+    "pykeops": ("https://www.kernel-operations.io/keops/", None),
 }
 
 templates_path = ["_templates"]
