@@ -160,7 +160,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._ground_cost_matrix(affinity.data_)
+    C = affinity._pairwise_distance_matrix(affinity.data_)
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
@@ -332,3 +332,49 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     check_shape(P, (n, n))
     check_nonnegativity(P)
     check_symmetry(P)
+
+
+list_affinity_get_batch = [
+    EntropicAffinity,
+    L2SymmetricEntropicAffinity,
+    SymmetricEntropicAffinity,
+    DoublyStochasticEntropic,
+]
+
+
+@pytest.mark.parametrize("Affinity", list_affinity_get_batch)
+def test_get_batch_affinity(Affinity):
+    n_batch = 2
+    batch_size = 5
+    n = n_batch * batch_size
+
+    X = torch.randn(n, 3).to(device=DEVICE)
+    torch.manual_seed(0)
+    indices = torch.randperm(n).reshape(-1, batch_size)
+
+    Aff = Affinity(keops=False, device=DEVICE)
+    P = Aff.fit_transform(X)
+
+    # extract batch from full matrix
+    P_subset = torch.zeros((n_batch, batch_size, batch_size)).to(
+        device=X.device, dtype=X.dtype
+    )
+    for b in range(n_batch):
+        ind = indices[b]
+        P_subset[b] = P[ind][:, ind]
+    # use get_batch
+    P_batch = Aff.get_batch(indices)
+
+    assert_close(
+        P_subset,
+        P_batch,
+        msg="P_subset and P_batch are different.",
+    )
+
+    # test consistency with keops:
+    Aff_keops = Affinity(keops=True, normalization_dim=dim, **kwargs)
+    Aff_keops.fit(X)
+    P_batch_keops = Aff_keops.get_batch(indices)
+    assert (
+        (P_batch.sum(1) - P_batch_keops.sum(1).squeeze()) ** 2
+    ).sum() < 1e-6, "get_batch not consistent with KeOps."

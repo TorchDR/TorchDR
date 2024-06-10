@@ -127,7 +127,8 @@ def sum_red(P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed or
     multiplied with P.
     """
-    assert dim in [0, 1, (0, 1)]
+    if dim is None:
+        return 0
 
     if isinstance(P, torch.Tensor):
         return P.sum(dim, keepdim=True)
@@ -139,6 +140,11 @@ def sum_red(P, dim):
             return P.sum(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
             return P.sum(dim)[None, :]  # shape (1, n, 1)
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+                "Should be (0, 1) or 0 or 1."
+            )
 
     else:
         raise ValueError("P should be a tensor or a lazy tensor.")
@@ -151,7 +157,8 @@ def logsumexp_red(log_P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed
     or multiplied with P.
     """
-    assert dim in [0, 1, (0, 1)]
+    if dim is None:
+        return 0
 
     if isinstance(log_P, torch.Tensor):
         return log_P.logsumexp(dim, keepdim=True)
@@ -163,6 +170,11 @@ def logsumexp_red(log_P, dim):
             return log_P.logsumexp(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
             return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+                "Should be (0, 1) or 0 or 1."
+            )
 
     else:
         raise ValueError("log_P should be a tensor or a lazy tensor.")
@@ -177,12 +189,30 @@ def normalize_matrix(P, dim=1, log=False):
     if dim is None:
         return P
 
-    assert dim in [0, 1, (0, 1)]
-
     if log:
         return P - logsumexp_red(P, dim)
     else:
         return P / sum_red(P, dim)
+
+
+def extract_batch_normalization(normalization, indices, dim):
+    r"""
+    From a pre-computed normalization, extracts the normalization
+    corresponding to batch indices.
+    """
+    if dim is None:
+        return 0
+    elif dim == (0, 1):
+        return normalization  # normalization is a scalar so return as is
+    elif dim == 0:
+        return normalization[:, indices].transpose(0, 1)
+    elif dim == 1:
+        return normalization[indices]
+    else:
+        raise ValueError(
+            f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+            "Should be (0, 1) or 0 or 1."
+        )
 
 
 def center_kernel(K):

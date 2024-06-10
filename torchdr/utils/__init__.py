@@ -41,6 +41,7 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
+    extract_batch_normalization,
 )
 
 
@@ -80,4 +81,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "extract_batch_normalization",
 ]

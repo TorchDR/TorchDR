@@ -255,3 +255,24 @@ class LogAffinity(Affinity):
             if not hasattr(self, "affinity_matrix_"):
                 self.affinity_matrix_ = self.log_affinity_matrix_.exp()  # type: ignore
             return self.affinity_matrix_
+
+    def _check_is_fitted(self, msg: str = None):
+        r"""
+        Checks if the log affinity matrix has been computed and is stored in
+        the attribute log_affinity_matrix_ .
+
+        Parameters
+        ----------
+        msg : str, optional
+            Custom error message to be displayed if the check fails. If not provided,
+            a default error message is used.
+
+        Raises
+        ------
+        AssertionError
+            If the `log_affinity_matrix_` attribute does not exist, indicating that
+            the model has not been fitted.
+        """
+        assert hasattr(self, "log_affinity_matrix_"), (
+            msg or "[TorchDR] Error : LogAffinity not fitted."
+        )
