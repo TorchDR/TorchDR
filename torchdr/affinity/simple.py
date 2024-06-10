@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import normalize_matrix
+from torchdr.utils import logsumexp_red
 from torchdr.affinity.base import Affinity, LogAffinity
 
 
@@ -77,9 +77,31 @@ class GibbsAffinity(LogAffinity):
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
         log_P = -C / self.sigma
-        self.log_affinity_matrix_ = normalize_matrix(
-            log_P, dim=self.normalization_dim, log=True
-        )
+        self.log_normalization_ = logsumexp_red(log_P, self.normalization_dim)
+        self.log_affinity_matrix_ = log_P - self.log_normalization_
+
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Returns the batched version of the fitted Gibbs affinity matrix.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        C_batch = super().get_batch(indices)
+        log_P_batch = -C_batch / self.sigma
+        log_normalization_batch = self.log_normalization_[indices]
+        return log_P_batch - log_normalization_batch
 
 
 class StudentAffinity(LogAffinity):
@@ -105,3 +127,22 @@ class StudentAffinity(LogAffinity):
         self.log_affinity_matrix_ = normalize_matrix(
             log_P, dim=self.normalization_dim, log=True
         )
+
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Returns the batched version of the fitted Student affinity matrix.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """

@@ -49,8 +49,9 @@ class Affinity(ABC):
         Prepares and stores the input data :math:`\mathbf{X}` for computing
         the affinity matrix.
 
-        This method must be overridden by subclasses. The base implementation converts
-        the input data to a torch tensor and stores it in the `data_` attribute.
+        This method must be overridden by subclasses. This base implementation
+        only converts the input data to a torch tensor and stores it
+        in the `data_` attribute.
 
         Subclasses should call `super().fit(X)` to utilize this functionality
         and then implement additional steps required for computing the specific
@@ -118,10 +119,6 @@ class Affinity(ABC):
             The pairwise distance matrix. The type of the returned matrix depends on the
             value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
-
-        Notes
-        -----
-        The distance metric used for computation is specified by the `metric` attribute.
         """
         C = pairwise_distances(X, metric=self.metric, keops=self.keops)
         return C
@@ -142,7 +139,6 @@ class Affinity(ABC):
         AssertionError
             If the `affinity_matrix_` attribute does not exist, indicating that
             the model has not been fitted.
-
         """
         assert hasattr(self, "affinity_matrix_"), (
             msg or "[TorchDR] Error : Affinity not fitted."
@@ -153,7 +149,7 @@ class Affinity(ABC):
         r"""
         Decomposes the fitted affinity into batches based on the provided indices.
 
-        This method must be overridden by subclasses. The base implementation returns
+        This method must be overridden by subclasses. This base implementation returns
         the batched pairwise distance matrix. Subclasses should call
         `super().get_batch(indices)` as a first step to get the batched distance matrix
         and then implement additional steps to compute the affinity.
@@ -239,7 +235,7 @@ class LogAffinity(Affinity):
         -------
         affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix. If `log` is True, returns the log affinity
-            matrix. Otherwise, returns the exponentiated affinity matrix.
+            matrix. Otherwise, returns the exponentiated log affinity matrix.
 
         Raises
         ------

@@ -15,7 +15,7 @@ All affinities inherit the structure of the :meth:`Affinity` class.
 
    torchdr.affinity.Affinity
 
-If computations should be performed in log domain, the :meth:`LogAffinity` class should be used.
+If computations can be performed in log domain, the :meth:`LogAffinity` class should be used.
 
 .. autosummary::
    :toctree: stubs

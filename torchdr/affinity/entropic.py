@@ -278,7 +278,7 @@ class EntropicAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Computes the entropic affinity matrix for a batch of indices.
+        Returns the batch version of the fitted entropic affinity matrix.
 
         Parameters
         ----------
@@ -291,7 +291,8 @@ class EntropicAffinity(LogAffinity):
         -------
         P_batch : torch.Tensor or pykeops.torch.LazyTensor
             of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch of indices.
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
@@ -384,7 +385,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
     def get_batch(self, indices: torch.Tensor):
         r"""
-        Computes batched version of the l2 symmetric entropic affinity matrix.
+        Returns the batched version of the fitted l2 symmetric entropic
+        affinity matrix.
 
         Parameters
         ----------
@@ -395,7 +397,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         -------
         P_batch : torch.Tensor or pykeops.torch.LazyTensor
             of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch of indices.
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
         """
         P_batch = super().get_batch(indices, log=False)
         return (P_batch + batch_transpose(P_batch)) / (2 * self.N)
@@ -645,7 +648,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Computes the batched version of the symmetric entropic affinity matrix.
+        Returns the batched version of the fitted symmetric entropic affinity matrix.
 
         Parameters
         ----------
@@ -658,7 +661,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         -------
         P_batch : torch.Tensor or pykeops.torch.LazyTensor
             of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch of indices.
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
@@ -839,7 +843,8 @@ class DoublyStochasticEntropic(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Computes the batched version of doubly stochastic entropic affinity matrix.
+        Returns the batched version of the fitted doubly stochastic entropic
+        affinity matrix.
 
         Parameters
         ----------
@@ -852,7 +857,8 @@ class DoublyStochasticEntropic(LogAffinity):
         -------
         P_batch : torch.Tensor or pykeops.torch.LazyTensor
             of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch of indices.
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
         dual_batch = self.dual_[indices]

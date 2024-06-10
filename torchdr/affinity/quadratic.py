@@ -12,7 +12,7 @@ from tqdm import tqdm
 import numpy as np
 
 from torchdr.affinity import Affinity
-from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs
+from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs, batch_transpose
 
 
 @wrap_vectors
@@ -21,7 +21,8 @@ def _Pds(C, dual, eps):
     Returns the quadratic doubly stochastic matrix P
     from the dual variable f and log_K = -C / eps.
     """
-    return (dual + dual.T - C).clamp(0, float("inf")) / eps
+    dual_t = batch_transpose(dual)
+    return (dual + dual_t - C).clamp(0, float("inf")) / eps
 
 
 class DoublyStochasticQuadratic(Affinity):
