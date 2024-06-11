@@ -122,6 +122,20 @@ def _bounds_entropic_affinity(C, perplexity):
     return begin, end
 
 
+def _check_perplexity(perplexity, n, verbose=True):
+    if perplexity >= n or perplexity <= 1:
+        if verbose:
+            print(
+                "[TorchDR] WARNING : The perplexity parameter must be greater than "
+                f"1 and smaller than the number of samples (here n = {n})."
+                f"Got perplexity = {perplexity}. Setting perplexity to {n//2} "
+                "(which corresponds to n//2)."
+            )
+        return n // 2
+    else:
+        return perplexity
+
+
 class EntropicAffinity(LogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
@@ -240,15 +254,9 @@ class EntropicAffinity(LogAffinity):
         else:
             C_reduced = C_full
 
-        target_entropy = np.log(self.perplexity) + 1
         n = X.shape[0]
-
-        if not 1 < self.perplexity <= n:
-            raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be greater than "
-                "1 and smaller than the number of samples "
-                "(not possible if n_samples = 1)."
-            )
+        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
+        target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_reduced, eps)
@@ -515,15 +523,10 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         C = self._pairwise_distance_matrix(self.data_)
 
-        n = C.shape[0]
-        if not 1 < self.perplexity <= n:
-            raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be greater than "
-                "1 and smaller than the number of samples "
-                "(not possible if n_samples = 1)."
-            )
-
+        n = X.shape[0]
+        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
         target_entropy = np.log(self.perplexity) + 1
+
         one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
 
         # dual variables, size (n_samples)
