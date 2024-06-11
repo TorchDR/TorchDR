@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, sum_red
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import extract_batch_normalization
 
@@ -33,24 +33,91 @@ def _log_Student(C, degrees_of_freedom):
 class ScalarProductAffinity(Affinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^T`
-    where :math:`\mathbf{X}` is the input data.
+    where :math:`\mathbf{X}` is the input data, normalized according to the
+    specified normalization dimensions.
+
+    Parameters
+    ----------
+    device : str, optional
+        Device to use for computations. Default is "cuda".
+    keops : bool, optional
+        Whether to use KeOps for computations. Default is True.
+    verbose : bool, optional
+        Verbosity. Default is True.
+    centering : bool, optional
+        Whether to center the data by subtracting the mean. Default is False.
     """
 
     def __init__(
         self,
+        normalization_dim: int | Tuple[int] = None,
         device: str = "cuda",
         keops: bool = True,
         verbose: bool = True,
         centering: bool = False,
     ):
         super().__init__(metric="angular", device=device, keops=keops, verbose=verbose)
+        self.normalization_dim = normalization_dim
         self.centering = centering
 
     def fit(self, X: torch.Tensor | np.ndarray):
+        r"""
+        Fits the scalar product affinity model to the provided data.
+
+        This method computes the scalar product affinity matrix
+        :math:`\mathbf{X} \mathbf{X}^T` for the input data. If centering is
+        enabled, the data is centered by subtracting the mean before computing
+        the affinity matrix.
+        The affinity matrix is then normalized according to the specified
+        normalization dimensions.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data, either as a PyTorch tensor or a NumPy array. The shape
+            of `X` should be (n_samples, n_features).
+
+        Returns
+        -------
+        self : ScalarProductAffinity
+            The fitted scalar product affinity model.
+        """
         super().fit(X)
         if self.centering:
             self.data_ = self.data_ - self.data_.mean(0)
         self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
+
+        if self.normalization_dim is not None:
+            self.normalization_ = sum_red(P, self.normalization_dim)
+            self.affinity_matrix_ /= self.normalization_
+
+        return self
+
+    def get_batch(self, indices: torch.Tensor):
+        r"""
+        Returns the batched version of the fitted scalar product affinity matrix.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+        """
+        C_batch = super().get_batch(indices)
+        P_batch = -C_batch
+
+        if self.normalization_dim is not None:
+            normalization_batch = extract_batch_normalization(
+                self.normalization_, indices, self.normalization_dim
+            )
+            P_batch /= normalization_batch
+
+        return P_batch
 
 
 class GibbsAffinity(LogAffinity):
@@ -112,9 +179,14 @@ class GibbsAffinity(LogAffinity):
         """
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
-        log_P = _log_Gibbs(C, self.sigma)
-        self.log_normalization_ = logsumexp_red(log_P, self.normalization_dim)
-        self.log_affinity_matrix_ = log_P - self.log_normalization_
+        self.log_affinity_matrix_ = _log_Gibbs(C, self.sigma)
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                self.log_affinity_matrix_, self.normalization_dim
+            )
+            self.log_affinity_matrix_ -= self.log_normalization_
+
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
@@ -137,10 +209,12 @@ class GibbsAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
-        log_normalization_batch = extract_batch_normalization(
-            self.log_normalization_, indices, self.normalization_dim
-        )
-        log_P_batch -= log_normalization_batch
+
+        if self.normalization_dim is not None:
+            log_normalization_batch = extract_batch_normalization(
+                self.log_normalization_, indices, self.normalization_dim
+            )
+            log_P_batch -= log_normalization_batch
 
         if log:
             return log_P_batch
@@ -205,9 +279,14 @@ class StudentAffinity(LogAffinity):
         """
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
-        log_P = _log_Student(C, self.degrees_of_freedom)
-        self.log_normalization_ = logsumexp_red(log_P, self.normalization_dim)
-        self.log_affinity_matrix_ = log_P - self.log_normalization_
+        self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                self.log_affinity_matrix_, self.normalization_dim
+            )
+            self.log_affinity_matrix_ -= self.log_normalization_
+
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
@@ -230,10 +309,12 @@ class StudentAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_Student(C_batch, self.degrees_of_freedom)
-        log_normalization_batch = extract_batch_normalization(
-            self.log_normalization_, indices, self.normalization_dim
-        )
-        log_P_batch -= log_normalization_batch
+
+        if self.normalization_dim is not None:
+            log_normalization_batch = extract_batch_normalization(
+                self.log_normalization_, indices, self.normalization_dim
+            )
+            log_P_batch -= log_normalization_batch
 
         if log:
             return log_P_batch

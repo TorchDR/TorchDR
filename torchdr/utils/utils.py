@@ -128,7 +128,7 @@ def sum_red(P, dim):
     multiplied with P.
     """
     if dim is None:
-        return 0
+        return 1
 
     if isinstance(P, torch.Tensor):
         return P.sum(dim, keepdim=True)
@@ -200,9 +200,7 @@ def extract_batch_normalization(normalization, indices, dim):
     From a pre-computed normalization, extracts the normalization
     corresponding to batch indices.
     """
-    if dim is None:
-        return 0
-    elif dim == (0, 1):
+    if dim == (0, 1):
         return normalization  # normalization is a scalar so return as is
     elif dim == 0:
         return normalization[:, indices].transpose(0, 1)
