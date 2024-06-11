@@ -76,8 +76,7 @@ class ScalarProductAffinity(Affinity):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray
-            Input data, either as a PyTorch tensor or a NumPy array. The shape
-            of `X` should be (n_samples, n_features).
+            Input data.
 
         Returns
         -------
@@ -171,8 +170,7 @@ class GibbsAffinity(LogAffinity):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray
-            Input data, either as a PyTorch tensor or a NumPy array. The shape of `X` should be
-            (n_samples, n_features).
+            Input data.
 
         Returns
         -------
@@ -271,14 +269,13 @@ class StudentAffinity(LogAffinity):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray
-            Input data, either as a PyTorch tensor or a NumPy array. The shape of `X` should be
-            (n_samples, n_features).
+            Input data.
 
         Returns
         -------
         self : StudentAffinity
             The fitted Student affinity model.
-        """
+        """  # noqa E501
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)

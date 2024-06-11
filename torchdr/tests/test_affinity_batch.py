@@ -18,7 +18,6 @@ from torchdr.affinity import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
-    DoublyStochasticEntropic,
 )
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
