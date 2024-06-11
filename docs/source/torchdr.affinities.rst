@@ -25,8 +25,7 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.affinity.LogAffinity
 
 
-They can be used as a building block for plug-and-play restoration, for building unrolled architectures
-
+They can be used as a building block for DR algorithms.
 
    >>> import torch
 

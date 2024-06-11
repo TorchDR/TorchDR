@@ -33,8 +33,8 @@ def _log_Student(C, degrees_of_freedom):
 class ScalarProductAffinity(Affinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^T`
-    where :math:`\mathbf{X}` is the input data, normalized according to the
-    specified normalization dimensions.
+    where :math:`\mathbf{X}` is the input data. The affinity can be normalized
+    according to the specified normalization dimensions.
 
     Parameters
     ----------
@@ -125,8 +125,8 @@ class GibbsAffinity(LogAffinity):
     r"""
     Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter, normalized according to the
-    specified normalization dimensions.
+    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    according to the specified normalization dimensions.
 
     Parameters
     ----------
@@ -160,12 +160,6 @@ class GibbsAffinity(LogAffinity):
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Fits the Gibbs affinity model to the provided data.
-
-        This method computes the pairwise distance matrix :math:`\mathbf{C}`
-        for the input data, and then calculates the Gibbs affinity matrix
-        :math:`\exp( - \mathbf{C} / \sigma)`.
-        The affinity matrix is then normalized according to the specified
-        normalization dimensions.
 
         Parameters
         ----------
@@ -224,7 +218,12 @@ class GibbsAffinity(LogAffinity):
 
 class StudentAffinity(LogAffinity):
     r"""
-    Computes the Student affinity matrix based on the Student-t distribution.
+    Computes the Student affinity matrix based on the Student-t distribution:
+
+    .. math::
+        \left(1 + \frac{\mathbf{C}}{\nu}\right)^{-\frac{\nu + 1}{2}}
+
+    where :math:`\nu > 0` is the degrees of freedom parameter.
 
     Parameters
     ----------
@@ -259,13 +258,6 @@ class StudentAffinity(LogAffinity):
         r"""
         Fits the Student affinity model to the provided data.
 
-        This method computes the pairwise distance matrix :math:`\mathbf{C}`
-        for the input data, then calculates the Student affinity matrix based
-        on the Student-t distribution:
-        :math:`\left(1 + \frac{\mathbf{C}}{\text{degrees_of_freedom}}\right)^{-\frac{\text{degrees_of_freedom} + 1}{2}}`.
-        The affinity matrix is then normalized according to the specified
-        normalization dimensions.
-
         Parameters
         ----------
         X : torch.Tensor or np.ndarray
@@ -275,7 +267,7 @@ class StudentAffinity(LogAffinity):
         -------
         self : StudentAffinity
             The fitted Student affinity model.
-        """  # noqa E501
+        """
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
