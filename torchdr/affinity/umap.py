@@ -120,6 +120,10 @@ class UMAPAffinityData(Affinity):
 
         return self
 
+    def get_batch(self, indices: torch.Tensor):
+        r"""Extracts the affinity submatrix corresponding to the batch indices."""
+        pass
+
 
 class UMAPAffinityEmbedding(Affinity):
     def __init__(
@@ -164,3 +168,7 @@ class UMAPAffinityEmbedding(Affinity):
         self.affinity_matrix_ = 1 / (1 + self._a * C ** (2 * self._b))
 
         return self
+
+    def get_batch(self, indices: torch.Tensor):
+        r"""Extracts the affinity submatrix corresponding to the batch indices."""
+        pass

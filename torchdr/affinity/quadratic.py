@@ -129,3 +129,7 @@ class DoublyStochasticQuadratic(Affinity):
         self.affinity_matrix_ = _Pds(C, self.dual_, self.eps)
 
         return self
+
+    def get_batch(self, indices: torch.Tensor):
+        r"""Extracts the affinity submatrix corresponding to the indices."""
+        pass

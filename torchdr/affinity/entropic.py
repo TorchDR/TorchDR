@@ -289,7 +289,7 @@ class EntropicAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Returns the batch version of the fitted entropic affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -397,8 +397,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
     def get_batch(self, indices: torch.Tensor):
         r"""
-        Returns the batched version of the fitted l2 symmetric entropic
-        affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -657,7 +656,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Returns the batched version of the fitted symmetric entropic affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -852,8 +851,7 @@ class DoublyStochasticEntropic(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Returns the batched version of the fitted doubly stochastic entropic
-        affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------

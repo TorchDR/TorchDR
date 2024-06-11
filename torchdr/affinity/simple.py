@@ -97,7 +97,7 @@ class ScalarProductAffinity(Affinity):
 
     def get_batch(self, indices: torch.Tensor):
         r"""
-        Returns the batched version of the fitted scalar product affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -193,7 +193,7 @@ class GibbsAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Returns the batched version of the fitted Gibbs affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -293,7 +293,7 @@ class StudentAffinity(LogAffinity):
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Returns the batched version of the fitted Student affinity matrix.
+        Extracts the affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
