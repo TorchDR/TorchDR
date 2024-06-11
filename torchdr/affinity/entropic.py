@@ -123,15 +123,18 @@ def _bounds_entropic_affinity(C, perplexity):
 
 
 def _check_perplexity(perplexity, n, verbose=True):
+    r"""
+    Checks the perplexity parameter and returns a valid value.
+    """
     if perplexity >= n or perplexity <= 1:
+        new_value = n // 2
         if verbose:
             print(
                 "[TorchDR] WARNING : The perplexity parameter must be greater than "
                 f"1 and smaller than the number of samples (here n = {n})."
-                f"Got perplexity = {perplexity}. Setting perplexity to {n//2} "
-                "(which corresponds to n//2)."
+                f"Got perplexity = {perplexity}. Setting perplexity to {new_value}."
             )
-        return n // 2
+        return new_value
     else:
         return perplexity
 
