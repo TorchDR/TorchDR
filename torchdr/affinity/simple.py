@@ -38,6 +38,8 @@ class ScalarProductAffinity(Affinity):
 
     Parameters
     ----------
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix. Default is None.
     device : str, optional
         Device to use for computations. Default is "cuda".
     keops : bool, optional
@@ -88,7 +90,7 @@ class ScalarProductAffinity(Affinity):
         self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
 
         if self.normalization_dim is not None:
-            self.normalization_ = sum_red(P, self.normalization_dim)
+            self.normalization_ = sum_red(self.affinity_matrix_, self.normalization_dim)
             self.affinity_matrix_ /= self.normalization_
 
         return self
