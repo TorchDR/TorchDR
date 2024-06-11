@@ -382,6 +382,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         self.N = self.data_.shape[0]
         self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / (2 * self.N)
         self.log_affinity_matrix_ = self.affinity_matrix_.log()
+        return self
 
     def get_batch(self, indices: torch.Tensor):
         r"""
@@ -645,6 +646,8 @@ class SymmetricEntropicAffinity(LogAffinity):
 
             self.n_iter_ = k
             self.log_affinity_matrix_ = log_P
+
+        return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
