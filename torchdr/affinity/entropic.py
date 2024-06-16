@@ -126,6 +126,11 @@ def _check_perplexity(perplexity, n, verbose=True):
     r"""
     Checks the perplexity parameter and returns a valid value.
     """
+    if n <= 1:
+        raise ValueError(
+            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
+        )
+
     if perplexity >= n or perplexity <= 1:
         new_value = n // 2
         if verbose:
