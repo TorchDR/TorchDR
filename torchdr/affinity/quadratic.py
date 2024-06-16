@@ -114,7 +114,7 @@ class DoublyStochasticQuadratic(Affinity):
         self.max_iter = max_iter
         self.optimizer = optimizer
         self.lr = lr
-        self.student = student
+        self.base_kernel = base_kernel
         self.tolog = tolog
 
     def fit(self, X: torch.Tensor | np.ndarray):
