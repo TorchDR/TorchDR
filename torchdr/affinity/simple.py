@@ -90,7 +90,7 @@ class ScalarProductAffinity(Affinity):
 
         if self.normalization_dim is not None:
             self.normalization_ = sum_red(self.affinity_matrix_, self.normalization_dim)
-            self.affinity_matrix_ /= self.normalization_
+            self.affinity_matrix_ = self.affinity_matrix_ / self.normalization_
 
         return self
 
@@ -116,7 +116,7 @@ class ScalarProductAffinity(Affinity):
             normalization_batch = extract_batch_normalization(
                 self.normalization_, indices, self.normalization_dim
             )
-            P_batch /= normalization_batch
+            P_batch = P_batch / normalization_batch
 
         return P_batch
 
@@ -179,7 +179,9 @@ class GibbsAffinity(LogAffinity):
             self.log_normalization_ = logsumexp_red(
                 self.log_affinity_matrix_, self.normalization_dim
             )
-            self.log_affinity_matrix_ -= self.log_normalization_
+            self.log_affinity_matrix_ = (
+                self.log_affinity_matrix_ - self.log_normalization_
+            )
 
         return self
 
@@ -208,7 +210,7 @@ class GibbsAffinity(LogAffinity):
             log_normalization_batch = extract_batch_normalization(
                 self.log_normalization_, indices, self.normalization_dim
             )
-            log_P_batch -= log_normalization_batch
+            log_P_batch = log_P_batch - log_normalization_batch
 
         if log:
             return log_P_batch
@@ -276,7 +278,9 @@ class StudentAffinity(LogAffinity):
             self.log_normalization_ = logsumexp_red(
                 self.log_affinity_matrix_, self.normalization_dim
             )
-            self.log_affinity_matrix_ -= self.log_normalization_
+            self.log_affinity_matrix_ = (
+                self.log_affinity_matrix_ - self.log_normalization_
+            )
 
         return self
 
@@ -305,7 +309,7 @@ class StudentAffinity(LogAffinity):
             log_normalization_batch = extract_batch_normalization(
                 self.log_normalization_, indices, self.normalization_dim
             )
-            log_P_batch -= log_normalization_batch
+            log_P_batch = log_P_batch - log_normalization_batch
 
         if log:
             return log_P_batch
