@@ -694,13 +694,11 @@ class DoublyStochasticEntropic(LogAffinity):
     Consists in solving the following symmetric entropic optimal transport problem [6]_:
 
     .. math::
-        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C},
-        \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P}) \\
-        \text{s.t.} \quad  &\mathbf{P} \mathbf{1} = \mathbf{1} \\
-                            &\mathbf{P} = \mathbf{P}^\top
+        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
 
     where :
 
+    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
     - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
     - :math:`\varepsilon`: entropic regularization parameter.
     - :math:`\mathrm{H}`: (global) Shannon entropy such that :math:`\mathrm{H}(\mathbf{P}) := - \sum_{ij} P_{ij} (\log P_{ij} - 1)`.
@@ -715,16 +713,12 @@ class DoublyStochasticEntropic(LogAffinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
 
     **Bregman projection.** Another way to write this problem is to consider the
-    KL projection of the Gibbs kernel onto the set of doubly stochastic matrices:
+    KL projection of the Gibbs kernel :math:`\mathbf{K}_\varepsilon = \exp(- \mathbf{C} / \varepsilon)` onto the set of doubly stochastic matrices:
 
     .. math::
-        \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon) \:.
+        \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon)
 
-    where :
-
-    - :math:`\mathbf{K}_\varepsilon := \exp(-\mathbf{C} / \varepsilon)`: Gibbs kernel.
-    - :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}`: Kullback Leibler divergence between :math:`\mathbf{P}` and :math:`\mathbf{Q}`.
-    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
+    where :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}` is Kullback Leibler divergence between :math:`\mathbf{P}` and :math:`\mathbf{Q}`.
 
     Parameters
     ----------
@@ -873,6 +867,9 @@ class DoublyStochasticEntropic(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
+        if self.base_kernel == "student":
+            C_batch = (1 + C_batch).log()
+
         log_K_batch = -C_batch / self.eps
         dual_batch = self.dual_[indices]
         log_P_batch = _log_Pds(log_K_batch, dual_batch)

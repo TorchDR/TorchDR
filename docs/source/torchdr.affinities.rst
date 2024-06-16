@@ -49,3 +49,13 @@ Affinities based on entropic normalization
    torchdr.affinity.SymmetricEntropicAffinity
    torchdr.affinity.L2SymmetricEntropicAffinity
    torchdr.affinity.DoublyStochasticEntropic
+
+
+Other various affinities
+-------------------------
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   
+   torchdr.affinity.DoublyStochasticQuadratic
