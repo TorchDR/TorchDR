@@ -1,6 +1,15 @@
-﻿torchdr.affinity.SymmetricEntropicAffinity
-==========================================
+﻿SymmetricEntropicAffinity
+=========================
 
 .. currentmodule:: torchdr.affinity
 
 .. autoclass:: SymmetricEntropicAffinity
+   :members:
+   :show-inheritance:
+   :no-undoc-members:
+   :special-members: __mul__, __add__, __div__, __neg__, __sub__, __truediv__
+
+.. _sphx_glr_backref_torchdr.affinity.SymmetricEntropicAffinity:
+
+.. minigallery:: torchdr.affinity.SymmetricEntropicAffinity
+    :add-heading: Examples using ``SymmetricEntropicAffinity``:

@@ -6,18 +6,16 @@
 
 |Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
 
-Github repository: `<https://github.com/torchdr/torchdr>`_.
+Github repository: `<https://github.com/torchdr/torchdr/>`_.
 
 Documentation: `<https://torchdr.github.io/>`_.
 
 
 ``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-.. _Introduction:
 
 Introduction
 ------------
-
 
 DR aims to construct a low-dimensional representation (or embedding) of an input dataset that best preserves its geometry encoded via a pairwise affinity matrix . To this end, DR methods optimize the embedding such that its associated pairwise affinity matches the input affinity.
 
@@ -25,7 +23,7 @@ DR aims to construct a low-dimensional representation (or embedding) of an input
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as an objective function.
 Code for other aspects, including optimization, is shared across methods. It ensures a fair benchmarking focusing on core differences.
 
-Advantages of ``TorchDR`` also include:
+Benefits of ``TorchDR`` include:
 
 .. list-table:: 
    :widths: auto
@@ -43,8 +41,6 @@ Advantages of ``TorchDR`` also include:
      - Neural estimators are seamlessly integrated for all methods.
 
 
-.. _Implemented Methods:
-
 Implemented Methods
 -------------------
 
@@ -54,16 +50,12 @@ Implemented Methods
 * UMAP [8]_
 
 
-.. _Finding Help:
-
 Finding Help
 ------------
 
 If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
 
-
-.. _References:
 
 References
 ----------
@@ -84,9 +76,9 @@ References
 
 .. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
-.. [9] Yao Lu, Jukka Corander, Zhirong Yang. `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 (2019): 100-106.
+.. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
 
-.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger. `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint (2023).
+.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
 
 
 
