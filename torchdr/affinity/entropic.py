@@ -131,7 +131,7 @@ def _check_perplexity(perplexity, n, verbose=True):
         if verbose:
             print(
                 "[TorchDR] WARNING : The perplexity parameter must be greater than "
-                f"1 and smaller than the number of samples (here n = {n})."
+                f"1 and smaller than the number of samples (here n = {n}). "
                 f"Got perplexity = {perplexity}. Setting perplexity to {new_value}."
             )
         return new_value
@@ -868,8 +868,9 @@ class DoublyStochasticEntropic(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
+        log_K_batch = -C_batch / self.eps
         dual_batch = self.dual_[indices]
-        log_P_batch = _log_Pds(C_batch, dual_batch)
+        log_P_batch = _log_Pds(log_K_batch, dual_batch)
 
         if log:
             return log_P_batch

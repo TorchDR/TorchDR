@@ -18,6 +18,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
+    DoublyStochasticEntropic,
 )
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -41,6 +42,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         (EntropicAffinity, {}),
         (L2SymmetricEntropicAffinity, {}),
         (SymmetricEntropicAffinity, {"lr": 1e-6}),
+        (DoublyStochasticEntropic, {}),
     ],
 )
 def test_get_batch_affinity(Affinity, kwargs):
