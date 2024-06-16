@@ -32,8 +32,8 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     DoublyStochasticEntropic,
     DoublyStochasticQuadratic,
-    UMAPAffinityData,
-    UMAPAffinityEmbedding,
+    UMAPAffinityIn,
+    UMAPAffinityOut,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 
@@ -291,7 +291,7 @@ def test_umap_data_affinity(dtype, metric, keops, sparsity):
     n_neighbors = 30
     tol = 1e-3
 
-    affinity = UMAPAffinityData(
+    affinity = UMAPAffinityIn(
         n_neighbors=n_neighbors,
         device=DEVICE,
         keops=keops,
@@ -317,7 +317,7 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     n = 300
     X = toy_dataset(n, dtype)
 
-    affinity = UMAPAffinityEmbedding(
+    affinity = UMAPAffinityOut(
         device=DEVICE,
         keops=keops,
         metric=metric,

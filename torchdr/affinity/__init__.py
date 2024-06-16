@@ -17,7 +17,7 @@ from .entropic import (
 
 from .quadratic import DoublyStochasticQuadratic
 
-from .umap import UMAPAffinityData, UMAPAffinityEmbedding
+from .umap import UMAPAffinityIn, UMAPAffinityOut
 
 __all__ = [
     "Affinity",
@@ -30,6 +30,6 @@ __all__ = [
     "SymmetricEntropicAffinity",
     "DoublyStochasticEntropic",
     "DoublyStochasticQuadratic",
-    "UMAPAffinityData",
-    "UMAPAffinityEmbedding",
+    "UMAPAffinityIn",
+    "UMAPAffinityOut",
 ]
