@@ -12,7 +12,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     GibbsAffinity,
 )
-from torchdr.utils import cross_entropy_loss
+from torchdr.losses import cross_entropy_loss
 
 
 class SNE(AffinityMatcher):
