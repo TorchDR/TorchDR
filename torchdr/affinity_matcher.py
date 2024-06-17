@@ -24,6 +24,48 @@ from torchdr.base import DRModule
 
 
 class AffinityMatcher(DRModule):
+    """
+    Performs dimensionality reduction by matching two affinity matrices.
+    Optimizes the embedding via gradient descent using torch autodiff.
+
+    Parameters
+    ----------
+    affinity_in : Affinity
+        The affinity object for the input space.
+    affinity_out : Affinity
+        The affinity object for the output embedding space.
+    n_components : int, optional
+        Number of dimensions for the embedding. Default is 2.
+    optimizer : str, optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict, optional
+        Additional keyword arguments for the optimizer.
+    lr : float, optional
+        Learning rate for the optimizer. Default is 1e0.
+    scheduler : str, optional
+        Learning rate scheduler. Default is "constant".
+    scheduler_kwargs : dict, optional
+        Additional keyword arguments for the scheduler.
+    tol : float, optional
+        Tolerance for stopping criterion. Default is 1e-3.
+    max_iter : int, optional
+        Maximum number of iterations. Default is 1000.
+    init : str, optional
+        Initialization method for the embedding. Default is "pca".
+    init_scaling : float, optional
+        Scaling factor for the initial embedding. Default is 1e-4.
+    tolog : bool, optional
+        If True, logs the optimization process. Default is False.
+    device : str, optional
+        Device to use for computations. Default is None.
+    keops : bool, optional
+        Whether to use KeOps for computations. Default is True.
+    verbose : bool, optional
+        Verbosity of the optimization process. Default is True.
+    seed : float, optional
+        Random seed for reproducibility. Default is 0.
+    """
+
     def __init__(
         self,
         affinity_in: Affinity,
@@ -75,6 +117,46 @@ class AffinityMatcher(DRModule):
         if not isinstance(affinity_out, Affinity):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
+
+    @handle_backend
+    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+        """
+        Fits the model to the provided data and returns the transformed data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data of shape (n_samples, n_features).
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        embedding_ : torch.Tensor
+            The embedding of the input data.
+        """
+        self._fit(X)
+        return self.embedding_
+
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+        """
+        Fits the model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data of shape (n_samples, n_features).
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        self : AffinityMatcher
+            The fitted AffinityMatcher instance.
+        """
+        super().fit(X)
+        self.fit_transform(X)
+        return self
 
     def _fit(self, X: torch.Tensor):
         self.n_samples_in_, self.n_features_in_ = X.shape
@@ -129,16 +211,6 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = k
 
-        return self
-
-    @handle_backend
-    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
-        self._fit(X)
-        return self.embedding_
-
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
-        super().fit(X)
-        self.fit_transform(X)
         return self
 
     def _set_params(self):
@@ -217,6 +289,47 @@ class AffinityMatcher(DRModule):
 
 
 class BatchedAffinityMatcher(AffinityMatcher):
+    """
+    Performs dimensionality reduction by matching two affinity matrices with batch processing.
+
+    Parameters
+    ----------
+    affinity_in : Affinity
+        The affinity object for the input space.
+    affinity_out : Affinity
+        The affinity object for the output space.
+    n_components : int, optional
+        Number of dimensions for the embedding. Default is 2.
+    optimizer : str, optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict, optional
+        Additional keyword arguments for the optimizer.
+    lr : float, optional
+        Learning rate for the optimizer. Default is 1e0.
+    scheduler : str, optional
+        Learning rate scheduler. Default is "constant".
+    scheduler_kwargs : dict, optional
+        Additional keyword arguments for the scheduler.
+    tol : float, optional
+        Tolerance for stopping criterion. Default is 1e-3.
+    max_iter : int, optional
+        Maximum number of iterations. Default is 1000.
+    init : str, optional
+        Initialization method for the embedding. Default is "pca".
+    init_scaling : float, optional
+        Scaling factor for the initial embedding. Default is 1e-4.
+    tolog : bool, optional
+        If True, logs the optimization process. Default is False.
+    device : str, optional
+        Device to use for computations. Default is None.
+    keops : bool, optional
+        Whether to use KeOps for computations. Default is True.
+    verbose : bool, optional
+        Verbosity of the optimization process. Default is True.
+    batch_size : int, optional
+        Batch size for processing. Default is None.
+    """
+
     def __init__(
         self,
         affinity_in: Affinity,
