@@ -12,6 +12,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     handle_backend,
+    sum_all_axis,
 )
 
 from .geometry import pairwise_distances, LIST_METRICS
@@ -56,6 +57,7 @@ __all__ = [
     "kmax",
     "sum_matrix_vector",
     "sum_red",
+    "sum_all_axis",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
