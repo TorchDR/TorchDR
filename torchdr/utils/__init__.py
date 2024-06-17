@@ -12,7 +12,6 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     handle_backend,
-    sum_all_axis,
 )
 
 from .geometry import pairwise_distances, LIST_METRICS
