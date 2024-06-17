@@ -9,10 +9,10 @@ UMAP algorithm
 
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.affinity import (
-    UMAPAffinityData,
-    UMAPAffinityEmbedding,
+    UMAPAffinityIn,
+    UMAPAffinityOut,
 )
-from torchdr.utils import binary_cross_entropy_loss
+from torchdr.losses import binary_cross_entropy_loss
 
 
 class UMAP(AffinityMatcher):
@@ -41,7 +41,7 @@ class UMAP(AffinityMatcher):
         keops=True,
         coeff_repulsion=1.0,
     ):
-        affinity_data = UMAPAffinityData(
+        affinity_in = UMAPAffinityIn(
             n_neighbors=n_neighbors,
             metric=metric,
             tol=tol_affinity,
@@ -50,7 +50,7 @@ class UMAP(AffinityMatcher):
             keops=keops,
             verbose=verbose,
         )
-        affinity_embedding = UMAPAffinityEmbedding(
+        affinity_out = UMAPAffinityOut(
             min_dist=min_dist,
             spread=spread,
             a=a,
@@ -62,8 +62,8 @@ class UMAP(AffinityMatcher):
         )
 
         super().__init__(
-            affinity_data=affinity_data,
-            affinity_embedding=affinity_embedding,
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
