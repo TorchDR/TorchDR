@@ -24,7 +24,7 @@ from torchdr.base import DRModule
 
 
 class AffinityMatcher(DRModule):
-    """
+    r"""
     Performs dimensionality reduction by matching two affinity matrices.
     It amounts to solving the following optimization problem:
 
@@ -70,7 +70,7 @@ class AffinityMatcher(DRModule):
         Verbosity of the optimization process. Default is True.
     seed : float, optional
         Random seed for reproducibility. Default is 0.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -295,7 +295,7 @@ class AffinityMatcher(DRModule):
 
 
 class BatchedAffinityMatcher(AffinityMatcher):
-    """
+    r"""
     Performs dimensionality reduction by matching two batched affinity matrices.
 
     It amounts to solving the following optimization problem:
@@ -344,7 +344,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         Random seed for reproducibility. Default is 0.
     batch_size : int, optional
         Batch size for processing. Default is None.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -407,7 +407,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
             The batched affinity matrix for the input space.
         batched_affinity_out_ : torch.Tensor or pykeops.torch.LazyTensor
             The batched affinity matrix for the output space.
-        """
+        """  # noqa: E501
         if (
             not hasattr(self, "batch_size_")
             or self.n_samples_in_ % getattr(self, "batch_size_") != 0
