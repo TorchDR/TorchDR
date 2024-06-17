@@ -9,7 +9,8 @@ Noise-constrastive SNE algorithms
 
 from torchdr.affinity_matcher import BatchedAffinityMatcher
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
-from torchdr.utils import logsumexp_red, cross_entropy_loss
+from torchdr.losses import cross_entropy_loss
+from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(BatchedAffinityMatcher):

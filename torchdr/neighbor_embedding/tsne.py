@@ -12,7 +12,8 @@ from torchdr.affinity import (
     L2SymmetricEntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import cross_entropy_loss, logsumexp_red
+from torchdr.losses import cross_entropy_loss
+from torchdr.utils import logsumexp_red
 
 
 class TSNE(AffinityMatcher):
