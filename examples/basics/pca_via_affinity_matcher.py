@@ -5,9 +5,3 @@ PCA via SVD and via AffinityMatcher
 In this example, we show how to compute a PCA embedding using the closed form and using the AffinityMatcher class. Both approaches lead to the same solution.
 
 """
-
-import torch
-
-import deepinv as dinv
-from deepinv.utils.plotting import plot
-from deepinv.utils.demo import load_url_image, get_image_url

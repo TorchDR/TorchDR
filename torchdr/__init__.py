@@ -12,7 +12,6 @@ from .__about__ import (
     __license__,
 )
 
-# All submodules and packages
 from . import spectral
 from . import affinity_matcher
 from . import affinity
