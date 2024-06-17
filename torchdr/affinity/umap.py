@@ -12,12 +12,22 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from torchdr.affinity import Affinity
-from torchdr.utils import false_position, kmin, wrap_vectors
+from torchdr.utils import false_position, kmin, wrap_vectors, batch_transpose
 
 
 @wrap_vectors
 def _log_Pumap(C, rho, sigma):
+    r"""
+    Returns the log of the input affinity matrix used in UMAP.
+    """
     return -(C - rho) / sigma
+
+
+def _Student_umap(C, a, b):
+    r"""
+    Returns the Student affinity function used in UMAP.
+    """
+    return 1 / (1 + a * C ** (2 * b))
 
 
 # from umap/umap/umap_.py
@@ -39,7 +49,29 @@ def find_ab_params(spread, min_dist):
     return params[0], params[1]
 
 
-class UMAPAffinityData(Affinity):
+def _check_n_neighbors(n_neighbors, n, verbose=True):
+    r"""
+    Checks the n_neighbors parameter and returns a valid value.
+    """
+    if n <= 1:
+        raise ValueError(
+            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
+        )
+
+    if n_neighbors >= n or n_neighbors <= 1:
+        new_value = n // 2
+        if verbose:
+            print(
+                "[TorchDR] WARNING : The n_neighbors parameter must be greater than "
+                f"1 and smaller than the number of samples (here n = {n}). "
+                f"Got n_neighbors = {n_neighbors}. Setting n_neighbors to {new_value}."
+            )
+        return new_value
+    else:
+        return n_neighbors
+
+
+class UMAPAffinityIn(Affinity):
     def __init__(
         self,
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
@@ -62,7 +94,7 @@ class UMAPAffinityData(Affinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -78,7 +110,7 @@ class UMAPAffinityData(Affinity):
 
         super().fit(X)
 
-        C_full = self._ground_cost_matrix(self.data_)
+        C_full = self._pairwise_distance_matrix(self.data_)
 
         if self.sparsity:
             print(
@@ -94,12 +126,7 @@ class UMAPAffinityData(Affinity):
         self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze().contiguous()
 
         n = C_full.shape[0]
-
-        if not 1 < self.n_neighbors <= n:
-            raise ValueError(
-                "[TorchDR] Affinity : The k parameter must be between "
-                "2 and number of samples."
-            )
+        self.n_neighbors = _check_n_neighbors(self.n_neighbors, n, self.verbose)
 
         def marginal_gap(eps):  # function to find the root of
             marg = _log_Pumap(C_reduced, self.rho_, eps).logsumexp(1).exp().squeeze()
@@ -120,8 +147,30 @@ class UMAPAffinityData(Affinity):
 
         return self
 
+    def get_batch(self, indices: torch.Tensor):
+        r"""
+        Extracts the affinity submatrix corresponding to the batch indices.
 
-class UMAPAffinityEmbedding(Affinity):
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+        """
+        C_batch = super().get_batch(indices)
+        rho_batch = self.rho_[indices]
+        eps_batch = self.eps_[indices]
+        P_batch = _log_Pumap(C_batch, rho_batch, eps_batch).exp()
+        P_batch_t = batch_transpose(P_batch)
+        return P_batch + P_batch_t - P_batch * P_batch_t
+
+
+class UMAPAffinityOut(Affinity):
     def __init__(
         self,
         min_dist: float = 0.1,
@@ -150,7 +199,7 @@ class UMAPAffinityEmbedding(Affinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -160,7 +209,25 @@ class UMAPAffinityEmbedding(Affinity):
         """
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
-        self.affinity_matrix_ = 1 / (1 + self._a * C ** (2 * self._b))
+        C = self._pairwise_distance_matrix(self.data_)
+        self.affinity_matrix_ = _Student_umap(C, self._a, self._b)
 
         return self
+
+    def get_batch(self, indices: torch.Tensor):
+        r"""
+        Extracts the affinity submatrix corresponding to the batch indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+        """
+        C_batch = super().get_batch(indices)
+        return _Student_umap(C_batch, self._a, self._b)

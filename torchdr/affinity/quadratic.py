@@ -26,6 +26,72 @@ def _Pds(C, dual, eps):
 
 
 class DoublyStochasticQuadratic(Affinity):
+    r"""
+    Computes the symmetric doubly stochastic affinity matrix with controlled
+    global :math:`\ell_2` norm.
+    Consists in solving the following symmetric quadratic optimal transport problem
+    [10]_:
+
+    .. math::
+        \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C},
+        \mathbf{P} \rangle + \varepsilon \| \mathbf{P} \|_2^2
+
+    where :
+
+    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
+    - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
+    - :math:`\varepsilon`: quadratic regularization parameter.
+    - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
+
+    The algorithm computes the optimal dual variable
+    :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
+
+    .. math::
+        \mathbf{P}^{\star} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\star}_{ij} = \left[f^\star_i + f^\star_j - C_{ij} / \varepsilon \right]_{+} \:.
+
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent.
+
+    **Bregman projection.** Another way to write this problem is to consider the
+    :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
+
+    .. math::
+        \mathrm{Proj}_{\mathcal{DS}}^{\ell_2}(- \mathbf{C} / \varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \| \mathbf{P} + \mathbf{C} / \varepsilon \|_2 \:.
+
+    Parameters
+    ----------
+    eps : float, optional
+        Regularization parameter.
+    init_dual : tensor of shape (n_samples), optional
+        Initialization for the dual variable (default None).
+    tol : float, optional
+        Precision threshold at which the algorithm stops.
+    max_iter : int, optional
+        Number of maximum iterations for the algorithm.
+    optimizer : {"Adam", "SGD", "NAdam"}, optional
+        Optimizer to use for the dual ascent.
+    lr : float, optional
+        Learning rate for the optimizer.
+    base_kernel : {"gaussian", "student"}, optional
+        Which base kernel to normalize as doubly stochastic.
+    tolog : bool, optional
+        Whether to store intermediate result in a dictionary.
+    metric : str, optional
+        Metric to use for computing distances (default "euclidean").
+    device : str, optional
+        Device to use for computation.
+    keops : bool, optional
+        Whether to use KeOps for computation.
+    verbose : bool, optional
+        Verbosity.
+
+    References
+    ----------
+    .. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger
+        (2023). `Manifold Learning with Sparse Regularised Optimal Transport
+        <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
+
+    """  # noqa: E501
+
     def __init__(
         self,
         eps: float = 1.0,
@@ -34,7 +100,7 @@ class DoublyStochasticQuadratic(Affinity):
         max_iter: int = 1000,
         optimizer: str = "Adam",
         lr: float = 1e0,
-        student: bool = False,
+        base_kernel: str = "gaussian",
         tolog: bool = False,
         metric: str = "euclidean",
         device: str = None,
@@ -48,7 +114,7 @@ class DoublyStochasticQuadratic(Affinity):
         self.max_iter = max_iter
         self.optimizer = optimizer
         self.lr = lr
-        self.student = student
+        self.base_kernel = base_kernel
         self.tolog = tolog
 
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -71,7 +137,9 @@ class DoublyStochasticQuadratic(Affinity):
             )
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
+        if self.base_kernel == "student":
+            C = (1 + C).log()
 
         n = C.shape[0]
         one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
@@ -129,3 +197,26 @@ class DoublyStochasticQuadratic(Affinity):
         self.affinity_matrix_ = _Pds(C, self.dual_, self.eps)
 
         return self
+
+    def get_batch(self, indices: torch.Tensor):
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+        """
+        C_batch = super().get_batch(indices)
+        if self.base_kernel == "student":
+            C_batch = (1 + C_batch).log()
+
+        dual_batch = self.dual_[indices]
+        P_batch = _Pds(C_batch, dual_batch, self.eps)
+        return P_batch
