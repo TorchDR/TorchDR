@@ -7,7 +7,13 @@
 
 from .optim import binary_search, false_position, OPTIMIZERS
 
-from .wrappers import wrap_vectors, to_torch, torch_to_backend, handle_backend
+from .wrappers import (
+    wrap_vectors,
+    to_torch,
+    torch_to_backend,
+    handle_backend,
+    sum_all_axis,
+)
 
 from .geometry import pairwise_distances, LIST_METRICS
 
@@ -31,9 +37,6 @@ from .utils import (
     entropy,
     kmin,
     kmax,
-    cross_entropy_loss,
-    binary_cross_entropy_loss,
-    square_loss,
     normalize_matrix,
     svd_flip,
     center_kernel,
@@ -54,6 +57,7 @@ __all__ = [
     "kmax",
     "sum_matrix_vector",
     "sum_red",
+    "sum_all_axis",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
@@ -71,9 +75,6 @@ __all__ = [
     "check_nonnegativity_eigenvalues",
     "check_total_sum",
     "entropy",
-    "cross_entropy_loss",
-    "binary_cross_entropy_loss",
-    "square_loss",
     "normalize_matrix",
     "svd_flip",
     "center_kernel",
