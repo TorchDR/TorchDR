@@ -26,7 +26,13 @@ from torchdr.base import DRModule
 class AffinityMatcher(DRModule):
     """
     Performs dimensionality reduction by matching two affinity matrices.
-    Optimizes the embedding via gradient descent using torch autodiff.
+    It amounts to solving the following optimization problem:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \:.
+
+    Optimization of the embedding is perfomed using torch autodiff.
 
     Parameters
     ----------
@@ -290,7 +296,15 @@ class AffinityMatcher(DRModule):
 
 class BatchedAffinityMatcher(AffinityMatcher):
     """
-    Performs dimensionality reduction by matching two affinity matrices with batch processing.
+    Performs dimensionality reduction by matching two batched affinity matrices.
+
+    It amounts to solving the following optimization problem:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \:.
+
+    Optimization of the embedding is perfomed using torch autodiff.
 
     Parameters
     ----------
@@ -326,6 +340,8 @@ class BatchedAffinityMatcher(AffinityMatcher):
         Whether to use KeOps for computations. Default is True.
     verbose : bool, optional
         Verbosity of the optimization process. Default is True.
+    seed : float, optional
+        Random seed for reproducibility. Default is 0.
     batch_size : int, optional
         Batch size for processing. Default is None.
     """
@@ -348,6 +364,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
+        seed: float = 0,
         batch_size: int = None,
     ):
 
@@ -368,17 +385,29 @@ class BatchedAffinityMatcher(AffinityMatcher):
             device=device,
             keops=keops,
             verbose=verbose,
+            seed=seed,
         )
 
         self.batch_size = batch_size
 
-    def _instantiate_generator(self):
-        self.generator_ = np.random.default_rng(
-            seed=self.seed
-        )  # we use numpy because torch.Generator is not picklable
-        return self.generator_
+    def batched_affinity_in_out(self, kwargs_affinity_out={}):
+        """
+        Returns batched affinity matrices for the input and output spaces.
 
-    def _batched_affinity_and_embedding(self):
+        This method firsts generate permuted indices for batching. Using these indices, it computes the batched affinity matrices for both the input data and the embedded data.
+
+        Parameters
+        ----------
+        kwargs_affinity_out : dict, optional
+            Additional keyword arguments for the affinity_out fit_transform method.
+
+        Returns
+        -------
+        batched_affinity_in_ : torch.Tensor or pykeops.torch.LazyTensor
+            The batched affinity matrix for the input space.
+        batched_affinity_out_ : torch.Tensor or pykeops.torch.LazyTensor
+            The batched affinity matrix for the output space.
+        """
         if (
             not hasattr(self, "batch_size_")
             or self.n_samples_in_ % getattr(self, "batch_size_") != 0
@@ -391,8 +420,17 @@ class BatchedAffinityMatcher(AffinityMatcher):
 
         batched_affinity_in_ = self.affinity_in.get_batch(indices)
         batched_embedding_ = self.embedding_[indices]
+        batched_affinity_out_ = self.affinity_out.fit_transform(
+            batched_embedding_, **kwargs_affinity_out
+        )
 
-        return batched_affinity_in_, batched_embedding_
+        return batched_affinity_in_, batched_affinity_out_
+
+    def _instantiate_generator(self):
+        self.generator_ = np.random.default_rng(
+            seed=self.seed
+        )  # we use numpy because torch.Generator is not picklable
+        return self.generator_
 
     def _set_batch_size(self):
         if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
