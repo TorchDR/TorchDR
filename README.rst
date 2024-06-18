@@ -44,6 +44,19 @@ Benefits of ``TorchDR`` include:
 Implemented Methods
 -------------------
 
+Affinities
+~~~~~~~~~~
+
+``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
+
+* Simple affinities such that Gibbs and Student kernels, scalar product etc...
+* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ and quadratic [10]_ projections.
+* Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
+
+
+DR algorithms
+~~~~~~~~~~~~~
+
 * SNE [1]_
 * t-SNE [2]_
 * SNEkhorn / t-SNEkhorn [3]_
@@ -89,6 +102,10 @@ References
 .. [14] Artemenkov, A., & Panov, M. (2020). `NCVis: Noise Contrastive Approach for Scalable Visualization <https://dl.acm.org/doi/pdf/10.1145/3366423.3380061?casa_token=J-quI6odZDMAAAAA:dEKrwbHIaiPX1xZQe2NA2q3-PahWc4PUP6WDtQVRocIa501T_LGgPixl03lVJF3j5SjutiBzhj9cpg>`_. In Proceedings of The Web Conference.
 
 .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
+
+.. [16] Landa, B., Coifman, R. R., & Kluger, Y. (2021). `Doubly stochastic normalization of the gaussian kernel is robust to heteroskedastic noise <https://epubs.siam.org/doi/abs/10.1137/20M1342124?journalCode=sjmdaq>`_. SIAM journal on mathematics of data science, 3(1), 388-413.
+
+.. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white

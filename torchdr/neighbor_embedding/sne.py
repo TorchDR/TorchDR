@@ -53,18 +53,7 @@ class SNE(AffinityMatcher):
     tolog : bool, optional
         Whether to store intermediate results in a dictionary.
     keops : bool, optional
-        Whether to use KeOps for the entropic affinity computation.
-
-    Attributes
-    ----------
-    log_ : dictionary
-        Contains the log of affinity_out, affinity_in and the loss at each iteration (if tolog is True).
-    n_iter_: int
-        Number of iterations run.
-    embedding_ : torch.Tensor of shape (n_samples, n_components)
-        Stores the embedding coordinates.
-    PX_ :  torch.Tensor of shape (n_samples, n_samples)
-        Fitted entropic affinity matrix in the input space.
+        Whether to use KeOps.
 
     References
     ----------

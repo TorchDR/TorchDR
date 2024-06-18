@@ -12,12 +12,28 @@ from .__about__ import (
     __license__,
 )
 
-from . import spectral
-from . import affinity_matcher
-from . import affinity
-from . import losses
-from . import utils
-from . import neighbor_embedding
+# import affinities
+from .affinity import (
+    GibbsAffinity,
+    StudentAffinity,
+    ScalarProductAffinity,
+    EntropicAffinity,
+    L2SymmetricEntropicAffinity,
+    SymmetricEntropicAffinity,
+    DoublyStochasticEntropic,
+    DoublyStochasticQuadratic,
+)
+
+# import DR methods
+from .spectral import PCA
+from .affinity_matcher import (
+    AffinityMatcher,
+    BatchedAffinityMatcher,
+)
+from .neighbor_embedding import (
+    SNE,
+    TSNE,
+)
 
 __all__ = [
     "__title__",
@@ -26,10 +42,17 @@ __all__ = [
     "__version__",
     "__author__",
     "__license__",
-    "spectral",
-    "affinity_matcher",
-    "affinity",
-    "losses",
-    "utils",
-    "neighbor_embedding",
+    "GibbsAffinity",
+    "StudentAffinity",
+    "ScalarProductAffinity",
+    "EntropicAffinity",
+    "L2SymmetricEntropicAffinity",
+    "SymmetricEntropicAffinity",
+    "DoublyStochasticEntropic",
+    "DoublyStochasticQuadratic",
+    "AffinityMatcher",
+    "BatchedAffinityMatcher",
+    "PCA",
+    "SNE",
+    "TSNE",
 ]

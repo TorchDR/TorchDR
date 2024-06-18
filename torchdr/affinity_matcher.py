@@ -21,6 +21,13 @@ from torchdr.utils import (
 from torchdr.affinity import Affinity
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
+from torchdr.losses import square_loss, cross_entropy_loss, binary_cross_entropy_loss
+
+LOSS_DICT = {
+    "square_loss": square_loss,
+    "cross_entropy_loss": cross_entropy_loss,
+    "binary_cross_entropy_loss": binary_cross_entropy_loss,
+}
 
 
 class AffinityMatcher(DRModule):
@@ -40,6 +47,8 @@ class AffinityMatcher(DRModule):
         The affinity object for the input space.
     affinity_out : Affinity
         The affinity object for the output embedding space.
+    kwargs_affinity_out : dict, optional
+        Additional keyword arguments for the affinity_out fit_transform method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -76,7 +85,10 @@ class AffinityMatcher(DRModule):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
+        kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        loss_fn: str = "square_loss",
+        kwargs_loss: dict = {},
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         lr: float = 1e0,
@@ -105,6 +117,10 @@ class AffinityMatcher(DRModule):
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
 
+        assert loss_fn in LOSS_DICT, f"Loss function {loss_fn} not supported."
+        self.loss_fn = loss_fn
+        self.kwargs_loss = kwargs_loss
+
         self.init = init
         self.init_scaling = init_scaling
 
@@ -123,6 +139,7 @@ class AffinityMatcher(DRModule):
         if not isinstance(affinity_out, Affinity):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
+        self.kwargs_affinity_out = kwargs_affinity_out
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
@@ -219,6 +236,11 @@ class AffinityMatcher(DRModule):
 
         return self
 
+    def _loss(self):
+        Q = self.affinity_out.fit_transform(self.embedding_, **self.kwargs_affinity_out)
+        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
+        return loss
+
     def _set_params(self):
         self.params_ = [{"params": self.embedding_}]
         return self.params_
@@ -312,6 +334,8 @@ class BatchedAffinityMatcher(AffinityMatcher):
         The affinity object for the input space.
     affinity_out : Affinity
         The affinity object for the output space.
+    kwargs_affinity_out : dict, optional
+        Additional keyword arguments for the affinity_out fit_transform method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -350,6 +374,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
+        kwargs_affinity_out: dict = {},
         n_components: int = 2,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
@@ -371,6 +396,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
+            kwargs_affinity_out=kwargs_affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -446,7 +472,8 @@ class BatchedAffinityMatcher(AffinityMatcher):
                     if self.verbose:
                         print(
                             f"[TorchDR] WARNING : batch_size not provided or suitable, "
-                            f"setting batch_size to {self.batch_size_}."
+                            f"setting batch_size to {self.batch_size_} (for a total "
+                            f"of {candidate_n_batches_} batches)."
                         )
                     return self.batch_size_
 

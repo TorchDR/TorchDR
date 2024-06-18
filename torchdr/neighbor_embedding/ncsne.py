@@ -34,7 +34,6 @@ class InfoTSNE(BatchedAffinityMatcher):
         device=None,
         keops=True,
         verbose=True,
-        negative_samples=5,
         batch_size=None,
     ):
 
@@ -77,10 +76,8 @@ class InfoTSNE(BatchedAffinityMatcher):
             device=device,
             keops=keops,
             verbose=verbose,
+            batch_size=batch_size,
         )
-
-        self.negative_samples = negative_samples
-        self.batch_size = batch_size
 
     def _loss(self):
         """
