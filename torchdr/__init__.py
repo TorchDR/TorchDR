@@ -12,6 +12,9 @@ from .__about__ import (
     __license__,
 )
 
+__version__ = "0.0.0"
+
+
 # import affinities
 from .affinity import (
     GibbsAffinity,
