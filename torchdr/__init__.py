@@ -7,13 +7,11 @@ from .__about__ import (
     __title__,
     __summary__,
     __url__,
-    __version__,
     __author__,
     __license__,
 )
 
 __version__ = "0.0.0"
-
 
 # import affinities
 from .affinity import (
