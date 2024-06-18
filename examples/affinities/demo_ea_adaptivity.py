@@ -51,7 +51,6 @@ def plot_affinity_graph(G, X, n):
 K = GibbsAffinity(
     sigma=1, normalization_dim=1, keops=False, nodiag=False
 ).fit_transform(X)
-print(K.sum(1))
 
 EA = EntropicAffinity(perplexity=5, keops=False, verbose=False).fit_transform(X)
 
