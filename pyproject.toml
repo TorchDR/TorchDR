@@ -19,7 +19,7 @@ dynamic = ["version"]
 
 
 [tool.setuptools.dynamic]
-version = {attr = "torchdr.__version__"}
+version = {attr = "torchdr.__about__.__version__"}
 
 [project.optional-dependencies]
 test = [

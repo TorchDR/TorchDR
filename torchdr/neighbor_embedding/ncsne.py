@@ -34,7 +34,6 @@ class InfoTSNE(BatchedAffinityMatcher):
         device=None,
         keops=True,
         verbose=True,
-        negative_samples=5,
         batch_size=None,
     ):
 
@@ -77,19 +76,17 @@ class InfoTSNE(BatchedAffinityMatcher):
             device=device,
             keops=keops,
             verbose=verbose,
+            batch_size=batch_size,
         )
-
-        self.negative_samples = negative_samples
-        self.batch_size = batch_size
 
     def _loss(self):
         """
         Dimensionality reduction objective.
         """
-        PX_batch, Z_batch = self._batched_affinity_and_embedding()
+        kwargs_affinity_out = {"log": True}
+        PX_batch, log_Q_batch = self.batched_affinity_in_out(kwargs_affinity_out)
 
-        log_Q = self.affinity_out.fit_transform(Z_batch, log=True)
-        info_log_Q = log_Q - logsumexp_red(log_Q, dim=1)
+        info_log_Q = log_Q_batch - logsumexp_red(log_Q_batch, dim=1)
 
         losses = cross_entropy_loss(PX_batch, info_log_Q, log_Q=True)
         loss = losses.sum()

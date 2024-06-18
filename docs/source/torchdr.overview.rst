@@ -39,13 +39,33 @@ Spectral methods
 
     \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
+This problem is commonly known as kernel Principal Component Analysis [11]_ and an optimal solution is given by 
+
+.. math::
+
+    \mathbf{Z}^{\star} = (\sqrt{\lambda_1} \mathbf{v}_1, ..., \sqrt{\lambda_d} \mathbf{v}_d)^\top
+
+where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the centered kernel matrix :math:`\mathbf{A_X}` and :math:`\mathbf{v}_1, ..., \mathbf{v}_d` are the corresponding eigenvectors.
+
 .. note::
 
     PCA (available at :class:`torchdr.spectral.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
 
 
+Affinity matching methods
+-------------------------
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.affinity_matcher.AffinityMatcher
+   torchdr.affinity_matcher.BatchedAffinityMatcher
+
+
 Metric MDS
-----------
+~~~~~~~~~~
 
 .. math::
 
@@ -53,10 +73,17 @@ Metric MDS
 
 
 Neighbor Embedding
-------------------
+~~~~~~~~~~~~~~~~~
 
 .. math::
 
     \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{A_X}]_{ij} \log [\mathbf{A_Z}]_{ij}
 
 For more details, see :ref:`Neighbor embedding algorithms <neighbor-embedding>`.
+
+
+
+References
+----------
+
+.. [11] Ham, J., Lee, D. D., Mika, S., & Schölkopf, B. (2004). `A kernel view of the dimensionality reduction of manifolds <https://icml.cc/Conferences/2004/proceedings/papers/296.pdf>`_. In Proceedings of the twenty-first international conference on Machine learning (ICML).

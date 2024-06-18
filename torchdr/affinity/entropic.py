@@ -128,16 +128,18 @@ def _check_perplexity(perplexity, n, verbose=True):
     """
     if n <= 1:
         raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
+            "[TorchDR] ERROR (Affinity): Input has less than one sample : "
+            f"n_samples = {n}."
         )
 
     if perplexity >= n or perplexity <= 1:
         new_value = n // 2
         if verbose:
             print(
-                "[TorchDR] WARNING : The perplexity parameter must be greater than "
-                f"1 and smaller than the number of samples (here n = {n}). "
-                f"Got perplexity = {perplexity}. Setting perplexity to {new_value}."
+                "[TorchDR] WARNING (Affinity): The perplexity parameter must be "
+                "greater than 1 and smaller than the number of samples "
+                f"(here n = {n}). Got perplexity = {perplexity}. "
+                "Setting perplexity to {new_value}."
             )
         return new_value
     else:
@@ -229,7 +231,7 @@ class EntropicAffinity(LogAffinity):
 
         if sparsity and self.perplexity > 100 and verbose:
             print(
-                "[TorchDR] Affinity (WARNING): sparsity is not recommended "
+                "[TorchDR] WARNING (Affinity): sparsity is not recommended "
                 "for a large value of perplexity."
             )
 
@@ -573,7 +575,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             check_NaNs(
                 [self.eps_, self.mu_],
                 msg=(
-                    "[TorchDR] Affinity (ERROR): NaN in dual variables, "
+                    "[TorchDR] ERROR (Affinity): NaN in dual variables, "
                     "consider decreasing the learning rate."
                 ),
             )
@@ -619,7 +621,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                     check_NaNs(
                         [self.eps_, self.mu_],
                         msg=(
-                            f"[TorchDR] Affinity (ERROR): NaN at iter {k}, "
+                            f"[TorchDR] ERROR (Affinity): NaN at iter {k}, "
                             "consider decreasing the learning rate."
                         ),
                     )
@@ -650,7 +652,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
                     if k == self.max_iter - 1 and self.verbose:
                         print(
-                            "[TorchDR] Affinity (WARNING) : max iter attained, "
+                            "[TorchDR] WARNING (Affinity): max iter attained, "
                             "algorithm stops but may not have converged."
                         )
 
@@ -830,7 +832,7 @@ class DoublyStochasticEntropic(LogAffinity):
             if self.tolog:
                 self.log["dual"].append(self.dual_.clone().detach().cpu())
 
-            check_NaNs(self.dual_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
+            check_NaNs(self.dual_, msg=f"[TorchDR] ERROR (Affinity): NaN at iter {k}.")
 
             if torch.norm(self.dual_ - reduction) < self.tol:
                 if self.verbose:
@@ -839,7 +841,7 @@ class DoublyStochasticEntropic(LogAffinity):
 
             if k == self.max_iter - 1 and self.verbose:
                 print(
-                    "[TorchDR] Affinity (WARNING) : max iter attained, algorithm "
+                    "[TorchDR] WARNING (Affinity): max iter attained, algorithm "
                     "stops but may not have converged."
                 )
 

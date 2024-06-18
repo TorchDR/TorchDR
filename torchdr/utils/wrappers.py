@@ -42,9 +42,6 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
     use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
     new_device = torch.device("cuda:0" if use_gpu else "cpu")
 
-    if verbose:
-        print(f"[TorchDR] Using device: {new_device}.")
-
     if isinstance(x, torch.Tensor):
 
         if torch.is_complex(x):
