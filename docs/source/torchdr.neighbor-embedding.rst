@@ -38,6 +38,14 @@ Part I : cross entropy based objectives (t-SNE like)
    torchdr.affinity.StudentAffinity
 
 
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+   
+   torchdr.neighbor_embedding.TSNE
+
+
 Part II : binary cross entropy based objectives (UMAP like)
 -----------------------------------------------------------
 
