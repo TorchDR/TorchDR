@@ -2,7 +2,7 @@ r"""
 PCA via SVD and via AffinityMatcher
 ===================================
 
-In this example, we show how to compute a PCA embedding using the closed form
+We show how to compute a PCA embedding using the closed form
 and using the AffinityMatcher class. Both approaches lead to the same solution.
 
 """
@@ -28,6 +28,7 @@ X = digits.data
 #
 # Let us perform PCA using the closed form solution given by the
 # Singular Value Decomposition (SVD).
+# In ``Torchdr``, it is available at :class:`torchdr.spectral.PCA`.
 
 Z_svd = PCA(n_components=2).fit_transform(X)
 
@@ -41,8 +42,12 @@ plt.show()
 # PCA via AffinityMatcher
 # -----------------------
 #
-# Now, let us perform PCA using the AffinityMatcher class by using the scaler product
-# affinity for both input data and embeddings, and the square loss as global objective.
+# Now, let us perform PCA using the AffinityMatcher class
+# :class:`torchdr.affinity_matcher.AffinityMatcher`
+# as well as the scalar product affinity
+# :class:`torchdr.affinity.ScalarProductAffinity`
+# for both input data and embeddings,
+# and the square loss as global objective.
 
 model = AffinityMatcher(
     n_components=2,

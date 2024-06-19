@@ -190,6 +190,8 @@ class EntropicAffinity(LogAffinity):
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric : str, optional
         Metric to use for computing distances (default "euclidean").
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
@@ -219,11 +221,14 @@ class EntropicAffinity(LogAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.perplexity = perplexity
         self.tol = tol
         self.max_iter = max_iter
@@ -345,6 +350,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric: str, optional
         Metric to use for computing distances, by default "euclidean".
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
@@ -366,6 +373,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = False,
         verbose: bool = True,
@@ -376,6 +384,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
             max_iter=max_iter,
             sparsity=sparsity,
             metric=metric,
+            nodiag=nodiag,
             device=device,
             keops=keops,
             verbose=verbose,
@@ -471,6 +480,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to store intermediate result in a dictionary (default False).
     metric : str, optional
         Metric to use for computing distances, by default "euclidean".
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
@@ -494,11 +505,14 @@ class SymmetricEntropicAffinity(LogAffinity):
         optimizer: str = "Adam",
         tolog: bool = False,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = False,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.perplexity = perplexity
         self.lr = lr
         self.tol = tol
@@ -738,6 +752,8 @@ class DoublyStochasticEntropic(LogAffinity):
         Whether to store intermediate result in a dictionary.
     metric : str, optional
         Metric to use for computing distances (default "euclidean").
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
@@ -771,11 +787,14 @@ class DoublyStochasticEntropic(LogAffinity):
         base_kernel: str = "gaussian",
         tolog: bool = False,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = False,
         verbose: bool = False,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.eps = eps
         self.init_dual = init_dual
         self.tol = tol
