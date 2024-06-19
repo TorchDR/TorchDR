@@ -97,8 +97,8 @@ plt.show()
 # To remedy this issue, we can use an **entropic affinity**. The entropic affinity
 # employs an **adaptive bandwidth** that depends on the local density of points.
 # By controling the entropy of each row of the affinity matrix, it ensures that
-# **each point has the same number of effective neighbors** (handled by
-# the ``perplexity`` parameter) regardless of the local density around them.
+# **each point has the same number of effective neighbors** (given by
+# the ``perplexity`` parameter) regardless of the local density around it.
 #
 # In ``TorchDR``, this object is available here :
 # :class:`torchdr.affinity.EntropicAffinity` .
