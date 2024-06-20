@@ -71,6 +71,10 @@ class AffinityMatcher(DRModule):
         Scaling factor for the initial embedding. Default is 1e-4.
     tolog : bool, optional
         If True, logs the optimization process. Default is False.
+    early_exaggeration : int, optional
+        Early exaggeration factor, by default None.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default None.
     device : str, optional
         Device to use for computations. Default is None.
     keops : bool, optional
@@ -99,6 +103,8 @@ class AffinityMatcher(DRModule):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
+        early_exaggeration: float = None,
+        early_exaggeration_iter: int = None,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
@@ -140,6 +146,13 @@ class AffinityMatcher(DRModule):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
+
+        if early_exaggeration is None or early_exaggeration_iter is None:
+            self.early_exaggeration = 1
+            early_exaggeration_iter = None
+        else:
+            self.early_exaggeration = early_exaggeration
+            self.early_exaggeration_iter = early_exaggeration_iter
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):

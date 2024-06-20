@@ -41,10 +41,6 @@ class TSNE(AffinityMatcher):
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation, by default 'euclidean'.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
@@ -53,19 +49,24 @@ class TSNE(AffinityMatcher):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
+    metric_in : {'euclidean', 'manhattan'}, optional
+        Metric to use for the affinity computation, by default 'euclidean'.
+    metric_out : {'euclidean', 'manhattan'}, optional
+        Metric to use for the affinity computation, by default 'euclidean'.
+    early_exaggeration : int, optional
+        Early exaggeration factor, by default 12.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default None.
     keops : bool, optional
         Whether to use KeOps, by default True.
-    early_exaggeration : int, optional
-        Early exaggeration factor, by default 12.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     verbose : bool, optional
         Verbosity, by default True.
-
+    seed : float, optional
+        Random seed for reproducibility, by default 0.
     """  # noqa: E501
 
     def __init__(
@@ -78,18 +79,19 @@ class TSNE(AffinityMatcher):
         scheduler: str = "constant",
         init: str = "pca",
         init_scaling: float = 1e-4,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
         tol: float = 1e-4,
         max_iter: int = 1000,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
+        metric_in: str = "euclidean",
+        metric_out: str = "euclidean",
+        early_exaggeration: float = 12,
+        early_exaggeration_iter: int = 250,
         tolog: bool = False,
         device: str = None,
         keops: bool = True,
-        early_exaggeration: int = 12,
-        early_exaggeration_iter: int = 250,
         verbose: bool = True,
+        seed: float = 0,
     ):
 
         self.metric_in = metric_in
@@ -128,22 +130,14 @@ class TSNE(AffinityMatcher):
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,
+            early_exaggeration=early_exaggeration,
+            early_exaggeration_iter=early_exaggeration_iter,
             device=device,
             keops=keops,
             verbose=verbose,
         )
 
-        if early_exaggeration is None or early_exaggeration_iter is None:
-            self.early_exaggeration = 1
-            early_exaggeration_iter = None
-        else:
-            self.early_exaggeration = early_exaggeration
-            self.early_exaggeration_iter = early_exaggeration_iter
-
     def _loss(self):
-        """
-        Dimensionality reduction objective.
-        """
         log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
         attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
         repulsive_term = logsumexp_red(log_Q, dim=(0, 1))

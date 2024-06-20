@@ -28,32 +28,44 @@ class SNE(AffinityMatcher):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedded space (corresponds to the number of features of Z).
+    lr : float, optional
+        Learning rate for the algorithm.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer.
-    lr : float, optional
-        Learning rate for the algorithm.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z.
-    metric : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation.
+    init_scaling : float, optional
+        Scaling factor for the initialization.
     tol : float, optional
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm.
-    tol_ea : _type_, optional
+    tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
-    max_iter_ea : int, optional
+    max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
+    metric_in : {'euclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'euclidean'.
+    metric_out : {'euclidean', 'manhattan'}, optional
+        Metric to use for the output computation, by default 'euclidean'.
+    early_exaggeration : int, optional
+        Early exaggeration factor, by default 12.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
+    tolog : bool, optional
+        Whether to store intermediate results in a dictionary, by default False.
+    device : str, optional
+        Device to use, by default None.
+    keops : bool, optional
+        Whether to use KeOps, by default True.
     verbose : bool, optional
         Verbosity, by default True.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary.
-    keops : bool, optional
-        Whether to use KeOps.
+    seed : float, optional
+        Random seed for reproducibility, by default 0.
 
     References
     ----------
@@ -82,10 +94,13 @@ class SNE(AffinityMatcher):
         max_iter_affinity: int = 100,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
-        verbose: bool = True,
+        early_exaggeration: float = 12,
+        early_exaggeration_iter: int = 250,
         tolog: bool = False,
         device: str = None,
         keops: bool = True,
+        verbose: bool = True,
+        seed: float = 0,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
