@@ -8,4 +8,6 @@
     torchdr.overview
     torchdr.affinities
     torchdr.neighbor-embedding
+    auto_examples/index
     torchdr.notation
+    torchdr.contributing

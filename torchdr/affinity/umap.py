@@ -79,11 +79,14 @@ class UMAPAffinityIn(Affinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.n_neighbors = n_neighbors
         self.tol = tol
         self.max_iter = max_iter
@@ -178,11 +181,14 @@ class UMAPAffinityOut(Affinity):
         a: float = None,
         b: float = None,
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.min_dist = min_dist
         self.spread = spread
 

@@ -29,17 +29,21 @@ class TSNE(AffinityMatcher):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
+    lr : float, optional
+        Learning rate for the algorithm, by default 1.0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
-    metric : {'euclidean', 'manhattan'}, optional
+    init_scaling : float, optional
+        Scaling factor for the initialization, by default 1e-4.
+    metric_in : {'euclidean', 'manhattan'}, optional
+        Metric to use for the affinity computation, by default 'euclidean'.
+    metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the affinity computation, by default 'euclidean'.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
@@ -49,21 +53,19 @@ class TSNE(AffinityMatcher):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    verbose : bool, optional
-        Verbosity, by default True.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
+    device : str, optional
+        Device to use, by default None.
+    keops : bool, optional
+        Whether to use KeOps, by default True.
+    early_exaggeration : int, optional
+        Early exaggeration factor, by default 12.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
+    verbose : bool, optional
+        Verbosity, by default True.
 
-    Attributes
-    ----------
-    log_ : dictionary
-        Contains the log of affinity_out, affinity_in and the loss at each iteration (if tolog is True).
-    n_iter_: int
-        Number of iterations run.
-    embedding_ : torch.Tensor of shape (n_samples, n_components)
-        Stores the embedding coordinates.
-    PX_ :  torch.Tensor of shape (n_samples, n_samples)
-        Entropic affinity matrix fitted from input data X.
     """  # noqa: E501
 
     def __init__(

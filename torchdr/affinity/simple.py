@@ -58,7 +58,9 @@ class ScalarProductAffinity(Affinity):
         verbose: bool = True,
         centering: bool = False,
     ):
-        super().__init__(metric="angular", device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric="angular", device=device, keops=keops, verbose=verbose, nodiag=False
+        )
         self.normalization_dim = normalization_dim
         self.centering = centering
 
@@ -136,6 +138,8 @@ class GibbsAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
+    nodiag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
     keops : bool, optional
@@ -149,11 +153,14 @@ class GibbsAffinity(LogAffinity):
         sigma: float = 1.0,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.sigma = sigma
         self.normalization_dim = normalization_dim
 
@@ -235,6 +242,8 @@ class StudentAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
+    nodiag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
     keops : bool, optional
@@ -248,11 +257,14 @@ class StudentAffinity(LogAffinity):
         degrees_of_freedom: int = 1,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
+        nodiag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.normalization_dim = normalization_dim
         self.degrees_of_freedom = degrees_of_freedom
 
