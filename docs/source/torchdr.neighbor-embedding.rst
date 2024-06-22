@@ -1,8 +1,8 @@
 .. _neighbor-embedding:
 
 
-Neighbor embedding algorithms
-=============
+Neighbor Embedding
+==================
 
 
 This package aims to implement most popular neighbor embedding (NE) algorithms.

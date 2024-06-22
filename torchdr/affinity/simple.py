@@ -32,7 +32,7 @@ def _log_Student(C, degrees_of_freedom):
 
 class ScalarProductAffinity(Affinity):
     r"""
-    Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^T`
+    Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
     where :math:`\mathbf{X}` is the input data. The affinity can be normalized
     according to the specified normalization dimensions.
 

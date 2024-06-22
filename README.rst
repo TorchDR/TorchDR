@@ -107,6 +107,8 @@ References
 
 .. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
+.. [18] Böhm, J. N., Berens, P., & Kobak, D. (2022). `Attraction-Repulsion Spectrum in Neighbor Embeddings <https://www.jmlr.org/papers/volume23/21-0055/21-0055.pdf>`_. Journal of Machine Learning Research (JMLR).
+
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/
