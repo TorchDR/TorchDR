@@ -10,18 +10,24 @@
 Neighbor Embedding
 ==================
 
-``TorchDR`` aims to implement most popular neighbor embedding (NE) algorithms.
+``TorchDR`` aims to implement most popular **neighbor embedding (NE)** algorithms.
 In this section we briefly go through the main NE algorithms and their variants.
+
+For consistency with the literature, we will denote the input affinity matrix by :math:`\mathbf{P}` and the output affinity matrix by :math:`\mathbf{Q}`. These affinities can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
 
 
 Overview of NE via Attraction and Repulsion
 -------------------------------------------
 
-NE objectives share a common structure: they aim to minimize the sum of an attractive term :math:`\mathcal{L}_{\mathrm{att}}` and a repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` which often does not depend on the input affinity :math:`\mathbf{P}`. Thus the NE problem can be formulated as a minimization problem of the form:
+NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term :math:`\mathcal{L}_{\mathrm{att}}` and a repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` which often does not depend on the input affinity :math:`\mathbf{P}`. Thus the NE problem can be formulated as a minimization problem of the form:
 
 .. math::
 
-    \min_{\mathbf{Z}} \: \mathcal{L}_{\mathrm{att}}(\mathbf{P}, \mathbf{Q}) + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
+    \min_{\mathbf{Z}} \: \mathcal{L}_{\mathrm{att}}(\mathbf{P}, \mathbf{Q}) + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
+
+In the above, :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion.
+
+Many popular Neighbor Embedding (NE) methods can be represented within this framework. The following table summarizes the main NE methods implemented in ``TorchDR``, detailing their respective attractive and repulsive terms, as well as their input and output affinities.
 
 .. list-table:: 
    :widths: auto
@@ -55,19 +61,25 @@ NE objectives share a common structure: they aim to minimize the sum of an attra
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
      - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
-     - :class:`DoublyStochasticEntropic <torchdr.DoublyStochasticEntropic>`
+     - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
+
+   * - TSNEkhorn [3]_
+     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
+     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
 
    * - UMAP
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - Student
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
 
    * - LargeVis 
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - Student
-     - :class:`UMAPAffinityIn <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
 
 References

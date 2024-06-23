@@ -14,6 +14,8 @@ from .__about__ import (
 
 # import affinities
 from .affinity import (
+    Affinity,
+    LogAffinity,
     GibbsAffinity,
     StudentAffinity,
     ScalarProductAffinity,
@@ -49,6 +51,8 @@ __all__ = [
     "__version__",
     "__author__",
     "__license__",
+    "Affinity",
+    "LogAffinity",
     "GibbsAffinity",
     "StudentAffinity",
     "ScalarProductAffinity",

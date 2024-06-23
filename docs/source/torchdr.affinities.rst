@@ -9,14 +9,20 @@
 Affinities
 =============
 
-Affinities are the essential building blocks of ``TorchDR``. They inherit the structure of the :meth:`Affinity` class.
+Affinities are the essential building blocks of dimensionality reduction.
+``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GibbsAffinity <torchdr.GibbsAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
+
+Base structure and simple examples
+-----------------------------------
+
+Affinities inherit the structure of the following :meth:`Affinity` class.
 
 .. autosummary::
    :toctree: stubs
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.affinity.Affinity
+   torchdr.Affinity
 
 If computations can be performed in log domain, the :meth:`LogAffinity` class should be used.
 
@@ -25,24 +31,23 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.affinity.LogAffinity
+   torchdr.LogAffinity
+
 
 All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a square matrix of size :math:`n \times n` where :math:`n` is the number of samples in the data matrix.
 
+>>> import torch
+>>> from torchdr import GibbsAffinity
+>>> data = torch.randn(100, 2)
+>>> affinity = GibbsAffinity()
+>>> affinity_matrix = affinity.fit_transform(data)
+
 They also have a :meth:`get_batch` method that can be called when the affinity is fitted.
 
-
-Base structure and simple examples
------------------------------------
-
-:class:`GibbsAffinity <torchdr.GibbsAffinity>` 
-
-:class:`StudentAffinity <torchdr.StudentAffinity>`
-
-:class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`
-
->>> import torch
-
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/symbolic_matrix.svg
+   :width: 800
+   :align: center
+   
 
 Affinities based on entropic normalization
 ------------------------------------------
