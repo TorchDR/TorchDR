@@ -64,7 +64,7 @@ Affinities based on entropic normalization
      - ✅
      - ❌
      - ❌
-   * - :class:`DoublyStochasticEntropic <torchdr.DoublyStochasticEntropic>` (DOSNES) [5]_ [9]_
+   * - :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` (DOSNES) [5]_ [9]_
      - ✅
      - ✅
      - ❌
@@ -82,7 +82,7 @@ Other various affinities
 
 For instance, the UMAP algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space.
 
-Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. It is available at :class:`DoublyStochasticQuadratic <torchdr.DoublyStochasticQuadratic>`.
+Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
 References

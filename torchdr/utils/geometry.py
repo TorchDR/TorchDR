@@ -78,7 +78,7 @@ def pairwise_distances(
             ) / (X[..., 0].unsqueeze(-1) * X[..., 0].unsqueeze(-2))
 
     if add_diagonal is not None:  # add mass on the diagonal
-        I = identity_matrix(D.shape[-1], keops, X.device, X.dtype)
+        I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
         C += add_diagonal * I
 
     return C

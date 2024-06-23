@@ -3,6 +3,7 @@
 API and Modules
 ===============
 
+
 .. currentmodule:: torchdr
 
 .. automodule:: torchdr
@@ -81,7 +82,7 @@ Entropic affinities
    
    EntropicAffinity
    L2SymmetricEntropicAffinity
-   DoublyStochasticEntropic
+   SinkhornAffinity
    SymmetricEntropicAffinity
 
 Quadratic affinities
@@ -91,7 +92,7 @@ Quadratic affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
    
-   DoublyStochasticQuadratic
+   DoublyStochasticQuadraticAffinity
 
 UMAP affinities
 """""""""""""""

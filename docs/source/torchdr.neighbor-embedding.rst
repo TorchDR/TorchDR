@@ -14,43 +14,48 @@ Neighbor Embedding
 In this section we briefly go through the main NE algorithms and their variants.
 
 
-Overview of NE methods
-----------------------
+Overview of NE via Attraction and Repulsion
+-------------------------------------------
 
-NE methods can be divided into two main categories: cross-entropy (CE) and binary cross-entropy (BCE) based methods.
+NE objectives share a common structure: they aim to minimize the sum of an attractive term :math:`\mathcal{L}_{\mathrm{att}}` and a repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` which often does not depend on the input affinity :math:`\mathbf{P}`. Thus the NE problem can be formulated as a minimization problem of the form:
 
 .. math::
 
-    \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{P_X}]_{ij} \log [\mathbf{Q_Z}]_{ij}
-
+    \min_{\mathbf{Z}} \: \mathcal{L}_{\mathrm{att}}(\mathbf{P}, \mathbf{Q}) + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
 
 .. list-table:: 
    :widths: auto
    :header-rows: 1
 
    * - **Method**
-     - **Attractive term**
-     - **Repulsive term**
+     - **Attractive term** :math:`\mathcal{L}_{\mathrm{att}}`
+     - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
      - **Affinity input** :math:`\mathbf{P}`
      - **Affinity output** :math:`\mathbf{Q}`
 
    * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - Student
+     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GibbsAffinity <GibbsAffinity>`
 
    * - :class:`TSNE <TSNE>` [2]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - Student
+     - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
    * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - Student
+     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`
+
+   * - SNEkhorn [3]_
+     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
+     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`DoublyStochasticEntropic <torchdr.DoublyStochasticEntropic>`
 
    * - UMAP
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
