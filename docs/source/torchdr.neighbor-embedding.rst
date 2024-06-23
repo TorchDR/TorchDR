@@ -1,5 +1,11 @@
 .. _neighbor-embedding:
 
+.. currentmodule:: torchdr
+
+.. automodule:: torchdr
+   :no-members:
+   :no-inherited-members:
+
 
 Neighbor Embedding
 ==================
@@ -31,32 +37,32 @@ NE methods can be divided into two main categories: cross-entropy (CE) and binar
    * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - Student
-     - :class:`EntropicAffinity <torchdr.affinity.EntropicAffinity>`
-     - :class:`GibbsAffinity <torchdr.affinity.GibbsAffinity>`
+     - :class:`EntropicAffinity <EntropicAffinity>`
+     - :class:`GibbsAffinity <GibbsAffinity>`
 
-   * - :class:`TSNE <torchdr.neighbor_embedding.TSNE>` [2]_
+   * - :class:`TSNE <TSNE>` [2]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - Student
-     - :class:`L2SymmetricEntropicAffinity <torchdr.affinity.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.affinity.StudentAffinity>`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
-   * - :class:`InfoTSNE <torchdr.neighbor_embedding.InfoTSNE>` [15]_
+   * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - Student
-     - :class:`L2SymmetricEntropicAffinity <torchdr.affinity.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.affinity.StudentAffinity>`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
-   * - :class:`UMAP <torchdr.neighbor_embedding.UMAP>`
+   * - UMAP
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - Student
-     - :class:`UMAPAffinityIn <torchdr.affinity.UMAPAffinityIn>`
-     - :class:`UMAPAffinityOut <torchdr.affinity.UMAPAffinityOut>`
-     
+     - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
+     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
+
    * - LargeVis 
      - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - Student
-     - :class:`UMAPAffinityIn <torchdr.affinity.UMAPAffinityIn>`
-     - :class:`UMAPAffinityOut <torchdr.affinity.UMAPAffinityOut>`
+     - :class:`UMAPAffinityIn <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
 
 
 References

@@ -28,19 +28,20 @@ def pairwise_distances(
 
     Parameters
     ----------
-    X : tensor of shape (n_samples, n_features) or (batch_size, n_samples, n_features)
+    X : torch.Tensor of shape (n_samples, n_features) or (batch_size, n_samples_batch, n_features)
         Input dataset.
     metric : str, optional
         Metric to use for computing distances. The default is "euclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
+    add_diagonal : float, optional
+        If not None, adds a mass on the diagonal of the distance matrix.
 
     Returns
     -------
-    D : tensor or lazy tensor (if keops is True) of shape (n_samples, n_samples)
-        or (batch_size, n_samples, n_samples)
+    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (batch_size, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
-    """
+    """  # noqa E501
     assert metric in LIST_METRICS, f"The '{metric}' distance is not supported."
 
     if keops:  # recommended for large datasets
@@ -48,29 +49,29 @@ def pairwise_distances(
         X_j = LazyTensor(X.unsqueeze(-3))
 
         if metric == "euclidean":
-            D = ((X_i - X_j) ** 2).sum(-1)
+            C = ((X_i - X_j) ** 2).sum(-1)
         elif metric == "manhattan":
-            D = (X_i - X_j).abs().sum(-1)
+            C = (X_i - X_j).abs().sum(-1)
         elif metric == "angular":
-            D = -(X_i | X_j)
+            C = -(X_i | X_j)
         elif metric == "hyperbolic":
-            D = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
+            C = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
 
     else:
         if metric == "euclidean":
             X_norm = (X**2).sum(-1)
-            D = (
+            C = (
                 X_norm.unsqueeze(-1)
                 + X_norm.unsqueeze(-2)
                 - 2 * X @ X.transpose(-1, -2)
             )
         elif metric == "manhattan":
-            D = (X.unsqueeze(-2) - X.unsqueeze(-3)).abs().sum(-1)
+            C = (X.unsqueeze(-2) - X.unsqueeze(-3)).abs().sum(-1)
         elif metric == "angular":
-            D = -X @ X.transpose(-1, -2)
+            C = -X @ X.transpose(-1, -2)
         elif metric == "hyperbolic":
             X_norm = (X**2).sum(-1)
-            D = (
+            C = (
                 X_norm.unsqueeze(-1)
                 + X_norm.unsqueeze(-2)
                 - 2 * X @ X.transpose(-1, -2)
@@ -78,6 +79,6 @@ def pairwise_distances(
 
     if add_diagonal is not None:  # add mass on the diagonal
         I = identity_matrix(D.shape[-1], keops, X.device, X.dtype)
-        D += add_diagonal * I
+        C += add_diagonal * I
 
-    return D
+    return C

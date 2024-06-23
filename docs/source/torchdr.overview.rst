@@ -86,13 +86,7 @@ When to use ``TorchDR``
 -----------------------
 
 This package features a number of DR solvers that have been proposed in research papers.
-It aims to promote reproducible research and foster novel developments. A key feature of ``TorchDR`` is its extendability.
-
-
-
-
-
-
+It aims to promote reproducible research and foster novel developments. As such, a key feature of ``TorchDR`` is its extendability.
 
 
 References

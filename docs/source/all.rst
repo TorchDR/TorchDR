@@ -1,10 +1,7 @@
 .. _api_and_modules:
 
-API and modules
+API and Modules
 ===============
-
-Main module :py:mod:`torchdr`
----------------------------
 
 .. currentmodule:: torchdr
 
@@ -12,8 +9,42 @@ Main module :py:mod:`torchdr`
    :no-members:
    :no-inherited-members:
 
-Neighbor embedding algorithms
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+DR modules
+----------
+
+Base DR module :py:mod:`torchdr.base`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+   
+   DRModule
+
+Spectral DR :py:mod:`torchdr.spectral`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+   
+   PCA
+
+
+Affinity matcher :py:mod:`torchdr.affinity_matcher`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   AffinityMatcher
+   BatchedAffinityMatcher
+
+
+Neighbor embedding :py:mod:`torchdr.neighbor_embedding`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -24,8 +55,14 @@ Neighbor embedding algorithms
    InfoTSNE
 
 
-Affinities
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Affinity modules
+----------------
+
+Affinities :py:mod:`torchdr.affinities`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Simple affinities
+"""""""""""""""""
 
 .. autosummary::
    :toctree: gen_modules/
@@ -34,13 +71,48 @@ Affinities
    GibbsAffinity
    StudentAffinity
    ScalarProductAffinity
+
+Entropic affinities
+"""""""""""""""""""
+   
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+   
    EntropicAffinity
    L2SymmetricEntropicAffinity
    DoublyStochasticEntropic
    SymmetricEntropicAffinity
+
+Quadratic affinities
+"""""""""""""""""""""
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+   
    DoublyStochasticQuadratic
+
+UMAP affinities
+"""""""""""""""
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+   
    UMAPAffinityIn
-   UMAPAffinityOut
+   UMAPAffinityOut   
+
+Utils
+-----
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myfunc_template.rst
+   
+   pairwise_distances
+   binary_search
+   false_position
 
 
 References
