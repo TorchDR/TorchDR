@@ -124,5 +124,5 @@ plt.show()
 # We can now observe a **homogeneous density of connections** across clusters.
 # Thus, the entropic affinity effectively filters out the various noise levels.
 #
-# This affinity is an important component of the **TSNE** algorithm,
-# available in ``TorchDR`` at :class:`torchdr.neighbor_embedding.TSNE`.
+# This affinity is an important component of the **TSNE** algorithm.
+#

@@ -33,6 +33,7 @@ from .affinity_matcher import (
 from .neighbor_embedding import (
     SNE,
     TSNE,
+    InfoTSNE,
 )
 
 __all__ = [
@@ -55,4 +56,5 @@ __all__ = [
     "PCA",
     "SNE",
     "TSNE",
+    "InfoTSNE",
 ]

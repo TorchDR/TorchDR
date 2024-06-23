@@ -5,6 +5,7 @@
     :hidden:
     :caption: Contents:
     
+    all
     torchdr.overview
     torchdr.affinities
     torchdr.neighbor-embedding

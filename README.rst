@@ -8,7 +8,7 @@
 
 Github repository: `<https://github.com/torchdr/torchdr/>`_.
 
-Documentation: `<https://torchdr.github.io/>`_.
+Documentation: `<https://torchdr.github.io/dev/>`_.
 
 
 ``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
