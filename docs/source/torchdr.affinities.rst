@@ -34,27 +34,28 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.LogAffinity
 
 
-All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a square matrix of size :math:`n \times n` where :math:`n` is the number of samples in the data matrix.
+All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
+
+Here is an example with the Gibbs affinity:
 
 .. code-block:: python
   :linenos:
 
-  import torch
-  from torchdr import GibbsAffinity
+  import torch, torchdr
 
   n = 100
   data = torch.randn(n, 2)
-  affinity = GibbsAffinity(keops=False)
+  affinity = torchdr.GibbsAffinity()
   affinity_matrix = affinity.fit_transform(data)
 
 
-They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the affinity matrix divided in blocks given by the batch indices. The output is of size :math:`\text{n_batch} \times \text{batch_size} \times \text{batch_size}` where :math:`\text{n_batch}` is the number of blocks and :math:`\text{batch_size}` is the size of each block.
+They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the **affinity matrix divided in blocks** given by the batch indices. The output is of size **(n_batch, batch_size, batch_size)** where n_batch is the number of blocks and batch_size is the number of samples per block.
 
 The number of blocks should be a divisor of the number of samples. Here is an example with 5 blocks of size 20 each:
 
 .. code-block:: python
   :linenos:
-  :lineno-start: 8
+  :lineno-start: 7
 
   batch_size = n // 5
   indices = torch.randperm(n).reshape(-1, batch_size)
@@ -65,13 +66,13 @@ Output:
 
 .. code-block:: text
 
-  torch.Size([5, 20, 20])
+  (5, 20, 20)
 
 
 Avoid memory overflows with symbolic (lazy) tensors
 ---------------------------------------------------
 
-Affinities result in a square memory cost, which can be problematic when the number of samples is large.
+Affinities induce a square memory cost, which can be problematic when the number of samples is large.
 
 To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are represented as mathematical formulas that are evaluated directly on the data samples. This symbolic tensor representation enables computations without storing the entire matrix in memory.
 
@@ -81,11 +82,17 @@ To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors.
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-Importantly, this allows ``TorchDR`` to execute all operations on the GPU without encountering memory overflow issues.
+Importantly, this allows ``TorchDR`` to execute all operations on the GPU without encountering memory limitations.
+
+.. note::
+
+    All ``TorchDR`` modules have a ``keops`` parameter that can be set to ``True`` to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
+
 
 
 Affinities based on entropic normalization
 ------------------------------------------
+
 
 
 .. list-table:: 
@@ -114,6 +121,12 @@ Affinities based on entropic normalization
      - ✅
 
 More details can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
+
+
+.. note::
+    The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
+    However :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
+
 
 Other various affinities
 -------------------------

@@ -97,7 +97,7 @@ References
 
 .. [12] Sebastian Damrich, Fred Hamprecht (2021). `On UMAP's True Loss Function <https://proceedings.neurips.cc/paper/2021/file/2de5d16682c3c35007e4e92982f1a2ba-Paper.pdf>`_. Advances in Neural Information Processing Systems 34 (NeurIPS).
 
-.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016, April). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
+.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
 
 .. [14] Artemenkov, A., & Panov, M. (2020). `NCVis: Noise Contrastive Approach for Scalable Visualization <https://dl.acm.org/doi/pdf/10.1145/3366423.3380061?casa_token=J-quI6odZDMAAAAA:dEKrwbHIaiPX1xZQe2NA2q3-PahWc4PUP6WDtQVRocIa501T_LGgPixl03lVJF3j5SjutiBzhj9cpg>`_. In Proceedings of The Web Conference.
 

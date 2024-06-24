@@ -19,15 +19,15 @@ For consistency with the literature, we will denote the input affinity matrix by
 Overview of NE via Attraction and Repulsion
 -------------------------------------------
 
-NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
+NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
 
 .. math::
 
     \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion while :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion.
 
-Many NE methods can be represented within this framework. The following table summarizes the main NE methods implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
+Many NE methods can be represented within this framework. The following table summarizes the ones implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
 
 .. list-table:: 
    :widths: auto
@@ -63,12 +63,12 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
 
-   * - UMAP
+   * - UMAP [8]_
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
 
-   * - LargeVis 
+   * - LargeVis [13]_
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`
@@ -83,4 +83,9 @@ References
 
 .. [3] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023). `SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 36 (NeurIPS).
 
+.. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
+
+.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
+
 .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
+
