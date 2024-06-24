@@ -81,6 +81,8 @@ class InfoTSNE(BatchedAffinityMatcher):
         max_iter=1000,
         tol_affinity=1e-3,
         max_iter_affinity=100,
+        early_exaggeration=12,
+        early_exaggeration_iter=250,
         tolog=False,
         device=None,
         keops=True,

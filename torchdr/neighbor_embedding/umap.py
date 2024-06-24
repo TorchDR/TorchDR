@@ -82,10 +82,6 @@ class UMAP(AffinityMatcher):
         self.coeff_repulsion = coeff_repulsion
 
     def _loss(self):
-        """
-        Dimensionality reduction objective.
-        """
-
         Q = self.affinity_out.fit_transform(self.embedding_)
         Q = Q / (Q + 1)
         # Q = Q.clamp(1e-4, 1)
