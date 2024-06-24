@@ -19,64 +19,56 @@ For consistency with the literature, we will denote the input affinity matrix by
 Overview of NE via Attraction and Repulsion
 -------------------------------------------
 
-NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term :math:`\mathcal{L}_{\mathrm{att}}` and a repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` which often does not depend on the input affinity :math:`\mathbf{P}`. Thus the NE problem can be formulated as a minimization problem of the form:
+NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term :math:`\mathcal{L}_{\mathrm{rep}}` is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
 
 .. math::
 
-    \min_{\mathbf{Z}} \: \mathcal{L}_{\mathrm{att}}(\mathbf{P}, \mathbf{Q}) + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
+    \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion.
+In the above, :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion while :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function.
 
-Many popular Neighbor Embedding (NE) methods can be represented within this framework. The following table summarizes the main NE methods implemented in ``TorchDR``, detailing their respective attractive and repulsive terms, as well as their input and output affinities.
+Many NE methods can be represented within this framework. The following table summarizes the main NE methods implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
 
 .. list-table:: 
    :widths: auto
    :header-rows: 1
 
    * - **Method**
-     - **Attractive term** :math:`\mathcal{L}_{\mathrm{att}}`
      - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
      - **Affinity input** :math:`\mathbf{P}`
      - **Affinity output** :math:`\mathbf{Q}`
 
    * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GibbsAffinity <GibbsAffinity>`
 
    * - :class:`TSNE <TSNE>` [2]_
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
    * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
    * - SNEkhorn [3]_
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
 
    * - TSNEkhorn [3]_
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
-     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
 
    * - UMAP
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
 
    * - LargeVis 
-     - :math:`- \sum_{ij} P_{ij} \log Q_{ij}`
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
      - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <torchdr.StudentAffinity>`

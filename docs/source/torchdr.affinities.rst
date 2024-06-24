@@ -9,11 +9,11 @@
 Affinities
 =============
 
-Affinities are the essential building blocks of dimensionality reduction.
+Affinities are the essential building blocks of dimensionality reduction methods.
 ``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GibbsAffinity <torchdr.GibbsAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
 
-Base structure and simple examples
------------------------------------
+Base structure
+---------------
 
 Affinities inherit the structure of the following :meth:`Affinity` class.
 
@@ -36,18 +36,53 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
 
 All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a square matrix of size :math:`n \times n` where :math:`n` is the number of samples in the data matrix.
 
->>> import torch
->>> from torchdr import GibbsAffinity
->>> data = torch.randn(100, 2)
->>> affinity = GibbsAffinity()
->>> affinity_matrix = affinity.fit_transform(data)
+.. code-block:: python
+  :linenos:
 
-They also have a :meth:`get_batch` method that can be called when the affinity is fitted.
+  import torch
+  from torchdr import GibbsAffinity
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/symbolic_matrix.svg
+  n = 100
+  data = torch.randn(n, 2)
+  affinity = GibbsAffinity(keops=False)
+  affinity_matrix = affinity.fit_transform(data)
+
+
+They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the affinity matrix divided in blocks given by the batch indices. The output is of size :math:`\text{n_batch} \times \text{batch_size} \times \text{batch_size}` where :math:`\text{n_batch}` is the number of blocks and :math:`\text{batch_size}` is the size of each block.
+
+The number of blocks should be a divisor of the number of samples. Here is an example with 5 blocks of size 20 each:
+
+.. code-block:: python
+  :linenos:
+  :lineno-start: 8
+
+  batch_size = n // 5
+  indices = torch.randperm(n).reshape(-1, batch_size)
+  batched_affinity_matrix = affinity.get_batch(indices)
+  print(batched_affinity_matrix.shape)
+
+Output:
+
+.. code-block:: text
+
+  torch.Size([5, 20, 20])
+
+
+Avoid memory overflows with symbolic (lazy) tensors
+---------------------------------------------------
+
+Affinities result in a square memory cost, which can be problematic when the number of samples is large.
+
+To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are represented as mathematical formulas that are evaluated directly on the data samples. This symbolic tensor representation enables computations without storing the entire matrix in memory.
+
+.. image:: figures/symbolic_matrix.svg
    :width: 800
    :align: center
-   
+
+The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
+
+Importantly, this allows ``TorchDR`` to execute all operations on the GPU without encountering memory overflow issues.
+
 
 Affinities based on entropic normalization
 ------------------------------------------
@@ -104,3 +139,5 @@ References
 .. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
 
 .. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
+
+.. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).

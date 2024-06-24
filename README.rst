@@ -11,7 +11,7 @@ Github repository: `<https://github.com/torchdr/torchdr/>`_.
 Documentation: `<https://torchdr.github.io/dev/>`_.
 
 
-``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
+``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch [20]_. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
 
 Introduction
@@ -34,9 +34,9 @@ Benefits of ``TorchDR`` include:
    * - **Speed**
      - Supports GPU acceleration and batching strategies with contrastive learning techniques.
    * - **Memory efficiency**
-     - Relies on `KeOps <https://www.kernel-operations.io/keops/index.html>`_ symbolic tensors to completely avoid memory overflows.
+     - Relies on ``KeOps`` [19]_ symbolic tensors to completely avoid memory overflows.
    * - **Compatibility**
-     - Implemented methods are fully compatible with the ``scikit-learn`` API and ``torch`` ecosystem.
+     - Implemented methods are fully compatible with the ``scikit-learn`` [21]_ API and ``torch`` [20]_ ecosystem.
    * - **Parametric estimators**
      - Neural estimators are seamlessly integrated for all methods.
 
@@ -107,7 +107,13 @@ References
 
 .. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
-.. [18] Böhm, J. N., Berens, P., & Kobak, D. (2022). `Attraction-Repulsion Spectrum in Neighbor Embeddings <https://www.jmlr.org/papers/volume23/21-0055/21-0055.pdf>`_. Journal of Machine Learning Research (JMLR).
+.. [18] Böhm, J. N., Berens, P., & Kobak, D. (2022). `Attraction-Repulsion Spectrum in Neighbor Embeddings <https://www.jmlr.org/papers/volume23/21-0055/21-0055.pdf>`_. Journal of Machine Learning Research, 23 (JMLR).
+
+.. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research, 22 (JMLR).
+
+.. [20] Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., ... & Chintala, S. (2019). `Pytorch: An imperative style, high-performance deep learning library <https://proceedings.neurips.cc/paper_files/paper/2019/file/bdbca288fee7f92f2bfa9f7012727740-Paper.pdf>`_. Advances in neural information processing systems 32 (NeurIPS).
+
+.. [21] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). `Scikit-learn: Machine learning in Python <https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf?ref=https:/>`_. Journal of machine Learning research, 12 (JMLR).
 
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white

@@ -28,7 +28,7 @@ def pairwise_distances(
 
     Parameters
     ----------
-    X : torch.Tensor of shape (n_samples, n_features) or (batch_size, n_samples_batch, n_features)
+    X : torch.Tensor of shape (n_samples, n_features) or (n_batch, n_samples_batch, n_features)
         Input dataset.
     metric : str, optional
         Metric to use for computing distances. The default is "euclidean".
@@ -39,7 +39,7 @@ def pairwise_distances(
 
     Returns
     -------
-    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (batch_size, n_samples_batch, n_samples_batch)
+    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
     """  # noqa E501
     assert metric in LIST_METRICS, f"The '{metric}' distance is not supported."
