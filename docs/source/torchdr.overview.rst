@@ -49,7 +49,7 @@ where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the cente
 
 .. note::
 
-    PCA (available at :class:`torchdr.spectral.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
+    PCA (available at :class:`torchdr.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
 
 
 Affinity matching methods

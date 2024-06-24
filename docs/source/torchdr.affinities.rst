@@ -6,6 +6,7 @@
    :no-members:
    :no-inherited-members:
 
+
 Affinities
 =============
 
@@ -69,12 +70,12 @@ Output:
   (5, 20, 20)
 
 
-Avoid memory overflows with symbolic (lazy) tensors
----------------------------------------------------
+Avoiding memory overflows with symbolic (lazy) tensors
+------------------------------------------------------
 
-Affinities induce a square memory cost, which can be problematic when the number of samples is large.
+Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
 
-To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are represented as mathematical formulas that are evaluated directly on the data samples. This symbolic tensor representation enables computations without storing the entire matrix in memory.
+To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
 
 .. image:: figures/symbolic_matrix.svg
    :width: 800
@@ -82,17 +83,22 @@ To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors.
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-Importantly, this allows ``TorchDR`` to execute all operations on the GPU without encountering memory limitations.
-
 .. note::
 
     All ``TorchDR`` modules have a ``keops`` parameter that can be set to ``True`` to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
 
 
 
-Affinities based on entropic normalization
-------------------------------------------
+Affinities based on entropic projections
+----------------------------------------
 
+A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
+
+The first step is to ensure that each point has a unit mass, allowing the affinity matrix to be viewed as a **Markov transition matrix**. An **adaptive bandwidth** parameter then determines how the mass from each point spreads to its neighbors. The bandwidth is based on the :attr:`perplexity` hyperparameter which controls the **number of effective neighbors** for each point.
+
+The resulting affinities can be seen as a **soft approximation of a k nearest neighbor graph** where the :attr:`perplexity` plays the role of k. It allows capturing more subtleties than binary weights. Ultimately, the :attr:`perplexity` is an interpretable hyperparameter that determines which scale of dependencies is represented in the affinity.
+
+The following table details the aspects controlled by various formulations of entropic affinities. **Marginal** refers to the row-wise control of mass. **Entropy** relates to the row-wise control of entropy dictated by the :attr:`perplexity` hyperparameter.
 
 
 .. list-table:: 
@@ -120,7 +126,7 @@ Affinities based on entropic normalization
      - ✅
      - ✅
 
-More details can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
+More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
 
 
 .. note::
@@ -133,9 +139,10 @@ Other various affinities
 
 ``TorchDR`` features other affinities that can be used in various contexts.
 
-For instance, the UMAP algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space.
+For instance, the UMAP [8]_ algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space. :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
 
-Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
+Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
+It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
 References
@@ -148,6 +155,8 @@ References
 .. [3] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023). `SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 36 (NeurIPS).
 
 .. [5] Richard Sinkhorn, Paul Knopp (1967). `Concerning nonnegative matrices and doubly stochastic matrices <https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf>`_. Pacific Journal of Mathematics, 21(2), 343-348.
+
+.. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
 .. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
 
