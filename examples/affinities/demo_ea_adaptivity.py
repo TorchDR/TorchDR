@@ -25,19 +25,20 @@ from torchdr import (
 )
 
 # %%
-# We generate three Gaussian clusters of points with different standard deviations.
+# We generate three Gaussian clusters of points with different standard deviations
+# (respectively std=1, 2 and 3).
 
-torch.manual_seed(10)
+torch.manual_seed(0)
 n_cluster = 20  # number of points per cluster
 
 X1 = torch.Tensor([-10, -10])[None, :] + torch.normal(
     0, 1, size=(n_cluster, 2), dtype=torch.double
 )
 X2 = torch.Tensor([10, -10])[None, :] + torch.normal(
-    0, 3, size=(n_cluster, 2), dtype=torch.double
+    0, 2, size=(n_cluster, 2), dtype=torch.double
 )
 X3 = torch.Tensor([0, 10])[None, :] + torch.normal(
-    0, 4, size=(n_cluster, 2), dtype=torch.double
+    0, 3, size=(n_cluster, 2), dtype=torch.double
 )
 
 X = torch.cat([X1, X2, X3], 0)
@@ -64,7 +65,7 @@ def plot_affinity_graph(G):
 # entropy** of the affinity.
 #
 # In ``TorchDR``, we can easily implement it using
-# :class:`torchdr.affinity.GibbsAffinity` and setting the
+# :class:`torchdr.GibbsAffinity` and setting the
 # parameter ``normalization_dim=1``.
 #
 
@@ -101,7 +102,7 @@ plt.show()
 # the ``perplexity`` parameter) regardless of the local density around it.
 #
 # In ``TorchDR``, this object is available here :
-# :class:`torchdr.affinity.EntropicAffinity` .
+# :class:`torchdr.EntropicAffinity`.
 
 EA = EntropicAffinity(
     perplexity=5, keops=False, verbose=False, nodiag=False
@@ -124,5 +125,5 @@ plt.show()
 # We can now observe a **homogeneous density of connections** across clusters.
 # Thus, the entropic affinity effectively filters out the various noise levels.
 #
-# This affinity is an important component of the **TSNE** algorithm,
-# available in ``TorchDR`` at :class:`torchdr.neighbor_embedding.TSNE`.
+# This affinity is an important component of the **TSNE** algorithm.
+#

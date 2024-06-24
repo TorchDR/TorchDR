@@ -14,17 +14,22 @@ from .__about__ import (
 
 # import affinities
 from .affinity import (
+    Affinity,
+    LogAffinity,
     GibbsAffinity,
     StudentAffinity,
     ScalarProductAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
-    DoublyStochasticEntropic,
-    DoublyStochasticQuadratic,
+    SinkhornAffinity,
+    DoublyStochasticQuadraticAffinity,
+    UMAPAffinityIn,
+    UMAPAffinityOut,
 )
 
 # import DR methods
+from .base import DRModule
 from .spectral import PCA
 from .affinity_matcher import (
     AffinityMatcher,
@@ -33,7 +38,11 @@ from .affinity_matcher import (
 from .neighbor_embedding import (
     SNE,
     TSNE,
+    InfoTSNE,
 )
+
+# import utils
+from .utils import pairwise_distances, binary_search, false_position
 
 __all__ = [
     "__title__",
@@ -42,17 +51,26 @@ __all__ = [
     "__version__",
     "__author__",
     "__license__",
+    "Affinity",
+    "LogAffinity",
     "GibbsAffinity",
     "StudentAffinity",
     "ScalarProductAffinity",
     "EntropicAffinity",
     "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
-    "DoublyStochasticEntropic",
-    "DoublyStochasticQuadratic",
+    "SinkhornAffinity",
+    "DoublyStochasticQuadraticAffinity",
+    "UMAPAffinityIn",
+    "UMAPAffinityOut",
+    "DRModule",
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",
     "SNE",
     "TSNE",
+    "InfoTSNE",
+    "pairwise_distances",
+    "binary_search",
+    "false_position",
 ]

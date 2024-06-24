@@ -25,7 +25,7 @@ def _Pds(C, dual, eps):
     return (dual + dual_t - C).clamp(0, float("inf")) / eps
 
 
-class DoublyStochasticQuadratic(Affinity):
+class DoublyStochasticQuadraticAffinity(Affinity):
     r"""
     Computes the symmetric doubly stochastic affinity matrix with controlled
     global :math:`\ell_2` norm.
@@ -132,7 +132,7 @@ class DoublyStochasticQuadratic(Affinity):
 
         Returns
         -------
-        self : DoublyStochasticQuadratic
+        self : DoublyStochasticQuadraticAffinity
             The fitted instance.
         """
         if self.verbose:

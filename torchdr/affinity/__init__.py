@@ -12,10 +12,10 @@ from .entropic import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
-    DoublyStochasticEntropic,
+    SinkhornAffinity,
 )
 
-from .quadratic import DoublyStochasticQuadratic
+from .quadratic import DoublyStochasticQuadraticAffinity
 
 from .umap import UMAPAffinityIn, UMAPAffinityOut
 
@@ -28,8 +28,8 @@ __all__ = [
     "EntropicAffinity",
     "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
-    "DoublyStochasticEntropic",
-    "DoublyStochasticQuadratic",
+    "SinkhornAffinity",
+    "DoublyStochasticQuadraticAffinity",
     "UMAPAffinityIn",
     "UMAPAffinityOut",
 ]

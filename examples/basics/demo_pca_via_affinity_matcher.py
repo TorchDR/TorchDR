@@ -28,7 +28,7 @@ X = digits.data
 #
 # Let us perform PCA using the closed form solution given by the
 # Singular Value Decomposition (SVD).
-# In ``Torchdr``, it is available at :class:`torchdr.spectral.PCA`.
+# In ``Torchdr``, it is available at :class:`torchdr.PCA`.
 
 Z_svd = PCA(n_components=2).fit_transform(X)
 
@@ -43,9 +43,9 @@ plt.show()
 # -----------------------
 #
 # Now, let us perform PCA using the AffinityMatcher class
-# :class:`torchdr.affinity_matcher.AffinityMatcher`
+# :class:`torchdr.AffinityMatcher`
 # as well as the scalar product affinity
-# :class:`torchdr.affinity.ScalarProductAffinity`
+# :class:`torchdr.ScalarProductAffinity`
 # for both input data and embeddings,
 # and the square loss as global objective.
 
