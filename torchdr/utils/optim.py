@@ -54,7 +54,7 @@ def binary_search(
 
     Returns
     -------
-    m : tensor of shape (n)
+    m : torch.Tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(f=f, n=n, begin=begin, end=end, dtype=dtype)
@@ -109,9 +109,9 @@ def false_position(
         increasing function which root should be computed.
     n : int
         size of the input of f.
-    begin : tensor of shape (n) or float, optional
+    begin : torch.Tensor of shape (n) or float, optional
         initial lower bound of the root.
-    end : tensor of shape (n) or float, optional
+    end : torch.Tensor of shape (n) or float, optional
         initial upper bound of the root.
     max_iter : int, optional
         maximum iterations of search.
@@ -124,7 +124,7 @@ def false_position(
 
     Returns
     -------
-    m : tensor of shape (n)
+    m : torch.Tensor of shape (n)
         root of f.
     """
     begin, end = init_bounds(

@@ -704,7 +704,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             return log_P_batch.exp()
 
 
-class DoublyStochasticEntropic(LogAffinity):
+class SinkhornAffinity(LogAffinity):
     r"""
     Computes the symmetric doubly stochastic affinity matrix :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
     Consists in solving the following symmetric entropic optimal transport problem [6]_:
@@ -813,7 +813,7 @@ class DoublyStochasticEntropic(LogAffinity):
 
         Returns
         -------
-        self : DoublyStochasticEntropic
+        self : SinkhornAffinity
             The fitted instance.
         """
         super().fit(X)

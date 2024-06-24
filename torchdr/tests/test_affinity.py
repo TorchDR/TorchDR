@@ -30,8 +30,8 @@ from torchdr.affinity import (
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
-    DoublyStochasticEntropic,
-    DoublyStochasticQuadratic,
+    SinkhornAffinity,
+    DoublyStochasticQuadraticAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
@@ -235,7 +235,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     tol = 1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
 
-    affinity = DoublyStochasticEntropic(
+    affinity = SinkhornAffinity(
         eps=eps,
         keops=keops,
         metric=metric,
@@ -263,7 +263,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
     tol = 1e-3
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
-    affinity = DoublyStochasticQuadratic(
+    affinity = DoublyStochasticQuadraticAffinity(
         eps=eps,
         keops=keops,
         metric=metric,
