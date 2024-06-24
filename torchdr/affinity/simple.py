@@ -254,7 +254,7 @@ class LocalGibbsAffinity(LogAffinity):
         Whether to use KeOps for computations.
     verbose : bool, optional
         Verbosity.
-    
+
     References
     ----------
     .. [22] Max Zelnik-Manor, L., & Perona, P. (2004).
@@ -275,7 +275,7 @@ class LocalGibbsAffinity(LogAffinity):
             metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
         )
         self.K = K
-        
+
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
         Fits the local Gibbs affinity model to the provided data.
@@ -327,8 +327,8 @@ class LocalGibbsAffinity(LogAffinity):
             return log_P_batch
         else:
             return log_P_batch.exp()
-        
-        
+
+
 class StudentAffinity(LogAffinity):
     r"""
     Computes the Student affinity matrix based on the Student-t distribution:
