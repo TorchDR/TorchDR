@@ -23,6 +23,17 @@ def _log_Gibbs(C, sigma):
     return -C / sigma
 
 
+def _log_LocalGibbs(C, K):
+    r"""
+    Returns the Local Gibbs affinity matrix with sample-wise bandwidth
+    determined by the distance from a point to its K-th neirest neighbor
+    in log domain.
+    """
+    sorted_C = torch.sort(C, dim=-1)[0]
+    sigma = sorted_C[..., K]
+    return -C / torch.outer(sigma, sigma)
+
+
 def _log_Student(C, degrees_of_freedom):
     r"""
     Returns the Student affinity matrix in log domain.
@@ -211,6 +222,99 @@ class GibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
+        log_P_batch = _log_LocalGibbs(C_batch, self.K)
+
+        if log:
+            return log_P_batch
+        else:
+            return log_P_batch.exp()
+
+
+class LocalGibbsAffinity(LogAffinity):
+    r"""
+    Computes the Gibbs affinity matrix
+    :math:`\exp( - \mathbf{C} / \mathbf{\sigma} \mathbf{\sigma}^\top)` with
+    sample-wise bandwidth :math:`\mathbf{\sigma} \in \R^n` based on the
+    neirest neighbor strategy of [22]_, where :math:`\mathbf{C}` is the
+    pairwise distance matrix.
+
+    Parameters
+    ----------
+    K : int, optional
+        K-th neirest neighbor .
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    nodiag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    
+    References
+    ----------
+    .. [22] Max Zelnik-Manor, L., & Perona, P. (2004).
+            Self-tuning spectral clustering. Advances in neural information
+            processing systems (NIPS).
+    """
+
+    def __init__(
+        self,
+        K: int = 7,
+        metric: str = "euclidean",
+        nodiag: bool = True,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
+        self.K = K
+        
+    def fit(self, X: torch.Tensor | np.ndarray):
+        r"""
+        Fits the local Gibbs affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+
+        Returns
+        -------
+        self : LocalGibbsAffinity
+            The fitted local Gibbs affinity model.
+        """
+        super().fit(X)
+        C = self._pairwise_distance_matrix(self.data_)
+        self.log_affinity_matrix_ = _log_LocalGibbs(C, self.K)
+
+        return self
+
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        C_batch = super().get_batch(indices)
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
 
         if self.normalization_dim is not None:
@@ -223,8 +327,8 @@ class GibbsAffinity(LogAffinity):
             return log_P_batch
         else:
             return log_P_batch.exp()
-
-
+        
+        
 class StudentAffinity(LogAffinity):
     r"""
     Computes the Student affinity matrix based on the Student-t distribution:
