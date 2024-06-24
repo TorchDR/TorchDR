@@ -50,9 +50,9 @@ class TSNE(AffinityMatcher):
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation, by default 'euclidean'.
+        Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation, by default 'euclidean'.
+        Metric to use for the output affinity, by default 'euclidean'.
     early_exaggeration : int, optional
         Early exaggeration factor, by default 12.
     early_exaggeration_iter : int, optional
