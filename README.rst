@@ -56,10 +56,54 @@ Affinities
 DR algorithms
 ~~~~~~~~~~~~~
 
-* SNE [1]_
-* t-SNE [2]_
-* SNEkhorn / t-SNEkhorn [3]_
-* UMAP [8]_
+**Spectral**
+
+**Neighbor Embedding methods.** SNE [1]_, t-SNE [2]_, SNEkhorn / t-SNEkhorn [3]_, UMAP [8]_, LargeVis [13]_, InfoTSNE [15]_.
+
+
+.. list-table:: 
+   :widths: auto
+   :header-rows: 1
+
+   * - **Method**
+     - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
+     - **Affinity input** :math:`\mathbf{P}`
+     - **Affinity output** :math:`\mathbf{Q}`
+
+   * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
+     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
+     - :class:`EntropicAffinity <EntropicAffinity>`
+     - :class:`GibbsAffinity <GibbsAffinity>`
+
+   * - :class:`TSNE <TSNE>` [2]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+
+   * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
+     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+
+   * - SNEkhorn [3]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
+
+   * - TSNEkhorn [3]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
+
+   * - UMAP [8]_
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+     - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
+     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
+
+   * - LargeVis [13]_
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
 
 Getting Started
