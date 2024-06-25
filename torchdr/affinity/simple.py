@@ -27,7 +27,7 @@ def _log_Gibbs(C, sigma):
 
     Parameters
     ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
         Pairwise distance matrix.
     sigma : float
         Bandwidth parameter.
@@ -49,9 +49,9 @@ def _log_LocalGibbs(C, sigma):
 
     Parameters
     ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
         Pairwise distance matrix.
-    sigma : torch.Tensor
+    sigma : torch.Tensor of shape (n,)
         Sample-wise bandwidth parameter.
     
     Returns
@@ -69,7 +69,7 @@ def _log_Student(C, degrees_of_freedom):
 
     Parameters
     ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
         Pairwise distance matrix.
     degrees_of_freedom : float
         Degrees of freedom parameter.
