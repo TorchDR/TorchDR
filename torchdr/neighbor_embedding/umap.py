@@ -18,7 +18,7 @@ from torchdr.losses import binary_cross_entropy_loss
 class UMAP(AffinityMatcher):
     def __init__(
         self,
-        n_neighbors,
+        n_neighbors=30,
         n_components=2,
         min_dist=0.1,
         spread=1.0,
@@ -79,12 +79,12 @@ class UMAP(AffinityMatcher):
             verbose=verbose,
         )
 
+        self.n_neighbors = n_neighbors
         self.coeff_repulsion = coeff_repulsion
 
     def _loss(self):
         Q = self.affinity_out.fit_transform(self.embedding_)
         Q = Q / (Q + 1)
-        # Q = Q.clamp(1e-4, 1)
         return binary_cross_entropy_loss(
             self.PX_, Q, coeff_repulsion=self.coeff_repulsion
         )

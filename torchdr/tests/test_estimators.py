@@ -10,10 +10,10 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE
+from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, UMAP
 from sklearn.utils.estimator_checks import check_estimator
 
-estimator_list = [SNE, TSNE, InfoTSNE]
+estimator_list = [SNE, TSNE, InfoTSNE, UMAP]
 
 
 @pytest.mark.parametrize("estimator", estimator_list)

@@ -137,6 +137,8 @@ class SNE(AffinityMatcher):
             scheduler=scheduler,
             init=init,
             init_scaling=init_scaling,
+            early_exaggeration=early_exaggeration,
+            early_exaggeration_iter=early_exaggeration_iter,
             tolog=tolog,
             device=device,
             keops=keops,
