@@ -13,7 +13,12 @@ from typing import Tuple
 
 from torchdr.utils import logsumexp_red, sum_red
 from torchdr.affinity.base import Affinity, LogAffinity
-from torchdr.utils import extract_batch_normalization
+from torchdr.utils import (
+    extract_batch_normalization,
+    kmin,
+    wrap_vectors,
+    batch_transpose,
+)
 
 
 def _log_Gibbs(C, sigma):
@@ -23,15 +28,16 @@ def _log_Gibbs(C, sigma):
     return -C / sigma
 
 
-def _log_LocalGibbs(C, K):
+@wrap_vectors
+def _log_LocalGibbs(C, sigma):
     r"""
     Returns the Local Gibbs affinity matrix with sample-wise bandwidth
     determined by the distance from a point to its K-th neirest neighbor
     in log domain.
     """
-    sorted_C = torch.sort(C, dim=-1)[0]
-    sigma = sorted_C[..., K]
-    return -C / torch.outer(sigma, sigma)
+
+    sigma_t = batch_transpose(sigma)
+    return -C / (sigma * sigma_t)
 
 
 def _log_Student(C, degrees_of_freedom):
@@ -292,7 +298,9 @@ class LocalGibbsAffinity(LogAffinity):
         """
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
-        self.log_affinity_matrix_ = _log_LocalGibbs(C, self.K)
+        
+        self.sigma_ = # TODO: compute sigma here with kmin from utils/utils.py
+        self.log_affinity_matrix_ = _log_LocalGibbs(C, self.sigma_)
 
         return self
 
