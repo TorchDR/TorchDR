@@ -63,6 +63,13 @@ DR algorithms
 * UMAP [8]_
 
 
+Getting Started
+==================
+
+Try out one of the following examples (or pick from :ref:`full list of examples <examples>`):
+
+.. minigallery:: torchdr.affinity
+
 Finding Help
 ------------
 
