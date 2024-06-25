@@ -53,7 +53,6 @@ Affinities
 * Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ and quadratic [10]_ projections.
 * Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
 
-
 DR algorithms
 ~~~~~~~~~~~~~
 
@@ -66,7 +65,7 @@ DR algorithms
 Getting Started
 ---------------
 
-``TorchDR`` offers a user-friendly API similar to scikit-learn. Here’s a straightforward example to help you get started: 
+``TorchDR`` offers a user-friendly API similar to scikit-learn. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
 **PCA and TSNE Example**
 
