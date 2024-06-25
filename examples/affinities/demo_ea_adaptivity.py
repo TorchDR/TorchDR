@@ -10,8 +10,9 @@ We use the following modules from ``TorchDR``:
 .. autosummary::
    :toctree: stubs
    :template: myclass_template.rst
-   torchdr.affinity.GibbsAffinity
-   torchdr.affinity.EntropicAffinity
+
+   torchdr.GibbsAffinity
+   torchdr.EntropicAffinity
 
 """
 

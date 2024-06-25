@@ -134,6 +134,10 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
     However :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
 
 
+.. minigallery:: torchdr.EntropicAffinity
+    :add-heading: Examples using ``EntropicAffinity``:
+
+
 Other various affinities
 -------------------------
 
