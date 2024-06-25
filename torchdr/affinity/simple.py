@@ -228,7 +228,7 @@ class GibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
-        log_P_batch = _log_LocalGibbs(C_batch, self.K)
+        log_P_batch = _log_Gibbs(C_batch, self.sigma)
 
         if log:
             return log_P_batch
