@@ -64,11 +64,26 @@ DR algorithms
 
 
 Getting Started
-==================
+---------------
 
-Try out one of the following examples (or pick from :ref:`full list of examples <examples>`):
+``TorchDR`` offers a user-friendly API similar to scikit-learn. Here’s a straightforward example to help you get started: 
 
-.. minigallery:: torchdr.affinity
+**PCA and TSNE Example**
+
+.. code-block:: python
+
+    from sklearn.datasets import fetch_openml
+    from torchdr import PCA, TSNE
+
+    mnist = fetch_openml("mnist_784")
+    x = mnist.data.astype("float32")
+
+    x_ = PCA(n_components=50).fit_transform(x)
+    z = TSNE(perplexity=30).fit_transform(x_)
+
+
+For more examples, visit the `examples directory <https://github.com/TorchDR/TorchDR/tree/main/examples>`_.
+
 
 Finding Help
 ------------
