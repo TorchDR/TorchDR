@@ -145,6 +145,7 @@ Another example is the doubly stochastic normalization of a base affinity under 
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
+
 References
 ----------
 

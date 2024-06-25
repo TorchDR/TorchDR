@@ -484,25 +484,13 @@ class BatchedAffinityMatcher(AffinityMatcher):
             self.batch_size_ = self.batch_size
             return self.batch_size_
 
-        else:  # looking for a suitable batch_size
-            for candidate_n_batches_ in np.arange(10, 1, -1):
-
-                if self.n_samples_in_ % candidate_n_batches_ == 0:
-                    self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
-
-                    if self.verbose:
-                        print(
-                            f"[TorchDR] WARNING : batch_size not provided or suitable, "
-                            f"setting batch_size to {self.batch_size_} (for a total "
-                            f"of {candidate_n_batches_} batches)."
-                        )
-                    return self.batch_size_
-
-            raise ValueError(
-                "[TorchDR] ERROR : could not find a suitable batch size. "
-                "Please provide one. It should be a diviser of n_samples "
-                f"({self.n_samples_in_} here). "
-            )
+        else:
+            if self.verbose:
+                print(
+                    f"[TorchDR] WARNING : batch_size not provided or suitable, "
+                    f"setting batch_size to n_samples ({self.n_samples_in_})."
+                )
+            return self.n_samples_in_
 
     def _fit(self, X: torch.Tensor):
         self._instantiate_generator()
