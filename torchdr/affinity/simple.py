@@ -24,6 +24,18 @@ from torchdr.utils import (
 def _log_Gibbs(C, sigma):
     r"""
     Returns the Gibbs affinity matrix in log domain.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        Pairwise distance matrix.
+    sigma : float
+        Bandwidth parameter.
+    
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor
+        The Gibbs affinity matrix in log domain.
     """
     return -C / sigma
 
@@ -34,6 +46,17 @@ def _log_LocalGibbs(C, sigma):
     Returns the Local Gibbs affinity matrix with sample-wise bandwidth
     determined by the distance from a point to its K-th neirest neighbor
     in log domain.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        Pairwise distance matrix.
+    sigma : torch.Tensor of shape (n,)
+        Sample-wise bandwidth parameter.
+    
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
 
     sigma_t = batch_transpose(sigma)
@@ -43,6 +66,17 @@ def _log_LocalGibbs(C, sigma):
 def _log_Student(C, degrees_of_freedom):
     r"""
     Returns the Student affinity matrix in log domain.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        Pairwise distance matrix.
+    degrees_of_freedom : float
+        Degrees of freedom parameter.
+    
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
     return -0.5 * (degrees_of_freedom + 1) * (C / degrees_of_freedom + 1).log()
 
@@ -228,7 +262,7 @@ class GibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
-        log_P_batch = _log_Gibbs(C_batch, self.sigma)
+        log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
 
         if log:
             return log_P_batch
