@@ -49,61 +49,16 @@ Affinities
 
 ``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
 
-* Simple affinities such that Gibbs and Student kernels, scalar product etc...
-* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ and quadratic [10]_ projections.
+* Usual affinities such that scalar product, Gibbs and Student kernels.
+* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
 * Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
 
 DR algorithms
 ~~~~~~~~~~~~~
 
-**Spectral**
+**Spectral.** ``TorchDR`` provides spectral embeddings calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding methods.** SNE [1]_, t-SNE [2]_, SNEkhorn / t-SNEkhorn [3]_, UMAP [8]_, LargeVis [13]_, InfoTSNE [15]_.
-
-
-.. list-table:: 
-   :widths: auto
-   :header-rows: 1
-
-   * - **Method**
-     - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
-     - **Affinity input** :math:`\mathbf{P}`
-     - **Affinity output** :math:`\mathbf{Q}`
-
-   * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
-     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
-     - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`GibbsAffinity <GibbsAffinity>`
-
-   * - :class:`TSNE <TSNE>` [2]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
-
-   * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
-     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
-
-   * - SNEkhorn [3]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
-
-   * - TSNEkhorn [3]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
-
-   * - UMAP [8]_
-     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
-     - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
-     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
-
-   * - LargeVis [13]_
-     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+**Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *SNEkhorn* / *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
 
 Getting Started

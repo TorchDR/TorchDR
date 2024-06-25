@@ -64,22 +64,24 @@ Affinity matching methods
    torchdr.affinity_matcher.BatchedAffinityMatcher
 
 
-Metric MDS
-~~~~~~~~~~
+MDS-like methods
+~~~~~~~~~~~~~~~~
+
+They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
 
 .. math::
 
-    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - [\mathbf{A_Z}]_{ij} )^{2}
+    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{D_X}]_{ij} - [\mathbf{D_Z}]_{ij} )^{2}
 
 
 Neighbor Embedding
 ~~~~~~~~~~~~~~~~~
 
 .. math::
+ 
+    \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-    \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{P_X}]_{ij} \log [\mathbf{Q_Z}]_{ij}
-
-For more details, see the :ref:`section <neighbor-embedding>` dedicated to neighbor embedding algorithms.
+For more details, see the :ref:`section dedicated to neighbor embedding algorithms <neighbor-embedding>`.
 
 
 When to use ``TorchDR``
@@ -87,6 +89,10 @@ When to use ``TorchDR``
 
 This package features a number of DR solvers that have been proposed in research papers.
 It aims to promote reproducible research and foster novel developments. As such, a key feature of ``TorchDR`` is its extendability.
+
+
+.. minigallery:: torchdr.AffinityMatcher
+    :add-heading: Examples using ``AffinityMatcher``:
 
 
 References
