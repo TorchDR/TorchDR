@@ -58,7 +58,6 @@ def _log_LocalGibbs(C, sigma):
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
-
     sigma_t = batch_transpose(sigma)
     return -C / (sigma * sigma_t)
 
@@ -335,9 +334,17 @@ class LocalGibbsAffinity(LogAffinity):
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
 
-        minK_values, _ = kmin(C, k=self.K, dim=1)
+        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         self.log_affinity_matrix_ = _log_LocalGibbs(C, self.sigma_)
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                self.log_affinity_matrix_, self.normalization_dim
+            )
+            self.log_affinity_matrix_ = (
+                self.log_affinity_matrix_ - self.log_normalization_
+            )
 
         return self
 
@@ -361,12 +368,6 @@ class LocalGibbsAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
-
-        if self.normalization_dim is not None:
-            log_normalization_batch = extract_batch_normalization(
-                self.log_normalization_, indices, self.normalization_dim
-            )
-            log_P_batch = log_P_batch - log_normalization_batch
 
         if log:
             return log_P_batch
