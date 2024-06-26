@@ -25,7 +25,6 @@ lst_types = [torch.double, torch.float]
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_binary_search(dtype):
-
     def f(x):
         return x**2 - 1
 
@@ -52,7 +51,6 @@ def test_binary_search(dtype):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_false_position(dtype):
-
     def f(x):
         return x**2 - 1
 
