@@ -14,6 +14,7 @@ from torch.testing import assert_close
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
+    LocalGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
@@ -38,6 +39,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         (GibbsAffinity, {"normalization_dim": 0}),
         (GibbsAffinity, {"normalization_dim": 1}),
         (GibbsAffinity, {"normalization_dim": (0, 1)}),
+        (LocalGibbsAffinity, {"normalization_dim": None}),
+        (LocalGibbsAffinity, {"normalization_dim": 0}),
+        (LocalGibbsAffinity, {"normalization_dim": 1}),
+        (LocalGibbsAffinity, {"normalization_dim": (0, 1)}),
         (StudentAffinity, {"normalization_dim": None}),
         (StudentAffinity, {"normalization_dim": 0}),
         (StudentAffinity, {"normalization_dim": 1}),

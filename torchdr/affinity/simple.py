@@ -31,7 +31,7 @@ def _log_Gibbs(C, sigma):
         Pairwise distance matrix.
     sigma : float
         Bandwidth parameter.
-    
+
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
@@ -53,7 +53,7 @@ def _log_LocalGibbs(C, sigma):
         Pairwise distance matrix.
     sigma : torch.Tensor of shape (n,)
         Sample-wise bandwidth parameter.
-    
+
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
@@ -73,7 +73,7 @@ def _log_Student(C, degrees_of_freedom):
         Pairwise distance matrix.
     degrees_of_freedom : float
         Degrees of freedom parameter.
-    
+
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
@@ -262,7 +262,7 @@ class GibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
-        log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
+        log_P_batch = _log_Gibbs(C_batch, self.sigma)
 
         if log:
             return log_P_batch
@@ -305,6 +305,7 @@ class LocalGibbsAffinity(LogAffinity):
     def __init__(
         self,
         K: int = 7,
+        normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         nodiag: bool = True,
         device: str = None,
@@ -332,8 +333,9 @@ class LocalGibbsAffinity(LogAffinity):
         """
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
-        
-        self.sigma_ = # TODO: compute sigma here with kmin from utils/utils.py
+
+        minK_values, _ = kmin(C, k=self.K, dim=1)
+        self.sigma_ = minK_values[:, -1]
         self.log_affinity_matrix_ = _log_LocalGibbs(C, self.sigma_)
 
         return self
@@ -357,7 +359,7 @@ class LocalGibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
-        log_P_batch = _log_Gibbs(C_batch, self.sigma)
+        log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
 
         if self.normalization_dim is not None:
             log_normalization_batch = extract_batch_normalization(

@@ -26,6 +26,7 @@ from torchdr.utils import (
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
+    LocalGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
@@ -79,6 +80,35 @@ def test_gibbs_affinity(dtype, metric, dim):
     list_P = []
     for keops in [False, True]:
         affinity = GibbsAffinity(
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
+        )
+        P = affinity.fit_transform(X)
+        list_P.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, keops=keops)
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        if isinstance(dim, int):
+            check_marginal(P, one, dim=dim)
+        else:
+            check_total_sum(P, 1)
+
+    # --- check consistency between torch and keops ---
+    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("dim", [0, 1, (0, 1)])
+def test_localgibbs_affinity(dtype, metric, dim):
+    n = 300
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    list_P = []
+    for keops in [False, True]:
+        affinity = LocalGibbsAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
