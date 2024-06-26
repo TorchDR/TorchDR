@@ -316,6 +316,7 @@ class LocalGibbsAffinity(LogAffinity):
             metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
         )
         self.K = K
+        self.normalization_dim = normalization_dim
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
