@@ -97,8 +97,8 @@ def keops_unsqueeze(arg):
 
 def wrap_vectors(func):
     """
-    If the cost matrix C is a lazy tensor, convert all other input tensors to KeOps
-    lazy tensors while applying unsqueeze(-1).
+    Unsqueeze(-1) all input tensors except the cost matrix C. Moreover if C is
+    a lazy tensor, all tensors are converted to KeOps lazy tensors.
     These tensors should be vectors or batched vectors.
     """
 
