@@ -185,9 +185,9 @@ class AffinityMatcher(DRModule):
         return self
 
     def _fit(self, X: torch.Tensor):
-        self.n_samples_in_, self.n_features_in_ = X.shape
+        self._instantiate_generator()
 
-        self._check_n_neighbors(self.n_samples_in_)
+        self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- check if affinity_in is precomputed else compute it ---
         if self.affinity_in == "precomputed":
@@ -201,9 +201,6 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             self.PX_ = self.affinity_in.fit_transform(X)
-
-        if hasattr(self, "early_exaggeration"):
-            self.early_exaggeration_ = self.early_exaggeration
 
         self._init_embedding(X)
         self._set_params()
@@ -261,9 +258,6 @@ class AffinityMatcher(DRModule):
             linear_decay = lambda epoch: (1 - epoch / self.max_iter)
             return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=linear_decay)
 
-        elif self.scheduler == "plateau":
-            return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min")
-
         elif self.scheduler == "exponential":  # param gamma
             return torch.optim.lr_scheduler.ExponentialLR(
                 optimizer, **(self.scheduler_kwargs or {})
@@ -272,19 +266,20 @@ class AffinityMatcher(DRModule):
         else:
             raise ValueError(f"[TorchDR] scheduler : {self.scheduler} not supported.")
 
+    def _instantiate_generator(self):
+        self.generator_ = np.random.default_rng(
+            random_state=self.random_state
+        )  # we use numpy because torch.Generator is not picklable
+        return self.generator_
+
     def _init_embedding(self, X):
         n = X.shape[0]
 
         if self.init == "normal":
-            generator = torch.Generator(device=X.device).manual_random_state(
-                self.random_state
-            )
-            embedding_ = torch.randn(
-                n,
-                self.n_components,
+            embedding_ = torch.tensor(
+                self.generator_.standard_normal(size=(n, self.n_components)),
                 device=X.device,
                 dtype=X.dtype,
-                generator=generator,
             )
 
         elif self.init == "pca":
@@ -443,12 +438,6 @@ class BatchedAffinityMatcher(AffinityMatcher):
 
         return batched_affinity_in_, batched_affinity_out_
 
-    def _instantiate_generator(self):
-        self.generator_ = np.random.default_rng(
-            random_state=self.random_state
-        )  # we use numpy because torch.Generator is not picklable
-        return self.generator_
-
     def _set_batch_size(self):
         if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
             self.batch_size_ = self.batch_size
@@ -456,14 +445,10 @@ class BatchedAffinityMatcher(AffinityMatcher):
         else:
             if self.verbose:
                 print(
-                    "[TorchDR] WARNING: batch_size not provided or unsuitable. "
+                    "[TorchDR] WARNING: batch_size not provided or not suitable. "
                     "Setting batch_size to the number of samples "
                     f"({self.n_samples_in_})."
                 )
             self.batch_size_ = self.n_samples_in_
 
         return self.batch_size_
-
-    def _fit(self, X: torch.Tensor):
-        self._instantiate_generator()
-        super()._fit(X)

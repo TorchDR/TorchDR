@@ -7,7 +7,8 @@ Base classes for Neighbor Embedding methods
 #
 # License: BSD 3-Clause License
 
-from torchdr.affinity_matcher import AffinityMatcher, BatchedAffinityMatcher
+from torchdr.affinity import Affinity
+from torchdr.affinity_matcher import BatchedAffinityMatcher
 
 
 class NeighborEmbedding(BatchedAffinityMatcher):
@@ -142,3 +143,8 @@ class NeighborEmbedding(BatchedAffinityMatcher):
                     setattr(self.affinity_in, param_name, new_value)
 
         return self
+
+    def _fit(self, X: torch.Tensor):
+        n_samples_in = X.shape[0]
+        self._check_n_neighbors(n_samples_in)
+        super()._fit(X)
