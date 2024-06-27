@@ -284,7 +284,7 @@ class AffinityMatcher(DRModule):
 
     def _instantiate_generator(self):
         self.generator_ = np.random.default_rng(
-            random_state=self.random_state
+            seed=self.random_state
         )  # we use numpy because torch.Generator is not picklable
         return self.generator_
 
