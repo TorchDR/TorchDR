@@ -5,10 +5,10 @@
     :hidden:
     :caption: Contents:
     
+    self
+    torchdr.quick_start
+    torchdr.user_guide
     all
-    torchdr.overview
-    torchdr.affinities
-    torchdr.neighbor-embedding
     auto_examples/index
-    torchdr.notation
+    torchdr.releases
     torchdr.contributing
