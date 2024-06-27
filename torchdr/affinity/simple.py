@@ -373,7 +373,8 @@ class LocalGibbsAffinity(LogAffinity):
             In log domain if `log` is True.
         """
         C_batch = super().get_batch(indices)
-        log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
+        sigma_batch = self.sigma_[indices]
+        log_P_batch = _log_LocalGibbs(C_batch, sigma_batch)
 
         if self.normalization_dim is not None:
             log_normalization_batch = extract_batch_normalization(
