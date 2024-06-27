@@ -6,9 +6,62 @@
    :no-members:
    :no-inherited-members:
 
+User Guide
+==========
 
-User's guide
-============
+.. contents:: Table of Contents
+   :depth: 1
+   :local:
+
+
+``TorchDR`` Overview
+--------------------
+
+DR General Formulation
+^^^^^^^^^^^^^^^^^^^^^^
+
+DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
+
+.. math::
+
+  \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z}) \quad \text{(DR)}
+
+where :math:`\mathcal{L}` is typically the :math:`\ell_2`, :math:`\mathrm{KL}` or :math:`\mathrm{BCE}` loss.
+Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A_X}, \mathbf{A_Z})`.
+
+``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
+Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
+
+All DR estimators inherit the structure of the :meth:`DRModule` class:
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.base.DRModule
+
+They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
+
+
+Avoiding memory overflows with ``KeOps`` symbolic (lazy) tensors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
+
+To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
+
+.. image:: figures/symbolic_matrix.svg
+   :width: 800
+   :align: center
+
+The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
+
+.. note::
+
+    All ``TorchDR`` modules have a ``keops`` parameter that can be set to ``True`` to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
+
+
 
 Affinities
 ----------
@@ -40,56 +93,26 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
 
 All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
-Here is an example with the Gibbs affinity:
+Here is an example with the :class:`GibbsAffinity <torchdr.GibbsAffinity>`:
 
-.. code-block:: python
-  :linenos:
-
-  import torch, torchdr
-
-  n = 100
-  data = torch.randn(n, 2)
-  affinity = torchdr.GibbsAffinity()
-  affinity_matrix = affinity.fit_transform(data)
-
+    >>> import torch, torchdr
+    >>>
+    >>> n = 100
+    >>> data = torch.randn(n, 2)
+    >>> affinity = torchdr.GibbsAffinity()
+    >>> affinity_matrix = affinity.fit_transform(data)
+    >>> print(affinity_matrix.shape)
+    (100, 100)
 
 They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the **affinity matrix divided in blocks** given by the batch indices. The output is of size **(n_batch, batch_size, batch_size)** where n_batch is the number of blocks and batch_size is the number of samples per block.
 
 The number of blocks should be a divisor of the number of samples. Here is an example with 5 blocks of size 20 each:
 
-.. code-block:: python
-  :linenos:
-  :lineno-start: 7
-
-  batch_size = n // 5
-  indices = torch.randperm(n).reshape(-1, batch_size)
-  batched_affinity_matrix = affinity.get_batch(indices)
-  print(batched_affinity_matrix.shape)
-
-Output:
-
-.. code-block:: text
-
-  (5, 20, 20)
-
-
-Avoiding memory overflows with symbolic (lazy) tensors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
-
-To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
-
-.. image:: figures/symbolic_matrix.svg
-   :width: 800
-   :align: center
-
-The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
-
-.. note::
-
-    All ``TorchDR`` modules have a ``keops`` parameter that can be set to ``True`` to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
-
+    >>> batch_size = n // 5
+    >>> indices = torch.randperm(n).reshape(-1, batch_size)
+    >>> batched_affinity_matrix = affinity.get_batch(indices)
+    >>> print(batched_affinity_matrix.shape)
+    (5, 20, 20)
 
 
 Affinities based on entropic projections
@@ -151,8 +174,58 @@ For instance, the UMAP [8]_ algorithm relies on the affinities :class:`UMAPAffin
 Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
+
+DR Modules
+----------
+
+.. contents:: Table of Contents
+   :depth: 2
+   :local:
+
+Spectral methods
+^^^^^^^^^^^^^^^^
+
+.. math::
+
+    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
+
+This problem is commonly known as kernel Principal Component Analysis [11]_ and an optimal solution is given by 
+
+.. math::
+
+    \mathbf{Z}^{\star} = (\sqrt{\lambda_1} \mathbf{v}_1, ..., \sqrt{\lambda_d} \mathbf{v}_d)^\top
+
+where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the centered kernel matrix :math:`\mathbf{A_X}` and :math:`\mathbf{v}_1, ..., \mathbf{v}_d` are the corresponding eigenvectors.
+
+.. note::
+
+    PCA (available at :class:`torchdr.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
+
+
+Affinity matching methods
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.affinity_matcher.AffinityMatcher
+   torchdr.affinity_matcher.BatchedAffinityMatcher
+
+
+MDS-like Methods
+"""""""""""""""""
+
+They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+
+.. math::
+
+    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{D_X}]_{ij} - [\mathbf{D_Z}]_{ij} )^{2}
+
+
 Neighbor Embedding
-------------------
+"""""""""""""""""""
 
 ``TorchDR`` aims to implement most popular **neighbor embedding (NE)** algorithms.
 In this section we briefly go through the main NE algorithms and their variants.
@@ -161,7 +234,7 @@ For consistency with the literature, we will denote the input affinity matrix by
 
 
 Overview of NE via Attraction and Repulsion
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+''''''''''''''''''''''''''''''''''''''''''''
 
 NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
 
@@ -235,9 +308,12 @@ References
 
 .. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
 
+.. [11] Ham, J., Lee, D. D., Mika, S., & Schölkopf, B. (2004). `A kernel view of the dimensionality reduction of manifolds <https://icml.cc/Conferences/2004/proceedings/papers/296.pdf>`_. In Proceedings of the twenty-first international conference on Machine learning (ICML).
+
 .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
 
 .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
 
+.. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
 .. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).

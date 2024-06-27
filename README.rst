@@ -15,11 +15,7 @@ Documentation: `<https://torchdr.github.io/dev/>`_.
 
 ``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch [20]_. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-DR aims to construct a low-dimensional representation (or embedding) of an input dataset that best preserves its geometry encoded via a pairwise affinity matrix . To this end, DR methods optimize the embedding such that its associated pairwise affinity matches the input affinity.
-
-``TorchDR`` provides a general framework for solving problems of this form.
-Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as an objective function.
-Code for other aspects, including optimization, is shared across methods. It ensures a fair benchmarking focusing on core differences.
+DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods optimize the embedding such that its **associated pairwise affinity matches the input affinity**. ``TorchDR`` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an ``Affinity`` object for both input and embedding as well as an objective function.
 
 Benefits of ``TorchDR`` include:
 
@@ -44,8 +40,6 @@ Getting Started
 
 ``TorchDR`` offers a user-friendly API similar to scikit-learn. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
-**PCA and TSNE Example**
-
 .. code-block:: python
 
     from sklearn.datasets import fetch_openml
@@ -56,6 +50,12 @@ Getting Started
 
     x_ = PCA(n_components=50).fit_transform(x)
     z = TSNE(perplexity=30).fit_transform(x_)
+
+``TorchDR`` enables GPU acceleration without memory limitations thanks to the ``KeOps`` library. This can be easily enabled as follows:
+
+.. code-block:: python
+
+    z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
 
 
 For more examples, visit the `examples directory <https://github.com/TorchDR/TorchDR/tree/main/examples>`_.

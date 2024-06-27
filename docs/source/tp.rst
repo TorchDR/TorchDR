@@ -84,15 +84,7 @@ Neighbor Embedding
 For more details, see the :ref:`section dedicated to neighbor embedding algorithms <neighbor-embedding>`.
 
 
-When to use ``TorchDR``
------------------------
 
-This package features a number of DR solvers that have been proposed in research papers.
-It aims to promote reproducible research and foster novel developments. As such, a key feature of ``TorchDR`` is its extendability.
-
-
-.. minigallery:: torchdr.AffinityMatcher
-    :add-heading: Examples using ``AffinityMatcher``:
 
 
 References

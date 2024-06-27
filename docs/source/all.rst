@@ -11,10 +11,11 @@ API and Modules
    :no-inherited-members:
 
 
-DR modules
-----------
+DR Modules - ``sklearn`` Compatible
+-----------------------------------
 
-Base DR module
+
+Base DR Module
 ^^^^^^^^^^^^^^
 
 .. autosummary::
@@ -33,7 +34,7 @@ Spectral DR
    PCA
 
 
-Affinity matcher
+Affinity Matcher
 ^^^^^^^^^^^^^^^^
 
 .. autosummary::
@@ -44,7 +45,7 @@ Affinity matcher
    BatchedAffinityMatcher
 
 
-Neighbor embedding
+Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
@@ -56,13 +57,11 @@ Neighbor embedding
    InfoTSNE
 
 
-Affinity modules
+Affinity Modules
 ----------------
 
-Affinities
-^^^^^^^^^^
 
-Simple affinities
+Simple Affinities
 """""""""""""""""
 
 .. autosummary::
@@ -73,7 +72,7 @@ Simple affinities
    StudentAffinity
    ScalarProductAffinity
 
-Entropic affinities
+Entropic Affinities
 """""""""""""""""""
    
 .. autosummary::
@@ -85,7 +84,7 @@ Entropic affinities
    SinkhornAffinity
    SymmetricEntropicAffinity
 
-Quadratic affinities
+Quadratic Affinities
 """""""""""""""""""""
 
 .. autosummary::
@@ -94,7 +93,7 @@ Quadratic affinities
    
    DoublyStochasticQuadraticAffinity
 
-UMAP affinities
+UMAP Affinities
 """""""""""""""
 
 .. autosummary::
