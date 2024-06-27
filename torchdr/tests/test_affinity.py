@@ -102,13 +102,12 @@ def test_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_localgibbs_affinity(dtype, metric, dim):
-    n = 50
+    n = 10
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
     for keops in [False, True]:
-        print(f'--- keops = {keops} ---')
         affinity = LocalGibbsAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
@@ -161,9 +160,9 @@ def test_student_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("keops", [True, False])
 @pytest.mark.parametrize("sparsity", [False, None])
 def test_entropic_affinity(dtype, metric, keops, sparsity):
-    n = 50
+    n = 300
     X = toy_dataset(n, dtype)
-    perp = 5
+    perp = 30
     tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)

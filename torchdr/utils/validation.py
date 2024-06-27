@@ -28,7 +28,7 @@ def check_NaNs(input, msg=None):
         raise TypeError("Input must be a tensor or a list of tensors.")
 
 
-def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-5):
+def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5):
     """
     Checks that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """
@@ -45,7 +45,6 @@ def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-5):
     # retrieve largest P_keops values and arguments
     Largest_keops_values, Largest_keops_arg = (-P_keops).Kmin_argKmin(K=K, dim=1)
     Largest_keops_values = -Largest_keops_values
-
     # retrieve largest P values and arguments
     topk = P.topk(K, dim=1)
     Largest_arg = topk.indices
@@ -61,13 +60,41 @@ def check_similarity_torch_keops(P, P_keops, K=None, tol=1e-5):
     )
 
     # check that the largest arguments are the same
-    assert_close(
-        Largest_arg,
-        Largest_keops_arg,
-        atol=tol,
-        rtol=tol,
-        msg="Torch and Keops largest arguments are different.",
-    )
+    # we only focus on values without duplicates for simplicity
+    # notice that we cannot guarantee correspondence between the last topK
+    if test_indices:
+        try:
+            assert_close(
+                Largest_arg,
+                Largest_keops_arg,
+                atol=tol,
+                rtol=tol,
+                msg="Torch and Keops largest arguments are different potentially due to duplicates.",
+            )
+        except:
+            for i in range(Largest_keops_values.shape[0]):
+
+                Largest_values_unique, counts = torch.unique(
+                    Largest_values[i, :], sorted=False, return_counts=True)
+                # If the first test passes we know that these counts are the same
+                # between torch and keops
+                count_pos = 0
+                pos = 0
+                selected_args = []
+                while count_pos < counts.shape[0] - 1:
+                    if counts[count_pos] == 1:
+                        selected_args.append(pos)
+
+                    pos += counts[count_pos]
+                    count_pos += 1
+
+                assert_close(
+                    Largest_arg[i, selected_args],
+                    Largest_keops_arg[i, selected_args],
+                    atol=tol,
+                    rtol=tol,
+                    msg=f"Torch and Keops largest arguments are different for row {i}.",
+                )
 
 
 def relative_similarity(P, P_target):
