@@ -32,17 +32,20 @@ Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A
 ``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
 
-All DR estimators inherit the structure of the :meth:`DRModule` class:
+All modules follow the ``scikit-learn`` [21]_ API and can be used in pipelines.
 
-.. autosummary::
-   :toctree: stubs
-   :template: myclass_template.rst
-   :nosignatures:
 
-   torchdr.base.DRModule
+Torch GPU support and automatic differentiation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
+``TorchDR`` is built on top of ``PyTorch`` [20]_, offering GPU support and automatic differentiation. This foundation enables efficient computations and straightforward implementation of new DR methods.
 
+To utilize GPU support, set :attr:`device="cuda"` when initializing any module. For CPU computations, set :attr:`device="cpu"`.
+
+.. note::
+
+    DR particularly benefits from GPU acceleration as most computations, including affinity calculations and the DR objective, involve matrix reductions that are highly parallelizable.
+    
 
 Avoiding memory overflows with ``KeOps`` symbolic (lazy) tensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -57,10 +60,7 @@ To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors.
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-.. note::
-
-    All ``TorchDR`` modules have a ``keops`` parameter that can be set to ``True`` to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
-
+Set :attr:`keops=True` as input to any module to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
 
 
 Affinities
@@ -177,6 +177,17 @@ It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStoc
 
 DR Modules
 ----------
+
+All DR estimators inherit the structure of the :meth:`DRModule` class:
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.base.DRModule
+
+They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
 
 .. contents:: Table of Contents
    :depth: 2
@@ -317,3 +328,7 @@ References
 .. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
 .. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).
+
+.. [20] Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., ... & Chintala, S. (2019). `Pytorch: An imperative style, high-performance deep learning library <https://proceedings.neurips.cc/paper_files/paper/2019/file/bdbca288fee7f92f2bfa9f7012727740-Paper.pdf>`_. Advances in neural information processing systems 32 (NeurIPS).
+
+.. [21] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). `Scikit-learn: Machine learning in Python <https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf?ref=https:/>`_. Journal of machine Learning research, 12 (JMLR).
