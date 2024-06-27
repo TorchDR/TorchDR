@@ -141,5 +141,5 @@ class TSNE(NeighborEmbedding):
             random_state=random_state,
         )
 
-    def _repulsive_term(self, log_Q):
+    def _repulsive_loss(self, log_Q):
         return logsumexp_red(log_Q, dim=(0, 1))

@@ -303,7 +303,7 @@ class AffinityMatcher(DRModule):
 
         else:
             raise ValueError(
-                f"[TorchDR] init : {self.init} not supported in AffinityMatcher."
+                f"[TorchDR] ERROR : init {self.init} not supported in AffinityMatcher."
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -350,10 +350,6 @@ class BatchedAffinityMatcher(AffinityMatcher):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    early_exaggeration : int, optional
-        Early exaggeration factor, by default None.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default None.
     tolog : bool, optional
         If True, logs the optimization process. Default is False.
     device : str, optional
@@ -383,8 +379,6 @@ class BatchedAffinityMatcher(AffinityMatcher):
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        early_exaggeration: float = None,
-        early_exaggeration_iter: int = None,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
@@ -407,8 +401,6 @@ class BatchedAffinityMatcher(AffinityMatcher):
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            early_exaggeration=early_exaggeration,
-            early_exaggeration_iter=early_exaggeration_iter,
             tolog=tolog,
             device=device,
             keops=keops,
