@@ -258,7 +258,7 @@ class LogAffinity(Affinity):
         self.fit(X)
         assert hasattr(
             self, "log_affinity_matrix_"
-        ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed "
+        ), "[TorchDR] ERROR Affinity : log_affinity_matrix_ should be computed "
         "in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix

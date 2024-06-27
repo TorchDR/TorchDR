@@ -128,7 +128,7 @@ def _check_perplexity(perplexity, n, verbose=True):
     """
     if n <= 1:
         raise ValueError(
-            "[TorchDR] ERROR (Affinity): Input has less than one sample : "
+            "[TorchDR] ERROR Affinity: Input has less than one sample : "
             f"n_samples = {n}."
         )
 
@@ -589,7 +589,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             check_NaNs(
                 [self.eps_, self.mu_],
                 msg=(
-                    "[TorchDR] ERROR (Affinity): NaN in dual variables, "
+                    "[TorchDR] ERROR Affinity: NaN in dual variables, "
                     "consider decreasing the learning rate."
                 ),
             )
@@ -635,7 +635,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                     check_NaNs(
                         [self.eps_, self.mu_],
                         msg=(
-                            f"[TorchDR] ERROR (Affinity): NaN at iter {k}, "
+                            f"[TorchDR] ERROR Affinity: NaN at iter {k}, "
                             "consider decreasing the learning rate."
                         ),
                     )
@@ -851,7 +851,7 @@ class SinkhornAffinity(LogAffinity):
             if self.tolog:
                 self.log["dual"].append(self.dual_.clone().detach().cpu())
 
-            check_NaNs(self.dual_, msg=f"[TorchDR] ERROR (Affinity): NaN at iter {k}.")
+            check_NaNs(self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}.")
 
             if torch.norm(self.dual_ - reduction) < self.tol:
                 if self.verbose:

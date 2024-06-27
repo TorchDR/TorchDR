@@ -112,7 +112,8 @@ class AffinityMatcher(DRModule):
             random_state=random_state,
         )
 
-        assert optimizer in OPTIMIZERS, f"Optimizer {optimizer} not supported."
+        if optimizer not in OPTIMIZERS:
+            raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
         self.optimizer = optimizer
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
@@ -121,7 +122,10 @@ class AffinityMatcher(DRModule):
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
 
-        assert loss_fn in LOSS_DICT, f"Loss function {loss_fn} not supported."
+        if loss_fn not in LOSS_DICT:
+            raise ValueError(
+                f"[TorchDR] ERROR : Loss function {loss_fn} not supported."
+            )
         self.loss_fn = loss_fn
         self.kwargs_loss = kwargs_loss
 
@@ -193,7 +197,7 @@ class AffinityMatcher(DRModule):
         if self.affinity_in == "precomputed":
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
-                    '[TorchDR] (Error) : When affinity_in="precomputed" the input X '
+                    '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
                     "in fit must be a tensor of lazy tensor of shape "
                     "(n_samples, n_samples)."
                 )
@@ -204,16 +208,16 @@ class AffinityMatcher(DRModule):
 
         self._init_embedding(X)
         self._set_params()
-        optimizer = self._set_optimizer()
-        scheduler = self._set_scheduler(optimizer)
+        self._set_optimizer()
+        self._set_scheduler()
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for k in pbar:
-            optimizer.zero_grad()
+            self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
-            optimizer.step()
-            scheduler.step(loss.item())
+            self.optimizer_.step()
+            self.scheduler_.step()
 
             check_NaNs(
                 self.embedding_,
@@ -243,28 +247,40 @@ class AffinityMatcher(DRModule):
         return self.params_
 
     def _set_optimizer(self):
-        optimizer = OPTIMIZERS[self.optimizer](
+        self.optimizer_ = OPTIMIZERS[self.optimizer](
             self.params_, lr=self.lr, **(self.optimizer_kwargs or {})
         )
-        return optimizer
+        return self.optimizer_
 
-    def _set_scheduler(self, optimizer: torch.optim.Optimizer):
+    def _set_scheduler(self):
+        if not hasattr(self, "optimizer_"):
+            raise ValueError(
+                "[TorchDR] ERROR : optimizer not set. "
+                "Please call _set_optimizer before _set_scheduler."
+            )
+
         if self.scheduler == "constant":
-            return torch.optim.lr_scheduler.ConstantLR(
-                optimizer, factor=1, total_iters=0
+            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
+                self.optimizer_, factor=1, total_iters=0
             )
 
         elif self.scheduler == "linear":
             linear_decay = lambda epoch: (1 - epoch / self.max_iter)
-            return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=linear_decay)
+            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer_, lr_lambda=linear_decay
+            )
 
         elif self.scheduler == "exponential":  # param gamma
-            return torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **(self.scheduler_kwargs or {})
+            self.scheduler_ = torch.optim.lr_scheduler.ExponentialLR(
+                self.optimizer_, **(self.scheduler_kwargs or {})
             )
 
         else:
-            raise ValueError(f"[TorchDR] scheduler : {self.scheduler} not supported.")
+            raise ValueError(
+                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
+            )
+
+        return self.scheduler_
 
     def _instantiate_generator(self):
         self.generator_ = np.random.default_rng(

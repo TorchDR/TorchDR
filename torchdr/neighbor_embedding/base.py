@@ -7,8 +7,12 @@ Base classes for Neighbor Embedding methods
 #
 # License: BSD 3-Clause License
 
-from torchdr.affinity import Affinity
+import torch
+from abc import abstractmethod
+
+from torchdr.affinity import Affinity, LogAffinity
 from torchdr.affinity_matcher import BatchedAffinityMatcher
+from torchdr.losses import cross_entropy_loss
 
 
 class NeighborEmbedding(BatchedAffinityMatcher):
@@ -91,6 +95,12 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         early_exaggeration_iter: int = None,
     ):
 
+        if not isinstance(affinity_out, LogAffinity):
+            raise ValueError(
+                "[TorchDR] ERROR : in NeighborEmbedding, affinity_out must be "
+                "a LogAffinity."
+            )
+
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -119,11 +129,13 @@ class NeighborEmbedding(BatchedAffinityMatcher):
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
-            self.coeff_attraction > 1 and step == self.early_exaggeration_iter
+            self.coeff_attraction_ > 1 and step == self.early_exaggeration_iter
         ):
-            self.coeff_attraction = 1
-            optimizer = self._set_optimizer()
-            self._set_scheduler(optimizer)
+            self.coeff_attraction_ = 1
+            # reinitialize optimizer and scheduler
+            self._set_optimizer()
+            self._set_scheduler()
+        return self
 
     def _check_n_neighbors(self, n):
         param_list = ["perplexity", "n_neighbors"]
@@ -147,4 +159,23 @@ class NeighborEmbedding(BatchedAffinityMatcher):
     def _fit(self, X: torch.Tensor):
         n_samples_in = X.shape[0]
         self._check_n_neighbors(n_samples_in)
+
+        self.coeff_attraction_ = (
+            self.coeff_attraction
+        )  # coeff_attraction_ may change during the optimization
+
         super()._fit(X)
+
+    @abstractmethod
+    def _repulsive_loss(self, log_Q):
+        pass
+
+    def _loss(self):
+        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
+        attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
+        repulsive_term = self._repulsive_loss(log_Q)
+        loss = (
+            self.coeff_attraction_ * attractive_term
+            + self.coeff_repulsion * repulsive_term
+        )
+        return loss
