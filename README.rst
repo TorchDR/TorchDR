@@ -135,6 +135,7 @@ References
 
 .. [22] Max Zelnik-Manor, L., & Perona, P. (2004). `Self-Tuning Spectral Clustering <https://proceedings.neurips.cc/paper_files/paper/2004/file/40173ea48d9567f1f393b20c855bb40b-Paper.pdf>`_. Advances in Neural Information Processing Systems 17 (NeurIPS).
 
+.. [23] Guo, Y., Guo, H. & Yu, S. (2022). `CO-SNE: Dimensionality Reduction and Visualization for Hyperbolic Data <https://arxiv.org/abs/2111.15037>`_. International Conference on Computer Vision and Pattern Recognition (CVPR).
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/

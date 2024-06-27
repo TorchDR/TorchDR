@@ -19,7 +19,7 @@ from torchdr.utils import logsumexp_red
 class COSNE(AffinityMatcher):
     """
     Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) algorithm
-    for embedding in hyperbolic space, introduced in [2]_.
+    for embedding in hyperbolic space, introduced in [22]_.
 
     Parameters
     ----------
