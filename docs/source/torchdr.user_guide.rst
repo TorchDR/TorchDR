@@ -14,8 +14,8 @@ User Guide
    :local:
 
 
-``TorchDR`` Overview
---------------------
+Overview
+--------
 
 DR General Formulation
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -26,7 +26,7 @@ DR aims to construct a low-dimensional representation (or embedding) :math:`\mat
 
   \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z}) \quad \text{(DR)}
 
-where :math:`\mathcal{L}` is typically the :math:`\ell_2`, :math:`\mathrm{KL}` or :math:`\mathrm{BCE}` loss.
+where :math:`\mathcal{L}` is typically the :math:`\ell_2` or cross-entropy loss.
 Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A_X}, \mathbf{A_Z})`.
 
 ``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
@@ -60,7 +60,7 @@ To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors.
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-Set :attr:`keops=True` as input to any module to use symbolic tensors. For small datasets, setting this parameter to ``False`` allows the computation of the full affinity matrix directly in memory.
+Set :attr:`keops=True` as input to any module to use symbolic tensors. For small datasets, setting :attr:`keops=False` allows the computation of the full affinity matrix directly in memory.
 
 
 Affinities
@@ -113,6 +113,11 @@ The number of blocks should be a divisor of the number of samples. Here is an ex
     >>> batched_affinity_matrix = affinity.get_batch(indices)
     >>> print(batched_affinity_matrix.shape)
     (5, 20, 20)
+
+.. note::
+
+    In ``TorchDR``, :meth:`get_batch` is compatible with ``KeOps`` (:attr:`keops=True`).
+    This compatibility allows you to choose the batch size based solely on compute time, without memory limitations.
 
 
 Affinities based on entropic projections
@@ -196,11 +201,13 @@ They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.Transforme
 Spectral methods
 ^^^^^^^^^^^^^^^^
 
+Spectral methods correspond to choosing the scalar product affinity :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{z}_i, \mathbf{z}_j \rangle` for the embeddings and the :math:`\ell_2` loss.
+
 .. math::
 
     \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
-This problem is commonly known as kernel Principal Component Analysis [11]_ and an optimal solution is given by 
+When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis [11]_ and an optimal solution is given by 
 
 .. math::
 
@@ -216,6 +223,10 @@ where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the cente
 Affinity matching methods
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Outside of spectral methods, a closed-form solution to the DR problem is typically not available. The problem can then be solved using `gradient-based optimizers <https://pytorch.org/docs/stable/optim.html>`_.
+
+The following classes serve as parent classes for this approach, requiring the user to provide affinity objects for the input and output spaces, referred to as :attr:`affinity_in` and :attr:`affinity_out`.
+
 .. autosummary::
    :toctree: stubs
    :template: myclass_template.rst
@@ -224,6 +235,7 @@ Affinity matching methods
    torchdr.affinity_matcher.AffinityMatcher
    torchdr.affinity_matcher.BatchedAffinityMatcher
 
+We now present two families of such DR methods: those based on the :math:`\ell_2` loss (similar to MDS methods) and those based on the cross-entropy loss (neighbor embedding methods).
 
 MDS-like Methods
 """""""""""""""""
@@ -266,40 +278,40 @@ Many NE methods can be represented within this framework. The following table su
      - **Affinity input** :math:`\mathbf{P}`
      - **Affinity output** :math:`\mathbf{Q}`
 
-   * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
+   * - :class:`SNE <SNE>` [1]_
      - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GibbsAffinity <GibbsAffinity>`
 
    * - :class:`TSNE <TSNE>` [2]_
      - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <StudentAffinity>`
 
-   * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
+   * - :class:`InfoTSNE <InfoTSNE>` [15]_
      - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <StudentAffinity>`
 
    * - SNEkhorn [3]_
      - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
+     - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>`
 
    * - TSNEkhorn [3]_
      - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
+     - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - UMAP [8]_
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
-     - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
-     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
+     - :class:`UMAPAffinityIn <UMAPAffinityIn>`
+     - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
    * - LargeVis [13]_
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
-     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <StudentAffinity>`
 
 
 References
