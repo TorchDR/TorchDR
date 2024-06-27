@@ -263,6 +263,12 @@ class GibbsAffinity(LogAffinity):
         C_batch = super().get_batch(indices)
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
 
+        if self.normalization_dim is not None:
+            log_normalization_batch = extract_batch_normalization(
+                self.log_normalization_, indices, self.normalization_dim
+            )
+            log_P_batch = log_P_batch - log_normalization_batch
+
         if log:
             return log_P_batch
         else:
@@ -368,6 +374,12 @@ class LocalGibbsAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_LocalGibbs(C_batch, self.sigma_)
+
+        if self.normalization_dim is not None:
+            log_normalization_batch = extract_batch_normalization(
+                self.log_normalization_, indices, self.normalization_dim
+            )
+            log_P_batch = log_P_batch - log_normalization_batch
 
         if log:
             return log_P_batch
