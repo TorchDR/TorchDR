@@ -14,8 +14,8 @@ API and Modules
 DR modules
 ----------
 
-Base DR module :py:mod:`torchdr.base`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Base DR module
+^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -23,8 +23,8 @@ Base DR module :py:mod:`torchdr.base`
    
    DRModule
 
-Spectral DR :py:mod:`torchdr.spectral`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Spectral DR
+^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -33,8 +33,8 @@ Spectral DR :py:mod:`torchdr.spectral`
    PCA
 
 
-Affinity matcher :py:mod:`torchdr.affinity_matcher`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Affinity matcher
+^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -44,8 +44,8 @@ Affinity matcher :py:mod:`torchdr.affinity_matcher`
    BatchedAffinityMatcher
 
 
-Neighbor embedding :py:mod:`torchdr.neighbor_embedding`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Neighbor embedding
+^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -59,8 +59,8 @@ Neighbor embedding :py:mod:`torchdr.neighbor_embedding`
 Affinity modules
 ----------------
 
-Affinities :py:mod:`torchdr.affinities`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Affinities
+^^^^^^^^^^
 
 Simple affinities
 """""""""""""""""

@@ -1,4 +1,4 @@
-.. _affinities:
+.. _user_guide:
 
 .. currentmodule:: torchdr
 
@@ -7,14 +7,17 @@
    :no-inherited-members:
 
 
+User's guide
+============
+
 Affinities
-=============
+----------
 
 Affinities are the essential building blocks of dimensionality reduction methods.
 ``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GibbsAffinity <torchdr.GibbsAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
 
 Base structure
----------------
+^^^^^^^^^^^^^^
 
 Affinities inherit the structure of the following :meth:`Affinity` class.
 
@@ -71,7 +74,7 @@ Output:
 
 
 Avoiding memory overflows with symbolic (lazy) tensors
-------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
 
@@ -90,7 +93,7 @@ The above figure is taken from `here <https://github.com/getkeops/keops/blob/mai
 
 
 Affinities based on entropic projections
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
 
@@ -139,7 +142,7 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 
 
 Other various affinities
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``TorchDR`` features other affinities that can be used in various contexts.
 
@@ -147,6 +150,72 @@ For instance, the UMAP [8]_ algorithm relies on the affinities :class:`UMAPAffin
 
 Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
+
+Neighbor Embedding
+------------------
+
+``TorchDR`` aims to implement most popular **neighbor embedding (NE)** algorithms.
+In this section we briefly go through the main NE algorithms and their variants.
+
+For consistency with the literature, we will denote the input affinity matrix by :math:`\mathbf{P}` and the output affinity matrix by :math:`\mathbf{Q}`. These affinities can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
+
+
+Overview of NE via Attraction and Repulsion
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
+
+.. math::
+
+    \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
+
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion.
+
+Many NE methods can be represented within this framework. The following table summarizes the ones implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
+
+.. list-table:: 
+   :widths: auto
+   :header-rows: 1
+
+   * - **Method**
+     - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
+     - **Affinity input** :math:`\mathbf{P}`
+     - **Affinity output** :math:`\mathbf{Q}`
+
+   * - :class:`SNE <torchdr.neighbor_embedding.SNE>` [1]_
+     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
+     - :class:`EntropicAffinity <EntropicAffinity>`
+     - :class:`GibbsAffinity <GibbsAffinity>`
+
+   * - :class:`TSNE <TSNE>` [2]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+
+   * - :class:`InfoTSNE <torchdr.InfoTSNE>` [15]_
+     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
+
+   * - SNEkhorn [3]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="gaussian") <torchdr.SinkhornAffinity>`
+
+   * - TSNEkhorn [3]_
+     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <torchdr.SinkhornAffinity>`
+
+   * - UMAP [8]_
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+     - :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>`
+     - :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>`
+
+   * - LargeVis [13]_
+     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+     - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>`
+     - :class:`StudentAffinity <torchdr.StudentAffinity>`
 
 
 References
@@ -165,5 +234,10 @@ References
 .. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
 
 .. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
+
+.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
+
+.. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
+
 
 .. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).

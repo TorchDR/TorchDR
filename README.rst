@@ -39,26 +39,6 @@ Benefits of ``TorchDR`` include:
      - Neural estimators are seamlessly integrated for all methods.
 
 
-Implemented Methods
--------------------
-
-Affinities
-~~~~~~~~~~
-
-``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
-
-* Usual affinities such that scalar product, Gibbs and Student kernels.
-* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
-* Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
-
-DR algorithms
-~~~~~~~~~~~~~
-
-**Spectral.** ``TorchDR`` provides spectral embeddings calculated via eigenvalue decomposition of the affinities or their Laplacian.
-
-**Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *SNEkhorn* / *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
-
-
 Getting Started
 ---------------
 
@@ -79,6 +59,26 @@ Getting Started
 
 
 For more examples, visit the `examples directory <https://github.com/TorchDR/TorchDR/tree/main/examples>`_.
+
+
+Implemented Methods
+-------------------
+
+Affinities
+~~~~~~~~~~
+
+``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
+
+* Usual affinities such that scalar product, Gibbs and Student kernels.
+* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
+* Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
+
+DR algorithms
+~~~~~~~~~~~~~
+
+**Spectral.** ``TorchDR`` provides spectral embeddings calculated via eigenvalue decomposition of the affinities or their Laplacian.
+
+**Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *SNEkhorn* / *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
 
 Finding Help

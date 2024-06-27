@@ -6,10 +6,9 @@
     :caption: Contents:
     
     self
-    all
     torchdr.overview
-    torchdr.affinities
-    torchdr.neighbor-embedding
+    torchdr.user_guide
+    all
     auto_examples/index
-    torchdr.notation
+    torchdr.releases
     torchdr.contributing
