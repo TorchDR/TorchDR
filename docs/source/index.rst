@@ -5,6 +5,7 @@
     :hidden:
     :caption: Contents:
     
+    self
     all
     torchdr.overview
     torchdr.affinities

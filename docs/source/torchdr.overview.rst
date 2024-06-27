@@ -12,13 +12,13 @@ DR aims to construct a low-dimensional representation (or embedding) :math:`\mat
 
 .. math::
 
-  \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \quad \text{(DR)}
+  \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z}) \quad \text{(DR)}
 
-where :math:`L` is typically the :math:`\ell_2`, :math:`\mathrm{KL}` or :math:`\mathrm{BCE}` loss.
-Each DR method is thus characterized by a triplet :math:`(L, \mathbf{A_X}, \mathbf{A_Z})`.
+where :math:`\mathcal{L}` is typically the :math:`\ell_2`, :math:`\mathrm{KL}` or :math:`\mathrm{BCE}` loss.
+Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A_X}, \mathbf{A_Z})`.
 
 ``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
-Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`L`.
+Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
 
 All DR estimators inherit the structure of the :meth:`DRModule` class:
 
