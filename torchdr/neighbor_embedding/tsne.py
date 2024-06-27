@@ -60,12 +60,12 @@ class TSNE(AffinityMatcher):
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
-        Device to use, by default None.
+        Device to use, by default "auto".
     keops : bool, optional
-        Whether to use KeOps, by default True.
+        Whether to use KeOps, by default False.
     verbose : bool, optional
         Verbosity, by default True.
-    seed : float, optional
+    random_state : float, optional
         Random seed for reproducibility, by default 0.
     """  # noqa: E501
 
@@ -89,9 +89,9 @@ class TSNE(AffinityMatcher):
         early_exaggeration_iter: int = 250,
         tolog: bool = False,
         device: str = None,
-        keops: bool = True,
+        keops: bool = False,
         verbose: bool = True,
-        seed: float = 0,
+        random_state: float = 0,
     ):
 
         self.metric_in = metric_in

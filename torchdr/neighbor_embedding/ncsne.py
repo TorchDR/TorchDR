@@ -59,7 +59,7 @@ class InfoTSNE(BatchedAffinityMatcher):
         Whether to use KeOps, by default True.
     verbose : bool, optional
         Verbosity, by default True.
-    seed : float, optional
+    random_state : float, optional
         Random seed for reproducibility, by default 0.
     batch_size : int, optional
         Batch size for the contrastive loss, by default None.
@@ -87,7 +87,7 @@ class InfoTSNE(BatchedAffinityMatcher):
         device=None,
         keops=True,
         verbose=True,
-        seed=0,
+        random_state=0,
         batch_size=None,
     ):
 

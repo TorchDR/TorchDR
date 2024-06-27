@@ -222,8 +222,8 @@ class EntropicAffinity(LogAffinity):
         sparsity: bool = None,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -374,7 +374,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         sparsity: bool = None,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
@@ -506,7 +506,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         tolog: bool = False,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
@@ -788,7 +788,7 @@ class SinkhornAffinity(LogAffinity):
         tolog: bool = False,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
     ):

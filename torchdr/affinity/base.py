@@ -26,6 +26,7 @@ class Affinity(ABC):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data.
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
@@ -36,8 +37,8 @@ class Affinity(ABC):
         self,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = "cuda",
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         self.log = {}
@@ -204,6 +205,7 @@ class LogAffinity(Affinity):
         The distance metric to use for computing pairwise distances.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data.
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
@@ -214,8 +216,8 @@ class LogAffinity(Affinity):
         self,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = "cuda",
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(

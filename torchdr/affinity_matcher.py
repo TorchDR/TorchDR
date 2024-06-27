@@ -69,19 +69,15 @@ class AffinityMatcher(DRModule):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    early_exaggeration : int, optional
-        Early exaggeration factor, by default None.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default None.
     tolog : bool, optional
         If True, logs the optimization process. Default is False.
     device : str, optional
-        Device to use for computations. Default is None.
+        Device to use for computations. Default is "auto".
     keops : bool, optional
-        Whether to use KeOps for computations. Default is True.
+        Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
         Verbosity of the optimization process. Default is True.
-    seed : float, optional
+    random_state : float, optional
         Random seed for reproducibility. Default is 0.
     """  # noqa: E501
 
@@ -102,16 +98,18 @@ class AffinityMatcher(DRModule):
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        early_exaggeration: float = None,
-        early_exaggeration_iter: int = None,
         tolog: bool = False,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
-        seed: float = 0,
+        random_state: float = 0,
     ):
         super().__init__(
-            n_components=n_components, device=device, keops=keops, verbose=verbose
+            n_components=n_components,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            random_state=random_state,
         )
 
         assert optimizer in OPTIMIZERS, f"Optimizer {optimizer} not supported."
@@ -132,7 +130,6 @@ class AffinityMatcher(DRModule):
 
         self.tolog = tolog
         self.verbose = verbose
-        self.seed = seed
 
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
@@ -146,13 +143,6 @@ class AffinityMatcher(DRModule):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
-
-        if early_exaggeration is None or early_exaggeration_iter is None:
-            self.early_exaggeration = 1
-            early_exaggeration_iter = None
-        else:
-            self.early_exaggeration = early_exaggeration
-            self.early_exaggeration_iter = early_exaggeration_iter
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
@@ -237,13 +227,7 @@ class AffinityMatcher(DRModule):
             if self.verbose:
                 pbar.set_description(f"Loss : {loss.item():.2e}")
 
-            if (  # stop early exaggeration phase
-                hasattr(self, "early_exaggeration")
-                and k == self.early_exaggeration_iter
-            ):
-                self.early_exaggeration_ = 1
-                optimizer = self._set_optimizer()
-                self._set_scheduler(optimizer)
+            self._additional_updates(k)
 
         self.n_iter_ = k
 
@@ -253,6 +237,9 @@ class AffinityMatcher(DRModule):
         Q = self.affinity_out.fit_transform(self.embedding_, **self.kwargs_affinity_out)
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
+
+    def _additional_updates(self, step):
+        pass
 
     def _set_params(self):
         self.params_ = [{"params": self.embedding_}]
@@ -289,7 +276,9 @@ class AffinityMatcher(DRModule):
         n = X.shape[0]
 
         if self.init == "normal":
-            generator = torch.Generator(device=X.device).manual_seed(self.seed)
+            generator = torch.Generator(device=X.device).manual_random_state(
+                self.random_state
+            )
             embedding_ = torch.randn(
                 n,
                 self.n_components,
@@ -308,25 +297,6 @@ class AffinityMatcher(DRModule):
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()
-
-    def _check_n_neighbors(self, n):
-        param_list = ["perplexity", "n_neighbors"]
-
-        for param_name in param_list:
-            if hasattr(self, param_name):
-                param_value = getattr(self, param_name)
-                if n <= param_value:
-                    if self.verbose:
-                        print(
-                            "[TorchDR] WARNING : Number of samples is smaller than "
-                            f"{param_name} ({n} <= {param_value}), setting "
-                            f"{param_name} to {n//2} (which corresponds to n//2)."
-                        )
-                    new_value = n // 2
-                    setattr(self, param_name + "_", new_value)
-                    setattr(self.affinity_in, param_name, new_value)
-
-        return self
 
 
 class BatchedAffinityMatcher(AffinityMatcher):
@@ -376,12 +346,12 @@ class BatchedAffinityMatcher(AffinityMatcher):
     tolog : bool, optional
         If True, logs the optimization process. Default is False.
     device : str, optional
-        Device to use for computations. Default is None.
+        Device to use for computations. Default is "auto".
     keops : bool, optional
-        Whether to use KeOps for computations. Default is True.
+        Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
         Verbosity of the optimization process. Default is True.
-    seed : float, optional
+    random_state : float, optional
         Random seed for reproducibility. Default is 0.
     batch_size : int, optional
         Batch size for processing. Default is None.
@@ -405,10 +375,10 @@ class BatchedAffinityMatcher(AffinityMatcher):
         early_exaggeration: float = None,
         early_exaggeration_iter: int = None,
         tolog: bool = False,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
-        seed: float = 0,
+        random_state: float = 0,
         batch_size: int = None,
     ):
 
@@ -432,7 +402,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
             device=device,
             keops=keops,
             verbose=verbose,
-            seed=seed,
+            random_state=random_state,
         )
 
         self.batch_size = batch_size
@@ -475,22 +445,24 @@ class BatchedAffinityMatcher(AffinityMatcher):
 
     def _instantiate_generator(self):
         self.generator_ = np.random.default_rng(
-            seed=self.seed
+            random_state=self.random_state
         )  # we use numpy because torch.Generator is not picklable
         return self.generator_
 
     def _set_batch_size(self):
         if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
             self.batch_size_ = self.batch_size
-            return self.batch_size_
 
         else:
             if self.verbose:
                 print(
-                    f"[TorchDR] WARNING : batch_size not provided or suitable, "
-                    f"setting batch_size to n_samples ({self.n_samples_in_})."
+                    "[TorchDR] WARNING: batch_size not provided or unsuitable. "
+                    "Setting batch_size to the number of samples "
+                    f"({self.n_samples_in_})."
                 )
-            return self.n_samples_in_
+            self.batch_size_ = self.n_samples_in_
+
+        return self.batch_size_
 
     def _fit(self, X: torch.Tensor):
         self._instantiate_generator()
