@@ -41,9 +41,9 @@ def _log_Gibbs(C, sigma):
 
 
 @wrap_vectors
-def _log_LocalGibbs(C, sigma):
+def _log_SelfTuningGibbs(C, sigma):
     r"""
-    Returns the Local Gibbs affinity matrix with sample-wise bandwidth
+    Returns the self-tuning Gibbs affinity matrix with sample-wise bandwidth
     determined by the distance from a point to its K-th neirest neighbor
     in log domain.
 
@@ -275,7 +275,7 @@ class GibbsAffinity(LogAffinity):
             return log_P_batch.exp()
 
 
-class LocalGibbsAffinity(LogAffinity):
+class SelfTuningGibbsAffinity(LogAffinity):
     r"""
     Computes the Gibbs affinity matrix
     :math:`\exp( - \mathbf{C} / \mathbf{\sigma} \mathbf{\sigma}^\top)` with
@@ -303,8 +303,8 @@ class LocalGibbsAffinity(LogAffinity):
     References
     ----------
     .. [22] Max Zelnik-Manor, L., & Perona, P. (2004).
-            Self-tuning spectral clustering. Advances in neural information
-            processing systems (NIPS).
+            Self-tuning spectral clustering.
+            Advances in neural information processing systems (NeurIPS).
     """
 
     def __init__(
@@ -342,7 +342,7 @@ class LocalGibbsAffinity(LogAffinity):
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        self.log_affinity_matrix_ = _log_LocalGibbs(C, self.sigma_)
+        self.log_affinity_matrix_ = _log_SelfTuningGibbs(C, self.sigma_)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
@@ -374,7 +374,7 @@ class LocalGibbsAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         sigma_batch = self.sigma_[indices]
-        log_P_batch = _log_LocalGibbs(C_batch, sigma_batch)
+        log_P_batch = _log_SelfTuningGibbs(C_batch, sigma_batch)
 
         if self.normalization_dim is not None:
             log_normalization_batch = extract_batch_normalization(

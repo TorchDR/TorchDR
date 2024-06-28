@@ -26,7 +26,7 @@ from torchdr.utils import (
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
-    LocalGibbsAffinity,
+    SelfTuningGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
@@ -101,14 +101,14 @@ def test_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
-def test_localgibbs_affinity(dtype, metric, dim):
+def test_self_tuning_gibbs_affinity(dtype, metric, dim):
     n = 10
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
     for keops in [False, True]:
-        affinity = LocalGibbsAffinity(
+        affinity = SelfTuningGibbsAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)

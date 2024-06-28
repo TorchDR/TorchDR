@@ -70,13 +70,14 @@ def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5
                 atol=tol,
                 rtol=tol,
                 msg="Torch and Keops largest arguments are different"
-                    "due to duplicates.",
+                "due to duplicates.",
             )
         except AssertionError:
             for i in range(Largest_keops_values.shape[0]):
 
                 Largest_values_unique, counts = torch.unique(
-                    Largest_values[i, :], sorted=False, return_counts=True)
+                    Largest_values[i, :], sorted=False, return_counts=True
+                )
                 # If the first test passes we know that these counts are the same
                 # between torch and keops
                 count_pos = 0
