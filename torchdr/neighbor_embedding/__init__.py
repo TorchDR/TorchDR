@@ -7,5 +7,6 @@
 from .sne import SNE
 from .tsne import TSNE
 from .ncsne import InfoTSNE
+from .snekhorn import SNEkhorn, TSNEkhorn
 
-__all__ = ["SNE", "TSNE", "InfoTSNE"]
+__all__ = ["SNE", "TSNE", "InfoTSNE", "SNEkhorn", "TSNEkhorn"]

@@ -843,26 +843,29 @@ class SinkhornAffinity(LogAffinity):
 
         # Sinkhorn iterations
         for k in range(self.max_iter):
+            with torch.no_grad():
 
-            # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
-            reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
-            self.dual_ = 0.5 * (self.dual_ + reduction)
+                # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
+                reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
+                self.dual_ = 0.5 * (self.dual_ + reduction)
 
-            if self.tolog:
-                self.log["dual"].append(self.dual_.clone().detach().cpu())
+                if self.tolog:
+                    self.log["dual"].append(self.dual_.clone().detach().cpu())
 
-            check_NaNs(self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}.")
-
-            if torch.norm(self.dual_ - reduction) < self.tol:
-                if self.verbose:
-                    print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
-                break
-
-            if k == self.max_iter - 1 and self.verbose:
-                print(
-                    "[TorchDR] WARNING (Affinity): max iter attained, algorithm "
-                    "stops but may not have converged."
+                check_NaNs(
+                    self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}."
                 )
+
+                if torch.norm(self.dual_ - reduction) < self.tol:
+                    if self.verbose:
+                        print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
+                    break
+
+                if k == self.max_iter - 1 and self.verbose:
+                    print(
+                        "[TorchDR] WARNING (Affinity): max iter attained, algorithm "
+                        "stops but may not have converged."
+                    )
 
         self.n_iter_ = k
         self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
