@@ -30,7 +30,10 @@ def kmin(A, k=1, dim=0):
     along with corresponding indices.
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
-    assert isinstance(dim, int), "dim should be an integer."
+    if not isinstance(dim, int):
+        raise ValueError(
+            "[TorchDR] ERROR : the input dim to kmin should be an integer."
+        )
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim])
@@ -53,7 +56,10 @@ def kmax(A, k=1, dim=0):
     along with corresponding indices.
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
-    assert isinstance(dim, int), "dim should be an integer."
+    if not isinstance(dim, int):
+        raise ValueError(
+            "[TorchDR] ERROR : the input dim to kmax should be an integer."
+        )
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim])
@@ -114,7 +120,10 @@ def sum_red(P, dim):
             )
 
     else:
-        raise ValueError("P should be a tensor or a lazy tensor.")
+        raise ValueError(
+            "[TorchDR] ERROR : input to sum_red should be "
+            "a torch.Tensor or a pykeops.torch.LazyTensor."
+        )
 
 
 def logsumexp_red(log_P, dim):
@@ -144,7 +153,10 @@ def logsumexp_red(log_P, dim):
             )
 
     else:
-        raise ValueError("log_P should be a tensor or a lazy tensor.")
+        raise ValueError(
+            "[TorchDR] ERROR : input to logsumexp_red should be "
+            "a torch.Tensor or a pykeops.torch.LazyTensor."
+        )
 
 
 def normalize_matrix(P, dim=1, log=False):
@@ -225,4 +237,6 @@ def batch_transpose(arg):
     elif isinstance(arg, torch.Tensor):
         return arg.transpose(-2, -1)
     else:
-        raise ValueError("Unsupported input shape for transpose_vec function.")
+        raise ValueError(
+            "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
+        )

@@ -80,7 +80,7 @@ class InfoTSNE(BatchedAffinityMatcher):
         perplexity: float = 30,
         n_components: int = 2,
         lr: float = 1.0,
-        batch_size: int = None,
+        batch_size: int | str = "auto",
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
