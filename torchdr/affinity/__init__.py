@@ -6,7 +6,12 @@
 
 from .base import Affinity, LogAffinity
 
-from .simple import ScalarProductAffinity, GibbsAffinity, StudentAffinity
+from .simple import (
+    ScalarProductAffinity,
+    GibbsAffinity,
+    SelfTuningGibbsAffinity,
+    StudentAffinity,
+)
 
 from .entropic import (
     EntropicAffinity,
@@ -24,6 +29,7 @@ __all__ = [
     "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
+    "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
     "L2SymmetricEntropicAffinity",

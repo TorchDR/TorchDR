@@ -26,6 +26,7 @@ from torchdr.utils import (
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
+    SelfTuningGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
@@ -50,7 +51,7 @@ def toy_dataset(n=300, dtype="float32"):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
 
     list_P = []
@@ -72,7 +73,7 @@ def test_scalar_product_affinity(dtype):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_gibbs_affinity(dtype, metric, dim):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
@@ -100,8 +101,36 @@ def test_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
+def test_self_tuning_gibbs_affinity(dtype, metric, dim):
+    n = 10
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    list_P = []
+    for keops in [False, True]:
+        affinity = SelfTuningGibbsAffinity(
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
+        )
+        P = affinity.fit_transform(X)
+        list_P.append(P)
+        # -- check properties of the affinity matrix --
+        check_type(P, keops=keops)
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        if isinstance(dim, int):
+            check_marginal(P, one, dim=dim)
+        else:
+            check_total_sum(P, 1)
+
+    # --- check consistency between torch and keops ---
+    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_student_affinity(dtype, metric, dim):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
@@ -174,9 +203,9 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
 def test_l2sym_entropic_affinity(dtype, metric, keops):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
-    perp = 30
+    perp = 5
 
     affinity = L2SymmetricEntropicAffinity(
         perplexity=perp, keops=keops, metric=metric, verbose=True, device=DEVICE

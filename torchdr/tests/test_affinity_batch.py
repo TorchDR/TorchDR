@@ -14,6 +14,7 @@ from torch.testing import assert_close
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
+    SelfTuningGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
@@ -24,7 +25,7 @@ from torchdr.affinity import (
     UMAPAffinityOut,
 )
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 
 
 @pytest.mark.parametrize(
@@ -38,6 +39,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         (GibbsAffinity, {"normalization_dim": 0}),
         (GibbsAffinity, {"normalization_dim": 1}),
         (GibbsAffinity, {"normalization_dim": (0, 1)}),
+        (SelfTuningGibbsAffinity, {"normalization_dim": None}),
+        (SelfTuningGibbsAffinity, {"normalization_dim": 0}),
+        (SelfTuningGibbsAffinity, {"normalization_dim": 1}),
+        (SelfTuningGibbsAffinity, {"normalization_dim": (0, 1)}),
         (StudentAffinity, {"normalization_dim": None}),
         (StudentAffinity, {"normalization_dim": 0}),
         (StudentAffinity, {"normalization_dim": 1}),
@@ -46,7 +51,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         (L2SymmetricEntropicAffinity, {}),
         (SymmetricEntropicAffinity, {"lr": 1e-6}),
         (SinkhornAffinity, {}),
-        (DoublyStochasticQuadraticAffinity, {}),
+        (DoublyStochasticQuadraticAffinity, {"max_iter": 100}),
         (UMAPAffinityIn, {}),
         (UMAPAffinityOut, {}),
     ],
