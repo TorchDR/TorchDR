@@ -36,14 +36,14 @@ class TSNE(NeighborEmbedding):
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
-    tol : float, optional
-        Precision threshold at which the algorithm stops, by default 1e-4.
-    max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
+    tol : float, optional
+        Precision threshold at which the algorithm stops, by default 1e-4.
+    max_iter : int, optional
+        Number of maximum iterations for the descent algorithm, by default 100.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -68,6 +68,14 @@ class TSNE(NeighborEmbedding):
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
+
+    References
+    ----------
+
+    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+            Visualizing Data using t-SNE.
+            The Journal of Machine Learning Research 9.11 (JMLR).
+
     """  # noqa: E501
 
     def __init__(
@@ -78,10 +86,10 @@ class TSNE(NeighborEmbedding):
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
-        tol: float = 1e-4,
-        max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
+        tol: float = 1e-4,
+        max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
@@ -113,7 +121,7 @@ class TSNE(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # we perform normalization when computing the loss
+            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,
@@ -132,13 +140,13 @@ class TSNE(NeighborEmbedding):
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,
-            coeff_attraction=coeff_attraction,
-            coeff_repulsion=coeff_repulsion,
-            early_exaggeration_iter=early_exaggeration_iter,
             device=device,
             keops=keops,
             verbose=verbose,
             random_state=random_state,
+            coeff_attraction=coeff_attraction,
+            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_iter=early_exaggeration_iter,
         )
 
     def _repulsive_loss(self, log_Q):

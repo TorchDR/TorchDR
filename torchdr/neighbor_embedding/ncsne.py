@@ -9,12 +9,12 @@ Noise-constrastive SNE algorithms
 
 from torchdr.affinity_matcher import BatchedAffinityMatcher
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
-from torchdr.losses import cross_entropy_loss
 from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(BatchedAffinityMatcher):
     """
+
     Parameters
     ----------
     perplexity : float
@@ -25,6 +25,8 @@ class InfoTSNE(BatchedAffinityMatcher):
         Dimension of the embedding space.
     lr : float, optional
         Learning rate for the algorithm, by default 1.0.
+    batch_size : int, optional
+        Batch size for the optimization, by default None.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
@@ -39,6 +41,22 @@ class InfoTSNE(BatchedAffinityMatcher):
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 100.
+    tolog : bool, optional
+        Whether to store intermediate results in a dictionary, by default False.
+    device : str, optional
+        Device to use, by default "auto".
+    keops : bool, optional
+        Whether to use KeOps, by default False.
+    verbose : bool, optional
+        Verbosity, by default True.
+    random_state : float, optional
+        Random seed for reproducibility, by default 0.
+    coeff_attraction : float, optional
+        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    coeff_repulsion : float, optional
+        Coefficient for the repulsion term, by default 1.0.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
     tol_affinity : _type_, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -46,49 +64,42 @@ class InfoTSNE(BatchedAffinityMatcher):
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the ouput affinity, by default 'euclidean'.
-    early_exaggeration : int, optional
-        Early exaggeration factor, by default 12.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
-    device : str, optional
-        Device to use, by default None.
-    keops : bool, optional
-        Whether to use KeOps, by default True.
-    verbose : bool, optional
-        Verbosity, by default True.
-    random_state : float, optional
-        Random seed for reproducibility, by default 0.
-    batch_size : int, optional
-        Batch size for the contrastive loss, by default None.
+        Metric to use for the output affinity, by default 'euclidean'.
+
+    References
+    ----------
+
+    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+            Visualizing Data using t-SNE.
+            The Journal of Machine Learning Research 9.11 (JMLR).
+
     """  # noqa: E501
 
     def __init__(
         self,
-        perplexity=30,
-        n_components=2,
-        lr=1.0,
-        optimizer="Adam",
-        optimizer_kwargs=None,
-        scheduler="constant",
-        init="pca",
-        init_scaling=1e-4,
-        metric_in="euclidean",
-        metric_out="euclidean",
-        tol=1e-4,
-        max_iter=1000,
-        tol_affinity=1e-3,
-        max_iter_affinity=100,
-        early_exaggeration=12,
-        early_exaggeration_iter=250,
-        tolog=False,
-        device=None,
-        keops=True,
-        verbose=True,
-        random_state=0,
-        batch_size=None,
+        perplexity: float = 30,
+        n_components: int = 2,
+        lr: float = 1.0,
+        batch_size: int = None,
+        optimizer: str = "Adam",
+        optimizer_kwargs: dict = None,
+        scheduler: str = "constant",
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tol: float = 1e-4,
+        max_iter: int = 1000,
+        tolog: bool = False,
+        device: str = None,
+        keops: bool = False,
+        verbose: bool = True,
+        random_state: float = 0,
+        coeff_attraction: float = 10.0,
+        coeff_repulsion: float = 1.0,
+        early_exaggeration_iter: int = 250,
+        tol_affinity: float = 1e-3,
+        max_iter_affinity: int = 100,
+        metric_in: str = "euclidean",
+        metric_out: str = "euclidean",
     ):
 
         self.metric_in = metric_in
@@ -108,7 +119,7 @@ class InfoTSNE(BatchedAffinityMatcher):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # we perform normalization when computing the loss
+            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,
@@ -127,19 +138,14 @@ class InfoTSNE(BatchedAffinityMatcher):
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,
-            early_exaggeration=early_exaggeration,
-            early_exaggeration_iter=early_exaggeration_iter,
             device=device,
             keops=keops,
             verbose=verbose,
-            batch_size=batch_size,
+            random_state=random_state,
+            coeff_attraction=coeff_attraction,
+            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _loss(self):
-        kwargs_affinity_out = {"log": True}
-        P_batch, log_Q_batch = self.batched_affinity_in_out(kwargs_affinity_out)
-        attractive_term = cross_entropy_loss(P_batch, log_Q_batch, log_Q=True)
-        repulsive_term = logsumexp_red(log_Q_batch, dim=1)
-        losses = self.early_exaggeration_ * attractive_term + repulsive_term
-        loss = losses.sum()
-        return loss
+    def _repulsive_loss(self, log_Q):
+        return logsumexp_red(log_Q, dim=1)

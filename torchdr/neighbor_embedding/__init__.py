@@ -7,6 +7,5 @@
 from .sne import SNE
 from .tsne import TSNE
 from .ncsne import InfoTSNE
-from .umap import UMAP
 
-__all__ = ["SNE", "TSNE", "InfoTSNE", "UMAP"]
+__all__ = ["SNE", "TSNE", "InfoTSNE"]

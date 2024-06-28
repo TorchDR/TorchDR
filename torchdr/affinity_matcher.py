@@ -410,7 +410,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
 
         self.batch_size = batch_size
 
-    def batched_affinity_in_out(self, kwargs_affinity_out={}):
+    def batched_affinity_in_out(self, **kwargs_affinity_out):
         """
         Returns batched affinity matrices for the input and output spaces.
 

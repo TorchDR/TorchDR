@@ -157,9 +157,7 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         return self
 
     def _fit(self, X: torch.Tensor):
-        n_samples_in = X.shape[0]
-        self._check_n_neighbors(n_samples_in)
-
+        self._check_n_neighbors(X.shape[0])
         self.coeff_attraction_ = (
             self.coeff_attraction
         )  # coeff_attraction_ may change during the optimization
@@ -171,11 +169,18 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         pass
 
     def _loss(self):
-        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
-        attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
+        if self.batch_size is None:
+            log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
+            P = self.PX_
+
+        else:
+            P, log_Q = self.batched_affinity_in_out(log=True)
+
+        attractive_term = cross_entropy_loss(P, log_Q, log_Q=True)
         repulsive_term = self._repulsive_loss(log_Q)
+
         loss = (
             self.coeff_attraction_ * attractive_term
             + self.coeff_repulsion * repulsive_term
-        )
+        ).sum()
         return loss
