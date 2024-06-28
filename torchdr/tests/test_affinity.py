@@ -41,7 +41,7 @@ from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 lst_types = ["float32", "float64"]
 
 LIST_METRICS_TEST = ["euclidean"]
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 
 
 def toy_dataset(n=300, dtype="float32"):

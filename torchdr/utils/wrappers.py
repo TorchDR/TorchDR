@@ -35,12 +35,16 @@ def contiguous_output(func):
 
 
 @contiguous_output
-def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
+def to_torch(x, device="auto", verbose=True, return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.
+    If device="auto", the device is set to the device of the input x.
     """
-    use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
-    new_device = torch.device("cuda:0" if use_gpu else "cpu")
+    gpu_required = (
+        device in ["cuda", "cuda:0", "gpu", None]
+    ) and torch.cuda.is_available()
+
+    new_device = torch.device("cuda:0" if gpu_required else "cpu")
 
     if isinstance(x, torch.Tensor):
 
@@ -51,7 +55,11 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
 
         input_backend = "torch"
         input_device = x.device
-        x_ = x.to(new_device) if input_device != new_device else x
+
+        if device != "auto" and input_device != new_device:
+            x_ = x.to(new_device)
+        else:  # keep the same device if device="auto"
+            x_ = x
 
     else:
         x = check_array(x, accept_sparse=False)  # check if contains only finite values

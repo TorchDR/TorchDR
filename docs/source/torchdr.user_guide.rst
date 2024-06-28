@@ -32,7 +32,7 @@ Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A
 ``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
 Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
 
-All modules follow the ``scikit-learn`` [21]_ API and can be used in pipelines.
+All modules follow the ``scikit-learn`` [21]_ API and can be used in `sklearn pipelines <https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html>`_.
 
 
 Torch GPU support and automatic differentiation

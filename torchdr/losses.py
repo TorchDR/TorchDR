@@ -28,11 +28,11 @@ def binary_cross_entropy_loss(P, Q, coeff_repulsion=1):
     Computes the binary cross-entropy between P and Q.
     Supports log domain input for Q.
     """
-    # return -P * Q.log() - coeff_repulsion * (1 - P) * (1 - Q).log()
-    return (
-        -P * Q.clamp(1e-4, 1).log()
-        - coeff_repulsion * (1 - P) * (1 - Q).clamp(1e-4, 1).log()
-    )
+    return -P * Q.log() - coeff_repulsion * (1 - P) * (1 - Q).log()
+    # return (
+    #     -P * Q.clamp(1e-4, 1).log()
+    #     - coeff_repulsion * (1 - P) * (1 - Q).clamp(1e-4, 1).log()
+    # )
 
 
 @sum_all_axis

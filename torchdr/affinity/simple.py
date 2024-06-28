@@ -104,7 +104,7 @@ class ScalarProductAffinity(Affinity):
         self,
         normalization_dim: int | Tuple[int] = None,
         device: str = "cuda",
-        keops: bool = True,
+        keops: bool = False,
         verbose: bool = True,
         centering: bool = False,
     ):
@@ -204,8 +204,8 @@ class GibbsAffinity(LogAffinity):
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -421,8 +421,8 @@ class StudentAffinity(LogAffinity):
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
