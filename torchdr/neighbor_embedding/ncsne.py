@@ -7,12 +7,12 @@ Noise-constrastive SNE algorithms
 #
 # License: BSD 3-Clause License
 
-from torchdr.affinity_matcher import BatchedAffinityMatcher
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
 from torchdr.utils import logsumexp_red
 
 
-class InfoTSNE(BatchedAffinityMatcher):
+class InfoTSNE(NeighborEmbedding):
     """
 
     Parameters
