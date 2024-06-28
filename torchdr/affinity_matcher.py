@@ -360,7 +360,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         Verbosity of the optimization process. Default is True.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    batch_size : int, optional
+    batch_size : int or str, optional
         Batch size for processing. Default is None.
     """  # noqa: E501
 
@@ -384,7 +384,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        batch_size: int = None,
+        batch_size: int | str = None,
     ):
 
         super().__init__(
@@ -447,8 +447,23 @@ class BatchedAffinityMatcher(AffinityMatcher):
         return batched_affinity_in_, batched_affinity_out_
 
     def _set_batch_size(self):
-        if self.batch_size is not None and self.n_samples_in_ % self.batch_size == 0:
-            self.batch_size_ = self.batch_size
+        if self.batch_size is not None:
+
+            if self.batch_size == "auto":
+                # looking for a suitable batch_size
+                for candidate_n_batches_ in np.arange(10, 1, -1):
+                    if self.n_samples_in_ % candidate_n_batches_ == 0:
+                        self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
+
+                        if self.verbose:
+                            print(
+                                "[TorchDR] WARNING : batch_size in auto mode. "
+                                f"Setting batch_size to {self.batch_size_} (for a "
+                                f"total of {candidate_n_batches_} batches)."
+                            )
+
+            if self.n_samples_in_ % self.batch_size == 0:
+                self.batch_size_ = self.batch_size
 
         else:
             if self.verbose:

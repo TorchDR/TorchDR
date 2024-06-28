@@ -36,6 +36,8 @@ class SNE(NeighborEmbedding):
         Arguments for the optimizer.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
+    scheduler_kwargs : dict, optional
+        Arguments for the scheduler.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z.
     init_scaling : float, optional
@@ -75,9 +77,6 @@ class SNE(NeighborEmbedding):
             Stochastic Neighbor Embedding.
             Advances in neural information processing systems 15 (NeurIPS).
 
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
     """  # noqa: E501
 
     def __init__(
@@ -88,6 +87,7 @@ class SNE(NeighborEmbedding):
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
@@ -138,6 +138,7 @@ class SNE(NeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,

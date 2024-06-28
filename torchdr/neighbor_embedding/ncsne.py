@@ -25,8 +25,6 @@ class InfoTSNE(BatchedAffinityMatcher):
         Dimension of the embedding space.
     lr : float, optional
         Learning rate for the algorithm, by default 1.0.
-    batch_size : int, optional
-        Batch size for the optimization, by default None.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
@@ -65,13 +63,15 @@ class InfoTSNE(BatchedAffinityMatcher):
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
+    batch_size : int or str, optional
+        Batch size for the optimization, by default None.
 
     References
     ----------
 
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
+    .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023)
+            From t-SNE to UMAP with contrastive learning.
+            International Conference on Learning Representations (ICLR).
 
     """  # noqa: E501
 
@@ -80,7 +80,6 @@ class InfoTSNE(BatchedAffinityMatcher):
         perplexity: float = 30,
         n_components: int = 2,
         lr: float = 1.0,
-        batch_size: int | str = "auto",
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
@@ -100,6 +99,7 @@ class InfoTSNE(BatchedAffinityMatcher):
         max_iter_affinity: int = 100,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
+        batch_size: int | str = "auto",
     ):
 
         self.metric_in = metric_in
@@ -145,6 +145,7 @@ class InfoTSNE(BatchedAffinityMatcher):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
+            batch_size=batch_size,
         )
 
     def _repulsive_loss(self, log_Q):

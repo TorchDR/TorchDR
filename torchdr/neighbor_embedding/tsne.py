@@ -36,6 +36,8 @@ class TSNE(NeighborEmbedding):
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
+    scheduler_kwargs : dict, optional
+        Arguments for the scheduler, by default None.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -86,6 +88,7 @@ class TSNE(NeighborEmbedding):
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
@@ -137,6 +140,7 @@ class TSNE(NeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,

@@ -115,7 +115,7 @@ def sum_red(P, dim):
             return P.sum(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
                 "Should be (0, 1) or 0 or 1."
             )
 
@@ -148,7 +148,7 @@ def logsumexp_red(log_P, dim):
             return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
                 "Should be (0, 1) or 0 or 1."
             )
 

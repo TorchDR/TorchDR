@@ -59,14 +59,14 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         Verbosity of the optimization process. Default is True.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    batch_size : int, optional
-        Batch size for the optimization. Default is None.
     coeff_attraction : float, optional
         Coefficient for the attraction term. Default is 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    batch_size : int or str, optional
+        Batch size for the optimization. Default is None.
     """  # noqa: E501
 
     def __init__(
@@ -89,10 +89,10 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        batch_size: int = None,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
+        batch_size: int | str = None,
     ):
 
         if not isinstance(affinity_out, LogAffinity):
