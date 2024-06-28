@@ -8,7 +8,6 @@ Tests for neighbor embedding methods.
 # License: BSD 3-Clause License
 
 import pytest
-import torch
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
 
@@ -18,7 +17,7 @@ from torchdr.utils import check_shape
 
 lst_types = ["float32", "float64"]
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 
 
 def toy_dataset(n=300, dtype="float32"):

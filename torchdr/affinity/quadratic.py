@@ -106,8 +106,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         tolog: bool = False,
         metric: str = "euclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
