@@ -14,19 +14,17 @@ from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, SNEkhorn, TSNEkhorn
 from sklearn.utils.estimator_checks import check_estimator
 
 
-@pytest.mark.parametrize("estimator", [SNE, TSNE, InfoTSNE])
-def test_check_estimator(estimator):
-    check_estimator(estimator(verbose=False, device="cpu", keops=False, max_iter=1))
-
-
-@pytest.mark.parametrize("estimator", [SNEkhorn, TSNEkhorn])
-def test_check_estimator_affinity_lr(estimator):
+@pytest.mark.parametrize(
+    "estimator, kwargs",
+    [
+        (SNE, {}),
+        (TSNE, {}),
+        (InfoTSNE, {}),
+        (SNEkhorn, {"lr_affinity_in": 1e-3}),
+        (TSNEkhorn, {"lr_affinity_in": 1e-3}),
+    ],
+)
+def test_check_estimator(estimator, kwargs):
     check_estimator(
-        estimator(
-            verbose=False,
-            device="cpu",
-            keops=False,
-            max_iter=1,
-            lr_affinity_in=1e-3,
-        )
+        estimator(verbose=False, device="cpu", keops=False, max_iter=1, **kwargs)
     )

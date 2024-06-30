@@ -8,7 +8,6 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
-from abc import abstractmethod
 
 from torchdr.affinity import Affinity, LogAffinity
 from torchdr.affinity_matcher import BatchedAffinityMatcher

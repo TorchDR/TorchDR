@@ -16,8 +16,7 @@ from torchdr.utils import check_shape
 
 
 lst_types = ["float32", "float64"]
-SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 100}
-
+SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
 DEVICE = "cpu"
 
 
@@ -38,7 +37,7 @@ def toy_dataset(n=300, dtype="float32"):
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
-def test_SNE(DRModel, kwargs, dtype):
+def test_NE(DRModel, kwargs, dtype):
     n = 300
     X, y = toy_dataset(n, dtype)
 
@@ -50,6 +49,7 @@ def test_SNE(DRModel, kwargs, dtype):
             device=DEVICE,
             init="normal",
             max_iter=100,
+            random_state=0,
             **kwargs
         )
         Z = model.fit_transform(X)
