@@ -55,6 +55,8 @@ Neighbor Embedding
    SNE
    TSNE
    InfoTSNE
+   SNEkhorn
+   TSNEkhorn
 
 
 Affinity Modules
@@ -71,6 +73,7 @@ Simple Affinities
    GibbsAffinity
    StudentAffinity
    ScalarProductAffinity
+   SelfTuningGibbsAffinity
 
 Entropic Affinities
 """""""""""""""""""

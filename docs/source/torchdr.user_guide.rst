@@ -293,13 +293,13 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-   * - SNEkhorn [3]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
+   * - :class:`SNEkhorn <SNEkhorn>` [3]_
+     - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>`
 
-   * - TSNEkhorn [3]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
+   * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
+     - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 

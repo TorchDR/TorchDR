@@ -12,6 +12,7 @@ Affinity matrices with entropic constraints
 import torch
 import numpy as np
 from tqdm import tqdm
+import contextlib
 
 from torchdr.utils import (
     entropy,
@@ -136,7 +137,7 @@ def _check_perplexity(perplexity, n, verbose=True):
         new_value = n // 2
         if verbose:
             print(
-                "[TorchDR] WARNING (Affinity): The perplexity parameter must be "
+                "[TorchDR] WARNING Affinity: The perplexity parameter must be "
                 "greater than 1 and smaller than the number of samples "
                 f"(here n = {n}). Got perplexity = {perplexity}. "
                 "Setting perplexity to {new_value}."
@@ -236,7 +237,7 @@ class EntropicAffinity(LogAffinity):
 
         if sparsity and self.perplexity > 100 and verbose:
             print(
-                "[TorchDR] WARNING (Affinity): sparsity is not recommended "
+                "[TorchDR] WARNING Affinity: sparsity is not recommended "
                 "for a large value of perplexity."
             )
 
@@ -666,7 +667,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
                     if k == self.max_iter - 1 and self.verbose:
                         print(
-                            "[TorchDR] WARNING (Affinity): max iter attained, "
+                            "[TorchDR] WARNING Affinity: max iter attained, "
                             "algorithm stops but may not have converged."
                         )
 
@@ -760,6 +761,9 @@ class SinkhornAffinity(LogAffinity):
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity.
+    with_grad : bool, optional (default=False)
+        If True, the Sinkhorn iterations are done with gradient tracking.
+        If False, torch.no_grad() is used for the iterations.
 
     References
     ----------
@@ -791,6 +795,7 @@ class SinkhornAffinity(LogAffinity):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
+        with_grad: bool = False,
     ):
         super().__init__(
             metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
@@ -801,6 +806,7 @@ class SinkhornAffinity(LogAffinity):
         self.max_iter = max_iter
         self.base_kernel = base_kernel
         self.tolog = tolog
+        self.with_grad = with_grad
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -841,11 +847,14 @@ class SinkhornAffinity(LogAffinity):
         if self.tolog:
             self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
-        # Sinkhorn iterations
-        for k in range(self.max_iter):
-            with torch.no_grad():
+        context_manager = (
+            contextlib.nullcontext() if self.with_grad else torch.no_grad()
+        )
+        with context_manager:
+            # Sinkhorn iterations
+            for k in range(self.max_iter):
 
-                # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
+                # well conditioned symmetric Sinkhorn iteration (Feydy et al. 2019)
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
                 self.dual_ = 0.5 * (self.dual_ + reduction)
 
@@ -863,7 +872,7 @@ class SinkhornAffinity(LogAffinity):
 
                 if k == self.max_iter - 1 and self.verbose:
                     print(
-                        "[TorchDR] WARNING (Affinity): max iter attained, algorithm "
+                        "[TorchDR] WARNING Affinity: max iter attained, algorithm "
                         "stops but may not have converged."
                     )
 

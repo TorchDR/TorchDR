@@ -75,6 +75,9 @@ class SNEkhorn(NeighborEmbedding):
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
+    unrolling : bool, optional
+        Whether to use unrolling for solving inverse OT. If False, uses
+        the gap objective. Default is False.
 
     References
     ----------
@@ -112,6 +115,7 @@ class SNEkhorn(NeighborEmbedding):
         max_iter_affinity_in: int = 100,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
+        unrolling: bool = False,
     ):
 
         self.metric_in = metric_in
@@ -121,6 +125,7 @@ class SNEkhorn(NeighborEmbedding):
         self.eps_square_affinity_in = eps_square_affinity_in
         self.max_iter_affinity_in = max_iter_affinity_in
         self.tol_affinity_in = tol_affinity_in
+        self.unrolling = unrolling
 
         affinity_in = SymmetricEntropicAffinity(
             perplexity=perplexity,
@@ -139,6 +144,7 @@ class SNEkhorn(NeighborEmbedding):
             keops=keops,
             verbose=False,
             base_kernel="gaussian",
+            with_grad=unrolling,
         )
 
         super().__init__(
@@ -165,7 +171,10 @@ class SNEkhorn(NeighborEmbedding):
         )
 
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=(0, 1))
+        if self.unrolling:
+            return 0
+        else:
+            return logsumexp_red(log_Q, dim=(0, 1)).exp()
 
 
 class TSNEkhorn(NeighborEmbedding):
@@ -228,6 +237,9 @@ class TSNEkhorn(NeighborEmbedding):
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
+    unrolling : bool, optional
+        Whether to use unrolling for solving inverse OT. If False, uses
+        the gap objective. Default is False.
 
     References
     ----------
@@ -265,6 +277,7 @@ class TSNEkhorn(NeighborEmbedding):
         max_iter_affinity_in: int = 100,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
+        unrolling: bool = False,
     ):
 
         self.metric_in = metric_in
@@ -274,6 +287,7 @@ class TSNEkhorn(NeighborEmbedding):
         self.eps_square_affinity_in = eps_square_affinity_in
         self.max_iter_affinity_in = max_iter_affinity_in
         self.tol_affinity_in = tol_affinity_in
+        self.unrolling = unrolling
 
         affinity_in = SymmetricEntropicAffinity(
             perplexity=perplexity,
@@ -292,6 +306,7 @@ class TSNEkhorn(NeighborEmbedding):
             keops=keops,
             verbose=False,
             base_kernel="student",
+            with_grad=unrolling,
         )
 
         super().__init__(
@@ -318,4 +333,7 @@ class TSNEkhorn(NeighborEmbedding):
         )
 
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=(0, 1))
+        if self.unrolling:
+            return 0
+        else:
+            return logsumexp_red(log_Q, dim=(0, 1)).exp()

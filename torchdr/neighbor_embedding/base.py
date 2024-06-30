@@ -164,9 +164,8 @@ class NeighborEmbedding(BatchedAffinityMatcher):
 
         super()._fit(X)
 
-    @abstractmethod
     def _repulsive_loss(self, log_Q):
-        pass
+        return 0
 
     def _loss(self):
         if self.batch_size is None:

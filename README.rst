@@ -69,8 +69,9 @@ Affinities
 ``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gibbs and Student kernels.
+* Self-tuning affinities [22]_.
 * Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
-* Entropic Affinity [1]_ [4]_ (pointwise control of the entropy) and its symmetric version [3]_.
+* Adaptive affinities with entropy control [1]_ [4]_ and its symmetric version [3]_.
 
 DR algorithms
 ~~~~~~~~~~~~~

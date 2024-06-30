@@ -13,10 +13,8 @@ import pytest
 from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, SNEkhorn, TSNEkhorn
 from sklearn.utils.estimator_checks import check_estimator
 
-estimator_list = [SNE, TSNE, InfoTSNE]
 
-
-@pytest.mark.parametrize("estimator", estimator_list)
+@pytest.mark.parametrize("estimator", [SNE, TSNE, InfoTSNE])
 def test_check_estimator(estimator):
     check_estimator(estimator(verbose=False, device="cpu", keops=False, max_iter=1))
 

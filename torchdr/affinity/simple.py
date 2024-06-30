@@ -277,11 +277,15 @@ class GibbsAffinity(LogAffinity):
 
 class SelfTuningGibbsAffinity(LogAffinity):
     r"""
-    Computes the Gibbs affinity matrix
-    :math:`\exp( - \mathbf{C} / \mathbf{\sigma} \mathbf{\sigma}^\top)` with
-    sample-wise bandwidth :math:`\mathbf{\sigma} \in \R^n` based on the
-    neirest neighbor strategy of [22]_, where :math:`\mathbf{C}` is the
-    pairwise distance matrix.
+    Computes the self-tuning [22]_ Gibbs affinity matrix with
+    sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+
+    .. math::
+        \exp \left( - \frac{C_{ij}}{\sigma_i \sigma_j} \right)
+
+    In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
+    :math:`\mathbf{x}_i`.
 
     Parameters
     ----------
