@@ -8,7 +8,6 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
-from abc import abstractmethod
 
 from torchdr.affinity import Affinity, LogAffinity
 from torchdr.affinity_matcher import BatchedAffinityMatcher
@@ -164,9 +163,8 @@ class NeighborEmbedding(BatchedAffinityMatcher):
 
         super()._fit(X)
 
-    @abstractmethod
     def _repulsive_loss(self, log_Q):
-        pass
+        return 0
 
     def _loss(self):
         if self.batch_size is None:
