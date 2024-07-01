@@ -16,6 +16,80 @@ from torchdr.utils import sum_all_axis_except_batch
 
 
 class UMAP(NeighborEmbedding):
+    r"""
+    Implementation of the UMAP algorithm introduced in [14]_.
+
+    Parameters
+    ----------
+    n_neighbors : int
+        Number of nearest neighbors.
+    n_components : int, optional
+        Dimension of the embedding space.
+    min_dist : float, optional
+        Minimum distance between points in the embedding space.
+    spread : float, optional
+        Initial spread of the embedding space.
+    a : float, optional
+        Parameter for the Student t-distribution.
+    b : float, optional
+        Parameter for the Student t-distribution.
+    lr : float, optional
+        Learning rate for the algorithm, by default 1.0.
+    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
+        Which pytorch optimizer to use, by default 'Adam'.
+    optimizer_kwargs : dict, optional
+        Arguments for the optimizer, by default None.
+    scheduler : {'constant', 'linear'}, optional
+        Learning rate scheduler.
+    scheduler_kwargs : dict, optional
+        Arguments for the scheduler, by default None.
+    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+        Initialization for the embedding Z, default 'pca'.
+    init_scaling : float, optional
+        Scaling factor for the initialization, by default 1e-4.
+    tol : float, optional
+        Precision threshold at which the algorithm stops, by default 1e-4.
+    max_iter : int, optional
+        Number of maximum iterations for the descent algorithm.
+    tolog : bool, optional
+        Whether to store intermediate results in a dictionary, by default False.
+    device : str, optional
+        Device to use, by default "auto".
+    keops : bool, optional
+        Whether to use KeOps, by default False.
+    verbose : bool, optional
+        Verbosity, by default True.
+    random_state : float, optional
+        Random seed for reproducibility, by default 0.
+    coeff_attraction : float, optional
+        Coefficient for the attraction term, by default 1.0.
+    coeff_repulsion : float, optional
+        Coefficient for the repulsion term, by default 1.0.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
+    tol_affinity : float, optional
+        Precision threshold for the input affinity computation.
+    max_iter_affinity : int, optional
+        Number of maximum iterations for the input affinity computation.
+    metric_in : {'euclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'euclidean'.
+    metric_out : {'euclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'euclidean'.
+    batch_size : int or str, optional
+        Batch size for the optimization, by default None.
+
+    References
+    ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
+
+    .. [12] Sebastian Damrich, Fred Hamprecht (2021).
+        On UMAP's True Loss Function.
+        Advances in Neural Information Processing Systems 34 (NeurIPS).
+
+    """
+
     def __init__(
         self,
         n_neighbors=30,
@@ -38,8 +112,8 @@ class UMAP(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 7.0,
+        coeff_attraction: float = 1.0,
+        coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
