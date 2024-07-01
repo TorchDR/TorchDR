@@ -9,7 +9,6 @@ Noise-constrastive SNE algorithms
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
-from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(NeighborEmbedding):
@@ -149,4 +148,5 @@ class InfoTSNE(NeighborEmbedding):
         )
 
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=1)
+        return 0
+        # return logsumexp_red(log_Q, dim=1)

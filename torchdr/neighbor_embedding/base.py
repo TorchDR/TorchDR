@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity import Affinity, LogAffinity
 from torchdr.affinity_matcher import BatchedAffinityMatcher
-from torchdr.losses import cross_entropy_loss
+from torchdr.utils import cross_entropy_loss
 
 
 class NeighborEmbedding(BatchedAffinityMatcher):
@@ -177,8 +177,9 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         attractive_term = cross_entropy_loss(P, log_Q, log_Q=True)
         repulsive_term = self._repulsive_loss(log_Q)
 
-        loss = (
+        losses = (
             self.coeff_attraction_ * attractive_term
             + self.coeff_repulsion * repulsive_term
-        ).sum()
+        )  # one loss per batch
+        loss = losses.sum()
         return loss
