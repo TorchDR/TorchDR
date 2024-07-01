@@ -17,7 +17,8 @@ from torchdr.utils import sum_all_axis_except_batch
 
 class UMAP(NeighborEmbedding):
     r"""
-    Implementation of the UMAP algorithm introduced in [14]_.
+    Implementation of the UMAP algorithm introduced in [8]_ and further studied
+    in [12]_.
 
     Parameters
     ----------
