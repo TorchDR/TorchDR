@@ -151,5 +151,7 @@ class SNE(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=1).sum()
+    def _repulsive_loss(self, Q, log=True):
+        if log is False:
+            Q = Q.log()
+        return logsumexp_red(Q, dim=1).sum()

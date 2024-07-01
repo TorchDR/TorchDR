@@ -94,12 +94,6 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         batch_size: int | str = None,
     ):
 
-        if not isinstance(affinity_out, LogAffinity):
-            raise ValueError(
-                "[TorchDR] ERROR : in NeighborEmbedding, affinity_out must be "
-                "a LogAffinity."
-            )
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -163,19 +157,21 @@ class NeighborEmbedding(BatchedAffinityMatcher):
 
         super()._fit(X)
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, Q, log=True):
         return 0
 
     def _loss(self):
+
+        Q_in_log = isinstance(self.affinity_out, LogAffinity)
+
         if self.batch_size is None:
-            log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
+            Q = self.affinity_out.fit_transform(self.embedding_, log=Q_in_log)
             P = self.PX_
-
         else:
-            P, log_Q = self.batched_affinity_in_out(log=True)
+            P, Q = self.batched_affinity_in_out(log=Q_in_log)
 
-        attractive_term = cross_entropy_loss(P, log_Q, log_Q=True)
-        repulsive_term = self._repulsive_loss(log_Q)
+        attractive_term = cross_entropy_loss(P, Q, log_Q=Q_in_log)
+        repulsive_term = self._repulsive_loss(Q, log=Q_in_log)
 
         losses = (
             self.coeff_attraction_ * attractive_term

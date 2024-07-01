@@ -121,11 +121,16 @@ class UMAP(NeighborEmbedding):
         metric_out: str = "euclidean",
         batch_size: int | str = "auto",
     ):
+
+        self.n_neighbors = n_neighbors
+        self.min_dist = min_dist
+        self.spread = spread
+        self.a = a
+        self.b = b
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.n_neighbors = n_neighbors
 
         affinity_in = UMAPAffinityIn(
             n_neighbors=n_neighbors,
@@ -172,7 +177,6 @@ class UMAP(NeighborEmbedding):
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, log_Q):
-        Q = log_Q.exp()
+    def _repulsive_loss(self, Q, log=False):
         Q = Q / (Q + 1)  # trick from https://github.com/lmcinnes/umap/pull/856
-        return -(1 - Q).log()
+        return -(1 - Q).clamp(1e-4, float("inf")).log()

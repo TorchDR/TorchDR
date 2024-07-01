@@ -471,6 +471,7 @@ class BatchedAffinityMatcher(AffinityMatcher):
                             f"Setting batch_size to {self.batch_size_} (for a "
                             f"total of {candidate_n_batches_} batches)."
                         )
+                    break
 
         if self.batch_size is None:
             self.batch_size_ = self.n_samples_in_

@@ -17,6 +17,7 @@ from torchdr.neighbor_embedding import (
     SNEkhorn,
     TSNEkhorn,
     LargeVis,
+    UMAP,
 )
 from sklearn.utils.estimator_checks import check_estimator
 
@@ -30,6 +31,7 @@ from sklearn.utils.estimator_checks import check_estimator
         (SNEkhorn, {"lr_affinity_in": 1e-3}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
         (LargeVis, {}),
+        (UMAP, {}),
     ],
 )
 def test_check_estimator(estimator, kwargs):

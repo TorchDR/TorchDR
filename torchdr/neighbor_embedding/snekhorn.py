@@ -170,11 +170,13 @@ class SNEkhorn(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, Q, log=True):
         if self.unrolling:
             return 0
         else:
-            return logsumexp_red(log_Q, dim=(0, 1)).exp()
+            if log is False:
+                Q = Q.log()
+            return logsumexp_red(Q, dim=(0, 1)).exp()
 
 
 class TSNEkhorn(NeighborEmbedding):
@@ -332,8 +334,10 @@ class TSNEkhorn(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, Q, log=True):
         if self.unrolling:
             return 0
         else:
-            return logsumexp_red(log_Q, dim=(0, 1)).exp()
+            if log is False:
+                Q = Q.log()
+            return logsumexp_red(Q, dim=(0, 1)).exp()

@@ -27,7 +27,7 @@ def _Student_umap(C, a, b):
     r"""
     Returns the Student affinity function used in UMAP.
     """
-    return 1 / (1 + a * C ** (2 * b))
+    return 1 / (1 + a * C**b)
 
 
 # from umap/umap/umap_.py
@@ -39,7 +39,7 @@ def find_ab_params(spread, min_dist):
     """
 
     def curve(x, a, b):
-        return 1.0 / (1.0 + a * x ** (2 * b))
+        return 1.0 / (1.0 + a * x**b)
 
     xv = np.linspace(0, spread * 3, 300)
     yv = np.zeros(xv.shape)

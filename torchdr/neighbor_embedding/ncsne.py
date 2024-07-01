@@ -149,4 +149,3 @@ class InfoTSNE(NeighborEmbedding):
 
     def _repulsive_loss(self, log_Q):
         return 0
-        # return logsumexp_red(log_Q, dim=1)

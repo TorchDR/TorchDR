@@ -19,7 +19,7 @@ def cross_entropy_loss(P, Q, log_Q=False):
     if log_Q:
         return -P * Q
     else:
-        return -P * Q.log()
+        return -P * Q.clamp(1e-4, float("inf")).log()
 
 
 @sum_all_axis_except_batch

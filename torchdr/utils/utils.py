@@ -112,7 +112,7 @@ def sum_red(P, dim):
 
     elif isinstance(P, LazyTensor):
         if dim == (0, 1):
-            return P.sum(1).sum(0)  # shape (1)
+            return P.sum(1).sum()  # shape (1)
         elif dim == 1:
             return P.sum(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
