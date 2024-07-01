@@ -11,7 +11,7 @@ import pytest
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import SNE, TSNE, SNEkhorn, TSNEkhorn
+from torchdr.neighbor_embedding import SNE, TSNE, SNEkhorn, TSNEkhorn, LargeVis
 from torchdr.utils import check_shape
 
 
@@ -34,6 +34,7 @@ def toy_dataset(n=300, dtype="float32"):
         (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
+        (LargeVis, {"coeff_repulsion": 1e-3}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)

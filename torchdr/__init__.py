@@ -42,6 +42,7 @@ from .neighbor_embedding import (
     InfoTSNE,
     SNEkhorn,
     TSNEkhorn,
+    LargeVis,
 )
 
 # import utils
@@ -76,6 +77,7 @@ __all__ = [
     "InfoTSNE",
     "SNEkhorn",
     "TSNEkhorn",
+    "LargeVis",
     "pairwise_distances",
     "binary_search",
     "false_position",

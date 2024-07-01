@@ -10,7 +10,14 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, SNEkhorn, TSNEkhorn
+from torchdr.neighbor_embedding import (
+    SNE,
+    TSNE,
+    InfoTSNE,
+    SNEkhorn,
+    TSNEkhorn,
+    LargeVis,
+)
 from sklearn.utils.estimator_checks import check_estimator
 
 
@@ -22,6 +29,7 @@ from sklearn.utils.estimator_checks import check_estimator
         (InfoTSNE, {}),
         (SNEkhorn, {"lr_affinity_in": 1e-3}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
+        (LargeVis, {}),
     ],
 )
 def test_check_estimator(estimator, kwargs):

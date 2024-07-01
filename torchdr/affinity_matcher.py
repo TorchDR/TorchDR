@@ -21,12 +21,11 @@ from torchdr.utils import (
 from torchdr.affinity import Affinity
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
-from torchdr.losses import square_loss, cross_entropy_loss, binary_cross_entropy_loss
+from torchdr.utils import square_loss, cross_entropy_loss
 
 LOSS_DICT = {
     "square_loss": square_loss,
     "cross_entropy_loss": cross_entropy_loss,
-    "binary_cross_entropy_loss": binary_cross_entropy_loss,
 }
 
 
@@ -454,18 +453,18 @@ class BatchedAffinityMatcher(AffinityMatcher):
                 self.batch_size_ = self.batch_size
 
             else:
+                activate_auto = True
                 if self.verbose:
                     print(
                         "[TorchDR] WARNING: batch_size not suitable (must divide the "
                         "number of samples). Switching to auto mode to set batch_size."
                     )
-                activate_auto = True
 
         if self.batch_size == "auto" or activate_auto:
             # looking for a suitable batch_size
             for candidate_n_batches_ in np.arange(10, 1, -1):
                 if self.n_samples_in_ % candidate_n_batches_ == 0:
-
+                    self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
                     if self.verbose:
                         print(
                             "[TorchDR] WARNING : batch_size in auto mode. "
@@ -473,14 +472,12 @@ class BatchedAffinityMatcher(AffinityMatcher):
                             f"total of {candidate_n_batches_} batches)."
                         )
 
-                    self.batch_size_ = self.n_samples_in_ // candidate_n_batches_
-
-        else:
+        if self.batch_size is None:
+            self.batch_size_ = self.n_samples_in_
             if self.verbose:
                 print(
                     "[TorchDR] WARNING: setting batch_size to the number of samples "
                     f"({self.n_samples_in_})."
                 )
-            self.batch_size_ = self.n_samples_in_
 
         return self.batch_size_

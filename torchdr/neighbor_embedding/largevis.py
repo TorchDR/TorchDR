@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Noise-constrastive SNE algorithms
+LargeVis algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -8,11 +8,16 @@ Noise-constrastive SNE algorithms
 # License: BSD 3-Clause License
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
-from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
+from torchdr.affinity import (
+    L2SymmetricEntropicAffinity,
+    StudentAffinity,
+)
+from torchdr.utils import sum_all_axis_except_batch
 
 
-class InfoTSNE(NeighborEmbedding):
+class LargeVis(NeighborEmbedding):
     """
+    Implementation of the LargeVis algorithm introduced in [13]_.
 
     Parameters
     ----------
@@ -30,6 +35,8 @@ class InfoTSNE(NeighborEmbedding):
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
+    scheduler_kwargs : dict, optional
+        Arguments for the scheduler, by default None.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -68,9 +75,9 @@ class InfoTSNE(NeighborEmbedding):
     References
     ----------
 
-    .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023)
-            From t-SNE to UMAP with contrastive learning.
-            International Conference on Learning Representations (ICLR).
+    .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
+            Visualizing Large-Scale and High-Dimensional Data.
+            In Proceedings of the 25th international conference on world wide web.
 
     """  # noqa: E501
 
@@ -82,6 +89,7 @@ class InfoTSNE(NeighborEmbedding):
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
@@ -92,7 +100,7 @@ class InfoTSNE(NeighborEmbedding):
         verbose: bool = True,
         random_state: float = 0,
         coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 1.0,
+        coeff_repulsion: float = 7.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -118,7 +126,7 @@ class InfoTSNE(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
+            normalization_dim=None,
             device=device,
             keops=keops,
             verbose=False,
@@ -134,6 +142,7 @@ class InfoTSNE(NeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,
@@ -147,6 +156,8 @@ class InfoTSNE(NeighborEmbedding):
             batch_size=batch_size,
         )
 
+    @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
-        return 0
-        # return logsumexp_red(log_Q, dim=1)
+        Q = log_Q.exp()
+        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+        return -(1 - Q).log()

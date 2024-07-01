@@ -100,6 +100,10 @@ def sum_red(P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed or
     multiplied with P.
     """
+    ndim_input = len(P.shape)
+    if ndim_input != 2:
+        raise ValueError("[TorchDR] ERROR : input to sum_red should be a 2d tensor.")
+
     if dim is None:
         return 1
 
@@ -108,7 +112,7 @@ def sum_red(P, dim):
 
     elif isinstance(P, LazyTensor):
         if dim == (0, 1):
-            return P.sum(0).sum()  # shape (1)
+            return P.sum(1).sum(0)  # shape (1)
         elif dim == 1:
             return P.sum(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
@@ -133,6 +137,12 @@ def logsumexp_red(log_P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed
     or multiplied with P.
     """
+    ndim_input = len(log_P.shape)
+    if ndim_input != 2:
+        raise ValueError(
+            "[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor."
+        )
+
     if dim is None:
         return 0
 

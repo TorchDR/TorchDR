@@ -7,12 +7,14 @@
 
 from .optim import binary_search, false_position, OPTIMIZERS
 
+from .losses import cross_entropy_loss, square_loss
+
 from .wrappers import (
     wrap_vectors,
     to_torch,
     torch_to_backend,
     handle_backend,
-    sum_all_axis,
+    sum_all_axis_except_batch,
 )
 
 from .geometry import pairwise_distances, LIST_METRICS
@@ -52,12 +54,14 @@ __all__ = [
     "binary_search",
     "false_position",
     "OPTIMIZERS",
+    "cross_entropy_loss",
+    "square_loss",
     "wrap_vectors",
     "kmin",
     "kmax",
     "sum_matrix_vector",
     "sum_red",
-    "sum_all_axis",
+    "sum_all_axis_except_batch",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",

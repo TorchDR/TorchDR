@@ -128,18 +128,31 @@ def wrap_vectors(func):
     return wrapper
 
 
-def sum_all_axis(func):
+def sum_all_axis_except_batch(func):
     """
-    Sum the output matrix over all axis.
+    Sums the output over all axis if the tensor has 2 dimensions.
+    Sums the output over all axis except the batch axis if the tensor has 3 dimensions.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         output = func(*args, **kwargs)
-        assert isinstance(output, torch.Tensor) or isinstance(
-            output, LazyTensor
-        ), "sum_all_axis can only be applied to a tensor or lazy tensor."
-        return output.sum(1).sum()  # for compatibility with KeOps
+        ndim_output = len(output.shape)
+
+        if not (isinstance(output, torch.Tensor) or isinstance(output, LazyTensor)):
+            raise ValueError(
+                "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
+                "to a torch.Tensor or pykeops.torch.LazyTensor."
+            )
+        elif ndim_output == 2:
+            return output.sum(1).sum(0)
+        elif ndim_output == 3:
+            return output.sum(2).sum(1)
+        else:
+            raise ValueError(
+                "[TorchDR] ERROR : Unsupported input shape for "
+                "sum_all_axis_except_batch function."
+            )
 
     return wrapper
 
