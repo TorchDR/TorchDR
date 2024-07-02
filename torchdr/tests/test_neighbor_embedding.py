@@ -18,6 +18,7 @@ from torchdr.neighbor_embedding import (
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
+    UMAP,
 )
 from torchdr.utils import check_shape
 
@@ -43,25 +44,25 @@ def toy_dataset(n=300, dtype="float32"):
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {"coeff_repulsion": 1e-3}),
         (InfoTSNE, {}),
+        (UMAP, {"coeff_repulsion": 1e-3, "batch_size": None}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
-def test_NE(DRModel, kwargs, dtype):
+@pytest.mark.parametrize("keops", [True, False])
+def test_NE(DRModel, kwargs, dtype, keops):
     n = 300
     X, y = toy_dataset(n, dtype)
 
-    for keops in [False, True]:
-        model = DRModel(
-            n_components=2,
-            perplexity=30,
-            keops=keops,
-            device=DEVICE,
-            init="normal",
-            max_iter=100,
-            random_state=0,
-            **kwargs
-        )
-        Z = model.fit_transform(X)
+    model = DRModel(
+        n_components=2,
+        keops=keops,
+        device=DEVICE,
+        init="normal",
+        max_iter=100,
+        random_state=0,
+        **kwargs
+    )
+    Z = model.fit_transform(X)
 
-        check_shape(Z, (n, 2))
-        assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+    check_shape(Z, (n, 2))
+    assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."

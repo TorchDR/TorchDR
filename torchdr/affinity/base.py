@@ -75,7 +75,7 @@ class Affinity(ABC):
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         return self
 
-    def fit_transform(self, X: torch.Tensor | np.ndarray):
+    def fit_transform(self, X: torch.Tensor | np.ndarray, **kwargs):
         r"""
         Computes the affinity matrix from input data :math:`\mathbf{X}` and returns
         the resulting matrix.
@@ -116,7 +116,8 @@ class Affinity(ABC):
         Parameters
         ----------
         X : torch.Tensor
-            A 2D tensor of shape (n_samples, n_features) containing the input data.
+            A 2D tensor of shape (n_samples, n_features) or 3D tensor of shape
+            (n_batch, batch_size, n_features) containing the input data.
 
         Returns
         -------

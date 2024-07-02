@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-LargeVis algorithm
+UMAP algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -9,24 +9,31 @@ LargeVis algorithm
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    L2SymmetricEntropicAffinity,
-    StudentAffinity,
+    UMAPAffinityIn,
+    UMAPAffinityOut,
 )
 from torchdr.utils import sum_all_axis_except_batch
 
 
-class LargeVis(NeighborEmbedding):
-    """
-    Implementation of the LargeVis algorithm introduced in [13]_.
+class UMAP(NeighborEmbedding):
+    r"""
+    Implementation of the UMAP algorithm introduced in [8]_ and further studied
+    in [12]_.
 
     Parameters
     ----------
-    perplexity : float
-        Number of 'effective' nearest neighbors.
-        Consider selecting a value between 2 and the number of samples.
-        Different values can result in significantly different results.
+    n_neighbors : int
+        Number of nearest neighbors.
     n_components : int, optional
         Dimension of the embedding space.
+    min_dist : float, optional
+        Minimum distance between points in the embedding space.
+    spread : float, optional
+        Initial spread of the embedding space.
+    a : float, optional
+        Parameter for the Student t-distribution.
+    b : float, optional
+        Parameter for the Student t-distribution.
     lr : float, optional
         Learning rate for the algorithm, by default 1.0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
@@ -44,7 +51,7 @@ class LargeVis(NeighborEmbedding):
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
+        Number of maximum iterations for the descent algorithm.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -56,15 +63,15 @@ class LargeVis(NeighborEmbedding):
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+        Coefficient for the attraction term, by default 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : _type_, optional
-        Precision threshold for the entropic affinity root search.
+    tol_affinity : float, optional
+        Precision threshold for the input affinity computation.
     max_iter_affinity : int, optional
-        Number of maximum iterations for the entropic affinity root search.
+        Number of maximum iterations for the input affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
@@ -74,33 +81,40 @@ class LargeVis(NeighborEmbedding):
 
     References
     ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
 
-    .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
-            Visualizing Large-Scale and High-Dimensional Data.
-            In Proceedings of the 25th international conference on world wide web.
+    .. [12] Sebastian Damrich, Fred Hamprecht (2021).
+        On UMAP's True Loss Function.
+        Advances in Neural Information Processing Systems 34 (NeurIPS).
 
-    """  # noqa: E501
+    """
 
     def __init__(
         self,
-        perplexity: float = 30,
-        n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        n_neighbors=30,
+        n_components=2,
+        min_dist=0.1,
+        spread=1.0,
+        a=None,
+        b=None,
+        lr=1.0,
+        optimizer="Adam",
+        optimizer_kwargs=None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
         max_iter: int = 1000,
-        tolog: bool = False,
+        tolog=False,
         device: str = None,
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 7.0,
+        coeff_attraction: float = 1.0,
+        coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -109,14 +123,18 @@ class LargeVis(NeighborEmbedding):
         batch_size: int | str = "auto",
     ):
 
+        self.n_neighbors = n_neighbors
+        self.min_dist = min_dist
+        self.spread = spread
+        self.a = a
+        self.b = b
         self.metric_in = metric_in
         self.metric_out = metric_out
-        self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = L2SymmetricEntropicAffinity(
-            perplexity=perplexity,
+        affinity_in = UMAPAffinityIn(
+            n_neighbors=n_neighbors,
             metric=metric_in,
             tol=tol_affinity,
             max_iter=max_iter_affinity,
@@ -124,9 +142,12 @@ class LargeVis(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
         )
-        affinity_out = StudentAffinity(
+        affinity_out = UMAPAffinityOut(
+            min_dist=min_dist,
+            spread=spread,
+            a=a,
+            b=b,
             metric=metric_out,
-            normalization_dim=None,
             device=device,
             keops=keops,
             verbose=False,
@@ -157,7 +178,6 @@ class LargeVis(NeighborEmbedding):
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, log_Q):
-        Q = log_Q.exp() + 1e-6
-        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+    def _repulsive_loss(self, Q):
+        Q = Q / (Q + 1)  # trick from https://github.com/lmcinnes/umap/pull/856
         return -(1 - Q).log()
