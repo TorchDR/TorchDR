@@ -17,7 +17,7 @@ from torchdr.utils import logsumexp_red
 
 class BaseSNEkhorn(NeighborEmbedding):
     """
-    Base class for SNEkhorn and TSNEkhorn algorithms.
+    Base class for SNEkhorn and TSNEkhorn algorithms [3]_.
 
     Parameters
     ----------
@@ -71,6 +71,8 @@ class BaseSNEkhorn(NeighborEmbedding):
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.
+    max_iter_affinity_out : int, optional
+        Number of maximum iterations for the output affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
@@ -80,6 +82,14 @@ class BaseSNEkhorn(NeighborEmbedding):
         the gap objective. Default is False.
     base_kernel : str, optional
         Base kernel to use for the output affinity, by default "gaussian".
+
+    References
+    ----------
+
+    .. [3]  Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023).
+            SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
+            Advances in Neural Information Processing Systems 36 (NeurIPS).
+
     """
 
     def __init__(
@@ -100,13 +110,14 @@ class BaseSNEkhorn(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 12.0,
+        coeff_attraction: float = 10.0,
         coeff_repulsion: float = 1.0,
-        early_exaggeration_iter: int = 100,
+        early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e0,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
         max_iter_affinity_in: int = 100,
+        max_iter_affinity_out: int = 10,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
         unrolling: bool = False,
@@ -119,6 +130,7 @@ class BaseSNEkhorn(NeighborEmbedding):
         self.lr_affinity_in = lr_affinity_in
         self.eps_square_affinity_in = eps_square_affinity_in
         self.max_iter_affinity_in = max_iter_affinity_in
+        self.max_iter_affinity_out = max_iter_affinity_out
         self.tol_affinity_in = tol_affinity_in
         self.unrolling = unrolling
 
@@ -140,6 +152,7 @@ class BaseSNEkhorn(NeighborEmbedding):
             verbose=False,
             base_kernel=base_kernel,
             with_grad=unrolling,
+            max_iter=max_iter_affinity_out,
         )
 
         super().__init__(
@@ -228,6 +241,8 @@ class SNEkhorn(BaseSNEkhorn):
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.
+    max_iter_affinity_out : int, optional
+        Number of maximum iterations for the output affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
@@ -304,6 +319,8 @@ class TSNEkhorn(BaseSNEkhorn):
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.
+    max_iter_affinity_out : int, optional
+        Number of maximum iterations for the output affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
