@@ -8,7 +8,6 @@ Spectral methods for dimensionality reduction
 # License: BSD 3-Clause License
 
 import torch
-from scipy.sparse.linalg import aslinearoperator, eigsh
 
 from torchdr.base import DRModule
 from torchdr.utils import (
@@ -58,6 +57,7 @@ class KernelPCA(DRModule):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
+        nodiag: bool = False,
     ):
         super().__init__(
             n_components=n_components,
