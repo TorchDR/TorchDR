@@ -56,10 +56,10 @@ def to_torch(x, device="auto", verbose=True, return_backend_device=False):
         input_backend = "torch"
         input_device = x.device
 
-        if device != "auto" and input_device != new_device:
-            x_ = x.to(new_device)
-        else:  # keep the same device if device="auto"
+        if device == "auto" or input_device == new_device:
             x_ = x
+        else:
+            x_ = x.to(new_device)
 
     else:
         x = check_array(x, accept_sparse=False)  # check if contains only finite values
