@@ -150,7 +150,7 @@ class InfoTSNE(NeighborEmbedding):
 
     def _loss(self):
         P, log_Q = self.batched_affinity_in_out(log=True)
-        log_Q = log_Q - log_Q.logsumexp(2)[:, :, None]
+        log_Q = log_Q - log_Q.logsumexp(2)[:, :, None]  # beware of the batch dimension
         losses = cross_entropy_loss(P, log_Q, log_Q=True)
         loss = losses.sum()
         return loss
