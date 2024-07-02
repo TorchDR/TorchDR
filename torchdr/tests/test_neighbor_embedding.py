@@ -18,7 +18,8 @@ from torchdr.neighbor_embedding import (
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
-), UMAP
+    UMAP,
+)
 from torchdr.utils import check_shape
 
 
