@@ -9,6 +9,7 @@ Noise-constrastive SNE algorithms
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
+from torchdr.utils import cross_entropy_loss
 
 
 class InfoTSNE(NeighborEmbedding):
@@ -147,6 +148,9 @@ class InfoTSNE(NeighborEmbedding):
             batch_size=batch_size,
         )
 
-    def _repulsive_loss(self, log_Q):
-        return 0
-        # return logsumexp_red(log_Q, dim=1)
+    def _loss(self):
+        P, log_Q = self.batched_affinity_in_out(log=True)
+        log_Q = log_Q - log_Q.logsumexp(2)[:, :, None]
+        losses = cross_entropy_loss(P, log_Q, log_Q=True)
+        loss = losses.sum()
+        return loss

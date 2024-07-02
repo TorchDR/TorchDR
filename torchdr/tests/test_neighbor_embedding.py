@@ -35,6 +35,7 @@ def toy_dataset(n=300, dtype="float32"):
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {"coeff_repulsion": 1e-3}),
+        (InfoTSNE, {}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
