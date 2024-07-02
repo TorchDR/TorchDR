@@ -9,7 +9,6 @@ Tests estimators for scikit-learn compatibility.
 # License: BSD 3-Clause License
 
 import pytest
-import torch
 
 from torchdr.neighbor_embedding import (
     SNE,
@@ -30,8 +29,8 @@ DEVICE = "cpu"
         (SNE, {}),
         (TSNE, {}),
         (InfoTSNE, {}),
-        (SNEkhorn, {"lr_affinity_in": 1e-1}),
-        (TSNEkhorn, {"lr_affinity_in": 1e-5, "max_iter_affinity_out": 1}),
+        (SNEkhorn, {"lr_affinity_in": 1e-3}),
+        (TSNEkhorn, {"lr_affinity_in": 1e-5}),
         (LargeVis, {}),
     ],
 )
