@@ -17,12 +17,23 @@ from torchdr.utils import (
     center_kernel,
     check_nonnegativity_eigenvalues,
 )
-from torchdr.affinity import GibbsAffinity
+from torchdr.affinity import Affinity, GibbsAffinity
 
 
 class PCA(DRModule):
-    def __init__(self, n_components=2, device=None, verbose=False):
-        super().__init__(n_components=n_components, device=device, verbose=verbose)
+    def __init__(
+        self,
+        n_components: int = 2,
+        device: str = "auto",
+        verbose: bool = True,
+        random_state: float = 0,
+    ):
+        super().__init__(
+            n_components=n_components,
+            device=device,
+            verbose=verbose,
+            random_state=random_state,
+        )
 
     def fit(self, X: torch.Tensor):
         X = super().fit(X)
@@ -41,23 +52,39 @@ class PCA(DRModule):
 class KernelPCA(DRModule):
     def __init__(
         self,
-        affinity=GibbsAffinity(),
-        n_components=2,
-        verbose=False,
-        remove_zero_eig=False,
+        affinity: Affinity = GibbsAffinity(),
+        n_components: int = 2,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+        random_state: float = 0,
     ):
-        super().__init__(n_components=n_components, verbose=verbose)
+        super().__init__(
+            n_components=n_components,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            random_state=random_state,
+        )
+
         self.affinity = affinity
-        self.remove_zero_eig = remove_zero_eig
+        self.affinity.keops = keops
+        self.affinity.device = device
+        self.affinity.random_state = random_state
+        self.nodiag = nodiag
+
+        if keops is True:
+            raise NotImplementedError(
+                "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
+            )
 
     def fit(self, X):
         X = super().fit(X)
         K = self.affinity.fit_transform(X)
         K = center_kernel(K)
-        K = aslinearoperator(K)
 
         # compute eigendecomposition
-        self.eigenvalues_, self.eigenvectors_ = eigsh(K, k=self.n_components)
+        self.eigenvalues_, self.eigenvectors_ = torch.linalg.eigh(K)
 
         # make sure that the eigenvalues are ok and fix numerical issues
         self.eigenvalues_ = check_nonnegativity_eigenvalues(self.eigenvalues_)
@@ -73,7 +100,7 @@ class KernelPCA(DRModule):
         self.eigenvectors_ = self.eigenvectors_[:, indices]
 
         # remove eigenvectors with a zero eigenvalue (null space) if required
-        if self.remove_zero_eig or self.n_components is None:
+        if self.nodiag or self.n_components is None:
             self.eigenvectors_ = self.eigenvectors_[:, self.eigenvalues_ > 0]
             self.eigenvalues_ = self.eigenvalues_[self.eigenvalues_ > 0]
 
@@ -93,6 +120,4 @@ class KernelPCA(DRModule):
     @handle_backend
     def fit_transform(self, X):
         self.fit(X)
-        print(self.eigenvectors_.shape, self.eigenvalues_.shape)
-        print(self.eigenvalues_)
         return self.eigenvectors_ * self.eigenvalues_[-self.n_components :].sqrt()
