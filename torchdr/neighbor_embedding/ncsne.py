@@ -9,6 +9,7 @@ Noise-constrastive SNE algorithms
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
+from torchdr.utils import cross_entropy_loss
 
 
 class InfoTSNE(NeighborEmbedding):
@@ -63,7 +64,7 @@ class InfoTSNE(NeighborEmbedding):
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
     batch_size : int or str, optional
-        Batch size for the optimization, by default None.
+        Batch size for the optimization, by default "auto".
 
     References
     ----------
@@ -91,9 +92,6 @@ class InfoTSNE(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 1.0,
-        early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "euclidean",
@@ -141,12 +139,12 @@ class InfoTSNE(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
-            coeff_repulsion=coeff_repulsion,
-            early_exaggeration_iter=early_exaggeration_iter,
             batch_size=batch_size,
         )
 
-    def _repulsive_loss(self, log_Q):
-        return 0
-        # return logsumexp_red(log_Q, dim=1)
+    def _loss(self):
+        P, log_Q = self.batched_affinity_in_out(log=True)
+        log_Q = log_Q - log_Q.logsumexp(2)[:, :, None]  # beware of the batch dimension
+        losses = cross_entropy_loss(P, log_Q, log_Q=True)
+        loss = losses.sum()
+        return loss

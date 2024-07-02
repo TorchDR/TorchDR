@@ -84,7 +84,7 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
-        device: str = None,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
