@@ -20,7 +20,7 @@ def _log_Pumap(C, rho, sigma):
     r"""
     Returns the log of the input affinity matrix used in UMAP.
     """
-    return -(C - rho) / sigma
+    return -(C - rho).clamp(0, float("inf")) / sigma
 
 
 def _Student_umap(C, a, b):

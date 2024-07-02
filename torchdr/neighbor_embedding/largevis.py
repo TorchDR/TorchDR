@@ -157,8 +157,7 @@ class LargeVis(NeighborEmbedding):
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, Q, log=False):
-        if log:
-            Q = Q.exp()
+    def _repulsive_loss(self, log_Q):
+        Q = log_Q.exp() + 1e-6
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
         return -(1 - Q).log()

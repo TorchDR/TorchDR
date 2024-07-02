@@ -178,6 +178,6 @@ class UMAP(NeighborEmbedding):
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, Q, log=False):
+    def _repulsive_loss(self, Q):
         Q = Q / (Q + 1)  # trick from https://github.com/lmcinnes/umap/pull/856
-        return -(1 - Q).clamp(1e-4, float("inf")).log()
+        return -(1 - Q).log()

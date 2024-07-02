@@ -33,7 +33,7 @@ DEVICE = "cpu"
         (SNEkhorn, {"lr_affinity_in": 1e-3}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
         (LargeVis, {}),
-        (UMAP, {}),
+        (UMAP, {"lr": 1e-3}),
     ],
 )
 def test_check_estimator(estimator, kwargs):

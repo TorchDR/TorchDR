@@ -171,7 +171,7 @@ class NeighborEmbedding(BatchedAffinityMatcher):
             P, Q = self.batched_affinity_in_out(log=Q_in_log)
 
         attractive_term = cross_entropy_loss(P, Q, log_Q=Q_in_log)
-        repulsive_term = self._repulsive_loss(Q, log=Q_in_log)
+        repulsive_term = self._repulsive_loss(Q)
 
         losses = (
             self.coeff_attraction_ * attractive_term
