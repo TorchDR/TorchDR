@@ -34,6 +34,20 @@ def _log_Pe(C, eps):
     r"""
     Returns the log of the unnormalized directed entropic affinity matrix
     with prescribed kernel bandwidth epsilon.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Pairwise distance matrix.
+    eps : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the entropic constraint.
+
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        The log of the unnormalized affinity matrix.
     """
     return -C / eps
 
@@ -43,6 +57,22 @@ def _log_Pse(C, eps, mu, eps_square=False):
     r"""
     Returns the log of the symmetric entropic affinity matrix
     with given (dual) variables epsilon and mu.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Pairwise distance matrix.
+    eps : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the entropic constraint.
+    mu : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the normalization constraint.
+
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        The log of the unnormalized affinity matrix.
     """
     _eps = eps**2 if eps_square else eps
     mu_t = batch_transpose(mu)
@@ -56,6 +86,20 @@ def _log_Pds(log_K, dual):
     Returns the log of the doubly stochastic normalization of log_K (in log domain)
     given a scaling vector (dual variable) which can be computed via the
     Sinkhorn iterations.
+
+    Parameters
+    ----------
+    log_K : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Log of the base kernel.
+    dual : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the normalization constraint.
+
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        The log of the doubly stochastic normalization of log_K.
     """
     dual_t = batch_transpose(dual)
     return dual + dual_t + log_K
