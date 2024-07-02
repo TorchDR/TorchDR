@@ -26,7 +26,7 @@ class PCA(DRModule):
         super().__init__(n_components=n_components, device=device, verbose=verbose)
 
     def fit(self, X: torch.Tensor):
-        X = to_torch(X, device=self.device, verbose=self.verbose)
+        X = super().fit(X)
         self.mean_ = X.mean(0, keepdim=True)
         U, _, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
@@ -52,7 +52,7 @@ class KernelPCA(DRModule):
         self.remove_zero_eig = remove_zero_eig
 
     def fit(self, X):
-        super().fit(X)
+        X = super().fit(X)
         K = self.affinity.fit_transform(X)
         K = center_kernel(K)
         K = aslinearoperator(K)
