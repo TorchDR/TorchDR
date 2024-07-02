@@ -28,6 +28,7 @@ def _log_Gibbs(C, sigma):
     Parameters
     ----------
     C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
         Pairwise distance matrix.
     sigma : float
         Bandwidth parameter.
@@ -44,19 +45,20 @@ def _log_Gibbs(C, sigma):
 def _log_SelfTuningGibbs(C, sigma):
     r"""
     Returns the self-tuning Gibbs affinity matrix with sample-wise bandwidth
-    determined by the distance from a point to its K-th neirest neighbor
     in log domain.
 
     Parameters
     ----------
     C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
         Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
+    sigma : torch.Tensor of shape (n,) or (n_batch, batch_size)
         Sample-wise bandwidth parameter.
 
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
+        The self-tuning Gibbs affinity matrix in log domain.
     """
     sigma_t = batch_transpose(sigma)
     return -C / (sigma * sigma_t)
@@ -69,6 +71,7 @@ def _log_Student(C, degrees_of_freedom):
     Parameters
     ----------
     C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
         Pairwise distance matrix.
     degrees_of_freedom : float
         Degrees of freedom parameter.
@@ -76,6 +79,7 @@ def _log_Student(C, degrees_of_freedom):
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
+        The Student affinity matrix in log domain.
     """
     return -0.5 * (degrees_of_freedom + 1) * (C / degrees_of_freedom + 1).log()
 
