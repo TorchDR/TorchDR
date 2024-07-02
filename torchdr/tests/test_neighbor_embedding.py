@@ -11,7 +11,14 @@ import pytest
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import SNE, TSNE, SNEkhorn, TSNEkhorn, LargeVis
+from torchdr.neighbor_embedding import (
+    SNE,
+    TSNE,
+    SNEkhorn,
+    TSNEkhorn,
+    LargeVis,
+    InfoTSNE,
+)
 from torchdr.utils import check_shape
 
 
