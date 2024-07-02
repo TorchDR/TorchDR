@@ -21,6 +21,8 @@ from torchdr.neighbor_embedding import (
 )
 from sklearn.utils.estimator_checks import check_estimator
 
+DEVICE = "cpu"
+
 
 @pytest.mark.parametrize(
     "estimator, kwargs",
@@ -36,5 +38,5 @@ from sklearn.utils.estimator_checks import check_estimator
 )
 def test_check_estimator(estimator, kwargs):
     check_estimator(
-        estimator(verbose=False, device="cpu", keops=False, max_iter=1, **kwargs)
+        estimator(verbose=False, device=DEVICE, keops=False, max_iter=1, **kwargs)
     )
