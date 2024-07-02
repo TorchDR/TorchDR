@@ -30,7 +30,7 @@ DEVICE = "cpu"
         (TSNE, {}),
         (InfoTSNE, {}),
         (SNEkhorn, {"lr_affinity_in": 1e-3}),
-        (TSNEkhorn, {"lr_affinity_in": 1e-5}),
+        (TSNEkhorn, {"lr_affinity_in": 1e-3}),
         (LargeVis, {}),
     ],
 )
