@@ -16,7 +16,6 @@ from torchdr.utils import (
     handle_backend,
     center_kernel,
     check_nonnegativity_eigenvalues,
-    to_torch,
 )
 from torchdr.affinity import GibbsAffinity
 
