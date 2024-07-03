@@ -6,12 +6,13 @@
 
 from .base import Affinity, LogAffinity
 
-from .simple import (
+from .kernel import (
     ScalarProductAffinity,
     GibbsAffinity,
-    SelfTuningGibbsAffinity,
     StudentAffinity,
 )
+
+from .knn_normalized import SelfTuningGibbsAffinity
 
 from .entropic import (
     EntropicAffinity,
