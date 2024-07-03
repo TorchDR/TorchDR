@@ -12,7 +12,7 @@ from torchdr.affinity import (
     L2SymmetricEntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, sum_red
 
 
 class LargeVis(NeighborEmbedding):
@@ -158,6 +158,13 @@ class LargeVis(NeighborEmbedding):
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
+
+        # normalize the mass of the input affinity
+        if not hasattr(self, "weight_affinity_in_"):
+            self.weight_affinity_in_ = (
+                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
+            ).item()
+
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
-        return -(1 - Q).log()
+        return -self.weight_affinity_in_ * (1 - Q).log()

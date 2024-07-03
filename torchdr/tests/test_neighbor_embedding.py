@@ -41,7 +41,7 @@ def toy_dataset(n=300, dtype="float32"):
         (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
-        (LargeVis, {"coeff_repulsion": 1e-3}),
+        (LargeVis, {}),
         (InfoTSNE, {}),
     ],
 )
