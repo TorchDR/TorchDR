@@ -3,7 +3,8 @@
 Spectral methods for dimensionality reduction
 """
 
-# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+# Authors: Hugues Van Assel <vanasselhugues@gmail.com>
+#          Mathurin Massias
 #
 # License: BSD 3-Clause License
 
