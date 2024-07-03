@@ -12,6 +12,7 @@ Affinity matrices with entropic constraints
 import torch
 import numpy as np
 from tqdm import tqdm
+import contextlib
 
 from torchdr.utils import (
     entropy,
@@ -122,6 +123,30 @@ def _bounds_entropic_affinity(C, perplexity):
     return begin, end
 
 
+def _check_perplexity(perplexity, n, verbose=True):
+    r"""
+    Checks the perplexity parameter and returns a valid value.
+    """
+    if n <= 1:
+        raise ValueError(
+            "[TorchDR] ERROR Affinity: Input has less than one sample : "
+            f"n_samples = {n}."
+        )
+
+    if perplexity >= n or perplexity <= 1:
+        new_value = n // 2
+        if verbose:
+            print(
+                "[TorchDR] WARNING Affinity: The perplexity parameter must be "
+                "greater than 1 and smaller than the number of samples "
+                f"(here n = {n}). Got perplexity = {perplexity}. "
+                "Setting perplexity to {new_value}."
+            )
+        return new_value
+    else:
+        return perplexity
+
+
 class EntropicAffinity(LogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
@@ -154,7 +179,7 @@ class EntropicAffinity(LogAffinity):
 
     Parameters
     ----------
-    perplexity : float
+    perplexity : float, optional
         Perplexity parameter, related to the number of 'effective' nearest neighbors.
         Consider selecting a value between 2 and the number of samples.
     tol : float, optional
@@ -166,22 +191,14 @@ class EntropicAffinity(LogAffinity):
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric : str, optional
         Metric to use for computing distances (default "euclidean").
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity.
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
 
     References
     ----------
@@ -205,11 +222,14 @@ class EntropicAffinity(LogAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
-        device: str = None,
-        keops: bool = True,
+        nodiag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.perplexity = perplexity
         self.tol = tol
         self.max_iter = max_iter
@@ -217,7 +237,7 @@ class EntropicAffinity(LogAffinity):
 
         if sparsity and self.perplexity > 100 and verbose:
             print(
-                "[TorchDR] Affinity (WARNING): sparsity is not recommended "
+                "[TorchDR] WARNING Affinity: sparsity is not recommended "
                 "for a large value of perplexity."
             )
 
@@ -228,7 +248,7 @@ class EntropicAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -238,7 +258,7 @@ class EntropicAffinity(LogAffinity):
         """
         super().fit(X)
 
-        C_full = self._ground_cost_matrix(self.data_)
+        C_full = self._pairwise_distance_matrix(self.data_)
         if self._sparsity and self.verbose:
             print(
                 "[TorchDR] Affinity : sparsity mode enabled, computing "
@@ -250,15 +270,9 @@ class EntropicAffinity(LogAffinity):
         else:
             C_reduced = C_full
 
-        target_entropy = np.log(self.perplexity) + 1
         n = X.shape[0]
-
-        if not 1 < self.perplexity <= n:
-            raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be greater than "
-                "1 and smaller than the number of samples "
-                "(not possible if n_samples = 1)."
-            )
+        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
+        target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_reduced, eps)
@@ -287,9 +301,24 @@ class EntropicAffinity(LogAffinity):
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
-        super().get_batch(indices)
-        data_batch = self.data_[indices]
-        C_batch = self._ground_cost_matrix(data_batch)
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
 
@@ -322,22 +351,14 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric: str, optional
         Metric to use for computing distances, by default "euclidean".
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity.
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
 
     References
     ----------
@@ -353,7 +374,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
-        device: str = None,
+        nodiag: bool = True,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
@@ -363,6 +385,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
             max_iter=max_iter,
             sparsity=sparsity,
             metric=metric,
+            nodiag=nodiag,
             device=device,
             keops=keops,
             verbose=verbose,
@@ -374,7 +397,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -387,8 +410,24 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         self.N = self.data_.shape[0]
         self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / (2 * self.N)
         self.log_affinity_matrix_ = self.affinity_matrix_.log()
+        return self
 
     def get_batch(self, indices: torch.Tensor):
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
         P_batch = super().get_batch(indices, log=False)
         return (P_batch + batch_transpose(P_batch)) / (2 * self.N)
 
@@ -442,24 +481,14 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to store intermediate result in a dictionary (default False).
     metric : str, optional
         Metric to use for computing distances, by default "euclidean".
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity (default True).
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variables at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    eps_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the entropy constraint.
-    mu_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the marginal constraint.
 
     References
     ----------
@@ -475,13 +504,16 @@ class SymmetricEntropicAffinity(LogAffinity):
         tol: float = 1e-3,
         max_iter: int = 500,
         optimizer: str = "Adam",
+        tolog: bool = False,
         metric: str = "euclidean",
-        device: str = None,
+        nodiag: bool = True,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
-        tolog: bool = False,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.perplexity = perplexity
         self.lr = lr
         self.tol = tol
@@ -497,7 +529,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
@@ -513,17 +545,12 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
 
-        n = C.shape[0]
-        if not 1 < self.perplexity <= n:
-            raise ValueError(
-                "[TorchDR] Affinity : The perplexity parameter must be greater than "
-                "1 and smaller than the number of samples "
-                "(not possible if n_samples = 1)."
-            )
-
+        n = X.shape[0]
+        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
         target_entropy = np.log(self.perplexity) + 1
+
         one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
 
         # dual variables, size (n_samples)
@@ -563,7 +590,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             check_NaNs(
                 [self.eps_, self.mu_],
                 msg=(
-                    "[TorchDR] Affinity (ERROR): NaN in dual variables, "
+                    "[TorchDR] ERROR Affinity: NaN in dual variables, "
                     "consider decreasing the learning rate."
                 ),
             )
@@ -609,7 +636,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                     check_NaNs(
                         [self.eps_, self.mu_],
                         msg=(
-                            f"[TorchDR] Affinity (ERROR): NaN at iter {k}, "
+                            f"[TorchDR] ERROR Affinity: NaN at iter {k}, "
                             "consider decreasing the learning rate."
                         ),
                     )
@@ -640,17 +667,34 @@ class SymmetricEntropicAffinity(LogAffinity):
 
                     if k == self.max_iter - 1 and self.verbose:
                         print(
-                            "[TorchDR] Affinity (WARNING) : max iter attained, "
+                            "[TorchDR] WARNING Affinity: max iter attained, "
                             "algorithm stops but may not have converged."
                         )
 
             self.n_iter_ = k
             self.log_affinity_matrix_ = log_P
 
+        return self
+
     def get_batch(self, indices: torch.Tensor, log: bool = False):
-        super().get_batch(indices)
-        data_batch = self.data_[indices]
-        C_batch = self._ground_cost_matrix(data_batch)
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         mu_batch = self.mu_[indices]
         log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
@@ -661,19 +705,17 @@ class SymmetricEntropicAffinity(LogAffinity):
             return log_P_batch.exp()
 
 
-class DoublyStochasticEntropic(LogAffinity):
+class SinkhornAffinity(LogAffinity):
     r"""
     Computes the symmetric doubly stochastic affinity matrix :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
-    Consists in solving the following symmetric entropic optimal transport problem [6]:
+    Consists in solving the following symmetric entropic optimal transport problem [6]_:
 
     .. math::
-        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C},
-        \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P}) \\
-        \text{s.t.} \quad  &\mathbf{P} \mathbf{1} = \mathbf{1} \\
-                            &\mathbf{P} = \mathbf{P}^\top
+        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
 
     where :
 
+    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
     - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
     - :math:`\varepsilon`: entropic regularization parameter.
     - :math:`\mathrm{H}`: (global) Shannon entropy such that :math:`\mathrm{H}(\mathbf{P}) := - \sum_{ij} P_{ij} (\log P_{ij} - 1)`.
@@ -685,25 +727,21 @@ class DoublyStochasticEntropic(LogAffinity):
     .. math::
         \mathbf{P}^{\mathrm{ds}} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{ds}}_{ij} = \exp(f^\star_i + f^\star_j - C_{ij} / \varepsilon) \:.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]).
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
 
     **Bregman projection.** Another way to write this problem is to consider the
-    KL projection of the Gibbs kernel onto the set of doubly stochastic matrices:
+    KL projection of the Gibbs kernel :math:`\mathbf{K}_\varepsilon = \exp(- \mathbf{C} / \varepsilon)` onto the set of doubly stochastic matrices:
 
     .. math::
-        \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon) \:.
+        \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon)
 
-    where :
-
-    - :math:`\mathbf{K}_\varepsilon := \exp(-\mathbf{C} / \varepsilon)`: Gibbs kernel.
-    - :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}`: Kullback Leibler divergence between :math:`\mathbf{P}` and :math:`\mathbf{Q}`.
-    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
+    where :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}` is Kullback Leibler divergence between :math:`\mathbf{P}` and :math:`\mathbf{Q}`.
 
     Parameters
     ----------
     eps : float, optional
         Regularization parameter for the Sinkhorn algorithm.
-    f : tensor of shape (n_samples), optional
+    init_dual : tensor of shape (n_samples), optional
         Initialization for the dual variable of the Sinkhorn algorithm (default None).
     tol : float, optional
         Precision threshold at which the algorithm stops.
@@ -715,22 +753,17 @@ class DoublyStochasticEntropic(LogAffinity):
         Whether to store intermediate result in a dictionary.
     metric : str, optional
         Metric to use for computing distances (default "euclidean").
+    nodiag : bool, optional
+        Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity.
-
-    Attributes
-    ----------
-    log : dictionary
-        Contains the dual variable at each iteration of the
-        optimization algorithm when tolog = True.
-    n_iter_ : int
-        Number of iterations run.
-    f_ : torch.Tensor of shape (n_samples)
-        Dual variable associated with the marginal constraint.
+    with_grad : bool, optional (default=False)
+        If True, the Sinkhorn iterations are done with gradient tracking.
+        If False, torch.no_grad() is used for the iterations.
 
     References
     ----------
@@ -758,34 +791,40 @@ class DoublyStochasticEntropic(LogAffinity):
         base_kernel: str = "gaussian",
         tolog: bool = False,
         metric: str = "euclidean",
-        device: str = None,
+        nodiag: bool = True,
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
+        with_grad: bool = False,
     ):
-        super().__init__(metric=metric, device=device, keops=keops, verbose=verbose)
+        super().__init__(
+            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+        )
         self.eps = eps
         self.init_dual = init_dual
         self.tol = tol
         self.max_iter = max_iter
         self.base_kernel = base_kernel
         self.tolog = tolog
+        self.with_grad = with_grad
 
     def fit(self, X: torch.Tensor | np.ndarray):
-        r"""Computes the entropic doubly stochastic affinity matrix from input data X.
+        r"""
+        Computes the entropic doubly stochastic affinity matrix from input data X.
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
         -------
-        self : DoublyStochasticEntropic
+        self : SinkhornAffinity
             The fitted instance.
         """
         super().fit(X)
 
-        C = self._ground_cost_matrix(self.data_)
+        C = self._pairwise_distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
@@ -808,30 +847,67 @@ class DoublyStochasticEntropic(LogAffinity):
         if self.tolog:
             self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
-        # Sinkhorn iterations
-        for k in range(self.max_iter):
+        context_manager = (
+            contextlib.nullcontext() if self.with_grad else torch.no_grad()
+        )
+        with context_manager:
+            # Sinkhorn iterations
+            for k in range(self.max_iter):
 
-            # well conditioned symmetric Sinkhorn iteration from Feydy et al. (2019)
-            reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
-            self.dual_ = 0.5 * (self.dual_ + reduction)
+                # well conditioned symmetric Sinkhorn iteration (Feydy et al. 2019)
+                reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
+                self.dual_ = 0.5 * (self.dual_ + reduction)
 
-            if self.tolog:
-                self.log["dual"].append(self.dual_.clone().detach().cpu())
+                if self.tolog:
+                    self.log["dual"].append(self.dual_.clone().detach().cpu())
 
-            check_NaNs(self.dual_, msg=f"[TorchDR] Affinity (ERROR): NaN at iter {k}.")
-
-            if torch.norm(self.dual_ - reduction) < self.tol:
-                if self.verbose:
-                    print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
-                break
-
-            if k == self.max_iter - 1 and self.verbose:
-                print(
-                    "[TorchDR] Affinity (WARNING) : max iter attained, algorithm "
-                    "stops but may not have converged."
+                check_NaNs(
+                    self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}."
                 )
+
+                if torch.norm(self.dual_ - reduction) < self.tol:
+                    if self.verbose:
+                        print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
+                    break
+
+                if k == self.max_iter - 1 and self.verbose:
+                    print(
+                        "[TorchDR] WARNING Affinity: max iter attained, algorithm "
+                        "stops but may not have converged."
+                    )
 
         self.n_iter_ = k
         self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
 
         return self
+
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Extracts the affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        C_batch = super().get_batch(indices)
+        if self.base_kernel == "student":
+            C_batch = (1 + C_batch).log()
+
+        log_K_batch = -C_batch / self.eps
+        dual_batch = self.dual_[indices]
+        log_P_batch = _log_Pds(log_K_batch, dual_batch)
+
+        if log:
+            return log_P_batch
+        else:
+            return log_P_batch.exp()

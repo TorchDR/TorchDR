@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Stochastic Neighbor embedding (SNE) algorithm
+LargeVis algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -9,16 +9,15 @@ Stochastic Neighbor embedding (SNE) algorithm
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    EntropicAffinity,
-    GibbsAffinity,
+    L2SymmetricEntropicAffinity,
+    StudentAffinity,
 )
-from torchdr.utils import logsumexp_red
+from torchdr.utils import sum_all_axis_except_batch
 
 
-class SNE(NeighborEmbedding):
+class LargeVis(NeighborEmbedding):
     """
-    Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
-    introduced in [1]_.
+    Implementation of the LargeVis algorithm introduced in [13]_.
 
     Parameters
     ----------
@@ -27,25 +26,25 @@ class SNE(NeighborEmbedding):
         Consider selecting a value between 2 and the number of samples.
         Different values can result in significantly different results.
     n_components : int, optional
-        Dimension of the embedded space (corresponds to the number of features of Z).
+        Dimension of the embedding space.
     lr : float, optional
-        Learning rate for the algorithm.
+        Learning rate for the algorithm, by default 1.0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use.
+        Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
-        Arguments for the optimizer.
+        Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
-        Arguments for the scheduler.
+        Arguments for the scheduler, by default None.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z.
+        Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
-        Scaling factor for the initialization.
+        Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
-        Precision threshold at which the algorithm stops.
+        Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm.
+        Number of maximum iterations for the descent algorithm, by default 100.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -62,20 +61,23 @@ class SNE(NeighborEmbedding):
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : float, optional
+    tol_affinity : _type_, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'euclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'euclidean'.
     metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output computation, by default 'euclidean'.
+        Metric to use for the output affinity, by default 'euclidean'.
+    batch_size : int or str, optional
+        Batch size for the optimization, by default None.
 
     References
     ----------
-    .. [1]  Geoffrey Hinton, Sam Roweis (2002).
-            Stochastic Neighbor Embedding.
-            Advances in neural information processing systems 15 (NeurIPS).
+
+    .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
+            Visualizing Large-Scale and High-Dimensional Data.
+            In Proceedings of the 25th international conference on world wide web.
 
     """  # noqa: E501
 
@@ -98,20 +100,22 @@ class SNE(NeighborEmbedding):
         verbose: bool = True,
         random_state: float = 0,
         coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 1.0,
+        coeff_repulsion: float = 7.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "euclidean",
         metric_out: str = "euclidean",
+        batch_size: int | str = "auto",
     ):
+
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = EntropicAffinity(
+        affinity_in = L2SymmetricEntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
             tol=tol_affinity,
@@ -120,9 +124,9 @@ class SNE(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
         )
-        affinity_out = GibbsAffinity(
+        affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
+            normalization_dim=None,
             device=device,
             keops=keops,
             verbose=False,
@@ -149,7 +153,11 @@ class SNE(NeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
+            batch_size=batch_size,
         )
 
+    @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=1).sum()
+        Q = log_Q.exp()
+        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+        return -(1 - Q).log()

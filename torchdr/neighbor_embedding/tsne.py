@@ -7,15 +7,15 @@ t-distributed Stochastic Neighbor embedding (t-SNE) algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
     L2SymmetricEntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import cross_entropy_loss, logsumexp_red
+from torchdr.utils import logsumexp_red
 
 
-class TSNE(AffinityMatcher):
+class TSNE(NeighborEmbedding):
     """
     Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
     introduced in [2]_.
@@ -28,41 +28,56 @@ class TSNE(AffinityMatcher):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
+    lr : float, optional
+        Learning rate for the algorithm, by default 1.0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
+    scheduler_kwargs : dict, optional
+        Arguments for the scheduler, by default None.
     init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
-    metric : {'euclidean', 'manhattan'}, optional
-        Metric to use for the affinity computation, by default 'euclidean'.
+    init_scaling : float, optional
+        Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 100.
+    tolog : bool, optional
+        Whether to store intermediate results in a dictionary, by default False.
+    device : str, optional
+        Device to use, by default "auto".
+    keops : bool, optional
+        Whether to use KeOps, by default False.
+    verbose : bool, optional
+        Verbosity, by default True.
+    random_state : float, optional
+        Random seed for reproducibility, by default 0.
+    coeff_attraction : float, optional
+        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    coeff_repulsion : float, optional
+        Coefficient for the repulsion term, by default 1.0.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration, by default 250.
     tol_affinity : _type_, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    verbose : bool, optional
-        Verbosity, by default True.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
+    metric_in : {'euclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'euclidean'.
+    metric_out : {'euclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'euclidean'.
 
-    Attributes
+    References
     ----------
-    log_ : dictionary
-        Contains the log of affinity_out, affinity_in and the loss at each iteration (if tolog is True).
-    n_iter_: int
-        Number of iterations run.
-    embedding_ : torch.Tensor of shape (n_samples, n_components)
-        Stores the embedding coordinates.
-    PX_ :  torch.Tensor of shape (n_samples, n_samples)
-        Entropic affinity matrix fitted from input data X.
+
+    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+            Visualizing Data using t-SNE.
+            The Journal of Machine Learning Research 9.11 (JMLR).
+
     """  # noqa: E501
 
     def __init__(
@@ -71,22 +86,25 @@ class TSNE(AffinityMatcher):
         n_components: int = 2,
         lr: float = 1.0,
         optimizer: str = "Adam",
-        # optimizer_kwargs: dict = None,
+        optimizer_kwargs: dict = None,
         scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
         tol: float = 1e-4,
         max_iter: int = 1000,
-        tol_affinity: float = 1e-3,
-        max_iter_affinity: int = 100,
         tolog: bool = False,
         device: str = None,
-        keops: bool = True,
-        early_exaggeration: int = 12,
-        early_exaggeration_iter: int = 250,
+        keops: bool = False,
         verbose: bool = True,
+        random_state: float = 0,
+        coeff_attraction: float = 10.0,
+        coeff_repulsion: float = 1.0,
+        early_exaggeration_iter: int = 250,
+        tol_affinity: float = 1e-3,
+        max_iter_affinity: int = 100,
+        metric_in: str = "euclidean",
+        metric_out: str = "euclidean",
     ):
 
         self.metric_in = metric_in
@@ -106,7 +124,7 @@ class TSNE(AffinityMatcher):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # we perform normalization when computing the loss
+            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,
@@ -117,32 +135,23 @@ class TSNE(AffinityMatcher):
             affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
-            # optimizer_kwargs=optimizer_kwargs,
+            optimizer_kwargs=optimizer_kwargs,
             tol=tol,
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
             keops=keops,
             verbose=verbose,
+            random_state=random_state,
+            coeff_attraction=coeff_attraction,
+            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_iter=early_exaggeration_iter,
         )
 
-        if early_exaggeration is None or early_exaggeration_iter is None:
-            self.early_exaggeration = 1
-            early_exaggeration_iter = None
-        else:
-            self.early_exaggeration = early_exaggeration
-            self.early_exaggeration_iter = early_exaggeration_iter
-
-    def _loss(self):
-        """
-        Dimensionality reduction objective.
-        """
-        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
-        attractive_term = cross_entropy_loss(self.PX_, log_Q, log_Q=True)
-        repulsive_term = logsumexp_red(log_Q, dim=(0, 1))
-        loss = self.early_exaggeration_ * attractive_term + repulsive_term
-        return loss
+    def _repulsive_loss(self, log_Q):
+        return logsumexp_red(log_Q, dim=(0, 1))

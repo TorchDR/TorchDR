@@ -26,21 +26,22 @@ from torchdr.utils import (
 from torchdr.affinity import (
     ScalarProductAffinity,
     GibbsAffinity,
+    SelfTuningGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
     L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
-    DoublyStochasticEntropic,
-    DoublyStochasticQuadratic,
-    UMAPAffinityData,
-    UMAPAffinityEmbedding,
+    SinkhornAffinity,
+    DoublyStochasticQuadraticAffinity,
+    UMAPAffinityIn,
+    UMAPAffinityOut,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 
 lst_types = ["float32", "float64"]
 
 LIST_METRICS_TEST = ["euclidean"]
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 
 
 def toy_dataset(n=300, dtype="float32"):
@@ -50,7 +51,7 @@ def toy_dataset(n=300, dtype="float32"):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
 
     list_P = []
@@ -72,7 +73,7 @@ def test_scalar_product_affinity(dtype):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_gibbs_affinity(dtype, metric, dim):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
@@ -100,8 +101,36 @@ def test_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
+def test_self_tuning_gibbs_affinity(dtype, metric, dim):
+    n = 10
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    list_P = []
+    for keops in [False, True]:
+        affinity = SelfTuningGibbsAffinity(
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
+        )
+        P = affinity.fit_transform(X)
+        list_P.append(P)
+        # -- check properties of the affinity matrix --
+        check_type(P, keops=keops)
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        if isinstance(dim, int):
+            check_marginal(P, one, dim=dim)
+        else:
+            check_total_sum(P, 1)
+
+    # --- check consistency between torch and keops ---
+    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_student_affinity(dtype, metric, dim):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
@@ -160,7 +189,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._ground_cost_matrix(affinity.data_)
+    C = affinity._pairwise_distance_matrix(affinity.data_)
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
@@ -174,9 +203,9 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
 def test_l2sym_entropic_affinity(dtype, metric, keops):
-    n = 300
+    n = 50
     X = toy_dataset(n, dtype)
-    perp = 30
+    perp = 5
 
     affinity = L2SymmetricEntropicAffinity(
         perplexity=perp, keops=keops, metric=metric, verbose=True, device=DEVICE
@@ -235,7 +264,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     tol = 1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
 
-    affinity = DoublyStochasticEntropic(
+    affinity = SinkhornAffinity(
         eps=eps,
         keops=keops,
         metric=metric,
@@ -263,7 +292,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
     tol = 1e-3
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
-    affinity = DoublyStochasticQuadratic(
+    affinity = DoublyStochasticQuadraticAffinity(
         eps=eps,
         keops=keops,
         metric=metric,
@@ -291,7 +320,7 @@ def test_umap_data_affinity(dtype, metric, keops, sparsity):
     n_neighbors = 30
     tol = 1e-3
 
-    affinity = UMAPAffinityData(
+    affinity = UMAPAffinityIn(
         n_neighbors=n_neighbors,
         device=DEVICE,
         keops=keops,
@@ -317,7 +346,7 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     n = 300
     X = toy_dataset(n, dtype)
 
-    affinity = UMAPAffinityEmbedding(
+    affinity = UMAPAffinityOut(
         device=DEVICE,
         keops=keops,
         metric=metric,

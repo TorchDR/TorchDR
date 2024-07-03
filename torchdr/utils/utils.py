@@ -10,7 +10,7 @@ Useful functions for defining objectives and constraints
 import torch
 from pykeops.torch import LazyTensor
 
-from torchdr.utils.wrappers import wrap_vectors, sum_all_axis
+from torchdr.utils.wrappers import wrap_vectors
 
 
 def entropy(P, log=True, dim=1):
@@ -24,46 +24,16 @@ def entropy(P, log=True, dim=1):
         return -(P * (P.log() - 1)).sum(dim).squeeze()
 
 
-@sum_all_axis
-def cross_entropy_loss(P, Q, log_Q=False):
-    r"""
-    Computes the cross-entropy between P and Q.
-    Supports log domain input for Q.
-    """
-    if log_Q:
-        return -P * Q
-    else:
-        return -P * Q.log()
-
-
-@sum_all_axis
-def binary_cross_entropy_loss(P, Q, coeff_repulsion=1):
-    r"""
-    Computes the binary cross-entropy between P and Q.
-    Supports log domain input for Q.
-    """
-    # return -P * Q.log() - coeff_repulsion * (1 - P) * (1 - Q).log()
-    return (
-        -P * Q.clamp(1e-4, 1).log()
-        - coeff_repulsion * (1 - P) * (1 - Q).clamp(1e-4, 1).log()
-    )
-
-
-@sum_all_axis
-def square_loss(P, Q):
-    r"""
-    Computes the square loss between P and Q.
-    """
-    return (P - Q) ** 2
-
-
 def kmin(A, k=1, dim=0):
     r"""
     Returns the k smallest elements of a tensor or lazy tensor along axis dim,
     along with corresponding indices.
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
-    assert isinstance(dim, int), "dim should be an integer."
+    if not isinstance(dim, int):
+        raise ValueError(
+            "[TorchDR] ERROR : the input dim to kmin should be an integer."
+        )
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim])
@@ -86,7 +56,10 @@ def kmax(A, k=1, dim=0):
     along with corresponding indices.
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
-    assert isinstance(dim, int), "dim should be an integer."
+    if not isinstance(dim, int):
+        raise ValueError(
+            "[TorchDR] ERROR : the input dim to kmax should be an integer."
+        )
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim])
@@ -127,21 +100,34 @@ def sum_red(P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed or
     multiplied with P.
     """
-    assert dim in [0, 1, (0, 1)]
+    ndim_input = len(P.shape)
+    if ndim_input != 2:
+        raise ValueError("[TorchDR] ERROR : input to sum_red should be a 2d tensor.")
+
+    if dim is None:
+        return 1
 
     if isinstance(P, torch.Tensor):
         return P.sum(dim, keepdim=True)
 
     elif isinstance(P, LazyTensor):
         if dim == (0, 1):
-            return P.sum(0).sum()  # shape (1)
+            return P.sum(1).sum(0)  # shape (1)
         elif dim == 1:
             return P.sum(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
             return P.sum(dim)[None, :]  # shape (1, n, 1)
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
+                "Should be (0, 1) or 0 or 1."
+            )
 
     else:
-        raise ValueError("P should be a tensor or a lazy tensor.")
+        raise ValueError(
+            "[TorchDR] ERROR : input to sum_red should be "
+            "a torch.Tensor or a pykeops.torch.LazyTensor."
+        )
 
 
 def logsumexp_red(log_P, dim):
@@ -151,7 +137,14 @@ def logsumexp_red(log_P, dim):
     If input is a lazy tensor, returns a lazy tensor that can be summed
     or multiplied with P.
     """
-    assert dim in [0, 1, (0, 1)]
+    ndim_input = len(log_P.shape)
+    if ndim_input != 2:
+        raise ValueError(
+            "[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor."
+        )
+
+    if dim is None:
+        return 0
 
     if isinstance(log_P, torch.Tensor):
         return log_P.logsumexp(dim, keepdim=True)
@@ -163,9 +156,17 @@ def logsumexp_red(log_P, dim):
             return log_P.logsumexp(dim)[:, None]  # shape (n, 1, 1)
         elif dim == 0:
             return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
+                "Should be (0, 1) or 0 or 1."
+            )
 
     else:
-        raise ValueError("log_P should be a tensor or a lazy tensor.")
+        raise ValueError(
+            "[TorchDR] ERROR : input to logsumexp_red should be "
+            "a torch.Tensor or a pykeops.torch.LazyTensor."
+        )
 
 
 def normalize_matrix(P, dim=1, log=False):
@@ -177,12 +178,28 @@ def normalize_matrix(P, dim=1, log=False):
     if dim is None:
         return P
 
-    assert dim in [0, 1, (0, 1)]
-
     if log:
         return P - logsumexp_red(P, dim)
     else:
         return P / sum_red(P, dim)
+
+
+def extract_batch_normalization(normalization, indices, dim):
+    r"""
+    From a pre-computed normalization, extracts the normalization
+    corresponding to batch indices.
+    """
+    if dim == (0, 1):
+        return normalization  # normalization is a scalar so return as is
+    elif dim == 0:
+        return normalization[:, indices].transpose(0, 1)
+    elif dim == 1:
+        return normalization[indices]
+    else:
+        raise ValueError(
+            f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
+            "Should be (0, 1) or 0 or 1."
+        )
 
 
 def center_kernel(K):
@@ -229,4 +246,6 @@ def batch_transpose(arg):
     elif isinstance(arg, torch.Tensor):
         return arg.transpose(-2, -1)
     else:
-        raise ValueError("Unsupported input shape for transpose_vec function.")
+        raise ValueError(
+            "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
+        )

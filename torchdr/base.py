@@ -22,14 +22,16 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
     def __init__(
         self,
         n_components: int = 2,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
+        random_state: float = 0,
     ):
         self.n_components = n_components
         self.device = device
         self.keops = keops
         self.verbose = verbose
+        self.random_state = random_state
 
     def _process_input(self, X):
         self.data_, self.input_backend_, self.input_device_ = to_torch(

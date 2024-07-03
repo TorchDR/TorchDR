@@ -7,7 +7,15 @@
 
 from .optim import binary_search, false_position, OPTIMIZERS
 
-from .wrappers import wrap_vectors, to_torch, torch_to_backend, handle_backend
+from .losses import cross_entropy_loss, square_loss
+
+from .wrappers import (
+    wrap_vectors,
+    to_torch,
+    torch_to_backend,
+    handle_backend,
+    sum_all_axis_except_batch,
+)
 
 from .geometry import pairwise_distances, LIST_METRICS
 
@@ -31,9 +39,6 @@ from .utils import (
     entropy,
     kmin,
     kmax,
-    cross_entropy_loss,
-    binary_cross_entropy_loss,
-    square_loss,
     normalize_matrix,
     svd_flip,
     center_kernel,
@@ -41,6 +46,7 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
+    extract_batch_normalization,
 )
 
 
@@ -48,11 +54,14 @@ __all__ = [
     "binary_search",
     "false_position",
     "OPTIMIZERS",
+    "cross_entropy_loss",
+    "square_loss",
     "wrap_vectors",
     "kmin",
     "kmax",
     "sum_matrix_vector",
     "sum_red",
+    "sum_all_axis_except_batch",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
@@ -70,9 +79,6 @@ __all__ = [
     "check_nonnegativity_eigenvalues",
     "check_total_sum",
     "entropy",
-    "cross_entropy_loss",
-    "binary_cross_entropy_loss",
-    "square_loss",
     "normalize_matrix",
     "svd_flip",
     "center_kernel",
@@ -80,4 +86,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "extract_batch_normalization",
 ]

@@ -1,15 +1,17 @@
 name: circleci-redirector
 on: [status]
+permissions: read-all
 jobs:
   circleci_artifacts_redirector_job:
     runs-on: ubuntu-latest
+    if: "${{ github.event.context == 'ci/circleci: build_docs' }}"
     permissions:
       statuses: write
     name: Run CircleCI artifacts redirector
     steps:
       - name: GitHub Action step
         id: step1
-        uses: larsoner/circleci-artifacts-redirector-action@v1
+        uses: scientific-python/circleci-artifacts-redirector-action@v1
         with:
           api-token: ${{ secrets.CIRCLE_TOKEN }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -35,12 +35,16 @@ def contiguous_output(func):
 
 
 @contiguous_output
-def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
-    use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
-    new_device = torch.device("cuda:0" if use_gpu else "cpu")
+def to_torch(x, device="auto", verbose=True, return_backend_device=False):
+    """
+    Convert input to torch tensor and specified device while performing some checks.
+    If device="auto", the device is set to the device of the input x.
+    """
+    gpu_required = (
+        device in ["cuda", "cuda:0", "gpu", None]
+    ) and torch.cuda.is_available()
 
-    if verbose:
-        print(f"[TorchDR] Using device: {new_device}.")
+    new_device = torch.device("cuda:0" if gpu_required else "cpu")
 
     if isinstance(x, torch.Tensor):
 
@@ -51,7 +55,11 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
 
         input_backend = "torch"
         input_device = x.device
-        x_ = x.to(new_device) if input_device != new_device else x
+
+        if device == "auto" or input_device == new_device:
+            x_ = x
+        else:
+            x_ = x.to(new_device)
 
     else:
         x = check_array(x, accept_sparse=False)  # check if contains only finite values
@@ -73,6 +81,9 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
 
 
 def torch_to_backend(x, backend="torch", device="cpu"):
+    """
+    Convert a torch tensor to specified backend and device.
+    """
     x = x.to(device=device)
     return x.numpy() if backend == "numpy" else x
 
@@ -94,8 +105,8 @@ def keops_unsqueeze(arg):
 
 def wrap_vectors(func):
     """
-    If the cost matrix C is a lazy tensor, convert all other input tensors to KeOps
-    lazy tensors while applying unsqueeze(-1).
+    Unsqueeze(-1) all input tensors except the cost matrix C. Moreover if C is
+    a lazy tensor, all tensors are converted to KeOps lazy tensors.
     These tensors should be vectors or batched vectors.
     """
 
@@ -117,18 +128,31 @@ def wrap_vectors(func):
     return wrapper
 
 
-def sum_all_axis(func):
+def sum_all_axis_except_batch(func):
     """
-    Sum the output matrix over all axis.
+    Sums the output over all axis if the tensor has 2 dimensions.
+    Sums the output over all axis except the batch axis if the tensor has 3 dimensions.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         output = func(*args, **kwargs)
-        assert isinstance(output, torch.Tensor) or isinstance(
-            output, LazyTensor
-        ), "sum_all_axis can only be applied to a tensor or lazy tensor."
-        return output.sum(1).sum()  # for compatibility with KeOps
+        ndim_output = len(output.shape)
+
+        if not (isinstance(output, torch.Tensor) or isinstance(output, LazyTensor)):
+            raise ValueError(
+                "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
+                "to a torch.Tensor or pykeops.torch.LazyTensor."
+            )
+        elif ndim_output == 2:
+            return output.sum(1).sum(0)
+        elif ndim_output == 3:
+            return output.sum(2).sum(1)
+        else:
+            raise ValueError(
+                "[TorchDR] ERROR : Unsupported input shape for "
+                "sum_all_axis_except_batch function."
+            )
 
     return wrapper
 
