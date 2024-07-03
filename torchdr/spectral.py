@@ -84,40 +84,47 @@ class KernelPCA(DRModule):
         K = center_kernel(K)
 
         # compute eigendecomposition
-        self.eigenvalues_, self.eigenvectors_ = torch.linalg.eigh(K)
+        eigvals, eigvecs = torch.linalg.eigh(K)
 
         # make sure that the eigenvalues are ok and fix numerical issues
-        self.eigenvalues_ = check_nonnegativity_eigenvalues(self.eigenvalues_)
+        eigvals = check_nonnegativity_eigenvalues(eigvals)
 
         # flip eigenvectors' sign to enforce deterministic output
-        self.eigenvectors_, _ = svd_flip(
-            self.eigenvectors_, torch.zeros_like(self.eigenvectors_).T
+        eigvecs, _ = svd_flip(
+            eigvecs, torch.zeros_like(eigvecs).T
         )
 
-        # sort eigenvectors in descending order
-        indices = self.eigenvalues_.argsort(descending=True)
-        self.eigenvalues_ = self.eigenvalues_[indices]
-        self.eigenvectors_ = self.eigenvectors_[:, indices]
+        # sort eigenvectors in descending order (torch eigvals are increasing)
+        eigvals = torch.flip(eigvals, dims=(0,))
+        eigvecs = torch.flip(eigvecs, dims=(1,))
 
         # remove eigenvectors with a zero eigenvalue (null space) if required
         if self.nodiag or self.n_components is None:
-            self.eigenvectors_ = self.eigenvectors_[:, self.eigenvalues_ > 0]
-            self.eigenvalues_ = self.eigenvalues_[self.eigenvalues_ > 0]
+            eigvecs = eigvecs[:, eigvals > 0]
+            eigvals = eigvals[eigvals > 0]
 
-        self.eigenvectors_ = self.eigenvectors_[:, -self.n_components :]
+        eigvecs = eigvecs[:, :self.n_components]
+
+        self.eigenvectors_ = eigvecs
+        self.eigenvalues_ = eigvals
         return self
 
     @handle_backend
     def transform(self, X):
         K = self.affinity.fit_transform(X)
         K = center_kernel(K)
-        return (
+        result = (
             K
             @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[-self.n_components :]).sqrt()
+            @ torch.diag(1 / self.eigenvalues_[:self.n_components]).sqrt()
         )
+        # remove np.inf arising from division by 0 eigenvalues:
+        zero_eigvals = self.eigenvalues_[:self.n_components] == 0
+        if zero_eigvals.any():
+            result[:,  zero_eigvals] = 0
+        return result
 
     @handle_backend
     def fit_transform(self, X):
         self.fit(X)
-        return self.eigenvectors_ * self.eigenvalues_[-self.n_components :].sqrt()
+        return self.eigenvectors_ * self.eigenvalues_[:self.n_components].sqrt()

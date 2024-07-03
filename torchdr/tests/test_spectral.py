@@ -20,11 +20,11 @@ if __name__ == "__main__":
     model.fit(X)
     res_2 = model.transform(X)
 
-    # np.testing.assert_allclose(res_1, res_2)
-    K = center_kernel(aff.fit_transform(X))
-    print(torch.linalg.eigh(K)[0])
-    print(torch.linalg.eigh(K)[1])
-    print(model.eigenvectors_)
+    np.testing.assert_allclose(res_1, res_2, rtol=1e-6)
+    # K = center_kernel(aff.fit_transform(X))
+    # print(torch.linalg.eigh(K)[0])
+    # print(torch.linalg.eigh(K)[1])
+    # print(model.eigenvectors_)
     # test = aff.fit_transform(X)
 
     # dist = pairwise_distances(X)
