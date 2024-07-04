@@ -25,6 +25,7 @@ from torchdr.utils import (
     logsumexp_red,
     batch_transpose,
     OPTIMIZERS,
+    apply_exp_if_not_log,
 )
 from torchdr.affinity.base import LogAffinity
 
@@ -300,6 +301,7 @@ class EntropicAffinity(LogAffinity):
 
         return self
 
+    @apply_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -321,11 +323,7 @@ class EntropicAffinity(LogAffinity):
         C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
-
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        return log_P_batch
 
 
 class L2SymmetricEntropicAffinity(EntropicAffinity):
@@ -676,6 +674,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         return self
 
+    @apply_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -698,11 +697,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         eps_batch = self.eps_[indices]
         mu_batch = self.mu_[indices]
         log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
-
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        return log_P_batch
 
 
 class SinkhornAffinity(LogAffinity):
@@ -881,6 +876,7 @@ class SinkhornAffinity(LogAffinity):
 
         return self
 
+    @apply_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -907,7 +903,4 @@ class SinkhornAffinity(LogAffinity):
         dual_batch = self.dual_[indices]
         log_P_batch = _log_Pds(log_K_batch, dual_batch)
 
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        return log_P_batch

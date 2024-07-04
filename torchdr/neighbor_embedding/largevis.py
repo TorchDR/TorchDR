@@ -126,7 +126,6 @@ class LargeVis(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,
             device=device,
             keops=keops,
             verbose=False,

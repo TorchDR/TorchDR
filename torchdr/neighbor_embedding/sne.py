@@ -122,7 +122,6 @@ class SNE(NeighborEmbedding):
         )
         affinity_out = GibbsAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,

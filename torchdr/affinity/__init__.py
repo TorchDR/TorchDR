@@ -10,6 +10,7 @@ from .simple import (
     ScalarProductAffinity,
     GibbsAffinity,
     StudentAffinity,
+    NormalizedGibbsAffinity,
 )
 
 from .knn_normalized import SelfTuningGibbsAffinity
@@ -30,6 +31,7 @@ __all__ = [
     "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
+    "NormalizedGibbsAffinity",
     "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
