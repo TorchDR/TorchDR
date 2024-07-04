@@ -101,7 +101,7 @@ class Affinity(ABC):
         """
         self.fit(X)
         self._check_is_fitted(
-            msg="[TorchDR] Error : affinity_matrix_ should be computed in fit method."
+            msg="[TorchDR] ERROR : affinity_matrix_ should be computed in fit method."
         )
         return self.affinity_matrix_  # type: ignore
 
@@ -149,7 +149,7 @@ class Affinity(ABC):
             the model has not been fitted.
         """
         assert hasattr(self, "affinity_matrix_"), (
-            msg or "[TorchDR] Error : Affinity not fitted."
+            msg or "[TorchDR] ERROR : Affinity not fitted."
         )
 
     @abstractmethod
@@ -179,16 +179,29 @@ class Affinity(ABC):
         self._check_is_fitted()
         assert (
             indices.ndim == 2
-        ), '[TorchDR] Error: indices in "get_batch" should be a 2D torch tensor '
+        ), '[TorchDR] ERROR : indices in "get_batch" should be a 2D torch tensor '
         "of shape (n_batch, batch_size)."
         assert (
             indices.shape[0] * indices.shape[1] == self.data_.shape[0]
-        ), '[TorchDR] Error: indices in "get_batch" should have a product '
+        ), '[TorchDR] ERROR : indices in "get_batch" should have a product '
         "of dimensions equal to the number of samples."
 
         data_batch = self.data_[indices]
         C_batch = self._pairwise_distance_matrix(data_batch)
         return C_batch
+
+    def transform(self, **kwargs):
+        r"""
+        Computes the affinity between points without fitting any parameter.
+        Thus it can only be called for affinities that do not require any fitting.
+        For such affinities, this method must be overridden.
+        """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : transform method not implemented for affinity "
+            f"{self.__class__.__name__}. This means that the affinity has normalizing "
+            "parameters that need to be fitted. Thus it can only be called using the "
+            "fit_transform method."
+        )
 
 
 class LogAffinity(Affinity):
@@ -258,7 +271,7 @@ class LogAffinity(Affinity):
         self.fit(X)
         assert hasattr(
             self, "log_affinity_matrix_"
-        ), "[TorchDR] ERROR Affinity : log_affinity_matrix_ should be computed "
+        ), "[TorchDR] ERROR : log_affinity_matrix_ should be computed "
         "in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix
@@ -286,5 +299,5 @@ class LogAffinity(Affinity):
             the model has not been fitted.
         """
         assert hasattr(self, "log_affinity_matrix_"), (
-            msg or "[TorchDR] Error : LogAffinity not fitted."
+            msg or "[TorchDR] ERROR : LogAffinity not fitted."
         )
