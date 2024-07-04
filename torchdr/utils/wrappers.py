@@ -62,7 +62,8 @@ def to_torch(x, device="auto", verbose=True, return_backend_device=False):
             x_ = x.to(new_device)
 
     else:
-        x = check_array(x, accept_sparse=False)  # check if contains only finite values
+        # check sparsity and if it contains only finite values
+        x = check_array(x, accept_sparse=False)
         input_backend = "numpy"
         input_device = "cpu"
 
@@ -78,6 +79,36 @@ def to_torch(x, device="auto", verbose=True, return_backend_device=False):
         return x_, input_backend, input_device
     else:
         return x_
+
+
+def inputs_to_torch(func):
+    """
+    Convert all array-like inputs to torch tensor and device specified
+    by attribute "device".
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        device = getattr(self, "device")
+        new_args = [
+            (
+                to_torch(arg, device=device)
+                if isinstance(arg, (np.ndarray, torch.Tensor))
+                else arg
+            )
+            for arg in args
+        ]
+        new_kwargs = {
+            k: (
+                to_torch(v, device=device)
+                if isinstance(v, (np.ndarray, torch.Tensor))
+                else v
+            )
+            for k, v in kwargs.items()
+        }
+        return func(self, *new_args, **new_kwargs)
+
+    return wrapper
 
 
 def torch_to_backend(x, backend="torch", device="cpu"):
@@ -105,8 +136,8 @@ def keops_unsqueeze(arg):
 
 def wrap_vectors(func):
     """
-    Unsqueeze(-1) all input tensors except the cost matrix C. Moreover if C is
-    a lazy tensor, all tensors are converted to KeOps lazy tensors.
+    Unsqueeze(-1) all input tensors except the cost matrix C.
+    If C is a lazy tensor, converts all tensors to KeOps lazy tensors.
     These tensors should be vectors or batched vectors.
     """
 
@@ -159,8 +190,8 @@ def sum_all_axis_except_batch(func):
 
 def handle_backend(func):
     """
-    Convert input to torch and device specified by self.
-    Then, convert the output to the input backend and device.
+    Converts input to torch and device specified by self.
+    Then converts the output to the input backend and device.
     """
 
     @functools.wraps(func)
@@ -170,5 +201,26 @@ def handle_backend(func):
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
+
+    return wrapper
+
+
+def output_exp_if_not_log(func):
+    """
+    If log=True or True is passed as input, returns the output unchanged (should be in
+    log domain). Else, return the exponential of the output.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        log = kwargs.get("log", False) or any(
+            isinstance(arg, bool) and arg for arg in args
+        )
+        result = func(*args, **kwargs)
+
+        if log:
+            return result
+        else:
+            return result.exp()
 
     return wrapper

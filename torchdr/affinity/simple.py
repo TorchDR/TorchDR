@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Common simple affinity matrices
+Common simple affinities
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -11,13 +11,12 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red, sum_red
+from torchdr.utils import logsumexp_red
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import (
     extract_batch_normalization,
-    kmin,
-    wrap_vectors,
-    batch_transpose,
+    output_exp_if_not_log,
+    inputs_to_torch,
 )
 
 
@@ -38,28 +37,6 @@ def _log_Gibbs(C, sigma):
         The Gibbs affinity matrix in log domain.
     """
     return -C / sigma
-
-
-@wrap_vectors
-def _log_SelfTuningGibbs(C, sigma):
-    r"""
-    Returns the self-tuning Gibbs affinity matrix with sample-wise bandwidth
-    determined by the distance from a point to its K-th neirest neighbor
-    in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
-    sigma_t = batch_transpose(sigma)
-    return -C / (sigma * sigma_t)
 
 
 def _log_Student(C, degrees_of_freedom):
@@ -102,7 +79,6 @@ class ScalarProductAffinity(Affinity):
 
     def __init__(
         self,
-        normalization_dim: int | Tuple[int] = None,
         device: str = "cuda",
         keops: bool = False,
         verbose: bool = True,
@@ -111,7 +87,6 @@ class ScalarProductAffinity(Affinity):
         super().__init__(
             metric="angular", device=device, keops=keops, verbose=verbose, nodiag=False
         )
-        self.normalization_dim = normalization_dim
         self.centering = centering
 
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -140,15 +115,11 @@ class ScalarProductAffinity(Affinity):
             self.data_ = self.data_ - self.data_.mean(0)
         self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
 
-        if self.normalization_dim is not None:
-            self.normalization_ = sum_red(self.affinity_matrix_, self.normalization_dim)
-            self.affinity_matrix_ = self.affinity_matrix_ / self.normalization_
-
         return self
 
     def get_batch(self, indices: torch.Tensor):
         r"""
-        Extracts the affinity submatrix corresponding to the indices.
+        Extracts the fitted affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -162,30 +133,42 @@ class ScalarProductAffinity(Affinity):
             The affinity matrix for the batch indices.
         """
         C_batch = super().get_batch(indices)
-        P_batch = -C_batch
+        return -C_batch
 
-        if self.normalization_dim is not None:
-            normalization_batch = extract_batch_normalization(
-                self.normalization_, indices, self.normalization_dim
-            )
-            P_batch = P_batch / normalization_batch
+    @inputs_to_torch
+    def transform(
+        self, X: torch.Tensor | np.ndarray, Y: torch.Tensor | np.ndarray = None
+    ):
+        r"""
+        Computes the scalar product affinity between X and Y.
+        If Y is None, computes the affinity between X and itself.
 
-        return P_batch
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+        Y : torch.Tensor or np.ndarray
+            Second Input data. Default is None.
+
+        Returns
+        -------
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            Scalar product between X and Y.
+        """
+        C = self._pairwise_distance_matrix(X, Y)
+        return -C
 
 
 class GibbsAffinity(LogAffinity):
     r"""
     Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
-    according to the specified normalization dimensions.
+    :math:`\sigma` is the bandwidth parameter.
 
     Parameters
     ----------
     sigma : float, optional
         Bandwidth parameter.
-    normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
     nodiag : bool, optional
@@ -201,7 +184,6 @@ class GibbsAffinity(LogAffinity):
     def __init__(
         self,
         sigma: float = 1.0,
-        normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         nodiag: bool = True,
         device: str = "auto",
@@ -212,7 +194,6 @@ class GibbsAffinity(LogAffinity):
             metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
         )
         self.sigma = sigma
-        self.normalization_dim = normalization_dim
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -231,20 +212,12 @@ class GibbsAffinity(LogAffinity):
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Gibbs(C, self.sigma)
-
-        if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
-            )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
-
         return self
 
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Extracts the affinity submatrix corresponding to the indices.
+        Extracts the fitted affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -262,134 +235,36 @@ class GibbsAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
+        return log_P_batch
 
-        if self.normalization_dim is not None:
-            log_normalization_batch = extract_batch_normalization(
-                self.log_normalization_, indices, self.normalization_dim
-            )
-            log_P_batch = log_P_batch - log_normalization_batch
-
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
-
-
-class SelfTuningGibbsAffinity(LogAffinity):
-    r"""
-    Computes the self-tuning [22]_ Gibbs affinity matrix with
-    sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
-
-    .. math::
-        \exp \left( - \frac{C_{ij}}{\sigma_i \sigma_j} \right)
-
-    In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
-    :math:`\mathbf{x}_i`.
-
-    Parameters
-    ----------
-    K : int, optional
-        K-th neirest neighbor .
-    normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
-    metric : str, optional
-        Metric to use for pairwise distances computation.
-    nodiag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero.
-    device : str, optional
-        Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
-    verbose : bool, optional
-        Verbosity.
-
-    References
-    ----------
-    .. [22] Max Zelnik-Manor, L., & Perona, P. (2004).
-            Self-tuning spectral clustering.
-            Advances in neural information processing systems (NeurIPS).
-    """
-
-    def __init__(
+    @inputs_to_torch
+    @output_exp_if_not_log
+    def transform(
         self,
-        K: int = 7,
-        normalization_dim: int | Tuple[int] = (0, 1),
-        metric: str = "euclidean",
-        nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
-        verbose: bool = True,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        log: bool = False,
     ):
-        super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
-        )
-        self.K = K
-        self.normalization_dim = normalization_dim
-
-    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
-        Fits the local Gibbs affinity model to the provided data.
+        Computes the Gibbs affinity between X and Y.
+        If Y is None, computes the affinity between X and itself.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray
             Input data.
-
-        Returns
-        -------
-        self : LocalGibbsAffinity
-            The fitted local Gibbs affinity model.
-        """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
-
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
-        self.sigma_ = minK_values[:, -1]
-        self.log_affinity_matrix_ = _log_SelfTuningGibbs(C, self.sigma_)
-
-        if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
-            )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
-
-        return self
-
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
+        Y : torch.Tensor or np.ndarray
+            Second Input data. Default is None.
         log : bool, optional
             If True, returns the log of the affinity matrix.
 
         Returns
         -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            Scalar product between X and Y.
         """
-        C_batch = super().get_batch(indices)
-        sigma_batch = self.sigma_[indices]
-        log_P_batch = _log_SelfTuningGibbs(C_batch, sigma_batch)
-
-        if self.normalization_dim is not None:
-            log_normalization_batch = extract_batch_normalization(
-                self.log_normalization_, indices, self.normalization_dim
-            )
-            log_P_batch = log_P_batch - log_normalization_batch
-
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        C = self._pairwise_distance_matrix(X, Y)
+        return _log_Gibbs(C, self.sigma)
 
 
 class StudentAffinity(LogAffinity):
@@ -405,8 +280,6 @@ class StudentAffinity(LogAffinity):
     ----------
     degrees_of_freedom : int, optional
         Degrees of freedom for the Student-t distribution.
-    normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
     nodiag : bool, optional
@@ -422,7 +295,6 @@ class StudentAffinity(LogAffinity):
     def __init__(
         self,
         degrees_of_freedom: int = 1,
-        normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
         nodiag: bool = True,
         device: str = "auto",
@@ -432,7 +304,6 @@ class StudentAffinity(LogAffinity):
         super().__init__(
             metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
         )
-        self.normalization_dim = normalization_dim
         self.degrees_of_freedom = degrees_of_freedom
 
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -452,20 +323,12 @@ class StudentAffinity(LogAffinity):
         super().fit(X)
         C = self._pairwise_distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
-
-        if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
-            )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
-
         return self
 
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
-        Extracts the affinity submatrix corresponding to the indices.
+        Extracts the fitted affinity submatrix corresponding to the indices.
 
         Parameters
         ----------
@@ -483,6 +346,129 @@ class StudentAffinity(LogAffinity):
         """
         C_batch = super().get_batch(indices)
         log_P_batch = _log_Student(C_batch, self.degrees_of_freedom)
+        return log_P_batch
+
+    @inputs_to_torch
+    @output_exp_if_not_log
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        log: bool = False,
+    ):
+        r"""
+        Computes the Student affinity between X and Y.
+        If Y is None, computes the affinity between X and itself.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+        Y : torch.Tensor or np.ndarray
+            Second Input data. Default is None.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            Scalar product between X and Y.
+        """
+        C = self._pairwise_distance_matrix(X, Y)
+        return _log_Student(C, self.degrees_of_freedom)
+
+
+class NormalizedGibbsAffinity(GibbsAffinity):
+    r"""
+    Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    where :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    according to the specified normalization dimensions.
+
+    Parameters
+    ----------
+    sigma : float, optional
+        Bandwidth parameter.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    nodiag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix.
+    """
+
+    def __init__(
+        self,
+        sigma: float = 1.0,
+        metric: str = "euclidean",
+        nodiag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+        normalization_dim: int | Tuple[int] = (0, 1),
+    ):
+        super().__init__(
+            sigma=sigma,
+            metric=metric,
+            nodiag=nodiag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.normalization_dim = normalization_dim
+
+    def fit(self, X: torch.Tensor | np.ndarray):
+        r"""
+        Fits the normalized Gibbs affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+
+        Returns
+        -------
+        self : GibbsAffinity
+            The fitted Gibbs affinity model.
+        """
+        super().fit(X)
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                self.log_affinity_matrix_, self.normalization_dim
+            )
+            self.log_affinity_matrix_ = (
+                self.log_affinity_matrix_ - self.log_normalization_
+            )
+
+        return self
+
+    @output_exp_if_not_log
+    def get_batch(self, indices: torch.Tensor, log: bool = False):
+        r"""
+        Extracts the fitted affinity submatrix corresponding to the indices.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_batch, batch_size)
+            Indices of the batch.
+        log : bool, optional
+            If True, returns the log of the affinity matrix.
+
+        Returns
+        -------
+        P_batch : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_batch, batch_size, batch_size)
+            The affinity matrix for the batch indices.
+            In log domain if `log` is True.
+        """
+        log_P_batch = super().get_batch(indices, log=True)
 
         if self.normalization_dim is not None:
             log_normalization_batch = extract_batch_normalization(
@@ -490,7 +476,4 @@ class StudentAffinity(LogAffinity):
             )
             log_P_batch = log_P_batch - log_normalization_batch
 
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        return log_P_batch
