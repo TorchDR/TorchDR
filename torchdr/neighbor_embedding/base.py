@@ -157,9 +157,10 @@ class NeighborEmbedding(BatchedAffinityMatcher):
 
     def _fit(self, X: torch.Tensor):
         self._check_n_neighbors(X.shape[0])
-        self.coeff_attraction_ = (
-            self.coeff_attraction
-        )  # coeff_attraction_ may change during the optimization
+
+        # coeff_attraction_ may change during the optimization
+        # due to exaggeration strategies
+        self.coeff_attraction_ = self.coeff_attraction
 
         super()._fit(X)
 

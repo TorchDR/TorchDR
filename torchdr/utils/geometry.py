@@ -21,7 +21,7 @@ def pairwise_distances(
     keops: bool = False,
     add_diagonal: float = 1e12,
 ):
-    """
+    r"""
     Compute pairwise distances matrix between points in a dataset.
     Returns the pairwise distance matrix as tensor or lazy tensor (if keops is True).
     Supports batched input. The batch dimension should be the first.
@@ -82,3 +82,31 @@ def pairwise_distances(
         C += add_diagonal * I
 
     return C
+
+
+def pairwise_distances_indices(
+    X: torch.Tensor, indices: torch.Tensor, metric: str = "euclidean"
+):
+    r"""
+    Compute pairwise distances matrix for a subset of pairs given by indices.
+
+    Parameters
+    ----------
+    X : torch.Tensor of shape (n, p)
+        Input dataset.
+    indices : torch.Tensor of shape (n, k)
+        Indices of the pairs for which to compute the distances.
+
+    Returns
+    -------
+    C_indices : torch.Tensor of shape (n, k)
+        Pairwise distances matrix for the subset of pairs.
+    """
+    X_indices = X[indices]  # Shape (n, k, p)
+
+    if metric == "euclidean":
+        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
+    else:
+        raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
+
+    return C_indices
