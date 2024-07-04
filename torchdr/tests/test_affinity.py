@@ -380,7 +380,7 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize(
-    "Affinity", [ScalarProductAffinity, GibbsAffinity, StudentAffinity]
+    "Affinity", [ScalarProductAffinity, GibbsAffinity, StudentAffinity, UMAPAffinityOut]
 )
 @pytest.mark.parametrize("keops", [True, False])
 def test_affinity_transform(Affinity, keops, dtype):
