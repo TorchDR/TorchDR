@@ -17,7 +17,6 @@ from .knn_normalized import SelfTuningGibbsAffinity
 
 from .entropic import (
     EntropicAffinity,
-    L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
 )
@@ -35,7 +34,6 @@ __all__ = [
     "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
-    "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",

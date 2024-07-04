@@ -10,6 +10,7 @@ Tests for affinity matrices.
 import pytest
 import torch
 import numpy as np
+import math
 from sklearn.datasets import make_moons
 
 from torchdr.utils import (
@@ -31,7 +32,6 @@ from torchdr.affinity import (
     SelfTuningGibbsAffinity,
     StudentAffinity,
     EntropicAffinity,
-    L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
     DoublyStochasticQuadraticAffinity,
@@ -200,8 +200,8 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
     check_shape(log_P, (n, n))
-    check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
-    check_entropy(log_P, target_entropy, dim=1, tol=tol, log=True)
+    check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
+    check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
     C = affinity._pairwise_distance_matrix(affinity.data_)
@@ -212,25 +212,6 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     assert (
         entropy_gap(end, C) > 0
     ).all(), "Lower bound of entropic affinity root is not valid."
-
-
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", [True, False])
-def test_l2sym_entropic_affinity(dtype, metric, keops):
-    n = 50
-    X = toy_dataset(n, dtype)
-    perp = 5
-
-    affinity = L2SymmetricEntropicAffinity(
-        perplexity=perp, keops=keops, metric=metric, verbose=True, device=DEVICE
-    )
-    P = affinity.fit_transform(X)
-
-    # -- check properties of the affinity matrix --
-    check_type(P, keops=keops)
-    check_shape(P, (n, n))
-    check_symmetry(P)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -265,8 +246,10 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
     check_type(log_P, keops=keops)
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
-    check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
-    check_entropy(log_P, np.log(perp) * ones + 1, dim=1, tol=tol, log=True)
+    check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
+    check_entropy(
+        log_P + math.log(n), np.log(perp) * ones + 1, dim=1, tol=tol, log=True
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -294,7 +277,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     check_type(log_P, keops=keops)
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
-    check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+    check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -322,7 +305,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
     check_type(P, keops=keops)
     check_shape(P, (n, n))
     check_symmetry(P)
-    check_marginal(P, ones, dim=1, tol=tol, log=False)
+    check_marginal(P, ones / n, dim=1, tol=tol, log=False)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
