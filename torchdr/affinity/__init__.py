@@ -15,7 +15,6 @@ from .simple import (
 
 from .entropic import (
     EntropicAffinity,
-    L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
 )
@@ -32,7 +31,6 @@ __all__ = [
     "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
-    "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",
