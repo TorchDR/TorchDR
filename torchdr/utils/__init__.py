@@ -15,7 +15,8 @@ from .wrappers import (
     torch_to_backend,
     handle_backend,
     sum_all_axis_except_batch,
-    apply_exp_if_not_log,
+    output_exp_if_not_log,
+    inputs_to_torch,
 )
 
 from .geometry import pairwise_distances, LIST_METRICS
@@ -63,7 +64,8 @@ __all__ = [
     "sum_matrix_vector",
     "sum_red",
     "sum_all_axis_except_batch",
-    "apply_exp_if_not_log",
+    "output_exp_if_not_log",
+    "inputs_to_torch",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",

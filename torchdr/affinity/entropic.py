@@ -25,7 +25,7 @@ from torchdr.utils import (
     logsumexp_red,
     batch_transpose,
     OPTIMIZERS,
-    apply_exp_if_not_log,
+    output_exp_if_not_log,
 )
 from torchdr.affinity.base import LogAffinity
 
@@ -301,7 +301,7 @@ class EntropicAffinity(LogAffinity):
 
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -674,7 +674,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -876,7 +876,7 @@ class SinkhornAffinity(LogAffinity):
 
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.

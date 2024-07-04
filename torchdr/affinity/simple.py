@@ -13,7 +13,11 @@ from typing import Tuple
 
 from torchdr.utils import logsumexp_red
 from torchdr.affinity.base import Affinity, LogAffinity
-from torchdr.utils import extract_batch_normalization, apply_exp_if_not_log, to_torch
+from torchdr.utils import (
+    extract_batch_normalization,
+    output_exp_if_not_log,
+    inputs_to_torch,
+)
 
 
 def _log_Gibbs(C, sigma):
@@ -131,6 +135,7 @@ class ScalarProductAffinity(Affinity):
         C_batch = super().get_batch(indices)
         return -C_batch
 
+    @inputs_to_torch
     def transform(
         self, X: torch.Tensor | np.ndarray, Y: torch.Tensor | np.ndarray = None
     ):
@@ -150,10 +155,6 @@ class ScalarProductAffinity(Affinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        X = to_torch(X, device=self.device, verbose=self.verbose)
-        if Y is not None:
-            Y = to_torch(Y, device=self.device, verbose=self.verbose)
-
         C = self._pairwise_distance_matrix(X, Y)
         return -C
 
@@ -213,7 +214,7 @@ class GibbsAffinity(LogAffinity):
         self.log_affinity_matrix_ = _log_Gibbs(C, self.sigma)
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the fitted affinity submatrix corresponding to the indices.
@@ -236,7 +237,8 @@ class GibbsAffinity(LogAffinity):
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
         return log_P_batch
 
-    @apply_exp_if_not_log
+    @inputs_to_torch
+    @output_exp_if_not_log
     def transform(
         self,
         X: torch.Tensor | np.ndarray,
@@ -261,10 +263,6 @@ class GibbsAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        X = to_torch(X, device=self.device, verbose=self.verbose)
-        if Y is not None:
-            Y = to_torch(Y, device=self.device, verbose=self.verbose)
-
         C = self._pairwise_distance_matrix(X, Y)
         return _log_Gibbs(C, self.sigma)
 
@@ -327,7 +325,7 @@ class StudentAffinity(LogAffinity):
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the fitted affinity submatrix corresponding to the indices.
@@ -350,7 +348,8 @@ class StudentAffinity(LogAffinity):
         log_P_batch = _log_Student(C_batch, self.degrees_of_freedom)
         return log_P_batch
 
-    @apply_exp_if_not_log
+    @inputs_to_torch
+    @output_exp_if_not_log
     def transform(
         self,
         X: torch.Tensor | np.ndarray,
@@ -375,10 +374,6 @@ class StudentAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        X = to_torch(X, device=self.device, verbose=self.verbose)
-        if Y is not None:
-            Y = to_torch(Y, device=self.device, verbose=self.verbose)
-
         C = self._pairwise_distance_matrix(X, Y)
         return _log_Student(C, self.degrees_of_freedom)
 
@@ -454,7 +449,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
 
         return self
 
-    @apply_exp_if_not_log
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the fitted affinity submatrix corresponding to the indices.

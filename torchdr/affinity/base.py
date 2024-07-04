@@ -288,37 +288,3 @@ class LogAffinity(Affinity):
         assert hasattr(self, "log_affinity_matrix_"), (
             msg or "[TorchDR] Error : LogAffinity not fitted."
         )
-
-
-class TransformAffinity(Affinity):
-    r"""
-    Base class for kernels.
-
-    This class inherits from the `Affinity` base class and is designed to work with
-    affinity matrices in log space. It provides methods to fit the model to input
-    data and transform it to an affinity matrix, optionally in log space.
-
-    Parameters
-    ----------
-    metric : str, optional
-        The distance metric to use for computing pairwise distances.
-    device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data.
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations.
-    verbose : bool, optional
-        If True, prints additional information during computation (default is True).
-    """
-
-    def __init__(
-        self,
-        metric: str = "euclidean",
-        nodiag: bool = True,
-        device: str = "auto",
-        keops: bool = False,
-        verbose: bool = True,
-    ):
-        super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
-        )
