@@ -9,7 +9,7 @@ LargeVis algorithm
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    L2SymmetricEntropicAffinity,
+    EntropicAffinity,
     StudentAffinity,
 )
 from torchdr.utils import sum_all_axis_except_batch, sum_red
@@ -115,7 +115,7 @@ class LargeVis(NeighborEmbedding):
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = L2SymmetricEntropicAffinity(
+        affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
             tol=tol_affinity,

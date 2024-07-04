@@ -83,7 +83,6 @@ Entropic Affinities
    :template: myclass_template.rst
    
    EntropicAffinity
-   L2SymmetricEntropicAffinity
    SinkhornAffinity
    SymmetricEntropicAffinity
 
