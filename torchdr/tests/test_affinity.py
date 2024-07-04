@@ -290,7 +290,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
     check_type(P, keops=keops)
     check_shape(P, (n, n))
     check_symmetry(P)
-    check_marginal(P, ones, dim=1, tol=tol, log=False)
+    check_marginal(P, ones / n, dim=1, tol=tol, log=False)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
