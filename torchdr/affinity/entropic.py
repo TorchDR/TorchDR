@@ -259,17 +259,17 @@ class EntropicAffinity(LogAffinity):
         """
         super().fit(X)
 
-        C_full = self._pairwise_distance_matrix(self.data_)
-        if self._sparsity and self.verbose:
-            print(
-                "[TorchDR] Affinity : sparsity mode enabled, computing "
-                "nearest neighbors."
-            )
+        C = self._pairwise_distance_matrix(self.data_)
+        if self._sparsity:
+
+            if self.verbose:
+                print(
+                    "[TorchDR] Affinity : sparsity mode enabled, computing "
+                    "nearest neighbors."
+                )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k) where k is 3 * perplexity.
-            C_reduced, self.indices_ = kmin(C_full, k=3 * self.perplexity, dim=1)
-        else:
-            C_reduced = C_full
+            C, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -278,11 +278,11 @@ class EntropicAffinity(LogAffinity):
         target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
-            log_P = _log_Pe(C_reduced, eps)
+            log_P = _log_Pe(C, eps)
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(C_reduced, self.perplexity)
+        begin, end = _bounds_entropic_affinity(C, self.perplexity)
         begin += 1e-6  # avoid numerical issues
 
         self.eps_ = false_position(
@@ -297,7 +297,7 @@ class EntropicAffinity(LogAffinity):
             device=self.data_.device,
         )
 
-        log_P_final = _log_Pe(C_full, self.eps_)
+        log_P_final = _log_Pe(C, self.eps_)
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
 
