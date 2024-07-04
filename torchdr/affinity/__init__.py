@@ -6,7 +6,7 @@
 
 from .base import Affinity, LogAffinity
 
-from .kernel import (
+from .simple import (
     ScalarProductAffinity,
     GibbsAffinity,
     StudentAffinity,

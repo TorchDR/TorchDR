@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Common simple kernel affinity matrices
+Common simple affinities
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -148,7 +148,7 @@ class ScalarProductAffinity(Affinity):
         return P_batch
 
 
-class GibbsAffinity(LogAffinity):
+class NormalizedGibbsAffinity(LogAffinity):
     r"""
     Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
