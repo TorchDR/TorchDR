@@ -85,10 +85,17 @@ def pairwise_distances(
 
 
 def pairwise_distances_indices(
-    X: torch.Tensor, indices: torch.Tensor, metric: str = "euclidean"
+    X: torch.Tensor,
+    indices: torch.Tensor,
+    Y: torch.Tensor = None,
+    metric: str = "euclidean",
 ):
     r"""
-    Compute pairwise distances matrix for a subset of pairs given by indices.
+    Compute pairwise distances matrix between X and Y for a subset of pairs
+    given by indices. indices[i] is a vector of indices j such that the distance between
+    :math:`\mathbf{x}_i` and :math:`\mathbf{y}_j` must be computed.
+    Hence the outputed distances matrix has shape (n, k) where n is the number of
+    samples in X and k is the size of each indices[i].
 
     Parameters
     ----------
@@ -96,6 +103,9 @@ def pairwise_distances_indices(
         Input dataset.
     indices : torch.Tensor of shape (n, k)
         Indices of the pairs for which to compute the distances.
+    Y : torch.Tensor of shape (m, p), optional
+        Second dataset. If None, Y = X.
+
 
     Returns
     -------
