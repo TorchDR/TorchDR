@@ -100,10 +100,9 @@ def pairwise_distances_indices(
 ):
     r"""
     Compute pairwise distances matrix between X and Y for a subset of pairs
-    given by indices. indices[i] is a vector of indices j such that the distance between
-    :math:`\mathbf{x}_i` and :math:`\mathbf{y}_j` must be computed.
-    Hence the outputed distances matrix has shape (n, k) where n is the number of
-    samples in X and k is the size of each indices[i].
+    given by indices.
+    The output distance matrix has shape (n, k) and its (i,j) element is the
+    distance between X[i] and Y[indices[i, j]].
 
     Parameters
     ----------
