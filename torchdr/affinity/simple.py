@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red, sum_red
+from torchdr.utils import logsumexp_red
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import extract_batch_normalization, apply_exp_if_not_log, to_torch
 

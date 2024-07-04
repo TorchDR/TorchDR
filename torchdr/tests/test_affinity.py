@@ -105,7 +105,6 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
 def test_gibbs_affinity(dtype, metric):
     n = 50
     X = toy_dataset(n, dtype)
-    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
     for keops in [False, True]:
@@ -155,7 +154,6 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
 def test_student_affinity(dtype, metric):
     n = 50
     X = toy_dataset(n, dtype)
-    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
     for keops in [False, True]:
