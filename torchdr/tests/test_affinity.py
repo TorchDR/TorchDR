@@ -231,8 +231,10 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
     check_type(log_P, keops=keops)
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
-    check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
-    check_entropy(log_P, np.log(perp) * ones + 1, dim=1, tol=tol, log=True)
+    check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
+    check_entropy(
+        log_P + math.log(n), np.log(perp) * ones + 1, dim=1, tol=tol, log=True
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -260,7 +262,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
     check_type(log_P, keops=keops)
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
-    check_marginal(log_P, zeros, dim=1, tol=tol, log=True)
+    check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)

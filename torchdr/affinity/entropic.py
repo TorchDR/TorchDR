@@ -300,6 +300,7 @@ class EntropicAffinity(LogAffinity):
         log_P_final = _log_Pe(C_full, self.eps_)
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
+
         self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
 
         return self
@@ -325,6 +326,7 @@ class EntropicAffinity(LogAffinity):
         C_batch = super().get_batch(indices)
         eps_batch = self.eps_[indices]
         log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
+
         log_P_batch -= math.log(self.n_samples_in_)
 
         if log:
@@ -583,6 +585,8 @@ class SymmetricEntropicAffinity(LogAffinity):
             self.n_iter_ = k
             self.log_affinity_matrix_ = log_P
 
+        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
@@ -607,6 +611,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         eps_batch = self.eps_[indices]
         mu_batch = self.mu_[indices]
         log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
+
+        log_P_batch -= math.log(self.n_samples_in_)
 
         if log:
             return log_P_batch
@@ -790,6 +796,8 @@ class SinkhornAffinity(LogAffinity):
         self.n_iter_ = k
         self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
 
+        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
         return self
 
     def get_batch(self, indices: torch.Tensor, log: bool = False):
@@ -817,6 +825,8 @@ class SinkhornAffinity(LogAffinity):
         log_K_batch = -C_batch / self.eps
         dual_batch = self.dual_[indices]
         log_P_batch = _log_Pds(log_K_batch, dual_batch)
+
+        log_P_batch -= math.log(self.n_samples_in_)
 
         if log:
             return log_P_batch
