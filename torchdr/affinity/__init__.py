@@ -9,9 +9,11 @@ from .base import Affinity, LogAffinity
 from .simple import (
     ScalarProductAffinity,
     GibbsAffinity,
-    SelfTuningGibbsAffinity,
     StudentAffinity,
+    NormalizedGibbsAffinity,
 )
+
+from .knn_normalized import SelfTuningGibbsAffinity
 
 from .entropic import (
     EntropicAffinity,
@@ -28,6 +30,7 @@ __all__ = [
     "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
+    "NormalizedGibbsAffinity",
     "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
