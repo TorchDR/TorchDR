@@ -71,7 +71,7 @@ def plot_affinity_graph(G):
 #
 
 K = NormalizedGibbsAffinity(
-    sigma=1, normalization_dim=1, keops=False, nodiag=False
+    sigma=1, normalization_dim=1, keops=False, zero_diag=False
 ).fit_transform(X)
 
 plt.figure(1, (6, 3))
@@ -106,7 +106,7 @@ plt.show()
 # :class:`torchdr.EntropicAffinity`.
 
 EA = EntropicAffinity(
-    perplexity=5, keops=False, verbose=False, nodiag=False
+    perplexity=5, keops=False, verbose=False, zero_diag=False
 ).fit_transform(X)
 
 plt.figure(1, (6, 3))
