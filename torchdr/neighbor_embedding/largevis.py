@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-t-distributed Stochastic Neighbor embedding (t-SNE) algorithm
+LargeVis algorithm
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -12,13 +12,12 @@ from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import logsumexp_red
+from torchdr.utils import sum_all_axis_except_batch, sum_red
 
 
-class TSNE(NeighborEmbedding):
+class LargeVis(NeighborEmbedding):
     """
-    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
-    introduced in [2]_.
+    Implementation of the LargeVis algorithm introduced in [13]_.
 
     Parameters
     ----------
@@ -70,13 +69,15 @@ class TSNE(NeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
+    batch_size : int or str, optional
+        Batch size for the optimization, by default None.
 
     References
     ----------
 
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
+    .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
+            Visualizing Large-Scale and High-Dimensional Data.
+            In Proceedings of the 25th international conference on world wide web.
 
     """  # noqa: E501
 
@@ -99,12 +100,13 @@ class TSNE(NeighborEmbedding):
         verbose: bool = True,
         random_state: float = 0,
         coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 1.0,
+        coeff_repulsion: float = 7.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        batch_size: int | str = "auto",
     ):
 
         self.metric_in = metric_in
@@ -150,7 +152,18 @@ class TSNE(NeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
+            batch_size=batch_size,
         )
 
+    @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=(0, 1))
+
+        # normalize the mass of the input affinity
+        if not hasattr(self, "weight_affinity_in_"):
+            self.weight_affinity_in_ = (
+                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
+            ).item()
+
+        Q = log_Q.exp()
+        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+        return -self.weight_affinity_in_ * (1 - Q).log()

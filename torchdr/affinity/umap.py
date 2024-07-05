@@ -12,7 +12,13 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from torchdr.affinity import Affinity
-from torchdr.utils import false_position, kmin, wrap_vectors, batch_transpose
+from torchdr.utils import (
+    false_position,
+    kmin,
+    wrap_vectors,
+    batch_transpose,
+    inputs_to_torch,
+)
 
 
 @wrap_vectors
@@ -78,10 +84,10 @@ class UMAPAffinityIn(Affinity):
         tol: float = 1e-5,
         max_iter: int = 1000,
         sparsity: bool = None,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -180,10 +186,10 @@ class UMAPAffinityOut(Affinity):
         spread: float = 1,
         a: float = None,
         b: float = None,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -237,3 +243,28 @@ class UMAPAffinityOut(Affinity):
         """
         C_batch = super().get_batch(indices)
         return _Student_umap(C_batch, self._a, self._b)
+
+    @inputs_to_torch
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+    ):
+        r"""
+        Computes the affinity between X and Y.
+        If Y is None, computes the affinity between X and itself.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+        Y : torch.Tensor or np.ndarray
+            Second Input data. Default is None.
+
+        Returns
+        -------
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            Affinity between X and Y.
+        """
+        C = self._pairwise_distance_matrix(X, Y)
+        return _Student_umap(C, self._a, self._b)

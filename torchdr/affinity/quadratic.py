@@ -76,7 +76,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     nodiag : bool, optional
         Whether to set the diagonal elements of the affinity matrix to 0.
     device : str, optional
@@ -104,10 +104,10 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         lr: float = 1e0,
         base_kernel: str = "gaussian",
         tolog: bool = False,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
-        device: str = None,
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -146,12 +146,16 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         if self.base_kernel == "student":
             C = (1 + C).log()
 
-        n = C.shape[0]
-        one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
+        self.n_samples_in_ = C.shape[0]
+        one = torch.ones(
+            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+        )
 
         # Performs warm-start if an initial dual variable is provided
         self.dual_ = (
-            torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
+            torch.ones(
+                self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+            )
             if self.init_dual is None
             else self.init_dual
         )
@@ -201,6 +205,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.n_iter_ = k
         self.affinity_matrix_ = _Pds(C, self.dual_, self.eps)
 
+        self.affinity_matrix_ /= self.n_samples_in_
+
         return self
 
     def get_batch(self, indices: torch.Tensor):
@@ -224,4 +230,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
 
         dual_batch = self.dual_[indices]
         P_batch = _Pds(C_batch, dual_batch, self.eps)
+
+        P_batch /= self.n_samples_in_
         return P_batch

@@ -11,11 +11,12 @@ API and Modules
    :no-inherited-members:
 
 
-DR modules
-----------
+DR Modules - ``sklearn`` Compatible
+-----------------------------------
 
-Base DR module :py:mod:`torchdr.base`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Base DR Module
+^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -23,8 +24,8 @@ Base DR module :py:mod:`torchdr.base`
    
    DRModule
 
-Spectral DR :py:mod:`torchdr.spectral`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Spectral DR
+^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -33,8 +34,8 @@ Spectral DR :py:mod:`torchdr.spectral`
    PCA
 
 
-Affinity matcher :py:mod:`torchdr.affinity_matcher`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Affinity Matcher
+^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -44,8 +45,8 @@ Affinity matcher :py:mod:`torchdr.affinity_matcher`
    BatchedAffinityMatcher
 
 
-Neighbor embedding :py:mod:`torchdr.neighbor_embedding`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Neighbor Embedding
+^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -54,15 +55,15 @@ Neighbor embedding :py:mod:`torchdr.neighbor_embedding`
    SNE
    TSNE
    InfoTSNE
+   SNEkhorn
+   TSNEkhorn
 
 
-Affinity modules
+Affinity Modules
 ----------------
 
-Affinities :py:mod:`torchdr.affinities`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Simple affinities
+Simple Affinities
 """""""""""""""""
 
 .. autosummary::
@@ -72,8 +73,9 @@ Simple affinities
    GibbsAffinity
    StudentAffinity
    ScalarProductAffinity
+   SelfTuningGibbsAffinity
 
-Entropic affinities
+Entropic Affinities
 """""""""""""""""""
    
 .. autosummary::
@@ -81,11 +83,10 @@ Entropic affinities
    :template: myclass_template.rst
    
    EntropicAffinity
-   L2SymmetricEntropicAffinity
    SinkhornAffinity
    SymmetricEntropicAffinity
 
-Quadratic affinities
+Quadratic Affinities
 """""""""""""""""""""
 
 .. autosummary::
@@ -94,7 +95,7 @@ Quadratic affinities
    
    DoublyStochasticQuadraticAffinity
 
-UMAP affinities
+UMAP Affinities
 """""""""""""""
 
 .. autosummary::

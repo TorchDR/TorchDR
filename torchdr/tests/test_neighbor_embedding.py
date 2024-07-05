@@ -8,17 +8,23 @@ Tests for neighbor embedding methods.
 # License: BSD 3-Clause License
 
 import pytest
-import torch
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import SNE, TSNE
+from torchdr.neighbor_embedding import (
+    SNE,
+    TSNE,
+    SNEkhorn,
+    TSNEkhorn,
+    LargeVis,
+    InfoTSNE,
+)
 from torchdr.utils import check_shape
 
 
 lst_types = ["float32", "float64"]
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
+DEVICE = "cpu"
 
 
 def toy_dataset(n=300, dtype="float32"):
@@ -26,26 +32,35 @@ def toy_dataset(n=300, dtype="float32"):
     return X.astype(dtype), y
 
 
+@pytest.mark.parametrize(
+    "DRModel, kwargs",
+    [
+        (SNE, {}),
+        (TSNE, {}),
+        (SNEkhorn, SEA_params | {"unrolling": True}),
+        (SNEkhorn, SEA_params | {"unrolling": False}),
+        (TSNEkhorn, SEA_params | {"unrolling": True}),
+        (TSNEkhorn, SEA_params | {"unrolling": False}),
+        (LargeVis, {}),
+        (InfoTSNE, {}),
+    ],
+)
 @pytest.mark.parametrize("dtype", lst_types)
-def test_SNE(dtype):
+def test_NE(DRModel, kwargs, dtype):
     n = 300
     X, y = toy_dataset(n, dtype)
 
     for keops in [False, True]:
-        model = SNE(n_components=2, perplexity=30, keops=keops, device=DEVICE)
-        Z = model.fit_transform(X)
-
-        check_shape(Z, (n, 2))
-        assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
-
-
-@pytest.mark.parametrize("dtype", lst_types)
-def test_TSNE(dtype):
-    n = 300
-    X, y = toy_dataset(n, dtype)
-
-    for keops in [False, True]:
-        model = TSNE(n_components=2, perplexity=30, keops=keops, device=DEVICE)
+        model = DRModel(
+            n_components=2,
+            perplexity=30,
+            keops=keops,
+            device=DEVICE,
+            init="normal",
+            max_iter=100,
+            random_state=0,
+            **kwargs
+        )
         Z = model.fit_transform(X)
 
         check_shape(Z, (n, 2))

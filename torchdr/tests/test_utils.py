@@ -14,6 +14,7 @@ from torch.testing import assert_close
 from torchdr.utils import check_similarity_torch_keops, check_symmetry
 
 from torchdr.utils import (
+    center_kernel,
     pairwise_distances,
     binary_search,
     false_position,
@@ -93,3 +94,15 @@ def test_pairwise_distances(dtype):
         # check consistency with keops
         distances_keops = pairwise_distances(x, metric=metric, keops=True)
         check_similarity_torch_keops(distances, distances_keops, K=10)
+
+
+def test_center_kernel():
+    torch.manual_seed(0)
+    X = torch.randn(20, 30)
+    K = X @ X.T
+    K_c = center_kernel(K)
+    n = K.shape[0]
+    ones_n = torch.ones(n)
+    H = torch.eye(n) - torch.outer(ones_n, ones_n) / n
+
+    torch.testing.assert_close(K_c, H @ K @ H)

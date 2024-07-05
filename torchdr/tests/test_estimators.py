@@ -10,12 +10,31 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE
+from torchdr.neighbor_embedding import (
+    SNE,
+    TSNE,
+    InfoTSNE,
+    SNEkhorn,
+    TSNEkhorn,
+    LargeVis,
+)
 from sklearn.utils.estimator_checks import check_estimator
 
-estimator_list = [SNE, TSNE, InfoTSNE]
+DEVICE = "cpu"
 
 
-@pytest.mark.parametrize("estimator", estimator_list)
-def test_check_estimator(estimator):
-    check_estimator(estimator(verbose=False, device="cpu", keops=False, max_iter=1))
+@pytest.mark.parametrize(
+    "estimator, kwargs",
+    [
+        (SNE, {}),
+        (TSNE, {}),
+        (InfoTSNE, {}),
+        (SNEkhorn, {"lr_affinity_in": 1e-3}),
+        (TSNEkhorn, {"lr_affinity_in": 1e-3}),
+        (LargeVis, {}),
+    ],
+)
+def test_check_estimator(estimator, kwargs):
+    check_estimator(
+        estimator(verbose=False, device=DEVICE, keops=False, max_iter=1, **kwargs)
+    )

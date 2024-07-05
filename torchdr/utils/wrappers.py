@@ -35,12 +35,16 @@ def contiguous_output(func):
 
 
 @contiguous_output
-def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
+def to_torch(x, device="auto", verbose=True, return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.
+    If device="auto", the device is set to the device of the input x.
     """
-    use_gpu = (device in ["cuda", "cuda:0", "gpu", None]) and torch.cuda.is_available()
-    new_device = torch.device("cuda:0" if use_gpu else "cpu")
+    gpu_required = (
+        device in ["cuda", "cuda:0", "gpu", None]
+    ) and torch.cuda.is_available()
+
+    new_device = torch.device("cuda:0" if gpu_required else "cpu")
 
     if isinstance(x, torch.Tensor):
 
@@ -51,10 +55,15 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
 
         input_backend = "torch"
         input_device = x.device
-        x_ = x.to(new_device) if input_device != new_device else x
+
+        if device == "auto" or input_device == new_device:
+            x_ = x
+        else:
+            x_ = x.to(new_device)
 
     else:
-        x = check_array(x, accept_sparse=False)  # check if contains only finite values
+        # check sparsity and if it contains only finite values
+        x = check_array(x, accept_sparse=False)
         input_backend = "numpy"
         input_device = "cpu"
 
@@ -70,6 +79,36 @@ def to_torch(x, device="cuda", verbose=True, return_backend_device=False):
         return x_, input_backend, input_device
     else:
         return x_
+
+
+def inputs_to_torch(func):
+    """
+    Convert all array-like inputs to torch tensor and device specified
+    by attribute "device".
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        device = getattr(self, "device")
+        new_args = [
+            (
+                to_torch(arg, device=device)
+                if isinstance(arg, (np.ndarray, torch.Tensor))
+                else arg
+            )
+            for arg in args
+        ]
+        new_kwargs = {
+            k: (
+                to_torch(v, device=device)
+                if isinstance(v, (np.ndarray, torch.Tensor))
+                else v
+            )
+            for k, v in kwargs.items()
+        }
+        return func(self, *new_args, **new_kwargs)
+
+    return wrapper
 
 
 def torch_to_backend(x, backend="torch", device="cpu"):
@@ -97,8 +136,8 @@ def keops_unsqueeze(arg):
 
 def wrap_vectors(func):
     """
-    If the cost matrix C is a lazy tensor, convert all other input tensors to KeOps
-    lazy tensors while applying unsqueeze(-1).
+    Unsqueeze(-1) all input tensors except the cost matrix C.
+    If C is a lazy tensor, converts all tensors to KeOps lazy tensors.
     These tensors should be vectors or batched vectors.
     """
 
@@ -120,26 +159,39 @@ def wrap_vectors(func):
     return wrapper
 
 
-def sum_all_axis(func):
+def sum_all_axis_except_batch(func):
     """
-    Sum the output matrix over all axis.
+    Sums the output over all axis if the tensor has 2 dimensions.
+    Sums the output over all axis except the batch axis if the tensor has 3 dimensions.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         output = func(*args, **kwargs)
-        assert isinstance(output, torch.Tensor) or isinstance(
-            output, LazyTensor
-        ), "sum_all_axis can only be applied to a tensor or lazy tensor."
-        return output.sum(1).sum()  # for compatibility with KeOps
+        ndim_output = len(output.shape)
+
+        if not (isinstance(output, torch.Tensor) or isinstance(output, LazyTensor)):
+            raise ValueError(
+                "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
+                "to a torch.Tensor or pykeops.torch.LazyTensor."
+            )
+        elif ndim_output == 2:
+            return output.sum(1).sum(0)
+        elif ndim_output == 3:
+            return output.sum(2).sum(1)
+        else:
+            raise ValueError(
+                "[TorchDR] ERROR : Unsupported input shape for "
+                "sum_all_axis_except_batch function."
+            )
 
     return wrapper
 
 
 def handle_backend(func):
     """
-    Convert input to torch and device specified by self.
-    Then, convert the output to the input backend and device.
+    Converts input to torch and device specified by self.
+    Then converts the output to the input backend and device.
     """
 
     @functools.wraps(func)
@@ -149,5 +201,26 @@ def handle_backend(func):
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
+
+    return wrapper
+
+
+def output_exp_if_not_log(func):
+    """
+    If log=True or True is passed as input, returns the output unchanged (should be in
+    log domain). Else, return the exponential of the output.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        log = kwargs.get("log", False) or any(
+            isinstance(arg, bool) and arg for arg in args
+        )
+        result = func(*args, **kwargs)
+
+        if log:
+            return result
+        else:
+            return result.exp()
 
     return wrapper

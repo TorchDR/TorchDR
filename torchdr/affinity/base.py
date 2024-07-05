@@ -26,6 +26,7 @@ class Affinity(ABC):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data.
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
@@ -34,10 +35,10 @@ class Affinity(ABC):
 
     def __init__(
         self,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
-        device: str = "cuda",
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         self.log = {}
@@ -104,7 +105,7 @@ class Affinity(ABC):
         )
         return self.affinity_matrix_  # type: ignore
 
-    def _pairwise_distance_matrix(self, X: torch.Tensor):
+    def _pairwise_distance_matrix(self, X: torch.Tensor, Y: torch.Tensor = None):
         r"""
         Computes the pairwise distance matrix :math:`\mathbf{C}` for the input tensor.
 
@@ -126,7 +127,7 @@ class Affinity(ABC):
         """
         add_diagonal = 1e12 if self.nodiag else None
         C = pairwise_distances(
-            X, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
+            X, Y, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
         )
         return C
 
@@ -204,6 +205,7 @@ class LogAffinity(Affinity):
         The distance metric to use for computing pairwise distances.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data.
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
@@ -212,10 +214,10 @@ class LogAffinity(Affinity):
 
     def __init__(
         self,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
-        device: str = "cuda",
-        keops: bool = True,
+        device: str = "auto",
+        keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
@@ -256,7 +258,7 @@ class LogAffinity(Affinity):
         self.fit(X)
         assert hasattr(
             self, "log_affinity_matrix_"
-        ), "[TorchDR] Affinity (Error) : log_affinity_matrix_ should be computed "
+        ), "[TorchDR] ERROR Affinity : log_affinity_matrix_ should be computed "
         "in  fit method of a LogAffinity."
 
         if log:  # return the log of the affinity matrix

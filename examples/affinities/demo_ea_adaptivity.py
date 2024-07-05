@@ -10,8 +10,9 @@ We use the following modules from ``TorchDR``:
 .. autosummary::
    :toctree: stubs
    :template: myclass_template.rst
-   torchdr.affinity.GibbsAffinity
-   torchdr.affinity.EntropicAffinity
+
+   torchdr.NormalizedGibbsAffinity
+   torchdr.EntropicAffinity
 
 """
 
@@ -20,7 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from torchdr import (
-    GibbsAffinity,
+    NormalizedGibbsAffinity,
     EntropicAffinity,
 )
 
@@ -65,11 +66,11 @@ def plot_affinity_graph(G):
 # entropy** of the affinity.
 #
 # In ``TorchDR``, we can easily implement it using
-# :class:`torchdr.GibbsAffinity` and setting the
+# :class:`torchdr.NormalizedGibbsAffinity` and setting the
 # parameter ``normalization_dim=1``.
 #
 
-K = GibbsAffinity(
+K = NormalizedGibbsAffinity(
     sigma=1, normalization_dim=1, keops=False, nodiag=False
 ).fit_transform(X)
 
