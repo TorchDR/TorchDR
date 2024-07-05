@@ -53,10 +53,10 @@ html:
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 install:
-	git pull origin $(GITHUB_PAGES_BRANCH)
+	git remote -v
+	git pull --ff-only origin $(GITHUB_PAGES_BRANCH)
 	touch $(OUTPUTDIR)/.nojekyll
 	ghp-import -m "Generate Pelican site [ci skip]" -b $(GITHUB_PAGES_BRANCH) $(OUTPUTDIR)
-	git pull origin $(GITHUB_PAGES_BRANCH)
 	git push origin $(GITHUB_PAGES_BRANCH)
 
 .PHONY: add-stable-doc
