@@ -54,11 +54,6 @@ html:
 
 # git pull --ff-only origin $(GITHUB_PAGES_BRANCH)
 install:
-	git remote -v
-	git status
-	git fetch origin $(GITHUB_PAGES_BRANCH)
-	git checkout $(GITHUB_PAGES_BRANCH)
-	git pull --ff-only origin $(GITHUB_PAGES_BRANCH)
 	touch $(OUTPUTDIR)/.nojekyll
 	ghp-import -m "Generate Pelican site [ci skip]" -b $(GITHUB_PAGES_BRANCH) $(OUTPUTDIR)
 	git push origin $(GITHUB_PAGES_BRANCH)
