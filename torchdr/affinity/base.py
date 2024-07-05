@@ -36,7 +36,7 @@ class Affinity(ABC):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -215,7 +215,7 @@ class LogAffinity(Affinity):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,

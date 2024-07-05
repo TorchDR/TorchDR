@@ -223,8 +223,8 @@ class EntropicAffinity(LogAffinity):
         tol: float = 1e-3,
         max_iter: int = 1000,
         sparsity: bool = None,
-        metric: str = "euclidean",
-        nodiag: bool = True,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -361,8 +361,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         If True, keeps only the 3 * perplexity smallest element on each row of
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric: str, optional
-        Metric to use for computing distances, by default "euclidean".
-    nodiag : bool, optional
+        Metric to use for computing distances, by default "sqeuclidean".
+    zero_diag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
@@ -384,8 +384,8 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         tol: float = 1e-5,
         max_iter: int = 1000,
         sparsity: bool = None,
-        metric: str = "euclidean",
-        nodiag: bool = True,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -396,7 +396,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
             max_iter=max_iter,
             sparsity=sparsity,
             metric=metric,
-            nodiag=nodiag,
+            zero_diag=zero_diag,
             device=device,
             keops=keops,
             verbose=verbose,
@@ -517,7 +517,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         optimizer: str = "Adam",
         tolog: bool = False,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -776,8 +776,8 @@ class SinkhornAffinity(LogAffinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
-    nodiag : bool, optional
+        Metric to use for computing distances (default "sqeuclidean").
+    zero_diag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.

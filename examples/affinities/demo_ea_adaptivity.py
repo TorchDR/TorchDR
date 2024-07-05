@@ -71,7 +71,7 @@ def plot_affinity_graph(G):
 #
 
 K = NormalizedGibbsAffinity(
-    sigma=1, normalization_dim=1, keops=False, nodiag=False
+    sigma=1, normalization_dim=1, keops=False, zero_diag=False
 ).fit_transform(X)
 
 plt.figure(1, (6, 3))

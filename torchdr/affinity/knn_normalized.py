@@ -63,7 +63,7 @@ class SelfTuningGibbsAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -84,13 +84,17 @@ class SelfTuningGibbsAffinity(LogAffinity):
         K: int = 7,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.K = K
         self.normalization_dim = normalization_dim
