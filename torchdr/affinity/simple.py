@@ -85,7 +85,11 @@ class ScalarProductAffinity(Affinity):
         centering: bool = False,
     ):
         super().__init__(
-            metric="angular", device=device, keops=keops, verbose=verbose, nodiag=False
+            metric="angular",
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            zero_diag=False,
         )
         self.centering = centering
 
@@ -178,7 +182,7 @@ class GibbsAffinity(LogAffinity):
         Bandwidth parameter.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -192,13 +196,17 @@ class GibbsAffinity(LogAffinity):
         self,
         sigma: float = 1.0,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.sigma = sigma
 
@@ -292,7 +300,7 @@ class StudentAffinity(LogAffinity):
         Degrees of freedom for the Student-t distribution.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -306,13 +314,17 @@ class StudentAffinity(LogAffinity):
         self,
         degrees_of_freedom: int = 1,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.degrees_of_freedom = degrees_of_freedom
 
@@ -404,7 +416,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
         Bandwidth parameter.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -420,7 +432,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
         self,
         sigma: float = 1.0,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -429,7 +441,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
         super().__init__(
             sigma=sigma,
             metric=metric,
-            nodiag=nodiag,
+            zero_diag=zero_diag,
             device=device,
             keops=keops,
             verbose=verbose,

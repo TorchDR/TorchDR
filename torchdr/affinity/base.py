@@ -15,7 +15,6 @@ from torchdr.utils import (
     symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
     pairwise_distances,
-    to_torch,
 )
 
 
@@ -27,7 +26,7 @@ class Affinity(ABC):
     ----------
     metric : str, optional
         The distance metric to use for computing pairwise distances.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
@@ -41,19 +40,19 @@ class Affinity(ABC):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         self.log = {}
         self.metric = metric
-        self.nodiag = nodiag
+        self.zero_diag = zero_diag
         self.device = device
         self.keops = keops
         self.verbose = verbose
-        self.nodiag = nodiag
-        self.add_diagonal = 1e12 if self.nodiag else None
+        self.zero_diag = zero_diag
+        self.add_diagonal = 1e12 if self.zero_diag else None
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -290,13 +289,17 @@ class LogAffinity(Affinity):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
