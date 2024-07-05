@@ -12,13 +12,13 @@ from pykeops.torch import LazyTensor
 
 from torchdr.utils.utils import identity_matrix
 
-LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS = ["sqeuclidean", "manhattan", "angular", "hyperbolic"]
 
 
 def pairwise_distances(
     X: torch.Tensor,
     Y: torch.Tensor = None,
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
     keops: bool = False,
 ):
     r"""
@@ -66,7 +66,7 @@ def symmetric_pairwise_distances(
     X : torch.Tensor of shape (n_samples, n_features) or (n_batch, n_samples_batch, n_features)
         Input dataset.
     metric : str, optional
-        Metric to use for computing distances. The default is "euclidean".
+        Metric to use for computing distances. The default is "sqeuclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
     add_diagonal : float, optional

@@ -35,7 +35,7 @@ class Affinity(ABC):
 
     def __init__(
         self,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -237,7 +237,7 @@ class LogAffinity(Affinity):
 
     def __init__(
         self,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,

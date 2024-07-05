@@ -191,7 +191,7 @@ class GibbsAffinity(LogAffinity):
     def __init__(
         self,
         sigma: float = 1.0,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -305,7 +305,7 @@ class StudentAffinity(LogAffinity):
     def __init__(
         self,
         degrees_of_freedom: int = 1,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -419,7 +419,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
     def __init__(
         self,
         sigma: float = 1.0,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,

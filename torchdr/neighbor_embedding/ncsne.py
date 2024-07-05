@@ -59,10 +59,10 @@ class InfoTSNE(NeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'euclidean'.
+    metric_in : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
+    metric_out : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'sqeuclidean'.
     batch_size : int or str, optional
         Batch size for the optimization, by default "auto".
 
@@ -94,8 +94,8 @@ class InfoTSNE(NeighborEmbedding):
         random_state: float = 0,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
         batch_size: int | str = "auto",
     ):
 
