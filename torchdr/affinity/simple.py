@@ -162,7 +162,7 @@ class ScalarProductAffinity(Affinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y, indices=indices)
+        C = super().transform(X, Y, indices=indices)
         return -C
 
 
@@ -273,7 +273,7 @@ class GibbsAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y, indices=indices)
+        C = super().transform(X, Y, indices=indices)
         return _log_Gibbs(C, self.sigma)
 
 
@@ -387,7 +387,7 @@ class StudentAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y)
+        C = super().transform(X, Y, indices=indices)
         return _log_Student(C, self.degrees_of_freedom)
 
 

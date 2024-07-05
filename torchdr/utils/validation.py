@@ -11,6 +11,7 @@ import torch
 from torch.testing import assert_close
 from pykeops.torch import LazyTensor
 
+from torch.affinity import Affinity
 from torchdr.utils.utils import entropy
 
 

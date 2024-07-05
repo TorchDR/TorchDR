@@ -11,7 +11,12 @@ from abc import ABC, abstractmethod
 
 import torch
 import numpy as np
-from torchdr.utils import symmetric_pairwise_distances, to_torch
+from torchdr.utils import (
+    symmetric_pairwise_distances,
+    symmetric_pairwise_distances_indices,
+    pairwise_distances,
+    to_torch,
+)
 
 
 class Affinity(ABC):
@@ -194,7 +199,25 @@ class Affinity(ABC):
         C_batch = self._pairwise_distance_matrix(data_batch)
         return C_batch
 
-    def transform(self, **kwargs):
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : transform method not implemented for affinity "
+            f"{self.__class__.__name__}. This means that the affinity has normalizing "
+            "parameters that need to be fitted. Thus it can only be called using the "
+            "fit_transform method."
+        )
+
+    def _distance_matrix_for_transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
         r"""
         Computes the affinity between points without fitting any parameter.
         Thus it can only be called for affinities that do not require any fitting.
@@ -206,12 +229,22 @@ class Affinity(ABC):
             If the method is called for an affinity that requires fitting, an error
             is raised.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : transform method not implemented for affinity "
-            f"{self.__class__.__name__}. This means that the affinity has normalizing "
-            "parameters that need to be fitted. Thus it can only be called using the "
-            "fit_transform method."
-        )
+        if Y is not None and indices is not None:
+            raise NotImplementedError(
+                "[TorchDR] ERROR : transform method cannot be called with both Y "
+                "and indices at the same time."
+            )
+
+        if indices is not None:
+            return symmetric_pairwise_distances_indices(
+                X, indices=indices, metric=self.metric
+            )
+
+        elif Y is not None:
+            return pairwise_distances(X, Y, metric=self.metric, keops=self.keops)
+
+        else:
+            return symmetric_pairwise_distances(X, metric=self.metric, keops=self.keops)
 
 
 class LogAffinity(Affinity):

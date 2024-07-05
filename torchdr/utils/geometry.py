@@ -39,7 +39,8 @@ def pairwise_distances(
 
     Returns
     -------
-    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, m_samples)
+    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True)
+    of shape (n_samples, m_samples)
         Pairwise distances matrix.
     """
     if Y is None:
