@@ -204,7 +204,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._pairwise_distance_matrix(affinity.data_)
+    C = affinity._distance_matrix(affinity.data_)
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0

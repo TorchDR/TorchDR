@@ -27,6 +27,7 @@ from torchdr.utils import (
     batch_transpose,
     OPTIMIZERS,
     output_exp_if_not_log,
+    to_torch,
 )
 from torchdr.affinity.base import LogAffinity
 
@@ -262,19 +263,21 @@ class EntropicAffinity(LogAffinity):
         self : EntropicAffinity
             The fitted instance.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C_full = self._pairwise_distance_matrix(self.data_)
-        if self._sparsity and self.verbose:
-            print(
-                "[TorchDR] Affinity : sparsity mode enabled, computing "
-                "nearest neighbors."
-            )
+        C = self._distance_matrix(self.data_)
+        if self._sparsity:
+
+            if self.verbose:
+                print(
+                    "[TorchDR] Affinity : sparsity mode enabled, computing "
+                    "nearest neighbors."
+                )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k) where k is 3 * perplexity.
-            C_reduced, self.indices_ = kmin(C_full, k=3 * self.perplexity, dim=1)
+            C_, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
         else:
-            C_reduced = C_full
+            C_ = C
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -283,11 +286,11 @@ class EntropicAffinity(LogAffinity):
         target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
-            log_P = _log_Pe(C_reduced, eps)
+            log_P = _log_Pe(C_, eps)
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(C_reduced, self.perplexity)
+        begin, end = _bounds_entropic_affinity(C_, self.perplexity)
         begin += 1e-6  # avoid numerical issues
 
         self.eps_ = false_position(
@@ -302,7 +305,7 @@ class EntropicAffinity(LogAffinity):
             device=self.data_.device,
         )
 
-        log_P_final = _log_Pe(C_full, self.eps_)
+        log_P_final = _log_Pe(C, self.eps_)
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
 
@@ -333,114 +336,8 @@ class EntropicAffinity(LogAffinity):
         eps_batch = self.eps_[indices]
         log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
 
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
-
-
-class L2SymmetricEntropicAffinity(EntropicAffinity):
-    r"""
-    Computes the L2-symmetrized entropic affinity matrix :math:`\overline{\mathbf{P}^{\mathrm{e}}}` of t-SNE [2]_.
-
-    From the :class:`~torchdr.affinity.EntropicAffinity` matrix :math:`\mathbf{P}^{\mathrm{e}}`, it is computed as
-
-    .. math::
-        \overline{\mathbf{P}^{\mathrm{e}}} = \frac{\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top}{2} \:.
-
-    Parameters
-    ----------
-    perplexity : float
-        Perplexity parameter, related to the number of 'effective' nearest neighbors.
-        Consider selecting a value between 2 and the number of samples.
-    tol : float, optional
-        Precision threshold at which the root finding algorithm stops.
-    max_iter : int, optional
-        Number of maximum iterations for the root finding algorithm.
-    sparsity: bool, optional
-        If True, keeps only the 3 * perplexity smallest element on each row of
-        the ground cost matrix. Recommended if perplexity is small (<50).
-    metric: str, optional
-        Metric to use for computing distances, by default "sqeuclidean".
-    zero_diag : bool, optional
-        Whether to set the diagonal of the distance matrix to 0.
-    device : str, optional
-        Device to use for computation.
-    keops : bool, optional
-        Whether to use KeOps for computation.
-    verbose : bool, optional
-        Verbosity.
-
-    References
-    ----------
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
-    """  # noqa: E501
-
-    def __init__(
-        self,
-        perplexity: float = 30,
-        tol: float = 1e-5,
-        max_iter: int = 1000,
-        sparsity: bool = None,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = "auto",
-        keops: bool = False,
-        verbose: bool = True,
-    ):
-        super().__init__(
-            perplexity=perplexity,
-            tol=tol,
-            max_iter=max_iter,
-            sparsity=sparsity,
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            keops=keops,
-            verbose=verbose,
-        )
-
-    def fit(self, X: torch.Tensor | np.ndarray):
-        r"""
-        Computes the l2-symmetric entropic affinity matrix from input data X.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which affinity is computed.
-
-        Returns
-        -------
-        self : L2SymmetricEntropicAffinity
-            The fitted instance.
-        """
-        super().fit(X)
-        log_P = self.log_affinity_matrix_
-        self.N = self.data_.shape[0]
-        self.affinity_matrix_ = (log_P.exp() + log_P.exp().T) / (2 * self.N)
-        self.log_affinity_matrix_ = self.affinity_matrix_.log()
-        return self
-
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
-        """
-        P_batch = super().get_batch(indices, log=False)
-        return (P_batch + batch_transpose(P_batch)) / (2 * self.N)
+        log_P_batch -= math.log(self.n_samples_in_)
+        return log_P_batch
 
 
 class SymmetricEntropicAffinity(LogAffinity):
@@ -558,9 +455,9 @@ class SymmetricEntropicAffinity(LogAffinity):
                 "[TorchDR] Affinity : Computing the Symmetric Entropic Affinity matrix."
             )
 
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -850,9 +747,9 @@ class SinkhornAffinity(LogAffinity):
         self : SinkhornAffinity
             The fitted instance.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 

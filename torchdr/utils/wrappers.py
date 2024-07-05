@@ -14,7 +14,7 @@ from pykeops.torch import LazyTensor
 from sklearn.utils.validation import check_array
 
 
-def contiguous_output(func):
+def output_contiguous(func):
     """
     Convert all output torch tensors to contiguous.
     """
@@ -34,7 +34,7 @@ def contiguous_output(func):
     return wrapper
 
 
-@contiguous_output
+@output_contiguous
 def to_torch(x, device="auto", verbose=True, return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.

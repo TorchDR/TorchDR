@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, to_torch
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import (
     extract_batch_normalization,
@@ -106,7 +106,7 @@ class ScalarProductAffinity(Affinity):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data.
 
         Returns
@@ -114,10 +114,10 @@ class ScalarProductAffinity(Affinity):
         self : ScalarProductAffinity
             The fitted scalar product affinity model.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         if self.centering:
             self.data_ = self.data_ - self.data_.mean(0)
-        self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
+        self.affinity_matrix_ = -self._distance_matrix(self.data_)
 
         return self
 
@@ -127,8 +127,8 @@ class ScalarProductAffinity(Affinity):
 
         Parameters
         ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Input data.
 
         Returns
         -------
@@ -141,25 +141,32 @@ class ScalarProductAffinity(Affinity):
 
     @inputs_to_torch
     def transform(
-        self, X: torch.Tensor | np.ndarray, Y: torch.Tensor | np.ndarray = None
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
     ):
         r"""
         Computes the scalar product affinity between X and Y.
-        If Y is None, computes the affinity between X and itself.
+        If Y is None, sets Y = X.
+        If indices is not None, the output has shape (n, k) and its (i,j) element is the
+        affinity between X[i] and Y[indices[i, j]].
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
             Input data.
-        Y : torch.Tensor or np.ndarray
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
             Second Input data. Default is None.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. Default is None.
 
         Returns
         -------
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return -C
 
 
@@ -217,8 +224,8 @@ class GibbsAffinity(LogAffinity):
         self : GibbsAffinity
             The fitted Gibbs affinity model.
         """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Gibbs(C, self.sigma)
         return self
 
@@ -245,33 +252,36 @@ class GibbsAffinity(LogAffinity):
         log_P_batch = _log_Gibbs(C_batch, self.sigma)
         return log_P_batch
 
-    @inputs_to_torch
     @output_exp_if_not_log
+    @inputs_to_torch
     def transform(
         self,
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
         log: bool = False,
+        indices: torch.Tensor = None,
     ):
         r"""
         Computes the Gibbs affinity between X and Y.
-        If Y is None, computes the affinity between X and itself.
+        If Y is None, sets Y = X.
+        If indices is not None, the output has shape (n, k) and its (i,j) element is the
+        affinity between X[i] and Y[indices[i, j]].
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
             Input data.
-        Y : torch.Tensor or np.ndarray
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
             Second Input data. Default is None.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. Default is None.
 
         Returns
         -------
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return _log_Gibbs(C, self.sigma)
 
 
@@ -324,7 +334,7 @@ class StudentAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data.
 
         Returns
@@ -332,8 +342,8 @@ class StudentAffinity(LogAffinity):
         self : StudentAffinity
             The fitted Student affinity model.
         """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
         return self
 
@@ -360,33 +370,36 @@ class StudentAffinity(LogAffinity):
         log_P_batch = _log_Student(C_batch, self.degrees_of_freedom)
         return log_P_batch
 
-    @inputs_to_torch
     @output_exp_if_not_log
+    @inputs_to_torch
     def transform(
         self,
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
         log: bool = False,
+        indices: torch.Tensor = None,
     ):
         r"""
         Computes the Student affinity between X and Y.
-        If Y is None, computes the affinity between X and itself.
+        If Y is None, sets Y = X.
+        If indices is not None, the output has shape (n, k) and its (i,j) element is the
+        affinity between X[i] and Y[indices[i, j]].
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
             Input data.
-        Y : torch.Tensor or np.ndarray
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
             Second Input data. Default is None.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. Default is None.
 
         Returns
         -------
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return _log_Student(C, self.degrees_of_freedom)
 
 
@@ -441,7 +454,7 @@ class NormalizedGibbsAffinity(GibbsAffinity):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data.
 
         Returns
