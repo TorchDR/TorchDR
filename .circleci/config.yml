@@ -69,16 +69,16 @@ jobs:
               make SPHINXOPTS=-v html;
               cd ..;
 
-        # Add stable doc
-        - run:
-            name: add stable doc
-            command: |
-              set -e
-              mkdir -p ~/.ssh
-              echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
-              chmod og= ~/.ssh/config
-              cd docs;
-              make add-stable-doc;
+        # TODO MM Add stable doc
+        # - run:
+        #     name: add stable doc
+        #     command: |
+        #       set -e
+        #       mkdir -p ~/.ssh
+        #       echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
+        #       chmod og= ~/.ssh/config
+        #       cd docs;
+        #       make add-stable-doc;
 
         # upload to gh-pages
         - run:
