@@ -64,7 +64,7 @@ jobs:
             name: make html
             no_output_timeout: 120m
             command: |
-              cd doc;
+              cd docs;
               make clean;
               make SPHINXOPTS=-v html;
               cd ..;
@@ -92,10 +92,10 @@ jobs:
 
         # Save the outputs
         - store_artifacts:
-            path: doc/_build/html/
+            path: docs/_build/html/
             destination: dev
         - persist_to_workspace:
-            root: doc/_build
+            root: docs/_build
             paths:
               - html
 
