@@ -1,3 +1,5 @@
+# Tagging a commit with [circle front] will build the front page and perform test-doc.
+# Tagging a commit with [circle full] will build everything.
 version: 2
 jobs:
     build_docs:
@@ -36,7 +38,7 @@ jobs:
         - run:
             name: Install ffmpeg
             command: |
-              sudo apt update
+              sudo apt update 
               sudo apt install ffmpeg
 
         - run:
@@ -45,6 +47,7 @@ jobs:
               python -m pip install --user --upgrade --progress-bar off pip
               python -m pip install --user -e .
               python -m pip install --user .[doc]
+          # python -m pip install --user --upgrade --progress-bar off ipython "https://api.github.com/repos/sphinx-gallery/sphinx-gallery/zipball/master" memory_profiler
         - save_cache:
             key: pip-cache
             paths:
@@ -59,49 +62,126 @@ jobs:
                python -c "import torchdr"
                which sphinx-build
 
+        # - run:
+        #     name: Correct link in release file
+        #     command: |
+        #       sed -i -r 's/PR #([[:digit:]]*)/\[PR #\1\]\(https:\/\/github.com\/torchdr\/torchdr\/pull\/\1\)/' RELEASES.md
+        #       sed -i -r 's/Issue #([[:digit:]]*)/\[Issue #\1\]\(https:\/\/github.com\/torchdr\/torchdr\/issues\/\1\)/' RELEASES.md
         # Build docs
         - run:
             name: make html
-            no_output_timeout: 120m
             command: |
-              cd doc;
-              make clean;
-              make SPHINXOPTS=-v html;
-              cd ..;
+              cd docs;
+              make html;
+            no_output_timeout: 30m
 
-        # Add stable doc
+        # Save the outputs
+        - store_artifacts:
+            path: docs/build/html/
+            destination: dev
+        - persist_to_workspace:
+            root: docs/build
+            paths:
+              - html
+
+    deploy_main:
+      docker:
+        - image: cimg/python:3.10
+      steps:
+        - attach_workspace:
+            at: /tmp/build
         - run:
-            name: add stable doc
+            name: Fetch docs
             command: |
               set -e
               mkdir -p ~/.ssh
               echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
               chmod og= ~/.ssh/config
-              cd doc;
-              make add-stable-doc;
-
-        # upload to gh-pages
+              if [ ! -d ~/torchdr.github.io ]; then
+                git clone git@github.com:/torchdr/torchdr.github.io ~/torchdr.github.io --depth=1
+              fi
         - run:
-            name: deploy
+            name: Deploy docs
             command: |
-              if [[ ${CIRCLE_BRANCH} == "main" ]]; then
-                cd doc;
-                pip install ghp-import;
-                make install
+              set -e;
+              if [ "${CIRCLE_BRANCH}" == "main" ]; then
+                git config --global user.email "circle@torchdr.github.io";
+                git config --global user.name "Circle CI";
+                cd ~/torchdr.github.io;
+                git checkout main
+                git remote -v
+                git fetch origin
+                git reset --hard origin/main
+                git clean -xdf
+                echo "Deploying dev docs for ${CIRCLE_BRANCH}.";
+                cd dev
+                cp -a /tmp/build/html/* .;
+                touch .nojekyll;
+                git add -A;
+                git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
+                git push origin main;
+              else
+                echo "No deployment (build: ${CIRCLE_BRANCH}).";
               fi
 
-        # Save the outputs
-        - store_artifacts:
-            path: doc/_build/html/
-            destination: dev
-        - persist_to_workspace:
-            root: doc/_build
-            paths:
-              - html
+    deploy_tag:
+      docker:
+        - image: cimg/python:3.10
+      steps:
+        - attach_workspace:
+            at: /tmp/build
+        - run:
+            name: Fetch docs
+            command: |
+              set -e
+              mkdir -p ~/.ssh
+              echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
+              chmod og= ~/.ssh/config
+              if [ ! -d ~/torchdr.github.io ]; then
+                git clone git@github.com:/torchdr/torchdr.github.io ~/torchdr.github.io --depth=1
+              fi
+        - run:
+            name: Deploy docs
+            command: |
+              set -e;
+              git config --global user.email "circle@torchdr.github.io";
+              git config --global user.name "Circle CI";
+              cd ~/torchdr.github.io;
+              git checkout main
+              git remote -v
+              git fetch origin
+              git reset --hard origin/main
+              git clean -xdf
+              echo "Deploying dev docs for ${CIRCLE_BRANCH}.";
+              cp -a /tmp/build/html/* .;
+              touch .nojekyll;
+              git add -A;
+              git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
+              git push origin main;
+
 
 workflows:
   version: 2
 
   default:
+
     jobs:
-      - build_docs
+      - build_docs:
+          filters:
+            tags:
+              only: /[0-9]+(\.[0-9]+)*$/  
+      - deploy_main:
+          requires:
+            - build_docs
+          filters:
+            branches:
+              only:
+                - main
+      - deploy_tag:
+          requires:
+            - build_docs
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /[0-9]+(\.[0-9]+)*$/
