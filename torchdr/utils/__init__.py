@@ -19,7 +19,12 @@ from .wrappers import (
     inputs_to_torch,
 )
 
-from .geometry import symmetric_pairwise_distances, LIST_METRICS
+from .geometry import (
+    pairwise_distances,
+    symmetric_pairwise_distances,
+    symmetric_pairwise_distances_indices,
+    LIST_METRICS,
+)
 
 from .validation import (
     check_NaNs,
@@ -69,7 +74,9 @@ __all__ = [
     "inputs_to_torch",
     "logsumexp_red",
     "check_NaNs",
+    "pairwise_distances",
     "symmetric_pairwise_distances",
+    "symmetric_pairwise_distances_indices",
     "LIST_METRICS",
     "check_marginal",
     "relative_similarity",

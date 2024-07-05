@@ -33,7 +33,7 @@ def pairwise_distances(
     Y : torch.Tensor of shape (m_samples, n_features), optional
         Second dataset. If None, Y = X.
     metric : str, optional
-        Metric to use for computing distances. The default is "euclidean".
+        Metric to use for computing distances. The default is "sqeuclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
 
@@ -112,7 +112,7 @@ def _pairwise_distances_torch(X: torch.Tensor, Y: torch.Tensor, metric: str):
     if metric not in LIST_METRICS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
-    if metric == "euclidean":
+    if metric == "sqeuclidean":
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
@@ -155,7 +155,7 @@ def _pairwise_distances_keops(X: torch.Tensor, Y: torch.Tensor, metric: str):
     X_i = LazyTensor(X.unsqueeze(-2))
     X_j = LazyTensor(Y.unsqueeze(-3))
 
-    if metric == "euclidean":
+    if metric == "sqeuclidean":
         C = ((X_i - X_j) ** 2).sum(-1)
     elif metric == "manhattan":
         C = (X_i - X_j).abs().sum(-1)
@@ -170,7 +170,7 @@ def _pairwise_distances_keops(X: torch.Tensor, Y: torch.Tensor, metric: str):
 def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
 ):
     r"""
     Compute pairwise distances matrix between points in a dataset for a subset
@@ -192,7 +192,7 @@ def symmetric_pairwise_distances_indices(
     """
     X_indices = X[indices]  # Shape (n, k, p)
 
-    if metric == "euclidean":
+    if metric == "sqeuclidean":
         C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
