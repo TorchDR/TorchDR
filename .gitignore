@@ -129,8 +129,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-docs/auto_examples/
-docs/gen_modules/
+docs/source/auto_examples/
+docs/source/gen_modules/
 .DS_Store
 .vscode
 
