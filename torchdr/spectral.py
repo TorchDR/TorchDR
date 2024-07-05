@@ -115,7 +115,8 @@ class KernelPCA(DRModule):
         if not hasattr(self.affinity, "transform"):
             aff_name = self.affinity.__class__.__name__
             raise ValueError(
-                f"Affinity {aff_name} cannot transform data without fitting "                  "first. Use the fit_transform method instead."
+                f"Affinity {aff_name} cannot transform data without fitting "
+                "first. Use the fit_transform method instead."
             )
         K = self.affinity.transform(X)
         K = center_kernel(K)
