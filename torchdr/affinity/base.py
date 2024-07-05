@@ -64,7 +64,7 @@ class Affinity(ABC):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data to be converted and stored.
 
         Returns
@@ -85,7 +85,7 @@ class Affinity(ABC):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data used to compute the affinity matrix.
 
         Returns
@@ -105,7 +105,7 @@ class Affinity(ABC):
         )
         return self.affinity_matrix_  # type: ignore
 
-    def _pairwise_distance_matrix(self, X: torch.Tensor, Y: torch.Tensor = None):
+    def _pairwise_distance_matrix(self, X: torch.Tensor):
         r"""
         Computes the pairwise distance matrix :math:`\mathbf{C}` for the input tensor.
 
@@ -115,8 +115,8 @@ class Affinity(ABC):
 
         Parameters
         ----------
-        X : torch.Tensor
-            A 2D tensor of shape (n_samples, n_features) containing the input data.
+        X : torch.Tensor of shape (n_samples, n_features)
+            Input data.
 
         Returns
         -------
@@ -127,7 +127,10 @@ class Affinity(ABC):
         """
         add_diagonal = 1e12 if self.nodiag else None
         C = pairwise_distances(
-            X, Y, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
+            X=X,
+            metric=self.metric,
+            keops=self.keops,
+            add_diagonal=add_diagonal,
         )
         return C
 
@@ -173,7 +176,8 @@ class Affinity(ABC):
 
         Returns
         -------
-        C_batch : torch.Tensor or pykeops.torch.LazyTensor
+        C_batch : torch.Tensor or pykeops.torch.LazyTensor of shape
+        (n_batch, batch_size, batch_size)
             The batched pairwise distance matrix.
         """
         self._check_is_fitted()
@@ -195,6 +199,12 @@ class Affinity(ABC):
         Computes the affinity between points without fitting any parameter.
         Thus it can only be called for affinities that do not require any fitting.
         For such affinities, this method must be overridden.
+
+        Raises
+        ------
+        NotImplementedError
+            If the method is called for an affinity that requires fitting, an error
+            is raised.
         """
         raise NotImplementedError(
             "[TorchDR] ERROR : transform method not implemented for affinity "
@@ -249,7 +259,7 @@ class LogAffinity(Affinity):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data used to compute the affinity matrix.
 
         log : bool, optional
@@ -258,7 +268,8 @@ class LogAffinity(Affinity):
 
         Returns
         -------
-        affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
+        affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor of shape
+        (n_samples, n_samples)
             The computed affinity matrix. If `log` is True, returns the log affinity
             matrix. Otherwise, returns the exponentiated log affinity matrix.
 

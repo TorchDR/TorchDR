@@ -21,6 +21,7 @@ def pairwise_distances(
     metric: str = "euclidean",
     keops: bool = False,
     add_diagonal: float = 1e12,
+    indices: torch.Tensor = None,
 ):
     r"""
     Compute pairwise distances matrix between points in a dataset.

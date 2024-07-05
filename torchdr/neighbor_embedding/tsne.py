@@ -152,5 +152,5 @@ class TSNE(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, log_Q, Q_in_log=True):
         return logsumexp_red(log_Q, dim=(0, 1))
