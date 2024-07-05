@@ -112,7 +112,12 @@ class KernelPCA(DRModule):
 
     @handle_backend
     def transform(self, X):
-        K = self.affinity.fit_transform(X)
+        if not hasattr(self.affinity, "transform"):
+            aff_name = self.affinity.__class__.__name__
+            raise ValueError(
+                f"Affinity {aff_name} cannot transform data without fitting "                  "first. Use the fit_transform method instead."
+            )
+        K = self.affinity.transform(X)
         K = center_kernel(K)
         result = (
             K
