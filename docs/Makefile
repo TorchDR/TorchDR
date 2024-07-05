@@ -55,6 +55,7 @@ html:
 install:
 	touch $(OUTPUTDIR)/.nojekyll
 	ghp-import -m "Generate Pelican site [ci skip]" -b $(GITHUB_PAGES_BRANCH) $(OUTPUTDIR)
+	git pull origin $(GITHUB_PAGES_BRANCH)
 	git push origin $(GITHUB_PAGES_BRANCH)
 
 .PHONY: add-stable-doc
