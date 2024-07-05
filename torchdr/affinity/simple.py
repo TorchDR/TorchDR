@@ -109,7 +109,11 @@ class ScalarProductAffinity(Affinity):
         centering: bool = False,
     ):
         super().__init__(
-            metric="angular", device=device, keops=keops, verbose=verbose, nodiag=False
+            metric="angular",
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            zero_diag=False,
         )
         self.normalization_dim = normalization_dim
         self.centering = centering
@@ -188,7 +192,7 @@ class GibbsAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -203,13 +207,17 @@ class GibbsAffinity(LogAffinity):
         sigma: float = 1.0,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.sigma = sigma
         self.normalization_dim = normalization_dim
@@ -295,7 +303,7 @@ class SelfTuningGibbsAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -316,13 +324,17 @@ class SelfTuningGibbsAffinity(LogAffinity):
         K: int = 7,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.K = K
         self.normalization_dim = normalization_dim
@@ -409,7 +421,7 @@ class StudentAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix.
     metric : str, optional
         Metric to use for pairwise distances computation.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
@@ -424,13 +436,17 @@ class StudentAffinity(LogAffinity):
         degrees_of_freedom: int = 1,
         normalization_dim: int | Tuple[int] = (0, 1),
         metric: str = "euclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.normalization_dim = normalization_dim
         self.degrees_of_freedom = degrees_of_freedom
