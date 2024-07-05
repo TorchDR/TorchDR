@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from torchdr import (
-    GibbsAffinity,
+    NormalizedGibbsAffinity,
     EntropicAffinity,
 )
 
@@ -70,7 +70,7 @@ def plot_affinity_graph(G):
 # parameter ``normalization_dim=1``.
 #
 
-K = GibbsAffinity(
+K = NormalizedGibbsAffinity(
     sigma=1, normalization_dim=1, keops=False, nodiag=False
 ).fit_transform(X)
 
