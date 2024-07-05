@@ -52,6 +52,8 @@ class Affinity(ABC):
         self.device = device
         self.keops = keops
         self.verbose = verbose
+        self.nodiag = nodiag
+        self.add_diagonal = 1e12 if self.nodiag else None
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -59,13 +61,7 @@ class Affinity(ABC):
         Prepares and stores the input data :math:`\mathbf{X}` for computing
         the affinity matrix.
 
-        This method must be overridden by subclasses. This base implementation
-        only converts the input data to a torch tensor and stores it
-        in the `data_` attribute.
-
-        Subclasses should call `super().fit(X)` to utilize this functionality
-        and then implement additional steps required for computing the specific
-        affinity matrix.
+        This method must be overridden by subclasses.
 
         Parameters
         ----------
@@ -77,8 +73,10 @@ class Affinity(ABC):
         self : object
             Returns the instance itself.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
-        return self
+        raise NotImplementedError(
+            "[TorchDR] ERROR : fit method not implemented for affinity "
+            f"{self.__class__.__name__}. "
+        )
 
     def fit_transform(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -110,7 +108,7 @@ class Affinity(ABC):
         )
         return self.affinity_matrix_  # type: ignore
 
-    def _pairwise_distance_matrix(self, X: torch.Tensor):
+    def _distance_matrix(self, X: torch.Tensor):
         r"""
         Computes the pairwise distance matrix :math:`\mathbf{C}` for the input tensor.
 
@@ -130,12 +128,11 @@ class Affinity(ABC):
             value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        add_diagonal = 1e12 if self.nodiag else None
         C = symmetric_pairwise_distances(
             X=X,
             metric=self.metric,
             keops=self.keops,
-            add_diagonal=add_diagonal,
+            add_diagonal=self.add_diagonal,
         )
         return C
 
@@ -196,23 +193,10 @@ class Affinity(ABC):
         "of dimensions equal to the number of samples."
 
         data_batch = self.data_[indices]
-        C_batch = self._pairwise_distance_matrix(data_batch)
+        C_batch = self._distance_matrix(data_batch)
         return C_batch
 
     def transform(
-        self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
-        indices: torch.Tensor = None,
-    ):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : transform method not implemented for affinity "
-            f"{self.__class__.__name__}. This means that the affinity has normalizing "
-            "parameters that need to be fitted. Thus it can only be called using the "
-            "fit_transform method."
-        )
-
-    def _distance_matrix_for_transform(
         self,
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
@@ -229,6 +213,27 @@ class Affinity(ABC):
             If the method is called for an affinity that requires fitting, an error
             is raised.
         """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : transform method not implemented for affinity "
+            f"{self.__class__.__name__}. This means that the affinity has normalizing "
+            "parameters that need to be fitted. Thus it can only be called using the "
+            "fit_transform method."
+        )
+
+    def _distance_matrix_transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
+        r"""
+        Computes the pairwise distance matrix between two datasets X and Y (useful for
+        the transform method of kernel PCA) or between a dataset X and itself (regular
+        usecase of dimensionality reduction).
+        If indices is provided, computes pairwise distances between X and iteself
+        for a subset of pairs given by indices.
+        """
+
         if Y is not None and indices is not None:
             raise NotImplementedError(
                 "[TorchDR] ERROR : transform method cannot be called with both Y "
@@ -244,7 +249,21 @@ class Affinity(ABC):
             return pairwise_distances(X, Y, metric=self.metric, keops=self.keops)
 
         else:
-            return symmetric_pairwise_distances(X, metric=self.metric, keops=self.keops)
+            return symmetric_pairwise_distances(
+                X, metric=self.metric, keops=self.keops, add_diagonal=self.add_diagonal
+            )
+
+    def check_transform_implemented(self):
+        """
+        Checks if the transform method has been implemented (must be overridden and
+        not just the base class).
+        """
+        # Check if the method is overridden and not just the base class method
+        method = getattr(self, "transform")
+        if method.__func__ is not Affinity.transform:
+            return True
+        else:
+            return False
 
 
 class LogAffinity(Affinity):

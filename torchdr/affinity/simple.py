@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, to_torch
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import (
     extract_batch_normalization,
@@ -110,10 +110,10 @@ class ScalarProductAffinity(Affinity):
         self : ScalarProductAffinity
             The fitted scalar product affinity model.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         if self.centering:
             self.data_ = self.data_ - self.data_.mean(0)
-        self.affinity_matrix_ = -self._pairwise_distance_matrix(self.data_)
+        self.affinity_matrix_ = -self._distance_matrix(self.data_)
 
         return self
 
@@ -162,7 +162,7 @@ class ScalarProductAffinity(Affinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = super().transform(X, Y, indices=indices)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return -C
 
 
@@ -216,8 +216,8 @@ class GibbsAffinity(LogAffinity):
         self : GibbsAffinity
             The fitted Gibbs affinity model.
         """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Gibbs(C, self.sigma)
         return self
 
@@ -273,7 +273,7 @@ class GibbsAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = super().transform(X, Y, indices=indices)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return _log_Gibbs(C, self.sigma)
 
 
@@ -330,8 +330,8 @@ class StudentAffinity(LogAffinity):
         self : StudentAffinity
             The fitted Student affinity model.
         """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = _log_Student(C, self.degrees_of_freedom)
         return self
 
@@ -387,7 +387,7 @@ class StudentAffinity(LogAffinity):
         P : torch.Tensor or pykeops.torch.LazyTensor
             Scalar product between X and Y.
         """
-        C = super().transform(X, Y, indices=indices)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return _log_Student(C, self.degrees_of_freedom)
 
 

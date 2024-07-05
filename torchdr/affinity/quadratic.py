@@ -12,7 +12,13 @@ from tqdm import tqdm
 import numpy as np
 
 from torchdr.affinity import Affinity
-from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs, batch_transpose
+from torchdr.utils import (
+    OPTIMIZERS,
+    wrap_vectors,
+    check_NaNs,
+    batch_transpose,
+    to_torch,
+)
 
 
 @wrap_vectors
@@ -140,9 +146,9 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
                 "Affinity matrix."
             )
-        super().fit(X)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 

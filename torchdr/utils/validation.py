@@ -11,7 +11,6 @@ import torch
 from torch.testing import assert_close
 from pykeops.torch import LazyTensor
 
-from torch.affinity import Affinity
 from torchdr.utils.utils import entropy
 
 
@@ -222,15 +221,3 @@ def check_nonnegativity_eigenvalues(lambdas, tol_neg_ratio=1e-3, small_pos_ratio
         lambdas[too_small_lambdas] = 0
 
     return lambdas
-
-
-def check_transform_implemented(affinity_obj):
-    """
-    Checks if the transform method has been implemented for the given affinity object.
-    """
-    if hasattr(affinity_obj, "transform"):
-        # Check if the method is overridden and not just the base class method
-        method = getattr(affinity_obj, "transform")
-        if method.__func__ is not Affinity.transform:
-            return True
-    return False

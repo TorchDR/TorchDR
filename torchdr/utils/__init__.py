@@ -40,7 +40,6 @@ from .validation import (
     check_nonnegativity,
     check_nonnegativity_eigenvalues,
     check_total_sum,
-    check_transform_implemented,
 )
 
 from .utils import (
@@ -89,7 +88,6 @@ __all__ = [
     "check_shape",
     "check_nonnegativity",
     "check_nonnegativity_eigenvalues",
-    "check_transform_implemented",
     "check_total_sum",
     "entropy",
     "normalize_matrix",

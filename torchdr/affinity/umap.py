@@ -18,6 +18,7 @@ from torchdr.utils import (
     wrap_vectors,
     batch_transpose,
     inputs_to_torch,
+    to_torch,
 )
 
 
@@ -117,9 +118,9 @@ class UMAPAffinityIn(Affinity):
                 "Affinity matrix."
             )
 
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C_full = self._pairwise_distance_matrix(self.data_)
+        C_full = self._distance_matrix(self.data_)
 
         if self.sparsity:
             print(
@@ -219,9 +220,9 @@ class UMAPAffinityOut(Affinity):
         self : UMAPAffinityEmbedding
             The fitted instance.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
         self.affinity_matrix_ = _Student_umap(C, self._a, self._b)
 
         return self
@@ -249,6 +250,7 @@ class UMAPAffinityOut(Affinity):
         self,
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
     ):
         r"""
         Computes the affinity between X and Y.
@@ -260,11 +262,13 @@ class UMAPAffinityOut(Affinity):
             Input data.
         Y : torch.Tensor or np.ndarray
             Second Input data. Default is None.
+        indices : torch.Tensor, optional
+            Indices of pairs to compute. Default is None.
 
         Returns
         -------
         P : torch.Tensor or pykeops.torch.LazyTensor
             Affinity between X and Y.
         """
-        C = self._pairwise_distance_matrix(X, Y)
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return _Student_umap(C, self._a, self._b)

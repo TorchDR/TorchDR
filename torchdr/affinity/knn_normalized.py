@@ -18,6 +18,7 @@ from torchdr.utils import (
     kmin,
     wrap_vectors,
     batch_transpose,
+    to_torch,
 )
 
 
@@ -109,8 +110,8 @@ class SelfTuningGibbsAffinity(LogAffinity):
         self : LocalGibbsAffinity
             The fitted local Gibbs affinity model.
         """
-        super().fit(X)
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]

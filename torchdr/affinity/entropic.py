@@ -27,6 +27,7 @@ from torchdr.utils import (
     batch_transpose,
     OPTIMIZERS,
     output_exp_if_not_log,
+    to_torch,
 )
 from torchdr.affinity.base import LogAffinity
 
@@ -258,9 +259,9 @@ class EntropicAffinity(LogAffinity):
         self : EntropicAffinity
             The fitted instance.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
         if self._sparsity:
 
             if self.verbose:
@@ -270,7 +271,9 @@ class EntropicAffinity(LogAffinity):
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k) where k is 3 * perplexity.
-            C, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
+            C_, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
+        else:
+            C_ = C
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -279,11 +282,11 @@ class EntropicAffinity(LogAffinity):
         target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
-            log_P = _log_Pe(C, eps)
+            log_P = _log_Pe(C_, eps)
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(C, self.perplexity)
+        begin, end = _bounds_entropic_affinity(C_, self.perplexity)
         begin += 1e-6  # avoid numerical issues
 
         self.eps_ = false_position(
@@ -444,9 +447,9 @@ class SymmetricEntropicAffinity(LogAffinity):
                 "[TorchDR] Affinity : Computing the Symmetric Entropic Affinity matrix."
             )
 
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -732,9 +735,9 @@ class SinkhornAffinity(LogAffinity):
         self : SinkhornAffinity
             The fitted instance.
         """
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
