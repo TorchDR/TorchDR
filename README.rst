@@ -1,7 +1,7 @@
 Torch Dimensionality Reduction
 ==============================
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/torchdr_logo.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/figures/torchdr_logo.png
    :width: 800px
    :alt: torchdr logo
    :align: center
