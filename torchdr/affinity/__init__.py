@@ -9,13 +9,14 @@ from .base import Affinity, LogAffinity
 from .simple import (
     ScalarProductAffinity,
     GibbsAffinity,
-    SelfTuningGibbsAffinity,
     StudentAffinity,
+    NormalizedGibbsAffinity,
 )
+
+from .knn_normalized import SelfTuningGibbsAffinity
 
 from .entropic import (
     EntropicAffinity,
-    L2SymmetricEntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
 )
@@ -29,10 +30,10 @@ __all__ = [
     "LogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
+    "NormalizedGibbsAffinity",
     "SelfTuningGibbsAffinity",
     "StudentAffinity",
     "EntropicAffinity",
-    "L2SymmetricEntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",

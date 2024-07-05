@@ -203,13 +203,12 @@ def extract_batch_normalization(normalization, indices, dim):
 
 
 def center_kernel(K):
-    r"""
-    Centers a kernel matrix.
-    """
+    r"""Center a kernel matrix."""
     n = K.shape[0]
-    K = K - sum_red(K, dim=0) / n
-    K = K - sum_red(K, dim=1) / n
-    K = K + sum_red(K, dim=(0, 1)) / (n**2)
+    row_mean = sum_red(K, dim=1) / n
+    col_mean = sum_red(K, dim=0) / n
+    mean = col_mean.mean()
+    K -= row_mean + col_mean - mean
     return K
 
 

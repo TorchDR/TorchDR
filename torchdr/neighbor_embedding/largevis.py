@@ -9,10 +9,10 @@ LargeVis algorithm
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    L2SymmetricEntropicAffinity,
+    EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, sum_red
 
 
 class LargeVis(NeighborEmbedding):
@@ -115,7 +115,7 @@ class LargeVis(NeighborEmbedding):
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = L2SymmetricEntropicAffinity(
+        affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
             tol=tol_affinity,
@@ -126,7 +126,6 @@ class LargeVis(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,
             device=device,
             keops=keops,
             verbose=False,
@@ -158,6 +157,13 @@ class LargeVis(NeighborEmbedding):
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
+
+        # normalize the mass of the input affinity
+        if not hasattr(self, "weight_affinity_in_"):
+            self.weight_affinity_in_ = (
+                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
+            ).item()
+
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
-        return -(1 - Q).log()
+        return -self.weight_affinity_in_ * (1 - Q).log()

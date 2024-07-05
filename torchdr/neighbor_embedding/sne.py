@@ -122,7 +122,6 @@ class SNE(NeighborEmbedding):
         )
         affinity_out = GibbsAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,
@@ -152,4 +151,4 @@ class SNE(NeighborEmbedding):
         )
 
     def _repulsive_loss(self, log_Q):
-        return logsumexp_red(log_Q, dim=1).sum()
+        return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

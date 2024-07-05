@@ -144,10 +144,6 @@ The following table details the aspects controlled by various formulations of en
      - ❌
      - ✅
      - ✅
-   * - :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>` (:class:`TSNE <torchdr.TSNE>`) [2]_
-     - ✅
-     - ❌
-     - ❌
    * - :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` (DOSNES) [5]_ [9]_
      - ✅
      - ✅
@@ -162,7 +158,7 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 
 .. note::
     The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
-    However :class:`L2SymmetricEntropicAffinity <torchdr.L2SymmetricEntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
+    However the l2 symmetrization of :class:`EntropicAffinity <torchdr.EntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
 
 
 .. minigallery:: torchdr.EntropicAffinity
@@ -285,12 +281,12 @@ Many NE methods can be represented within this framework. The following table su
 
    * - :class:`TSNE <TSNE>` [2]_
      - :math:`\log(\sum_{ij} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
      - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`SNEkhorn <SNEkhorn>` [3]_
@@ -310,7 +306,7 @@ Many NE methods can be represented within this framework. The following table su
 
    * - LargeVis [13]_
      - :math:`- \sum_{ij} \log (1 - Q_{ij})`
-     - :class:`L2SymmetricEntropicAffinity <L2SymmetricEntropicAffinity>`
+     - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
 

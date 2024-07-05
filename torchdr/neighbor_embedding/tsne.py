@@ -9,7 +9,7 @@ t-distributed Stochastic Neighbor embedding (t-SNE) algorithm
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    L2SymmetricEntropicAffinity,
+    EntropicAffinity,
     StudentAffinity,
 )
 from torchdr.utils import logsumexp_red
@@ -113,7 +113,7 @@ class TSNE(NeighborEmbedding):
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = L2SymmetricEntropicAffinity(
+        affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
             tol=tol_affinity,
@@ -124,7 +124,6 @@ class TSNE(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,
