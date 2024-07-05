@@ -66,10 +66,10 @@ class TSNE(NeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'euclidean'.
+    metric_in : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
+    metric_out : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'sqeuclidean'.
 
     References
     ----------
@@ -103,8 +103,8 @@ class TSNE(NeighborEmbedding):
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
     ):
 
         self.metric_in = metric_in

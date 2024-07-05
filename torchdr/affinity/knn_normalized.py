@@ -83,7 +83,7 @@ class SelfTuningGibbsAffinity(LogAffinity):
         self,
         K: int = 7,
         normalization_dim: int | Tuple[int] = (0, 1),
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = None,
         keops: bool = True,
