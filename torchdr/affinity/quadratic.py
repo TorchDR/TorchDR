@@ -76,7 +76,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     nodiag : bool, optional
         Whether to set the diagonal elements of the affinity matrix to 0.
     device : str, optional
@@ -104,7 +104,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         lr: float = 1e0,
         base_kernel: str = "gaussian",
         tolog: bool = False,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,

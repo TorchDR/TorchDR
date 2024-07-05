@@ -42,7 +42,7 @@ from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 
 lst_types = ["float32", "float64"]
 
-LIST_METRICS_TEST = ["euclidean"]
+LIST_METRICS_TEST = ["sqeuclidean"]
 DEVICE = "cpu"
 
 
