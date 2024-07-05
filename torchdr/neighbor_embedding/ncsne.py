@@ -8,7 +8,7 @@ Noise-constrastive SNE algorithms
 # License: BSD 3-Clause License
 
 from torchdr.neighbor_embedding.base import NeighborEmbedding
-from torchdr.affinity import L2SymmetricEntropicAffinity, StudentAffinity
+from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.utils import cross_entropy_loss
 
 
@@ -59,10 +59,10 @@ class InfoTSNE(NeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'euclidean'.
+    metric_in : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
+    metric_out : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'sqeuclidean'.
     batch_size : int or str, optional
         Batch size for the optimization, by default "auto".
 
@@ -94,8 +94,8 @@ class InfoTSNE(NeighborEmbedding):
         random_state: float = 0,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
         batch_size: int | str = "auto",
     ):
 
@@ -105,7 +105,7 @@ class InfoTSNE(NeighborEmbedding):
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
-        affinity_in = L2SymmetricEntropicAffinity(
+        affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
             tol=tol_affinity,
@@ -116,7 +116,6 @@ class InfoTSNE(NeighborEmbedding):
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
-            normalization_dim=None,  # normalization is the repulsive loss
             device=device,
             keops=keops,
             verbose=False,

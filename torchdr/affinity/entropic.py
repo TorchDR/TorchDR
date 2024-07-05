@@ -13,6 +13,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import contextlib
+import math
 
 from torchdr.utils import (
     entropy,
@@ -25,6 +26,7 @@ from torchdr.utils import (
     logsumexp_red,
     batch_transpose,
     OPTIMIZERS,
+    output_exp_if_not_log,
 )
 from torchdr.affinity.base import LogAffinity
 
@@ -190,7 +192,7 @@ class EntropicAffinity(LogAffinity):
         If True, keeps only the 3 * perplexity smallest element on each row of
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     zero_diag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
@@ -222,7 +224,7 @@ class EntropicAffinity(LogAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
-        zero_diag: bool = True,
+        nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -274,8 +276,10 @@ class EntropicAffinity(LogAffinity):
         else:
             C_reduced = C_full
 
-        n = X.shape[0]
-        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
+        self.n_samples_in_ = X.shape[0]
+        self.perplexity = _check_perplexity(
+            self.perplexity, self.n_samples_in_, self.verbose
+        )
         target_entropy = np.log(self.perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
@@ -288,7 +292,7 @@ class EntropicAffinity(LogAffinity):
 
         self.eps_ = false_position(
             f=entropy_gap,
-            n=n,
+            n=self.n_samples_in_,
             begin=begin,
             end=end,
             tol=self.tol,
@@ -302,8 +306,11 @@ class EntropicAffinity(LogAffinity):
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
 
+        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
         return self
 
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -355,7 +362,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric: str, optional
         Metric to use for computing distances, by default "euclidean".
-    zero_diag : bool, optional
+    nodiag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
@@ -378,7 +385,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
         max_iter: int = 1000,
         sparsity: bool = None,
         metric: str = "euclidean",
-        zero_diag: bool = True,
+        nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -389,7 +396,7 @@ class L2SymmetricEntropicAffinity(EntropicAffinity):
             max_iter=max_iter,
             sparsity=sparsity,
             metric=metric,
-            zero_diag=zero_diag,
+            nodiag=nodiag,
             device=device,
             keops=keops,
             verbose=verbose,
@@ -484,7 +491,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary (default False).
     metric : str, optional
-        Metric to use for computing distances, by default "euclidean".
+        Metric to use for computing distances, by default "sqeuclidean".
     zero_diag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
@@ -509,8 +516,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         max_iter: int = 500,
         optimizer: str = "Adam",
         tolog: bool = False,
-        metric: str = "euclidean",
-        zero_diag: bool = True,
+        metric: str = "sqeuclidean",
+        nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -555,15 +562,23 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         C = self._pairwise_distance_matrix(self.data_)
 
-        n = X.shape[0]
-        self.perplexity = _check_perplexity(self.perplexity, n, self.verbose)
+        self.n_samples_in_ = X.shape[0]
+        self.perplexity = _check_perplexity(
+            self.perplexity, self.n_samples_in_, self.verbose
+        )
         target_entropy = np.log(self.perplexity) + 1
 
-        one = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
+        one = torch.ones(
+            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+        )
 
         # dual variables, size (n_samples)
-        self.eps_ = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
-        self.mu_ = torch.ones(n, dtype=self.data_.dtype, device=self.data_.device)
+        self.eps_ = torch.ones(
+            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+        )
+        self.mu_ = torch.ones(
+            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+        )
 
         if self.optimizer == "LBFGS":
 
@@ -682,8 +697,11 @@ class SymmetricEntropicAffinity(LogAffinity):
             self.n_iter_ = k
             self.log_affinity_matrix_ = log_P
 
+        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
         return self
 
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -707,10 +725,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         mu_batch = self.mu_[indices]
         log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
 
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        log_P_batch -= math.log(self.n_samples_in_)
+        return log_P_batch
 
 
 class SinkhornAffinity(LogAffinity):
@@ -761,7 +777,7 @@ class SinkhornAffinity(LogAffinity):
         Whether to store intermediate result in a dictionary.
     metric : str, optional
         Metric to use for computing distances (default "euclidean").
-    zero_diag : bool, optional
+    nodiag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
@@ -798,7 +814,7 @@ class SinkhornAffinity(LogAffinity):
         max_iter: int = 1000,
         base_kernel: str = "gaussian",
         tolog: bool = False,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -846,12 +862,14 @@ class SinkhornAffinity(LogAffinity):
                 "Affinity matrix."
             )
 
-        n = C.shape[0]
+        self.n_samples_in_ = C.shape[0]
         log_K = -C / self.eps
 
         # Performs warm-start if a dual variable f is provided
         self.dual_ = (
-            torch.zeros(n, dtype=self.data_.dtype, device=self.data_.device)
+            torch.zeros(
+                self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
+            )
             if self.init_dual is None
             else self.init_dual
         )
@@ -891,8 +909,11 @@ class SinkhornAffinity(LogAffinity):
         self.n_iter_ = k
         self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
 
+        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
         return self
 
+    @output_exp_if_not_log
     def get_batch(self, indices: torch.Tensor, log: bool = False):
         r"""
         Extracts the affinity submatrix corresponding to the indices.
@@ -919,7 +940,6 @@ class SinkhornAffinity(LogAffinity):
         dual_batch = self.dual_[indices]
         log_P_batch = _log_Pds(log_K_batch, dual_batch)
 
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()
+        log_P_batch -= math.log(self.n_samples_in_)
+
+        return log_P_batch

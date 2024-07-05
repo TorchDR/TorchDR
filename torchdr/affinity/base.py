@@ -35,8 +35,8 @@ class Affinity(ABC):
 
     def __init__(
         self,
-        metric: str = "euclidean",
-        zero_diag: bool = True,
+        metric: str = "sqeuclidean",
+        nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
@@ -105,7 +105,7 @@ class Affinity(ABC):
         )
         return self.affinity_matrix_  # type: ignore
 
-    def _pairwise_distance_matrix(self, X: torch.Tensor):
+    def _pairwise_distance_matrix(self, X: torch.Tensor, Y: torch.Tensor = None):
         r"""
         Computes the pairwise distance matrix :math:`\mathbf{C}` for the input tensor.
 
@@ -127,7 +127,7 @@ class Affinity(ABC):
         """
         add_diagonal = 1e12 if self.zero_diag else None
         C = pairwise_distances(
-            X, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
+            X, Y, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
         )
         return C
 
@@ -214,8 +214,8 @@ class LogAffinity(Affinity):
 
     def __init__(
         self,
-        metric: str = "euclidean",
-        zero_diag: bool = True,
+        metric: str = "sqeuclidean",
+        nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
