@@ -77,7 +77,7 @@ jobs:
               mkdir -p ~/.ssh
               echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
               chmod og= ~/.ssh/config
-              cd doc;
+              cd docs;
               make add-stable-doc;
 
         # upload to gh-pages
@@ -85,7 +85,7 @@ jobs:
             name: deploy
             command: |
               if [[ ${CIRCLE_BRANCH} == "main" ]]; then
-                cd doc;
+                cd docs;
                 pip install ghp-import;
                 make install
               fi
