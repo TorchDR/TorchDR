@@ -85,6 +85,10 @@ jobs:
             name: deploy
             command: |
               if [[ ${CIRCLE_BRANCH} == "main" ]]; then
+                set -e
+                mkdir -p ~/.ssh
+                echo -e "Host *\nStrictHostKeyChecking no" > ~/.ssh/config
+                chmod og= ~/.ssh/config
                 cd docs;
                 pip install ghp-import;
                 make install
