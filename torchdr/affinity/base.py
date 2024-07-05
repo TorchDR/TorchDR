@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 import torch
 import numpy as np
-from torchdr.utils import pairwise_distances, to_torch
+from torchdr.utils import symmetric_pairwise_distances, to_torch
 
 
 class Affinity(ABC):
@@ -126,7 +126,7 @@ class Affinity(ABC):
             is returned. Otherwise, a torch.Tensor is returned.
         """
         add_diagonal = 1e12 if self.nodiag else None
-        C = pairwise_distances(
+        C = symmetric_pairwise_distances(
             X=X,
             metric=self.metric,
             keops=self.keops,
