@@ -192,7 +192,7 @@ class EntropicAffinity(LogAffinity):
         If True, keeps only the 3 * perplexity smallest element on each row of
         the ground cost matrix. Recommended if perplexity is small (<50).
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     nodiag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
@@ -223,7 +223,7 @@ class EntropicAffinity(LogAffinity):
         tol: float = 1e-3,
         max_iter: int = 1000,
         sparsity: bool = None,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -381,7 +381,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary (default False).
     metric : str, optional
-        Metric to use for computing distances, by default "euclidean".
+        Metric to use for computing distances, by default "sqeuclidean".
     nodiag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
@@ -406,7 +406,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         max_iter: int = 500,
         optimizer: str = "Adam",
         tolog: bool = False,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,
@@ -662,7 +662,7 @@ class SinkhornAffinity(LogAffinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     nodiag : bool, optional
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
@@ -700,7 +700,7 @@ class SinkhornAffinity(LogAffinity):
         max_iter: int = 1000,
         base_kernel: str = "gaussian",
         tolog: bool = False,
-        metric: str = "euclidean",
+        metric: str = "sqeuclidean",
         nodiag: bool = True,
         device: str = "auto",
         keops: bool = False,

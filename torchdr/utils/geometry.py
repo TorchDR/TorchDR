@@ -12,13 +12,13 @@ from pykeops.torch import LazyTensor
 
 from torchdr.utils.utils import identity_matrix
 
-LIST_METRICS = ["euclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS = ["sqeuclidean", "manhattan", "angular", "hyperbolic"]
 
 
 def pairwise_distances(
     X: torch.Tensor,
     Y: torch.Tensor = None,
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
     keops: bool = False,
     add_diagonal: float = 1e12,
 ):
@@ -34,7 +34,7 @@ def pairwise_distances(
     Y : torch.Tensor of shape (n_samples, n_features) or (n_batch, n_samples_batch, n_features), optional
         Second dataset. If None, computes the pairwise distances between X and itself.
     metric : str, optional
-        Metric to use for computing distances. The default is "euclidean".
+        Metric to use for computing distances. The default is "sqeuclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
     add_diagonal : float, optional
@@ -54,7 +54,7 @@ def pairwise_distances(
         X_i = LazyTensor(X.unsqueeze(-2))
         Y_j = LazyTensor(X.unsqueeze(-3))
 
-        if metric == "euclidean":
+        if metric == "sqeuclidean":
             C = ((X_i - Y_j) ** 2).sum(-1)
         elif metric == "manhattan":
             C = (X_i - Y_j).abs().sum(-1)
@@ -64,7 +64,7 @@ def pairwise_distances(
             C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
 
     else:
-        if metric == "euclidean":
+        if metric == "sqeuclidean":
             X_norm = (X**2).sum(-1)
             Y_norm = (Y**2).sum(-1)
             C = (
