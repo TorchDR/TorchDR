@@ -18,7 +18,6 @@ from torchdr.utils import (
     false_position,
     kmin,
     wrap_vectors,
-    inputs_to_torch,
     to_torch,
 )
 
