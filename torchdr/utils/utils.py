@@ -36,18 +36,18 @@ def kmin(A, k=1, dim=0):
         )
 
     if k >= A.shape[dim]:
-        return A, torch.arange(A.shape[dim])
+        return A, torch.arange(A.shape[dim]).int()
 
     if isinstance(A, LazyTensor):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = A.Kmin_argKmin(K=k, dim=dim)
-        return dim_red(values), dim_red(indices)
+        return dim_red(values), dim_red(indices).int()
 
     else:
         values, indices = A.topk(k=k, dim=dim, largest=False)
-        return values, indices
+        return values, indices.int()
 
 
 def kmax(A, k=1, dim=0):
@@ -62,18 +62,18 @@ def kmax(A, k=1, dim=0):
         )
 
     if k >= A.shape[dim]:
-        return A, torch.arange(A.shape[dim])
+        return A, torch.arange(A.shape[dim]).int()
 
     if isinstance(A, LazyTensor):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = (-A).Kmin_argKmin(K=k, dim=dim)
-        return -dim_red(values), dim_red(indices)
+        return -dim_red(values), dim_red(indices).int()
 
     else:
         values, indices = A.topk(k=k, dim=dim, largest=True)
-        return values, indices
+        return values, indices.int()
 
 
 # inspired from svd_flip from sklearn.utils.extmath

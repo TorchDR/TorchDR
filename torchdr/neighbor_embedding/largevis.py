@@ -114,6 +114,7 @@ class LargeVis(SparseNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.batch_size = batch_size
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -152,16 +153,17 @@ class LargeVis(SparseNeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
-            batch_size=batch_size,
         )
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
 
+        P = self.PX_[0]
+
         # normalize the mass of the input affinity
         if not hasattr(self, "weight_affinity_in_"):
             self.weight_affinity_in_ = (
-                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
+                sum_red(P, dim=(0, 1)) / (self.n_samples_in_**2)
             ).item()
 
         Q = log_Q.exp()

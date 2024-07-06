@@ -104,6 +104,7 @@ class InfoTSNE(SparseNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.batch_size = batch_size
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -113,6 +114,7 @@ class InfoTSNE(SparseNeighborEmbedding):
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=False,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
@@ -138,12 +140,11 @@ class InfoTSNE(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            batch_size=batch_size,
         )
 
     def _loss(self):
         log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
-        P = self.PX_
+        P = self.PX_[0]
 
         log_Q = log_Q - log_Q.logsumexp(1)[:, None]  # beware of the batch dimension
         losses = cross_entropy_loss(P, log_Q, log=True)

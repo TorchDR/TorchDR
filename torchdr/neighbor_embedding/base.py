@@ -71,8 +71,6 @@ class NeighborEmbedding(AffinityMatcher):
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    batch_size : int or str, optional
-        Batch size for the optimization. Default is None.
     """  # noqa: E501
 
     def __init__(
@@ -98,7 +96,6 @@ class NeighborEmbedding(AffinityMatcher):
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
-        batch_size: int | str = None,
     ):
 
         if not isinstance(affinity_out, LogAffinity):
@@ -131,7 +128,6 @@ class NeighborEmbedding(AffinityMatcher):
         self.coeff_attraction = coeff_attraction
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
-        self.batch_size = batch_size
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
@@ -180,11 +176,10 @@ class NeighborEmbedding(AffinityMatcher):
         attractive_term = cross_entropy_loss(P, log_Q, log=True)
         repulsive_term = self._repulsive_loss(log_Q)
 
-        losses = (
+        loss = (
             self.coeff_attraction_ * attractive_term
             + self.coeff_repulsion * repulsive_term
-        )  # one loss per batch
-        loss = losses.sum()
+        )
         return loss
 
 
@@ -238,8 +233,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    batch_size : int or str, optional
-        Batch size for the optimization. Default is None.
     """  # noqa: E501
 
     def __init__(
@@ -307,15 +300,20 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _loss(self):
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
-        P, _ = self.PX_
+        P, indices = self.PX_
+
+        if indices is not None:
+            log_Q = self.affinity_out.transform(
+                self.embedding_, log=True, indices=indices
+            )
+        else:
+            log_Q = self.affinity_out.transform(self.embedding_, log=True)
 
         attractive_term = cross_entropy_loss(P, log_Q, log=True)
         repulsive_term = self._repulsive_loss(log_Q)
 
-        losses = (
+        loss = (
             self.coeff_attraction_ * attractive_term
             + self.coeff_repulsion * repulsive_term
-        )  # one loss per batch
-        loss = losses.sum()
+        )
         return loss

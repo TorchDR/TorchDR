@@ -235,30 +235,37 @@ class EntropicAffinity(SparseLogAffinity):
         perplexity: float = 30,
         tol: float = 1e-3,
         max_iter: int = 1000,
-        sparsity: bool = None,
+        sparsity: bool | str = "auto",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
+        self.perplexity = perplexity
+        self.tol = tol
+        self.max_iter = max_iter
+
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=sparsity,
         )
-        self.perplexity = perplexity
-        self.tol = tol
-        self.max_iter = max_iter
-        self._sparsity = self.perplexity < 50 if sparsity is None else sparsity
 
-        if sparsity and self.perplexity > 100 and verbose:
-            print(
-                "[TorchDR] WARNING Affinity: sparsity is not recommended "
-                "for a large value of perplexity."
-            )
+    def _sparsity_rule(self):
+        if self.perplexity < 50:
+            return True
+        else:
+            if self.verbose:
+                print(
+                    "[TorchDR] WARNING Affinity: perplexity is large "
+                    f"({self.perplexity}) thus we turn off sparsity for "
+                    "the EntropicAffinity. "
+                )
+            return False
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""

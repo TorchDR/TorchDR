@@ -203,14 +203,16 @@ class TransformableAffinity(Affinity):
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances. Default is "sqeuclidean".
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero. Default is True.
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
     keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations. Default is False.
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
     verbose : bool, optional
         If True, prints additional information during computation. Default is True.
     """
@@ -322,6 +324,8 @@ class SparseAffinity(Affinity):
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
         If True, prints additional information during computation (default is True).
+    sparsity : bool or str, optional
+        Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
 
     def __init__(
@@ -331,6 +335,7 @@ class SparseAffinity(Affinity):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
+        sparsity: bool | str = "auto",
     ):
         super().__init__(
             metric=metric,
@@ -338,6 +343,18 @@ class SparseAffinity(Affinity):
             device=device,
             keops=keops,
             verbose=verbose,
+        )
+        self.sparsity = sparsity
+        if sparsity == "auto":
+            self._sparsity = self._sparsity_rule()
+        else:
+            self._sparsity = sparsity
+
+    @abstractmethod
+    def _sparsity_rule(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _sparsity_rule method not implemented for "
+            f"affinity {self.__class__.__name__}."
         )
 
     def fit_transform(self, X: torch.Tensor | np.ndarray):
@@ -418,10 +435,11 @@ class LogAffinity(Affinity):
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
         r"""
-        Computes the log affinity matrix from the input data using the `fit` method and
-        returns the resulting affinity matrix.
+        Computes the log affinity matrix from the input data using the `fit` method
+        and returns the resulting affinity matrix.
 
-        It returns either the log affinity matrix or the exponential of the log affinity matrix, depending on the value of the `log` parameter.
+        It returns either the log affinity matrix or the exponential of the log
+        affinity matrix, depending on the value of the `log` parameter.
 
         Parameters
         ----------
@@ -470,14 +488,16 @@ class TransformableLogAffinity(LogAffinity):
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances. Default is "sqeuclidean".
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero. Default is True.
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
     keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations. Default is False.
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
     verbose : bool, optional
         If True, prints additional information during computation. Default is True.
     """
@@ -586,16 +606,20 @@ class SparseLogAffinity(LogAffinity):
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances. Default is "sqeuclidean".
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero. Default is True.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data. Default is "auto".
     keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations. Default is False.
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
     verbose : bool, optional
         If True, prints additional information during computation. Default is True.
+    sparsity : bool or str, optional
+        Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
 
     def __init__(
@@ -605,6 +629,7 @@ class SparseLogAffinity(LogAffinity):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
+        sparsity: bool | str = "auto",
     ):
         super().__init__(
             metric=metric,
@@ -612,6 +637,18 @@ class SparseLogAffinity(LogAffinity):
             device=device,
             keops=keops,
             verbose=verbose,
+        )
+        self.sparsity = sparsity
+        if sparsity == "auto":
+            self._sparsity = self._sparsity_rule()
+        else:
+            self._sparsity = sparsity
+
+    @abstractmethod
+    def _sparsity_rule(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _sparsity_rule method not implemented for "
+            f"affinity {self.__class__.__name__}."
         )
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
