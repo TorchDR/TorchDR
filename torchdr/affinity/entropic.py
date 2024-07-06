@@ -153,7 +153,7 @@ def _check_perplexity(perplexity, n, verbose=True):
 class EntropicAffinity(LogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
-    Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_, 
+    Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
     solving the convex optimization problem
 
     .. math::
@@ -168,28 +168,28 @@ class EntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**, 
-    with the perplexity parameter :math:`\xi` acting as :math:`k`. 
-    Each point distributes a unit mass among its closest neighbors while minimizing 
+    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**,
+    with the perplexity parameter :math:`\xi` acting as :math:`k`.
+    Each point distributes a unit mass among its closest neighbors while minimizing
     a transport cost given by :math:`\mathbf{C}`.
 
-    The entropic constraint is saturated at the optimum and governs mass spread. 
-    With small :math:`\xi`, mass concentrates on a few neighbors; 
-    with large :math:`\xi`, it spreads across more neighbors thus capturing 
+    The entropic constraint is saturated at the optimum and governs mass spread.
+    With small :math:`\xi`, mass concentrates on a few neighbors;
+    with large :math:`\xi`, it spreads across more neighbors thus capturing
     larger scales of dependencies.
 
-    The algorithm computes the optimal dual variable 
+    The algorithm computes the optimal dual variable
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
         \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)}   \:.
 
-    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches 
+    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
-    .. note:: Symmetric versions are also available. For the affinity matrix of 
-    t-SNE [2]_, use :class:`~torchdr.affinity.L2SymmetricEntropicAffinity`. 
-    For the affinity matrix of SNEkhorn/t-SNEkhorn [3]_, use 
+    .. note:: Symmetric versions are also available. For the affinity matrix of
+    t-SNE [2]_, use :class:`~torchdr.affinity.L2SymmetricEntropicAffinity`.
+    For the affinity matrix of SNEkhorn/t-SNEkhorn [3]_, use
     :class:`~torchdr.affinity.SymmetricEntropicAffinity`.
 
     Parameters
@@ -345,19 +345,19 @@ class SymmetricEntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`, 
+    It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`,
     where we simply added symmetry as a constraint in the optimization problem.
 
-    The algorithm computes the optimal dual variables 
-    :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and 
-    :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent. 
+    The algorithm computes the optimal dual variables
+    :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and
+    :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent.
     The affinity matrix is then given by
 
     .. math::
         \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
 
-    .. note:: Unlike :class:`~torchdr.affinity.L2SymmetricEntropicAffinity` that is 
-    used in t-SNE, :class:`~torchdr.affinity.SymmetricEntropicAffinity` enables to 
+    .. note:: Unlike :class:`~torchdr.affinity.L2SymmetricEntropicAffinity` that is
+    used in t-SNE, :class:`~torchdr.affinity.SymmetricEntropicAffinity` enables to
     control the entropy and mass of each row/column of the affinity matrix.
 
     Parameters

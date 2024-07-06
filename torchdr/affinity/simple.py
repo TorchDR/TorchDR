@@ -10,17 +10,13 @@ Common simple affinities
 import torch
 import pykeops
 import numpy as np
-from typing import Tuple
 
-from torchdr.utils import logsumexp_red, to_torch
+from torchdr.utils import to_torch
 from torchdr.affinity.base import (
     Affinity,
-    LogAffinity,
-    TransformableAffinity,
     TransformableLogAffinity,
 )
 from torchdr.utils import (
-    extract_batch_normalization,
     inputs_to_torch,
 )
 
