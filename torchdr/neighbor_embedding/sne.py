@@ -7,7 +7,7 @@ Stochastic Neighbor embedding (SNE) algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     GibbsAffinity,
@@ -15,7 +15,7 @@ from torchdr.affinity import (
 from torchdr.utils import logsumexp_red
 
 
-class SNE(NeighborEmbedding):
+class SNE(SparseNeighborEmbedding):
     """
     Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
     introduced in [1]_.

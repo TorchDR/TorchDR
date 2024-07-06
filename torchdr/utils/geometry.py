@@ -191,7 +191,7 @@ def symmetric_pairwise_distances_indices(
     C_indices : torch.Tensor of shape (n, k)
         Pairwise distances matrix for the subset of pairs.
     """
-    X_indices = X[indices]  # Shape (n, k, p)
+    X_indices = X[indices.int()]  # Shape (n, k, p)
 
     if metric == "sqeuclidean":
         C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)

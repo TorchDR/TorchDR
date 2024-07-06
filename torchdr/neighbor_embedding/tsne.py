@@ -7,7 +7,7 @@ t-distributed Stochastic Neighbor embedding (t-SNE) algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
@@ -15,7 +15,7 @@ from torchdr.affinity import (
 from torchdr.utils import logsumexp_red
 
 
-class TSNE(NeighborEmbedding):
+class TSNE(SparseNeighborEmbedding):
     """
     Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
     introduced in [2]_.

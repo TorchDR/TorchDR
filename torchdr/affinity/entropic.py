@@ -29,7 +29,7 @@ from torchdr.utils import (
     OPTIMIZERS,
     to_torch,
 )
-from torchdr.affinity.base import LogAffinity
+from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 
 
 @wrap_vectors
@@ -150,7 +150,7 @@ def _check_perplexity(perplexity, n, verbose=True):
         return perplexity
 
 
-class EntropicAffinity(LogAffinity):
+class EntropicAffinity(SparseLogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
     Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
@@ -235,30 +235,37 @@ class EntropicAffinity(LogAffinity):
         perplexity: float = 30,
         tol: float = 1e-3,
         max_iter: int = 1000,
-        sparsity: bool = None,
+        sparsity: bool | str = "auto",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
+        self.perplexity = perplexity
+        self.tol = tol
+        self.max_iter = max_iter
+
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=sparsity,
         )
-        self.perplexity = perplexity
-        self.tol = tol
-        self.max_iter = max_iter
-        self._sparsity = self.perplexity < 50 if sparsity is None else sparsity
 
-        if sparsity and self.perplexity > 100 and verbose:
-            print(
-                "[TorchDR] WARNING Affinity: sparsity is not recommended "
-                "for a large value of perplexity."
-            )
+    def _sparsity_rule(self):
+        if self.perplexity < 50:
+            return True
+        else:
+            if self.verbose:
+                print(
+                    "[TorchDR] WARNING Affinity: perplexity is large "
+                    f"({self.perplexity}) thus we turn off sparsity for "
+                    "the EntropicAffinity. "
+                )
+            return False
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -289,7 +296,7 @@ class EntropicAffinity(LogAffinity):
             # of shape (n_samples, k) where k is 3 * perplexity.
             C_, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
         else:
-            C_ = C
+            C_, self.indices_ = C, None
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -317,7 +324,7 @@ class EntropicAffinity(LogAffinity):
             device=self.data_.device,
         )
 
-        log_P_final = _log_Pe(C, self.eps_)
+        log_P_final = _log_Pe(C_, self.eps_)
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
 

@@ -9,7 +9,14 @@ Base classes for Neighbor Embedding methods
 
 import torch
 
-from torchdr.affinity import Affinity, LogAffinity
+from torchdr.affinity import (
+    Affinity,
+    LogAffinity,
+    TransformableAffinity,
+    TransformableLogAffinity,
+    SparseAffinity,
+    SparseLogAffinity,
+)
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.utils import cross_entropy_loss
 
@@ -64,8 +71,6 @@ class NeighborEmbedding(AffinityMatcher):
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    batch_size : int or str, optional
-        Batch size for the optimization. Default is None.
     """  # noqa: E501
 
     def __init__(
@@ -91,7 +96,6 @@ class NeighborEmbedding(AffinityMatcher):
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
-        batch_size: int | str = None,
     ):
 
         if not isinstance(affinity_out, LogAffinity):
@@ -124,7 +128,6 @@ class NeighborEmbedding(AffinityMatcher):
         self.coeff_attraction = coeff_attraction
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
-        self.batch_size = batch_size
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
@@ -173,9 +176,144 @@ class NeighborEmbedding(AffinityMatcher):
         attractive_term = cross_entropy_loss(P, log_Q, log=True)
         repulsive_term = self._repulsive_loss(log_Q)
 
-        losses = (
+        loss = (
             self.coeff_attraction_ * attractive_term
             + self.coeff_repulsion * repulsive_term
-        )  # one loss per batch
-        loss = losses.sum()
+        )
+        return loss
+
+
+class SparseNeighborEmbedding(NeighborEmbedding):
+    r"""
+    Performs dimensionality reduction by solving the neighbor embedding problem.
+
+    It amounts to solving the following optimization problem:
+
+    Parameters
+    ----------
+    affinity_in : Affinity
+        The affinity object for the input space.
+    affinity_out : Affinity
+        The affinity object for the output embedding space.
+    kwargs_affinity_out : dict, optional
+        Additional keyword arguments for the affinity_out fit_transform method.
+    n_components : int, optional
+        Number of dimensions for the embedding. Default is 2.
+    optimizer : str, optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict, optional
+        Additional keyword arguments for the optimizer.
+    lr : float, optional
+        Learning rate for the optimizer. Default is 1e0.
+    scheduler : str, optional
+        Learning rate scheduler. Default is "constant".
+    scheduler_kwargs : dict, optional
+        Additional keyword arguments for the scheduler.
+    tol : float, optional
+        Tolerance for stopping criterion. Default is 1e-3.
+    max_iter : int, optional
+        Maximum number of iterations. Default is 1000.
+    init : str, optional
+        Initialization method for the embedding. Default is "pca".
+    init_scaling : float, optional
+        Scaling factor for the initial embedding. Default is 1e-4.
+    tolog : bool, optional
+        If True, logs the optimization process. Default is False.
+    device : str, optional
+        Device to use for computations. Default is "auto".
+    keops : bool, optional
+        Whether to use KeOps for computations. Default is False.
+    verbose : bool, optional
+        Verbosity of the optimization process. Default is True.
+    random_state : float, optional
+        Random seed for reproducibility. Default is 0.
+    coeff_attraction : float, optional
+        Coefficient for the attraction term. Default is 1.0.
+    coeff_repulsion : float, optional
+        Coefficient for the repulsion term. Default is 1.0.
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration. Default is None.
+    """  # noqa: E501
+
+    def __init__(
+        self,
+        affinity_in: Affinity,
+        affinity_out: Affinity,
+        kwargs_affinity_out: dict = {},
+        n_components: int = 2,
+        optimizer: str = "Adam",
+        optimizer_kwargs: dict = None,
+        lr: float = 1e0,
+        scheduler: str = "constant",
+        scheduler_kwargs: dict = None,
+        tol: float = 1e-3,
+        max_iter: int = 1000,
+        init: str = "pca",
+        init_scaling: float = 1e-4,
+        tolog: bool = False,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+        random_state: float = 0,
+        coeff_attraction: float = 1.0,
+        coeff_repulsion: float = 1.0,
+        early_exaggeration_iter: int = None,
+    ):
+        # check affinity affinity_in
+        if not isinstance(affinity_in, (SparseAffinity, SparseLogAffinity)):
+            raise NotImplementedError(
+                "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
+                "must be a sparse affinity."
+            )
+
+        # check affinity affinity_out
+        if not isinstance(
+            affinity_out, (TransformableAffinity, TransformableLogAffinity)
+        ):
+            raise NotImplementedError(
+                "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
+                "must be a transformable affinity (ie with a transform method)."
+            )
+
+        super().__init__(
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
+            kwargs_affinity_out=kwargs_affinity_out,
+            n_components=n_components,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+            lr=lr,
+            scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
+            tol=tol,
+            max_iter=max_iter,
+            init=init,
+            init_scaling=init_scaling,
+            tolog=tolog,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            random_state=random_state,
+            coeff_attraction=coeff_attraction,
+            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_iter=early_exaggeration_iter,
+        )
+
+    def _loss(self):
+        P, indices = self.PX_
+
+        if indices is not None:
+            log_Q = self.affinity_out.transform(
+                self.embedding_, log=True, indices=indices
+            )
+        else:
+            log_Q = self.affinity_out.transform(self.embedding_, log=True)
+
+        attractive_term = cross_entropy_loss(P, log_Q, log=True)
+        repulsive_term = self._repulsive_loss(log_Q)
+
+        loss = (
+            self.coeff_attraction_ * attractive_term
+            + self.coeff_repulsion * repulsive_term
+        )
         return loss

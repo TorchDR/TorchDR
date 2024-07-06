@@ -7,7 +7,7 @@ LargeVis algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
@@ -15,7 +15,7 @@ from torchdr.affinity import (
 from torchdr.utils import sum_all_axis_except_batch, sum_red
 
 
-class LargeVis(NeighborEmbedding):
+class LargeVis(SparseNeighborEmbedding):
     """
     Implementation of the LargeVis algorithm introduced in [13]_.
 
@@ -114,6 +114,7 @@ class LargeVis(NeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.batch_size = batch_size
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -152,16 +153,17 @@ class LargeVis(NeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
-            batch_size=batch_size,
         )
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self, log_Q):
 
+        P = self.PX_[0]
+
         # normalize the mass of the input affinity
         if not hasattr(self, "weight_affinity_in_"):
             self.weight_affinity_in_ = (
-                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
+                sum_red(P, dim=(0, 1)) / (self.n_samples_in_**2)
             ).item()
 
         Q = log_Q.exp()

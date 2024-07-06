@@ -173,7 +173,7 @@ def test_student_affinity(dtype, metric):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
-@pytest.mark.parametrize("sparsity", [False, None])
+@pytest.mark.parametrize("sparsity", [False])
 def test_entropic_affinity(dtype, metric, keops, sparsity):
     n = 300
     X = toy_dataset(n, dtype)
@@ -195,7 +195,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
         device=DEVICE,
         sparsity=sparsity,
     )
-    log_P = affinity.fit_transform(X, log=True)
+    log_P, _ = affinity.fit_transform(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)

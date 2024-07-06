@@ -105,8 +105,8 @@ plt.show()
 # In ``TorchDR``, this object is available here :
 # :class:`torchdr.EntropicAffinity`.
 
-EA = EntropicAffinity(
-    perplexity=5, keops=False, verbose=False, zero_diag=False
+EA, _ = EntropicAffinity(
+    perplexity=5, keops=False, verbose=False, zero_diag=False, sparsity=False
 ).fit_transform(X)
 
 plt.figure(1, (6, 3))
