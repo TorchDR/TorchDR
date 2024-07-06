@@ -14,7 +14,6 @@ from typing import Tuple
 from torchdr.utils import logsumexp_red
 from torchdr.affinity.base import LogAffinity
 from torchdr.utils import (
-    extract_batch_normalization,
     kmin,
     wrap_vectors,
     batch_transpose,
@@ -130,36 +129,3 @@ class SelfTuningGibbsAffinity(LogAffinity):
             )
 
         return self
-
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
-        """
-        C_batch = super().get_batch(indices)
-        sigma_batch = self.sigma_[indices]
-        log_P_batch = _log_SelfTuningGibbs(C_batch, sigma_batch)
-
-        if self.normalization_dim is not None:
-            log_normalization_batch = extract_batch_normalization(
-                self.log_normalization_, indices, self.normalization_dim
-            )
-            log_P_batch = log_P_batch - log_normalization_batch
-
-        if log:
-            return log_P_batch
-        else:
-            return log_P_batch.exp()

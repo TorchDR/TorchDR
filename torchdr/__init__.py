@@ -34,7 +34,6 @@ from .base import DRModule
 from .spectral import PCA
 from .affinity_matcher import (
     AffinityMatcher,
-    BatchedAffinityMatcher,
 )
 from .neighbor_embedding import (
     SNE,

@@ -184,24 +184,6 @@ def normalize_matrix(P, dim=1, log=False):
         return P / sum_red(P, dim)
 
 
-def extract_batch_normalization(normalization, indices, dim):
-    r"""
-    From a pre-computed normalization, extracts the normalization
-    corresponding to batch indices.
-    """
-    if dim == (0, 1):
-        return normalization  # normalization is a scalar so return as is
-    elif dim == 0:
-        return normalization[:, indices].transpose(0, 1)
-    elif dim == 1:
-        return normalization[indices]
-    else:
-        raise ValueError(
-            f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
-            "Should be (0, 1) or 0 or 1."
-        )
-
-
 def center_kernel(K):
     r"""Center a kernel matrix."""
     n = K.shape[0]

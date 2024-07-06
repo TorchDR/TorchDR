@@ -10,11 +10,11 @@ Base classes for Neighbor Embedding methods
 import torch
 
 from torchdr.affinity import Affinity, LogAffinity
-from torchdr.affinity_matcher import BatchedAffinityMatcher
+from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.utils import cross_entropy_loss
 
 
-class NeighborEmbedding(BatchedAffinityMatcher):
+class NeighborEmbedding(AffinityMatcher):
     r"""
     Performs dimensionality reduction by solving the neighbor embedding problem.
 
@@ -119,12 +119,12 @@ class NeighborEmbedding(BatchedAffinityMatcher):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            batch_size=batch_size,
         )
 
         self.coeff_attraction = coeff_attraction
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
+        self.batch_size = batch_size
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
@@ -167,12 +167,8 @@ class NeighborEmbedding(BatchedAffinityMatcher):
         return 0
 
     def _loss(self):
-        if self.batch_size is None:
-            log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
-            P = self.PX_
-
-        else:
-            P, log_Q = self.batched_affinity_in_out(log=True)
+        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
+        P = self.PX_
 
         attractive_term = cross_entropy_loss(P, log_Q, log=True)
         repulsive_term = self._repulsive_loss(log_Q)

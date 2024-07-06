@@ -92,7 +92,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
         check_shape(P, (n, n))
         check_nonnegativity(P)
         if isinstance(dim, int):
-            check_marginal(P, one, dim=dim)
+            check_marginal(P * n, one, dim=dim)
         else:
             check_total_sum(P, 1)
 
