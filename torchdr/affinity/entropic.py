@@ -29,7 +29,7 @@ from torchdr.utils import (
     OPTIMIZERS,
     to_torch,
 )
-from torchdr.affinity.base import LogAffinity
+from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 
 
 @wrap_vectors
@@ -150,7 +150,7 @@ def _check_perplexity(perplexity, n, verbose=True):
         return perplexity
 
 
-class EntropicAffinity(LogAffinity):
+class EntropicAffinity(SparseLogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
     Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
@@ -289,7 +289,7 @@ class EntropicAffinity(LogAffinity):
             # of shape (n_samples, k) where k is 3 * perplexity.
             C_, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
         else:
-            C_ = C
+            C_, self.indices_ = C, None
 
         self.n_samples_in_ = X.shape[0]
         self.perplexity = _check_perplexity(
@@ -317,7 +317,7 @@ class EntropicAffinity(LogAffinity):
             device=self.data_.device,
         )
 
-        log_P_final = _log_Pe(C, self.eps_)
+        log_P_final = _log_Pe(C_, self.eps_)
         self.log_normalization = logsumexp_red(log_P_final, dim=1)
         self.log_affinity_matrix_ = log_P_final - self.log_normalization
 

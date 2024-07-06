@@ -4,7 +4,14 @@
 # License: BSD 3-Clause License
 
 
-from .base import Affinity, LogAffinity
+from .base import (
+    Affinity,
+    LogAffinity,
+    TransformableAffinity,
+    TransformableLogAffinity,
+    SparseAffinity,
+    SparseLogAffinity,
+)
 
 from .simple import (
     ScalarProductAffinity,
@@ -28,6 +35,10 @@ from .umap import UMAPAffinityIn, UMAPAffinityOut
 __all__ = [
     "Affinity",
     "LogAffinity",
+    "TransformableAffinity",
+    "TransformableLogAffinity",
+    "SparseAffinity",
+    "SparseLogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",
     "NormalizedGibbsAffinity",

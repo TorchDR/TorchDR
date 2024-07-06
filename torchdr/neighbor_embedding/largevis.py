@@ -7,7 +7,7 @@ LargeVis algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
@@ -15,7 +15,7 @@ from torchdr.affinity import (
 from torchdr.utils import sum_all_axis_except_batch, sum_red
 
 
-class LargeVis(NeighborEmbedding):
+class LargeVis(SparseNeighborEmbedding):
     """
     Implementation of the LargeVis algorithm introduced in [13]_.
 

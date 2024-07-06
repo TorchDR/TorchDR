@@ -7,12 +7,12 @@ Noise-constrastive SNE algorithms
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.utils import cross_entropy_loss
 
 
-class InfoTSNE(NeighborEmbedding):
+class InfoTSNE(SparseNeighborEmbedding):
     """
 
     Parameters
