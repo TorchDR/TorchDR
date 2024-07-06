@@ -67,15 +67,8 @@ class Affinity(ABC):
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data to be converted and stored.
-
-        Raises
-        ------
-        NotImplementedError : If the method is not implemented for the affinity class.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : fit method not implemented for affinity "
-            f"{self.__class__.__name__}. "
-        )
+        pass
 
     def fit_transform(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -233,6 +226,7 @@ class TransformableAffinity(Affinity):
             verbose=verbose,
         )
 
+    @abstractmethod
     def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
         r"""
         Computes the affinity matrix from the pairwise distance matrix.
@@ -242,15 +236,8 @@ class TransformableAffinity(Affinity):
         ----------
         C : torch.Tensor or pykeops.torch.LazyTensor
             Pairwise distance matrix.
-
-        Raises
-        ------
-        NotImplementedError : If the method is not implemented for the affinity class.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _affinity_formula method not implemented for "
-            f"affinity {self.__class__.__name__}."
-        )
+        pass
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -276,7 +263,6 @@ class TransformableAffinity(Affinity):
         self,
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
-        log: bool = False,
         indices: torch.Tensor = None,
     ):
         r"""
@@ -290,8 +276,6 @@ class TransformableAffinity(Affinity):
             Input data.
         Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
             Second input data. If None, uses `Y=X`. Default is None.
-        log : bool, optional
-            If True, returns the log of the affinity matrix. Default is False.
         indices : torch.Tensor of shape (n_samples_x, batch_size), optional
             Indices of pairs to compute. If None, computes the full affinity matrix.
             Default is None.
@@ -303,97 +287,6 @@ class TransformableAffinity(Affinity):
         """
         C = self._distance_matrix_transform(X, Y=Y, indices=indices)
         return self._affinity_formula(C)
-
-
-class SparseAffinity(Affinity):
-    r"""
-    Base class for sparse affinity matrices.
-    Modifies the fit_transform method of the base Affinity class to return the affinity
-    matrix in a rectangular format with the corresponding indices.
-
-    Parameters
-    ----------
-    metric : str, optional
-        The distance metric to use for computing pairwise distances.
-    zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero.
-    device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data.
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations.
-    verbose : bool, optional
-        If True, prints additional information during computation (default is True).
-    sparsity : bool or str, optional
-        Whether to compute the affinity matrix in a sparse format. Default is "auto".
-    """
-
-    def __init__(
-        self,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = "auto",
-        keops: bool = False,
-        verbose: bool = True,
-        sparsity: bool | str = "auto",
-    ):
-        super().__init__(
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            keops=keops,
-            verbose=verbose,
-        )
-        self.sparsity = sparsity
-        if sparsity == "auto":
-            self._sparsity = self._sparsity_rule()
-        else:
-            self._sparsity = sparsity
-
-    @abstractmethod
-    def _sparsity_rule(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _sparsity_rule method not implemented for "
-            f"affinity {self.__class__.__name__}."
-        )
-
-    def fit_transform(self, X: torch.Tensor | np.ndarray):
-        r"""
-        Computes the affinity matrix from input data using the `fit` method and
-        returns the resulting affinity matrix.
-
-        If sparsity is enabled, returns the affinity in rectangular format with the
-        corresponding indices. Otherwise, returns the full affinity matrix and None.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Input data used to compute the affinity matrix.
-
-        Returns
-        -------
-        affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
-            The computed affinity matrix. If sparsity is enabled, this will be in
-            a rectangular format corresponding to the non-zero elements.
-        indices_ : torch.Tensor
-            The indices of the non-zero elements in the affinity matrix if sparsity is
-            enabled. Otherwise, returns None.
-
-        Raises
-        ------
-        AssertionError
-            If the `affinity_matrix_` or `indices_` attribute is not set during
-            the `fit` method, an assertion error is raised.
-        """
-        self.fit(X)
-
-        if not hasattr(self, "affinity_matrix_") or not hasattr(self, "indices_"):
-            raise AssertionError(
-                "[TorchDR] ERROR : affinity_matrix_ and indices_ should be "
-                "computed in the fit method of a SparseAffinity."
-            )
-
-        return self.affinity_matrix_, self.indices_
 
 
 class LogAffinity(Affinity):
@@ -518,6 +411,7 @@ class TransformableLogAffinity(LogAffinity):
             verbose=verbose,
         )
 
+    @abstractmethod
     def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
         r"""
         Computes the log affinity matrix from the pairwise distances.
@@ -527,15 +421,8 @@ class TransformableLogAffinity(LogAffinity):
         ----------
         C : torch.Tensor or pykeops.torch.LazyTensor
             Pairwise distance matrix.
-
-        Raises
-        ------
-        NotImplementedError : If the method is not implemented for the affinity class.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _log_affinity_formula method not implemented for "
-            f"affinity {self.__class__.__name__}."
-        )
+        pass
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
@@ -646,10 +533,11 @@ class SparseLogAffinity(LogAffinity):
 
     @abstractmethod
     def _sparsity_rule(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _sparsity_rule method not implemented for "
-            f"affinity {self.__class__.__name__}."
-        )
+        r"""
+        Rule to determine whether to compute the affinity matrix in a sparse format.
+        This method must be overridden by subclasses.
+        """
+        pass
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
         r"""
