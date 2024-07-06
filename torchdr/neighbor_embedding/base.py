@@ -14,7 +14,6 @@ from torchdr.affinity import (
     LogAffinity,
     TransformableAffinity,
     TransformableLogAffinity,
-    SparseAffinity,
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
@@ -260,7 +259,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         early_exaggeration_iter: int = None,
     ):
         # check affinity affinity_in
-        if not isinstance(affinity_in, (SparseAffinity, SparseLogAffinity)):
+        if not isinstance(affinity_in, SparseLogAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
                 "must be a sparse affinity."
@@ -301,13 +300,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _loss(self):
         P, indices = self.PX_
-
-        if indices is not None:
-            log_Q = self.affinity_out.transform(
-                self.embedding_, log=True, indices=indices
-            )
-        else:
-            log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
 
         attractive_term = cross_entropy_loss(P, log_Q, log=True)
         repulsive_term = self._repulsive_loss(log_Q)

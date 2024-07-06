@@ -9,7 +9,6 @@ from .base import (
     LogAffinity,
     TransformableAffinity,
     TransformableLogAffinity,
-    SparseAffinity,
     SparseLogAffinity,
 )
 
@@ -37,7 +36,6 @@ __all__ = [
     "LogAffinity",
     "TransformableAffinity",
     "TransformableLogAffinity",
-    "SparseAffinity",
     "SparseLogAffinity",
     "ScalarProductAffinity",
     "GibbsAffinity",

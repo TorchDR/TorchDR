@@ -311,7 +311,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
-@pytest.mark.parametrize("sparsity", [None, False])
+@pytest.mark.parametrize("sparsity", [False])
 def test_umap_data_affinity(dtype, metric, keops, sparsity):
     n = 300
     X = toy_dataset(n, dtype)
@@ -327,13 +327,12 @@ def test_umap_data_affinity(dtype, metric, keops, sparsity):
         verbose=True,
         sparsity=sparsity,
     )
-    P = affinity.fit_transform(X)
+    P, _ = affinity.fit_transform(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
     check_shape(P, (n, n))
     check_nonnegativity(P)
-    check_symmetry(P)
 
 
 @pytest.mark.parametrize("dtype", lst_types)

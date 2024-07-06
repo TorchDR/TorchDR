@@ -256,7 +256,7 @@ class EntropicAffinity(SparseLogAffinity):
         )
 
     def _sparsity_rule(self):
-        if self.perplexity < 50:
+        if self.perplexity < 100:
             return True
         else:
             if self.verbose:
