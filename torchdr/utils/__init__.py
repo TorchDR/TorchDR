@@ -15,7 +15,6 @@ from .wrappers import (
     torch_to_backend,
     handle_backend,
     sum_all_axis_except_batch,
-    output_exp_if_not_log,
     inputs_to_torch,
 )
 
@@ -53,7 +52,6 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
-    extract_batch_normalization,
 )
 
 
@@ -69,7 +67,6 @@ __all__ = [
     "sum_matrix_vector",
     "sum_red",
     "sum_all_axis_except_batch",
-    "output_exp_if_not_log",
     "inputs_to_torch",
     "logsumexp_red",
     "check_NaNs",
@@ -97,5 +94,4 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
-    "extract_batch_normalization",
 ]

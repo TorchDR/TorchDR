@@ -14,6 +14,7 @@ import numpy as np
 from tqdm import tqdm
 import contextlib
 import math
+from typing import Tuple
 
 from torchdr.utils import (
     entropy,
@@ -26,7 +27,6 @@ from torchdr.utils import (
     logsumexp_red,
     batch_transpose,
     OPTIMIZERS,
-    output_exp_if_not_log,
     to_torch,
 )
 from torchdr.affinity.base import LogAffinity
@@ -153,7 +153,8 @@ def _check_perplexity(perplexity, n, verbose=True):
 class EntropicAffinity(LogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_.
-    Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_, solving the convex optimization problem
+    Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
+    solving the convex optimization problem
 
     .. math::
         \mathbf{P}^{\mathrm{e}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
@@ -167,18 +168,29 @@ class EntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**, with the perplexity parameter :math:`\xi` acting as :math:`k`. Each point distributes a unit mass among its closest neighbors while minimizing a transport cost given by :math:`\mathbf{C}`.
+    The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**,
+    with the perplexity parameter :math:`\xi` acting as :math:`k`.
+    Each point distributes a unit mass among its closest neighbors while minimizing
+    a transport cost given by :math:`\mathbf{C}`.
 
-    The entropic constraint is saturated at the optimum and governs mass spread. With small :math:`\xi`, mass concentrates on a few neighbors; with large :math:`\xi`, it spreads across more neighbors thus capturing larger scales of dependencies.
+    The entropic constraint is saturated at the optimum and governs mass spread.
+    With small :math:`\xi`, mass concentrates on a few neighbors;
+    with large :math:`\xi`, it spreads across more neighbors thus capturing
+    larger scales of dependencies.
 
-    The algorithm computes the optimal dual variable :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
+    The algorithm computes the optimal dual variable
+    :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
         \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)}   \:.
 
-    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
+    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
+    since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
-    .. note:: Symmetric versions are also available. For the affinity matrix of t-SNE [2]_, use :class:`~torchdr.affinity.L2SymmetricEntropicAffinity`. For the affinity matrix of SNEkhorn/t-SNEkhorn [3]_, use :class:`~torchdr.affinity.SymmetricEntropicAffinity`.
+    .. note:: Symmetric versions are also available. For the affinity matrix of
+    t-SNE [2]_, use :class:`~torchdr.affinity.L2SymmetricEntropicAffinity`.
+    For the affinity matrix of SNEkhorn/t-SNEkhorn [3]_, use
+    :class:`~torchdr.affinity.SymmetricEntropicAffinity`.
 
     Parameters
     ----------
@@ -313,32 +325,6 @@ class EntropicAffinity(LogAffinity):
 
         return self
 
-    @output_exp_if_not_log
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
-        """
-        C_batch = super().get_batch(indices)
-        eps_batch = self.eps_[indices]
-        log_P_batch = _log_Pe(C_batch, eps_batch) - self.log_normalization[indices]
-
-        log_P_batch -= math.log(self.n_samples_in_)
-        return log_P_batch
-
 
 class SymmetricEntropicAffinity(LogAffinity):
     r"""
@@ -359,14 +345,20 @@ class SymmetricEntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`, where we simply added symmetry as a constraint in the optimization problem.
+    It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`,
+    where we simply added symmetry as a constraint in the optimization problem.
 
-    The algorithm computes the optimal dual variables :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent. The affinity matrix is then given by
+    The algorithm computes the optimal dual variables
+    :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and
+    :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent.
+    The affinity matrix is then given by
 
     .. math::
         \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
 
-    .. note:: Unlike :class:`~torchdr.affinity.L2SymmetricEntropicAffinity` that is used in t-SNE, :class:`~torchdr.affinity.SymmetricEntropicAffinity` enables to control the entropy and mass of each row/column of the affinity matrix.
+    .. note:: Unlike :class:`~torchdr.affinity.L2SymmetricEntropicAffinity` that is
+    used in t-SNE, :class:`~torchdr.affinity.SymmetricEntropicAffinity` enables to
+    control the entropy and mass of each row/column of the affinity matrix.
 
     Parameters
     ----------
@@ -598,37 +590,12 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         return self
 
-    @output_exp_if_not_log
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
-        """
-        C_batch = super().get_batch(indices)
-        eps_batch = self.eps_[indices]
-        mu_batch = self.mu_[indices]
-        log_P_batch = _log_Pse(C_batch, eps_batch, mu_batch, eps_square=self.eps_square)
-
-        log_P_batch -= math.log(self.n_samples_in_)
-        return log_P_batch
-
 
 class SinkhornAffinity(LogAffinity):
     r"""
-    Computes the symmetric doubly stochastic affinity matrix :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
+    Computes the symmetric doubly stochastic affinity matrix
+    :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the
+    symmetric Sinkhorn algorithm [5]_.
     Consists in solving the following symmetric entropic optimal transport problem [6]_:
 
     .. math::
@@ -651,12 +618,16 @@ class SinkhornAffinity(LogAffinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
 
     **Bregman projection.** Another way to write this problem is to consider the
-    KL projection of the Gibbs kernel :math:`\mathbf{K}_\varepsilon = \exp(- \mathbf{C} / \varepsilon)` onto the set of doubly stochastic matrices:
+    KL projection of the Gibbs kernel
+    :math:`\mathbf{K}_\varepsilon = \exp(- \mathbf{C} / \varepsilon)` onto the set
+    of doubly stochastic matrices:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} = \mathrm{Proj}_{\mathcal{DS}}^{\mathrm{KL}}(\mathbf{K}_\varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \mathrm{KL}(\mathbf{P} \| \mathbf{K}_\varepsilon)
 
-    where :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}` is Kullback Leibler divergence between :math:`\mathbf{P}` and :math:`\mathbf{Q}`.
+    where :math:`\mathrm{KL}(\mathbf{P} \| \mathbf{Q}) := \sum_{ij} P_{ij} (\log (Q_{ij} / P_{ij}) - 1) + Q_{ij}`
+    is the Kullback Leibler divergence between :math:`\mathbf{P}` and
+    :math:`\mathbf{Q}`.
 
     Parameters
     ----------
@@ -810,33 +781,81 @@ class SinkhornAffinity(LogAffinity):
 
         return self
 
-    @output_exp_if_not_log
-    def get_batch(self, indices: torch.Tensor, log: bool = False):
+
+class NormalizedGibbsAffinity(LogAffinity):
+    r"""
+    Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    where :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    according to the specified normalization dimensions.
+
+    Parameters
+    ----------
+    sigma : float, optional
+        Bandwidth parameter.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix.
+    """
+
+    def __init__(
+        self,
+        sigma: float = 1.0,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+        normalization_dim: int | Tuple[int] = (0, 1),
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.sigma = sigma
+        self.normalization_dim = normalization_dim
+
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""
-        Extracts the affinity submatrix corresponding to the indices.
+        Fits the normalized Gibbs affinity model to the provided data.
 
         Parameters
         ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-        log : bool, optional
-            If True, returns the log of the affinity matrix.
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Input data.
 
         Returns
         -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-            In log domain if `log` is True.
+        self : GibbsAffinity
+            The fitted Gibbs affinity model.
         """
-        C_batch = super().get_batch(indices)
-        if self.base_kernel == "student":
-            C_batch = (1 + C_batch).log()
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
 
-        log_K_batch = -C_batch / self.eps
-        dual_batch = self.dual_[indices]
-        log_P_batch = _log_Pds(log_K_batch, dual_batch)
+        self.log_affinity_matrix_ = -C / self.sigma
 
-        log_P_batch -= math.log(self.n_samples_in_)
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                self.log_affinity_matrix_, self.normalization_dim
+            )
+            self.log_affinity_matrix_ = (
+                self.log_affinity_matrix_ - self.log_normalization_
+            )
 
-        return log_P_batch
+        if isinstance(self.normalization_dim, int):
+            self.n_samples_in_ = X.shape[0]
+            self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+
+        return self

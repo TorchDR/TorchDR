@@ -16,7 +16,6 @@ from torchdr.utils import (
     false_position,
     kmin,
     wrap_vectors,
-    batch_transpose,
     inputs_to_torch,
     to_torch,
 )
@@ -161,28 +160,6 @@ class UMAPAffinityIn(Affinity):
 
         return self
 
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the batch indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        rho_batch = self.rho_[indices]
-        eps_batch = self.eps_[indices]
-        P_batch = _log_Pumap(C_batch, rho_batch, eps_batch).exp()
-        P_batch_t = batch_transpose(P_batch)
-        return P_batch + P_batch_t - P_batch * P_batch_t
-
 
 class UMAPAffinityOut(Affinity):
     def __init__(
@@ -234,24 +211,6 @@ class UMAPAffinityOut(Affinity):
         self.affinity_matrix_ = _Student_umap(C, self._a, self._b)
 
         return self
-
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the batch indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        return _Student_umap(C_batch, self._a, self._b)
 
     @inputs_to_torch
     def transform(

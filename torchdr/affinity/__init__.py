@@ -10,7 +10,6 @@ from .simple import (
     ScalarProductAffinity,
     GibbsAffinity,
     StudentAffinity,
-    NormalizedGibbsAffinity,
 )
 
 from .knn_normalized import SelfTuningGibbsAffinity
@@ -19,6 +18,7 @@ from .entropic import (
     EntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
+    NormalizedGibbsAffinity,
 )
 
 from .quadratic import DoublyStochasticQuadraticAffinity

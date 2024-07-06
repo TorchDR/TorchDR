@@ -218,28 +218,3 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.affinity_matrix_ /= self.n_samples_in_
 
         return self
-
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        if self.base_kernel == "student":
-            C_batch = (1 + C_batch).log()
-
-        dual_batch = self.dual_[indices]
-        P_batch = _Pds(C_batch, dual_batch, self.eps)
-
-        P_batch /= self.n_samples_in_
-        return P_batch
