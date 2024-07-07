@@ -7,15 +7,15 @@ LargeVis algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch, sum_red
+from torchdr.utils import sum_all_axis_except_batch
 
 
-class LargeVis(SparseNeighborEmbedding):
+class LargeVis(SampledNeighborEmbedding):
     """
     Implementation of the LargeVis algorithm introduced in [13]_.
 
@@ -69,8 +69,8 @@ class LargeVis(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
-    batch_size : int or str, optional
-        Batch size for the optimization, by default None.
+    n_negatives : int, optional
+        Number of negative samples for the repulsive loss.
 
     References
     ----------
@@ -106,7 +106,7 @@ class LargeVis(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        batch_size: int | str = "auto",
+        n_negatives: int = 5,
     ):
 
         self.metric_in = metric_in
@@ -114,7 +114,7 @@ class LargeVis(SparseNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.batch_size = batch_size
+        self.n_negatives = n_negatives
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -156,16 +156,9 @@ class LargeVis(SparseNeighborEmbedding):
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, log_Q):
-
-        P = self.PX_[0]
-
-        # normalize the mass of the input affinity
-        if not hasattr(self, "weight_affinity_in_"):
-            self.weight_affinity_in_ = (
-                sum_red(P, dim=(0, 1)) / (self.n_samples_in_**2)
-            ).item()
-
+    def _repulsive_loss(self):
+        indices = self._sample_negatives(self.n_negatives)
+        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
         return -self.weight_affinity_in_ * (1 - Q).log()

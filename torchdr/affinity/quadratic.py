@@ -58,7 +58,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent.
 
     **Bregman projection.** Another way to write this problem is to consider the
-    :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
+    :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of
+    doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
 
     .. math::
         \mathrm{Proj}_{\mathcal{DS}}^{\ell_2}(- \mathbf{C} / \varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \| \mathbf{P} + \mathbf{C} / \varepsilon \|_2 \:.
