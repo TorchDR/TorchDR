@@ -11,7 +11,7 @@ We use the following modules from ``TorchDR``:
    :toctree: stubs
    :template: myclass_template.rst
 
-   torchdr.NormalizedGibbsAffinity
+   torchdr.NormalizedGaussianAffinity
    torchdr.EntropicAffinity
 
 """
@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from torchdr import (
-    NormalizedGibbsAffinity,
+    NormalizedGaussianAffinity,
     EntropicAffinity,
 )
 
@@ -57,20 +57,20 @@ def plot_affinity_graph(G):
 
 
 # %%
-# Row-normalised Gibbs affinity with constant bandwidth
+# Row-normalised Gaussian affinity with constant bandwidth
 # -----------------------------------------------------
 #
-# We first consider a Gibbs affinity, normalized by row,
+# We first consider a Gaussian affinity, normalized by row,
 # with a **constant bandwidth**.
 # Such a global bandwidth **only controls the global
 # entropy** of the affinity.
 #
 # In ``TorchDR``, we can easily implement it using
-# :class:`torchdr.NormalizedGibbsAffinity` and setting the
+# :class:`torchdr.NormalizedGaussianAffinity` and setting the
 # parameter ``normalization_dim=1``.
 #
 
-K = NormalizedGibbsAffinity(
+K = NormalizedGaussianAffinity(
     sigma=1, normalization_dim=1, keops=False, zero_diag=False
 ).fit_transform(X)
 
@@ -78,12 +78,12 @@ plt.figure(1, (6, 3))
 
 plt.subplot(1, 2, 1)
 plt.imshow(K, cmap=cm.Blues)
-plt.title("Gibbs Affinity Matrix")
+plt.title("Gaussian Affinity Matrix")
 
 plt.subplot(1, 2, 2)
 plot_affinity_graph(K)
 plt.scatter(X[:, 0], X[:, 1], alpha=0.5)
-plt.title("Gibbs Affinity Graph")
+plt.title("Gaussian Affinity Graph")
 plt.show()
 
 # %%
