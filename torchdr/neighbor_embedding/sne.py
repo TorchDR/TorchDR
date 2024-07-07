@@ -10,7 +10,7 @@ Stochastic Neighbor embedding (SNE) algorithm
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
-    GibbsAffinity,
+    GaussianAffinity,
 )
 from torchdr.utils import logsumexp_red
 
@@ -120,7 +120,7 @@ class SNE(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
         )
-        affinity_out = GibbsAffinity(
+        affinity_out = GaussianAffinity(
             metric=metric_out,
             device=device,
             keops=keops,

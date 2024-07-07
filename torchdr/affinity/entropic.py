@@ -628,7 +628,7 @@ class SinkhornAffinity(LogAffinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
 
     **Bregman projection.** Another way to write this problem is to consider the
-    KL projection of the Gibbs kernel
+    KL projection of the Gaussian kernel
     :math:`\mathbf{K}_\varepsilon = \exp(- \mathbf{C} / \varepsilon)` onto the set
     of doubly stochastic matrices:
 
@@ -792,9 +792,9 @@ class SinkhornAffinity(LogAffinity):
         return self
 
 
-class NormalizedGibbsAffinity(LogAffinity):
+class NormalizedGaussianAffinity(LogAffinity):
     r"""
-    Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimensions.
@@ -839,7 +839,7 @@ class NormalizedGibbsAffinity(LogAffinity):
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
-        Fits the normalized Gibbs affinity model to the provided data.
+        Fits the normalized Gaussian affinity model to the provided data.
 
         Parameters
         ----------
@@ -848,8 +848,8 @@ class NormalizedGibbsAffinity(LogAffinity):
 
         Returns
         -------
-        self : GibbsAffinity
-            The fitted Gibbs affinity model.
+        self : NormalizedGaussianAffinity
+            The fitted affinity model.
         """
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
         C = self._distance_matrix(self.data_)

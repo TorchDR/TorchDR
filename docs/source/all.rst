@@ -70,10 +70,10 @@ Simple Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
 
-   GibbsAffinity
+   GaussianAffinity
    StudentAffinity
    ScalarProductAffinity
-   SelfTuningGibbsAffinity
+   SelfTuningAffinity
 
 Entropic Affinities
 """""""""""""""""""

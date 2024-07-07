@@ -67,7 +67,7 @@ Affinities
 ----------
 
 Affinities are the essential building blocks of dimensionality reduction methods.
-``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GibbsAffinity <torchdr.GibbsAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
+``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GaussianAffinity <torchdr.GaussianAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
 
 Base structure
 ^^^^^^^^^^^^^^
@@ -93,13 +93,13 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
 
 All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
-Here is an example with the :class:`GibbsAffinity <torchdr.GibbsAffinity>`:
+Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
 
     >>> import torch, torchdr
     >>>
     >>> n = 100
     >>> data = torch.randn(n, 2)
-    >>> affinity = torchdr.GibbsAffinity()
+    >>> affinity = torchdr.GaussianAffinity()
     >>> affinity_matrix = affinity.fit_transform(data)
     >>> print(affinity_matrix.shape)
     (100, 100)
@@ -277,7 +277,7 @@ Many NE methods can be represented within this framework. The following table su
    * - :class:`SNE <SNE>` [1]_
      - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`GibbsAffinity <GibbsAffinity>`
+     - :class:`GaussianAffinity <GaussianAffinity>`
 
    * - :class:`TSNE <TSNE>` [2]_
      - :math:`\log(\sum_{ij} Q_{ij})`

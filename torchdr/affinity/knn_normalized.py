@@ -23,9 +23,9 @@ from torchdr.utils import (
 
 
 @wrap_vectors
-def _log_SelfTuningGibbs(C, sigma):
+def _log_SelfTuning(C, sigma):
     r"""
-    Returns the self-tuning Gibbs affinity matrix with sample-wise bandwidth
+    Returns the self-tuning affinity matrix with sample-wise bandwidth
     determined by the distance from a point to its K-th neirest neighbor
     in log domain.
 
@@ -44,9 +44,9 @@ def _log_SelfTuningGibbs(C, sigma):
     return -C / (sigma * sigma_t)
 
 
-class SelfTuningGibbsAffinity(LogAffinity):
+class SelfTuningAffinity(LogAffinity):
     r"""
-    Computes the self-tuning [22]_ Gibbs affinity matrix with
+    Computes the self-tuning [22]_ Gaussian affinity matrix with
     sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
 
     .. math::
@@ -111,7 +111,7 @@ class SelfTuningGibbsAffinity(LogAffinity):
 
         Returns
         -------
-        self : LocalGibbsAffinity
+        self : SelfTuningAffinity
             The fitted local Gibbs affinity model.
         """
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
@@ -119,7 +119,7 @@ class SelfTuningGibbsAffinity(LogAffinity):
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        self.log_affinity_matrix_ = _log_SelfTuningGibbs(C, self.sigma_)
+        self.log_affinity_matrix_ = _log_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
