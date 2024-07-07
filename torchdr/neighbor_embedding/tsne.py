@@ -152,5 +152,6 @@ class TSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q, Q_in_log=True):
+    def _repulsive_loss(self):
+        log_Q = self.affinity_out.transform(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=(0, 1))
