@@ -77,7 +77,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
         tol: float = 1e-5,
         max_iter: int = 1000,
-        sparsity: bool = None,
+        sparsity: bool | str = "auto",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",

@@ -113,9 +113,9 @@ class UMAP(SampledNeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 7.0,
-        early_exaggeration_iter: int = 250,
+        coeff_attraction: float = 1.0,
+        coeff_repulsion: float = 1.0,
+        early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -182,4 +182,4 @@ class UMAP(SampledNeighborEmbedding):
         indices = self._sample_negatives()
         Q = self.affinity_out.transform(self.embedding_, indices=indices)
         Q = Q / (Q + 1)  # stabilization trick
-        return -(1 - Q).log() / self.n_samples_in_
+        return -(1 - Q).log()
