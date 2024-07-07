@@ -42,6 +42,7 @@ from .neighbor_embedding import (
     SNEkhorn,
     TSNEkhorn,
     LargeVis,
+    UMAP,
 )
 
 # import utils
@@ -77,6 +78,7 @@ __all__ = [
     "SNEkhorn",
     "TSNEkhorn",
     "LargeVis",
+    "UMAP",
     "pairwise_distances",
     "binary_search",
     "false_position",

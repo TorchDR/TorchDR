@@ -98,12 +98,6 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_iter: int = None,
     ):
 
-        if not isinstance(affinity_out, LogAffinity):
-            raise ValueError(
-                "[TorchDR] ERROR : in NeighborEmbedding, affinity_out must be "
-                "a LogAffinity."
-            )
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -171,11 +165,12 @@ class NeighborEmbedding(AffinityMatcher):
         pass
 
     def _loss(self):
-        log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
+        log = isinstance(self.affinity_out, LogAffinity)
+        Q = self.affinity_out.fit_transform(self.embedding_, log=log)
         P = self.PX_
 
-        attractive_term = cross_entropy_loss(P, log_Q, log=True)
-        repulsive_term = self._repulsive_loss(log_Q)
+        attractive_term = cross_entropy_loss(P, Q, log=log)
+        repulsive_term = self._repulsive_loss(Q, log=log)
 
         loss = (
             self.coeff_attraction_ * attractive_term
@@ -302,8 +297,15 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         P, indices = self.PX_
-        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
-        return cross_entropy_loss(P, log_Q, log=True)
+
+        if isinstance(self.affinity_out, LogAffinity):
+            log_Q = self.affinity_out.transform(
+                self.embedding_, log=True, indices=indices
+            )
+            return cross_entropy_loss(P, log_Q, log=True)
+        else:
+            Q = self.affinity_out.transform(self.embedding_, indices=indices)
+            return cross_entropy_loss(P, Q)
 
     @abstractmethod
     def _repulsive_loss(self):

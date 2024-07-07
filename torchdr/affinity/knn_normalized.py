@@ -4,6 +4,7 @@ Affinity matrices with normalizations using nearest neighbor distances
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Cédric Vincent-Cuaz <cedric.vincent-cuaz@inria.fr>
 #
 # License: BSD 3-Clause License
 

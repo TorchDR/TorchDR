@@ -77,7 +77,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
         tol: float = 1e-5,
         max_iter: int = 1000,
-        sparsity: bool = None,
+        sparsity: bool | str = "auto",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -123,10 +123,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             The fitted instance.
         """
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
-                "Affinity matrix."
-            )
+            print("[TorchDR] Affinity : Computing the input affinity matrix of UMAP.")
 
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
