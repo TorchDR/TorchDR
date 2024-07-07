@@ -21,9 +21,9 @@ from torchdr.utils import (
 )
 
 
-class GibbsAffinity(TransformableLogAffinity):
+class GaussianAffinity(TransformableLogAffinity):
     r"""
-    Computes the Gibbs affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter.
 

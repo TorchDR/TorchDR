@@ -14,17 +14,17 @@ from .base import (
 
 from .simple import (
     ScalarProductAffinity,
-    GibbsAffinity,
+    GaussianAffinity,
     StudentAffinity,
 )
 
-from .knn_normalized import SelfTuningGibbsAffinity
+from .knn_normalized import SelfTuningAffinity
 
 from .entropic import (
     EntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
-    NormalizedGibbsAffinity,
+    NormalizedGaussianAffinity,
 )
 
 from .quadratic import DoublyStochasticQuadraticAffinity
@@ -38,9 +38,9 @@ __all__ = [
     "TransformableLogAffinity",
     "SparseLogAffinity",
     "ScalarProductAffinity",
-    "GibbsAffinity",
-    "NormalizedGibbsAffinity",
-    "SelfTuningGibbsAffinity",
+    "GaussianAffinity",
+    "NormalizedGaussianAffinity",
+    "SelfTuningAffinity",
     "StudentAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",

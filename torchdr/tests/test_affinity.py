@@ -27,9 +27,9 @@ from torchdr.utils import (
 )
 from torchdr.affinity import (
     ScalarProductAffinity,
-    GibbsAffinity,
-    NormalizedGibbsAffinity,
-    SelfTuningGibbsAffinity,
+    GaussianAffinity,
+    NormalizedGaussianAffinity,
+    SelfTuningAffinity,
     StudentAffinity,
     EntropicAffinity,
     SymmetricEntropicAffinity,
@@ -81,7 +81,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
 
     list_P = []
     for keops in [False, True]:
-        affinity = NormalizedGibbsAffinity(
+        affinity = NormalizedGaussianAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
@@ -108,7 +108,7 @@ def test_gibbs_affinity(dtype, metric):
 
     list_P = []
     for keops in [False, True]:
-        affinity = GibbsAffinity(device=DEVICE, keops=keops, metric=metric)
+        affinity = GaussianAffinity(device=DEVICE, keops=keops, metric=metric)
         P = affinity.fit_transform(X)
         list_P.append(P)
 
@@ -131,7 +131,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
 
     list_P = []
     for keops in [False, True]:
-        affinity = SelfTuningGibbsAffinity(
+        affinity = SelfTuningAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
@@ -362,7 +362,8 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize(
-    "Affinity", [ScalarProductAffinity, GibbsAffinity, StudentAffinity, UMAPAffinityOut]
+    "Affinity",
+    [ScalarProductAffinity, GaussianAffinity, StudentAffinity, UMAPAffinityOut],
 )
 @pytest.mark.parametrize("keops", [True, False])
 def test_affinity_transform(Affinity, keops, dtype):
