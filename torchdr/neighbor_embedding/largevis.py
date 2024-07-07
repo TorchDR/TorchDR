@@ -114,7 +114,6 @@ class LargeVis(SampledNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.n_negatives = n_negatives
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -153,12 +152,13 @@ class LargeVis(SampledNeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
+            n_negatives=n_negatives,
         )
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
-        indices = self._sample_negatives(self.n_negatives)
+        indices = self._sample_negatives()
         log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
-        return -self.weight_affinity_in_ * (1 - Q).log()
+        return -(1 - Q).log() / self.n_samples_in_

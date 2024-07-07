@@ -8,6 +8,7 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
+from abc import abstractmethod
 
 from torchdr.affinity import (
     Affinity,
@@ -165,8 +166,9 @@ class NeighborEmbedding(AffinityMatcher):
 
         super()._fit(X)
 
+    @abstractmethod
     def _repulsive_loss(self, log_Q):
-        return 0
+        pass
 
     def _loss(self):
         log_Q = self.affinity_out.fit_transform(self.embedding_, log=True)
@@ -303,6 +305,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
         return cross_entropy_loss(P, log_Q, log=True)
 
+    @abstractmethod
+    def _repulsive_loss(self):
+        pass
+
     def _loss(self):
         loss = (
             self.coeff_attraction_ * self._attractive_loss()
@@ -361,6 +367,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    n_negatives : int, optional
+        Number of negative samples for the repulsive loss.
     """  # noqa: E501
 
     def __init__(
@@ -386,7 +394,10 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
+        n_negatives: int = 5,
     ):
+
+        self.n_negatives = n_negatives
 
         super().__init__(
             affinity_in=affinity_in,
@@ -412,18 +423,24 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _sample_negatives(self, n_negatives):
+    def _sample_negatives(self):
+        if not hasattr(self, "n_negatives_"):
+            if self.n_negatives > self.n_samples_in_:
+                if self.verbose:
+                    print(
+                        "[TorchDR] WARNING : n_negatives must be smaller than the "
+                        f"number of samples. Here n_negatives={self.n_negatives} "
+                        f"and n_samples_in={self.n_samples_in_}. Setting "
+                        "n_negatives to n_samples_in."
+                    )
+                self.n_negatives_ = self.n_samples_in_
+            else:
+                self.n_negatives_ = self.n_negatives
+
         indices = self.generator_.integers(
-            1, self.n_samples_in_, (self.n_samples_in_, n_negatives)
+            1, self.n_samples_in_, (self.n_samples_in_, self.n_negatives_)
         )
         indices = torch.from_numpy(indices)
         indices += (torch.arange(0, self.n_samples_in_))[:, None]
         indices = torch.remainder(indices, self.n_samples_in_)
         return indices
-
-    def _loss(self):
-        loss = (
-            self.coeff_attraction_ * self._attractive_loss()
-            + self.coeff_repulsion * self._repulsive_loss()
-        )
-        return loss
