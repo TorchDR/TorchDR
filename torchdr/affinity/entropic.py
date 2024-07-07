@@ -282,6 +282,9 @@ class EntropicAffinity(SparseLogAffinity):
         self : EntropicAffinity
             The fitted instance.
         """
+        if self.verbose:
+            print("[TorchDR] Affinity : Computing the Entropic Affinity matrix.")
+
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
         C = self._distance_matrix(self.data_)
@@ -734,7 +737,7 @@ class SinkhornAffinity(LogAffinity):
         if self.verbose:
             print(
                 "[TorchDR] Affinity : Computing the (KL) Doubly Stochastic "
-                "Affinity matrix."
+                "Affinity matrix (Sinkhorn affinity)."
             )
 
         self.n_samples_in_ = C.shape[0]

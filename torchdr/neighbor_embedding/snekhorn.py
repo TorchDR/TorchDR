@@ -12,7 +12,7 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     SinkhornAffinity,
 )
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, sum_red
 
 
 class SNEkhorn(NeighborEmbedding):
@@ -170,11 +170,14 @@ class SNEkhorn(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, Q, log=True):
         if self.unrolling:
             return 0
         else:
-            return logsumexp_red(log_Q, dim=(0, 1)).exp()
+            if log:
+                return logsumexp_red(Q, dim=(0, 1)).exp()
+            else:
+                return sum_red(Q, dim=(0, 1))
 
 
 class TSNEkhorn(NeighborEmbedding):
@@ -332,8 +335,11 @@ class TSNEkhorn(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self, Q, log=True):
         if self.unrolling:
             return 0
         else:
-            return logsumexp_red(log_Q, dim=(0, 1)).exp()
+            if log:
+                return logsumexp_red(Q, dim=(0, 1)).exp()
+            else:
+                return sum_red(Q, dim=(0, 1))

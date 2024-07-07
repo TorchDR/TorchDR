@@ -123,10 +123,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             The fitted instance.
         """
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
-                "Affinity matrix."
-            )
+            print("[TorchDR] Affinity : Computing the input affinity matrix of UMAP.")
 
         self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
