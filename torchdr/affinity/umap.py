@@ -12,7 +12,6 @@ try :  # try to import LazyTensor from KeOps for type hinting
     from keops.torch import LazyTensor
 except ImportError:
     LazyTensor = type(None)
-import numpy as np
 import math
 import numpy as np
 from scipy.optimize import curve_fit
