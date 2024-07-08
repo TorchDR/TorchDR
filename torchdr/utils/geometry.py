@@ -80,9 +80,9 @@ def symmetric_pairwise_distances(
     """  # noqa E501
 
     if keops:  # recommended for large datasets
-        C = _pairwise_distances_keops(X, X, metric)
+        C = _pairwise_distances_keops(X, metric=metric)
     else:
-        C = _pairwise_distances_torch(X, X, metric)
+        C = _pairwise_distances_torch(X, metric=metric)
 
     if add_diagonal is not None:  # add mass on the diagonal
         I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
@@ -91,7 +91,9 @@ def symmetric_pairwise_distances(
     return C
 
 
-def _pairwise_distances_torch(X: torch.Tensor, Y: torch.Tensor, metric: str):
+def _pairwise_distances_torch(
+    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
+):
     r"""
     Compute pairwise distances matrix between points in two datasets.
     Returns the pairwise distance matrix as a torch tensor.
@@ -113,6 +115,9 @@ def _pairwise_distances_torch(X: torch.Tensor, Y: torch.Tensor, metric: str):
     if metric not in LIST_METRICS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
+    if Y is None:
+        Y = X
+
     if metric == "sqeuclidean":
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
@@ -131,7 +136,9 @@ def _pairwise_distances_torch(X: torch.Tensor, Y: torch.Tensor, metric: str):
     return C
 
 
-def _pairwise_distances_keops(X: torch.Tensor, Y: torch.Tensor, metric: str):
+def _pairwise_distances_keops(
+    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
+):
     r"""
     Compute pairwise distances matrix between points in two datasets.
     Returns the pairwise distance matrix as KeOps lazy tensor.
@@ -153,17 +160,20 @@ def _pairwise_distances_keops(X: torch.Tensor, Y: torch.Tensor, metric: str):
     if metric not in LIST_METRICS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
+    if Y is None:
+        Y = X
+
     X_i = LazyTensor(X.unsqueeze(-2))
-    X_j = LazyTensor(Y.unsqueeze(-3))
+    Y_j = LazyTensor(Y.unsqueeze(-3))
 
     if metric == "sqeuclidean":
-        C = ((X_i - X_j) ** 2).sum(-1)
+        C = ((X_i - Y_j) ** 2).sum(-1)
     elif metric == "manhattan":
-        C = (X_i - X_j).abs().sum(-1)
+        C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
-        C = -(X_i | X_j)
+        C = -(X_i | Y_j)
     elif metric == "hyperbolic":
-        C = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
+        C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
 
     return C
 
@@ -195,6 +205,14 @@ def symmetric_pairwise_distances_indices(
 
     if metric == "sqeuclidean":
         C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
+    elif metric == "manhattan":
+        C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
+    elif metric == "angular":
+        C_indices = -torch.sum(X.unsqueeze(1) * X_indices, dim=-1)
+    elif metric == "hyperbolic":
+        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1) / (
+            X[:, 0].unsqueeze(1) * X_indices[:, :, 0]
+        )
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 

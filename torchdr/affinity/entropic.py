@@ -289,7 +289,6 @@ class EntropicAffinity(SparseLogAffinity):
 
         C = self._distance_matrix(self.data_)
         if self._sparsity:
-
             if self.verbose:
                 print(
                     "[TorchDR] Affinity : sparsity mode enabled, computing "
