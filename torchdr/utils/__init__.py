@@ -52,6 +52,7 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
+    is_lazy_tensor,
 )
 
 
@@ -94,4 +95,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "is_lazy_tensor",
 ]

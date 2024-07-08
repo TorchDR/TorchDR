@@ -10,7 +10,11 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
-import pykeops
+try : # try to import LazyTensor from KeOps for type hinting
+    from keops.torch import LazyTensor
+except ImportError:
+    LazyTensor = type(None)
+
 import numpy as np
 from torchdr.utils import (
     symmetric_pairwise_distances,
@@ -227,7 +231,7 @@ class TransformableAffinity(Affinity):
         )
 
     @abstractmethod
-    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the affinity matrix from the pairwise distance matrix.
         This method must be overridden by subclasses.
@@ -412,7 +416,7 @@ class TransformableLogAffinity(LogAffinity):
         )
 
     @abstractmethod
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the log affinity matrix from the pairwise distances.
         This method must be overridden by subclasses.

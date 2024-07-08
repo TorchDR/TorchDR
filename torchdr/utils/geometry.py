@@ -8,7 +8,11 @@ Ground metrics and distances
 # License: BSD 3-Clause License
 
 import torch
-from pykeops.torch import LazyTensor
+
+try:
+    from pykeops.torch import LazyTensor
+except ImportError:
+    LazyTensor = None
 
 from torchdr.utils.utils import identity_matrix
 

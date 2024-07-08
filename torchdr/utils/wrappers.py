@@ -10,8 +10,19 @@ Useful wrappers for dealing with backends and devices
 import functools
 import torch
 import numpy as np
-from pykeops.torch import LazyTensor
+try:
+    from pykeops.torch import LazyTensor
+except ImportError:
+    LazyTensor = None
 from sklearn.utils.validation import check_array
+
+def is_lazy_tensor(arg):
+    r"""
+    Returns True if the input is a KeOps lazy tensor.
+    """
+    if LazyTensor is None:
+        return False
+    return isinstance(arg, LazyTensor)
 
 
 def output_contiguous(func):
@@ -143,7 +154,7 @@ def wrap_vectors(func):
 
     @functools.wraps(func)
     def wrapper(C, *args, **kwargs):
-        use_keops = isinstance(C, LazyTensor)
+        use_keops = is_lazy_tensor(C)
 
         unsqueeze = lambda arg: keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
 
@@ -170,7 +181,7 @@ def sum_all_axis_except_batch(func):
         output = func(*args, **kwargs)
         ndim_output = len(output.shape)
 
-        if not (isinstance(output, torch.Tensor) or isinstance(output, LazyTensor)):
+        if not (isinstance(output, torch.Tensor) or is_lazy_tensor(output)):
             raise ValueError(
                 "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
                 "to a torch.Tensor or pykeops.torch.LazyTensor."

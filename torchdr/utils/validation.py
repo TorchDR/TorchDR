@@ -9,9 +9,8 @@ Useful functions for testing, compatible with KeOps
 
 import torch
 from torch.testing import assert_close
-from pykeops.torch import LazyTensor
 
-from torchdr.utils.utils import entropy
+from torchdr.utils.utils import entropy, is_lazy_tensor
 
 
 def check_NaNs(input, msg=None):
@@ -33,7 +32,7 @@ def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5
     Checks that a torch.Tensor and a LazyTensor are equal on their largest entries.
     """
     assert isinstance(P, torch.Tensor), "P is not a torch.Tensor."
-    assert isinstance(P_keops, LazyTensor), "P_keops is not a LazyTensor."
+    assert is_lazy_tensor(P_keops), "P_keops is not a LazyTensor."
     assert P.shape == P_keops.shape, "P and P_keops do not have the same shape."
 
     n = P.shape[0]
@@ -181,7 +180,7 @@ def check_type(P, keops):
     Checks if a tensor is a torch.Tensor or a LazyTensor (if keops is True).
     """
     if keops:
-        assert isinstance(P, LazyTensor), "Input is not a LazyTensor."
+        assert is_lazy_tensor(P), "Input is not a LazyTensor."
     else:
         assert isinstance(P, torch.Tensor), "Input is not a torch.Tensor."
 
