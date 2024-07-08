@@ -73,7 +73,7 @@ class COSNE(AffinityMatcher):
         perplexity: float = 30,
         n_components: int = 2,
         lr: float = 1.0,
-        optimizer: str = "Adam",
+        optimizer: str = "RAdam",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
         init: str = "pca",
