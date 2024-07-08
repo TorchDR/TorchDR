@@ -14,7 +14,7 @@ from pykeops.torch import LazyTensor
 from sklearn.utils.validation import check_array
 
 
-def contiguous_output(func):
+def output_contiguous(func):
     """
     Convert all output torch tensors to contiguous.
     """
@@ -34,7 +34,7 @@ def contiguous_output(func):
     return wrapper
 
 
-@contiguous_output
+@output_contiguous
 def to_torch(x, device="auto", verbose=True, return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.
@@ -201,26 +201,5 @@ def handle_backend(func):
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
-
-    return wrapper
-
-
-def output_exp_if_not_log(func):
-    """
-    If log=True or True is passed as input, returns the output unchanged (should be in
-    log domain). Else, return the exponential of the output.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        log = kwargs.get("log", False) or any(
-            isinstance(arg, bool) and arg for arg in args
-        )
-        result = func(*args, **kwargs)
-
-        if log:
-            return result
-        else:
-            return result.exp()
 
     return wrapper

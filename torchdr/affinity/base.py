@@ -10,8 +10,15 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
+import pykeops
 import numpy as np
-from torchdr.utils import pairwise_distances, to_torch
+from torchdr.utils import (
+    symmetric_pairwise_distances,
+    symmetric_pairwise_distances_indices,
+    pairwise_distances,
+    to_torch,
+    inputs_to_torch,
+)
 
 
 class Affinity(ABC):
@@ -22,7 +29,7 @@ class Affinity(ABC):
     ----------
     metric : str, optional
         The distance metric to use for computing pairwise distances.
-    nodiag : bool, optional
+    zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
@@ -36,56 +43,41 @@ class Affinity(ABC):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         self.log = {}
         self.metric = metric
-        self.nodiag = nodiag
+        self.zero_diag = zero_diag
         self.device = device
         self.keops = keops
         self.verbose = verbose
+        self.zero_diag = zero_diag
+        self.add_diagonal = 1e12 if self.zero_diag else None
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""
-        Prepares and stores the input data :math:`\mathbf{X}` for computing
-        the affinity matrix.
-
-        This method must be overridden by subclasses. This base implementation
-        only converts the input data to a torch tensor and stores it
-        in the `data_` attribute.
-
-        Subclasses should call `super().fit(X)` to utilize this functionality
-        and then implement additional steps required for computing the specific
-        affinity matrix.
+        Fits the affinity matrix from the input data.
+        This method must be overridden by subclasses.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data to be converted and stored.
-
-        Returns
-        -------
-        self : object
-            Returns the instance itself.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
-        return self
+        pass
 
     def fit_transform(self, X: torch.Tensor | np.ndarray):
         r"""
-        Computes the affinity matrix from input data :math:`\mathbf{X}` and returns
-        the resulting matrix.
-
-        It first calls the `fit` method to compute the affinity matrix from
-        the input data and then returns the computed affinity matrix.
+        Computes the affinity matrix from the input data using the `fit` method and
+        returns the resulting affinity matrix.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data used to compute the affinity matrix.
 
         Returns
@@ -100,23 +92,26 @@ class Affinity(ABC):
             an assertion error is raised.
         """
         self.fit(X)
-        self._check_is_fitted(
-            msg="[TorchDR] Error : affinity_matrix_ should be computed in fit method."
-        )
-        return self.affinity_matrix_  # type: ignore
 
-    def _pairwise_distance_matrix(self, X: torch.Tensor, Y: torch.Tensor = None):
+        if not hasattr(self, "affinity_matrix_"):
+            raise AssertionError(
+                "[TorchDR] ERROR : affinity_matrix_ should be computed in fit method."
+            )
+
+        return self.affinity_matrix_
+
+    def _distance_matrix(self, X: torch.Tensor):
         r"""
-        Computes the pairwise distance matrix :math:`\mathbf{C}` for the input tensor.
+        Computes the pairwise distance matrix from the input data.
 
         This method calculates the pairwise distances between all samples in the input
-        tensor :math:`\mathbf{X}`, using the specified metric and optionally leveraging
-        KeOps for (memory) efficient computation.
+        data, using the specified metric and optionally leveraging KeOps for memory
+        efficient computation.
 
         Parameters
         ----------
-        X : torch.Tensor
-            A 2D tensor of shape (n_samples, n_features) containing the input data.
+        X : torch.Tensor of shape (n_samples, n_features)
+            Input data.
 
         Returns
         -------
@@ -125,70 +120,173 @@ class Affinity(ABC):
             value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        add_diagonal = 1e12 if self.nodiag else None
-        C = pairwise_distances(
-            X, Y, metric=self.metric, keops=self.keops, add_diagonal=add_diagonal
+        C = symmetric_pairwise_distances(
+            X=X,
+            metric=self.metric,
+            keops=self.keops,
+            add_diagonal=self.add_diagonal,
         )
         return C
 
-    def _check_is_fitted(self, msg: str = None):
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
         r"""
-        Checks if the affinity matrix has been computed and is stored in
-        the attribute affinity_matrix_ .
+        Computes the affinity between points without fitting any parameter.
+        Thus it can only be called for affinities that do not require any fitting.
+        For such affinities, this method must be overridden.
 
         Parameters
         ----------
-        msg : str, optional
-            Custom error message to be displayed if the check fails. If not provided,
-            a default error message is used.
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
+            Input data.
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
+            Second input data. If None, uses `Y=X`. Default is None.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. Default is None.
 
         Raises
         ------
-        AssertionError
-            If the `affinity_matrix_` attribute does not exist, indicating that
-            the model has not been fitted.
+        NotImplementedError
+            If the method is called for an affinity that requires fitting, an error
+            is raised.
         """
-        assert hasattr(self, "affinity_matrix_"), (
-            msg or "[TorchDR] Error : Affinity not fitted."
+        raise NotImplementedError(
+            "[TorchDR] ERROR : transform method not implemented for affinity "
+            f"{self.__class__.__name__}. This means that the affinity has normalizing "
+            "parameters that need to be fitted. Thus it can only be called using the "
+            "fit_transform method."
+        )
+
+    def _distance_matrix_transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
+        if Y is not None and indices is not None:
+            raise NotImplementedError(
+                "[TorchDR] ERROR : transform method cannot be called with both Y "
+                "and indices at the same time."
+            )
+
+        elif indices is not None:
+            return symmetric_pairwise_distances_indices(
+                X, indices=indices, metric=self.metric
+            )
+
+        elif Y is not None:
+            return pairwise_distances(X, Y, metric=self.metric, keops=self.keops)
+
+        else:
+            return symmetric_pairwise_distances(
+                X, metric=self.metric, keops=self.keops, add_diagonal=self.add_diagonal
+            )
+
+
+class TransformableAffinity(Affinity):
+    r"""
+    Base class for affinities that do not require fitting parameters based on
+    the entire dataset. These affinities can be applied directly to a subset
+    of the data using the `transform` method.
+
+    Parameters
+    ----------
+    metric : str, optional
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+    device : str, optional
+        The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
+        If "auto", it uses the device of the input data. Default is "auto".
+    keops : bool, optional
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
+    verbose : bool, optional
+        If True, prints additional information during computation. Default is True.
+    """
+
+    def __init__(
+        self,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
 
     @abstractmethod
-    def get_batch(self, indices: torch.Tensor):
+    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
         r"""
-        Decomposes the fitted affinity into batches based on the provided indices.
-
-        This method must be overridden by subclasses. This base implementation returns
-        the batched pairwise distance matrix. Subclasses should call
-        `super().get_batch(indices)` as a first step to get the batched distance matrix
-        and then implement additional steps to compute the affinity.
-
-        The total number of samples must equal the product of the number of batches
-        and the batch size.
+        Computes the affinity matrix from the pairwise distance matrix.
+        This method must be overridden by subclasses.
 
         Parameters
         ----------
-        indices : torch.Tensor
-            A 2D tensor of shape (n_batch, batch_size) containing the batch indices.
-            The number of samples must equal the product of n_batch and batch_size.
+        C : torch.Tensor or pykeops.torch.LazyTensor
+            Pairwise distance matrix.
+        """
+        pass
+
+    def fit(self, X: torch.Tensor | np.ndarray):
+        r"""
+        Fits the affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
 
         Returns
         -------
-        C_batch : torch.Tensor or pykeops.torch.LazyTensor
-            The batched pairwise distance matrix.
+        self : TransformableAffinity
+            The fitted affinity model.
         """
-        self._check_is_fitted()
-        assert (
-            indices.ndim == 2
-        ), '[TorchDR] Error: indices in "get_batch" should be a 2D torch tensor '
-        "of shape (n_batch, batch_size)."
-        assert (
-            indices.shape[0] * indices.shape[1] == self.data_.shape[0]
-        ), '[TorchDR] Error: indices in "get_batch" should have a product '
-        "of dimensions equal to the number of samples."
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
+        self.affinity_matrix_ = self._affinity_formula(C)
+        return self
 
-        data_batch = self.data_[indices]
-        C_batch = self._pairwise_distance_matrix(data_batch)
-        return C_batch
+    @inputs_to_torch
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        indices: torch.Tensor = None,
+    ):
+        r"""
+        Computes the affinity between points without fitting any parameters.
+        Suitable for affinities that do not require normalization based on the
+        entire dataset.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
+            Input data.
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
+            Second input data. If None, uses `Y=X`. Default is None.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. If None, computes the full affinity matrix.
+            Default is None.
+
+        Returns
+        -------
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix or its log, depending on the `log` parameter.
+        """
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
+        return self._affinity_formula(C)
 
 
 class LogAffinity(Affinity):
@@ -215,28 +313,30 @@ class LogAffinity(Affinity):
     def __init__(
         self,
         metric: str = "sqeuclidean",
-        nodiag: bool = True,
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
         r"""
-        Fits the model to the input data :math:`\mathbf{X}` and returns
-        the affinity matrix.
+        Computes the log affinity matrix from the input data using the `fit` method
+        and returns the resulting affinity matrix.
 
-        This method first calls the `fit` method to compute the log affinity matrix
-        from the input data. It then returns either the log affinity matrix or the
-        exponential of the log affinity matrix, depending on the value of
-        the `log` parameter.
+        It returns either the log affinity matrix or the exponential of the log
+        affinity matrix, depending on the value of the `log` parameter.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data used to compute the affinity matrix.
 
         log : bool, optional
@@ -245,7 +345,8 @@ class LogAffinity(Affinity):
 
         Returns
         -------
-        affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
+        affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor of shape
+        (n_samples, n_samples)
             The computed affinity matrix. If `log` is True, returns the log affinity
             matrix. Otherwise, returns the exponentiated log affinity matrix.
 
@@ -256,10 +357,12 @@ class LogAffinity(Affinity):
             an assertion error is raised.
         """
         self.fit(X)
-        assert hasattr(
-            self, "log_affinity_matrix_"
-        ), "[TorchDR] ERROR Affinity : log_affinity_matrix_ should be computed "
-        "in  fit method of a LogAffinity."
+
+        if not hasattr(self, "log_affinity_matrix_"):
+            raise AssertionError(
+                "[TorchDR] ERROR : log_affinity_matrix_ should be computed in the "
+                "fit method of a LogAffinity."
+            )
 
         if log:  # return the log of the affinity matrix
             return self.log_affinity_matrix_  # type: ignore
@@ -268,23 +371,214 @@ class LogAffinity(Affinity):
                 self.affinity_matrix_ = self.log_affinity_matrix_.exp()  # type: ignore
             return self.affinity_matrix_
 
-    def _check_is_fitted(self, msg: str = None):
+
+class TransformableLogAffinity(LogAffinity):
+    r"""
+    Base class for log affinities that do not require fitting parameters based on
+    the entire dataset. These affinities can be applied directly to a subset
+    of the data using the `transform` method.
+
+    Parameters
+    ----------
+    metric : str, optional
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+    device : str, optional
+        The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
+        If "auto", it uses the device of the input data. Default is "auto".
+    keops : bool, optional
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
+    verbose : bool, optional
+        If True, prints additional information during computation. Default is True.
+    """
+
+    def __init__(
+        self,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+
+    @abstractmethod
+    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
         r"""
-        Checks if the log affinity matrix has been computed and is stored in
-        the attribute log_affinity_matrix_ .
+        Computes the log affinity matrix from the pairwise distances.
+        This method must be overridden by subclasses.
 
         Parameters
         ----------
-        msg : str, optional
-            Custom error message to be displayed if the check fails. If not provided,
-            a default error message is used.
+        C : torch.Tensor or pykeops.torch.LazyTensor
+            Pairwise distance matrix.
+        """
+        pass
+
+    def fit(self, X: torch.Tensor | np.ndarray):
+        r"""
+        Fits the affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray
+            Input data.
+
+        Returns
+        -------
+        self : TransformableLogAffinity
+            The fitted log affinity model.
+        """
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
+        self.log_affinity_matrix_ = self._log_affinity_formula(C)
+        return self
+
+    @inputs_to_torch
+    def transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        Y: torch.Tensor | np.ndarray = None,
+        log: bool = False,
+        indices: torch.Tensor = None,
+    ):
+        r"""
+        Computes the log affinity between points without fitting any parameters.
+        Suitable for affinities that do not require normalization based on the
+        entire dataset.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
+            Input data.
+        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
+            Second input data. If None, uses `Y=X`. Default is None.
+        log : bool, optional
+            If True, returns the log of the affinity matrix. Else, returns
+            the affinity matrix by exponentiating the log affinity matrix.
+        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
+            Indices of pairs to compute. If None, computes the full affinity matrix.
+            Default is None.
+
+        Returns
+        -------
+        P : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix or its log, depending on the `log` parameter.
+        """
+        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
+        log_P = self._log_affinity_formula(C)
+
+        if log:
+            return log_P
+        else:
+            return log_P.exp()
+
+
+class SparseLogAffinity(LogAffinity):
+    r"""
+    Base class for sparse log affinity matrices.
+
+    Modifies the fit_transform method of the base LogAffinity class to return the log
+    affinity matrix in a rectangular format with the corresponding indices.
+
+    Parameters
+    ----------
+    metric : str, optional
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+    device : str, optional
+        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data. Default is "auto".
+    keops : bool, optional
+        Whether to use KeOps for efficient computation of large-scale kernel
+        operations. Default is False.
+    verbose : bool, optional
+        If True, prints additional information during computation. Default is True.
+    sparsity : bool or str, optional
+        Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    """
+
+    def __init__(
+        self,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+        sparsity: bool | str = "auto",
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.sparsity = sparsity
+        if sparsity == "auto":
+            self._sparsity = self._sparsity_rule()
+        else:
+            self._sparsity = sparsity
+
+    @abstractmethod
+    def _sparsity_rule(self):
+        r"""
+        Rule to determine whether to compute the affinity matrix in a sparse format.
+        This method must be overridden by subclasses.
+        """
+        pass
+
+    def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
+        r"""
+        Computes the log affinity matrix from input data using the `fit` method and
+        returns the resulting log affinity matrix.
+
+        If sparsity is enabled, returns the log affinity in rectangular format with the
+        corresponding indices. Otherwise, returns the full affinity matrix and None.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Input data used to compute the affinity matrix.
+        log : bool, optional
+            If True, returns the log of the affinity matrix. Else, returns
+            the affinity matrix by exponentiating the log affinity matrix.
+
+        Returns
+        -------
+        log_affinity_matrix_ : torch.Tensor or pykeops.torch.LazyTensor
+            The computed log affinity matrix if `log` is True, otherwise the
+            exponentiated affinity matrix.
+        indices_ : torch.Tensor
+            The indices of the non-zero elements in the affinity matrix if sparsity is
+            enabled. Otherwise, returns None.
 
         Raises
         ------
         AssertionError
-            If the `log_affinity_matrix_` attribute does not exist, indicating that
-            the model has not been fitted.
+            If the `log_affinity_matrix_` or `indices_` attribute is not set during the
+            `fit` method, an assertion error is raised.
         """
-        assert hasattr(self, "log_affinity_matrix_"), (
-            msg or "[TorchDR] Error : LogAffinity not fitted."
-        )
+        self.fit(X)
+
+        if not hasattr(self, "log_affinity_matrix_") or not hasattr(self, "indices_"):
+            raise AssertionError(
+                "[TorchDR] ERROR : log_affinity_matrix_ and indices_ should be "
+                "computed in the fit method of a SparseLogAffinity."
+            )
+
+        if log:
+            return self.log_affinity_matrix_, self.indices_
+        else:
+            return self.log_affinity_matrix_.exp(), self.indices_

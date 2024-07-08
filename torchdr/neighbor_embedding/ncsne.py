@@ -7,12 +7,12 @@ Noise-constrastive SNE algorithms
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.affinity import EntropicAffinity, StudentAffinity
-from torchdr.utils import cross_entropy_loss
+from torchdr.utils import logsumexp_red
 
 
-class InfoTSNE(NeighborEmbedding):
+class InfoTSNE(SampledNeighborEmbedding):
     """
 
     Parameters
@@ -63,8 +63,8 @@ class InfoTSNE(NeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
-    batch_size : int or str, optional
-        Batch size for the optimization, by default "auto".
+    n_negatives : int, optional
+        Number of negative samples for the noise-contrastive loss, by default 5.
 
     References
     ----------
@@ -92,11 +92,13 @@ class InfoTSNE(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
+        coeff_attraction: float = 10.0,
+        coeff_repulsion: float = 1.0,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        batch_size: int | str = "auto",
+        n_negatives: int = 500,
     ):
 
         self.metric_in = metric_in
@@ -113,6 +115,7 @@ class InfoTSNE(NeighborEmbedding):
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=False,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
@@ -138,12 +141,12 @@ class InfoTSNE(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            batch_size=batch_size,
+            coeff_attraction=coeff_attraction,
+            coeff_repulsion=coeff_repulsion,
+            n_negatives=n_negatives,
         )
 
-    def _loss(self):
-        P, log_Q = self.batched_affinity_in_out(log=True)
-        log_Q = log_Q - log_Q.logsumexp(2)[:, :, None]  # beware of the batch dimension
-        losses = cross_entropy_loss(P, log_Q, log_Q=True)
-        loss = losses.sum()
-        return loss
+    def _repulsive_loss(self):
+        indices = self._sample_negatives()
+        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
+        return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

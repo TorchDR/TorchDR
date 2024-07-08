@@ -16,9 +16,9 @@ from .__about__ import (
 from .affinity import (
     Affinity,
     LogAffinity,
-    GibbsAffinity,
-    NormalizedGibbsAffinity,
-    SelfTuningGibbsAffinity,
+    GaussianAffinity,
+    NormalizedGaussianAffinity,
+    SelfTuningAffinity,
     StudentAffinity,
     ScalarProductAffinity,
     EntropicAffinity,
@@ -34,7 +34,6 @@ from .base import DRModule
 from .spectral import PCA
 from .affinity_matcher import (
     AffinityMatcher,
-    BatchedAffinityMatcher,
 )
 from .neighbor_embedding import (
     SNE,
@@ -43,6 +42,7 @@ from .neighbor_embedding import (
     SNEkhorn,
     TSNEkhorn,
     LargeVis,
+    UMAP,
 )
 
 # import utils
@@ -57,9 +57,9 @@ __all__ = [
     "__license__",
     "Affinity",
     "LogAffinity",
-    "GibbsAffinity",
-    "NormalizedGibbsAffinity",
-    "SelfTuningGibbsAffinity",
+    "GaussianAffinity",
+    "NormalizedGaussianAffinity",
+    "SelfTuningAffinity",
     "StudentAffinity",
     "ScalarProductAffinity",
     "EntropicAffinity",
@@ -78,6 +78,7 @@ __all__ = [
     "SNEkhorn",
     "TSNEkhorn",
     "LargeVis",
+    "UMAP",
     "pairwise_distances",
     "binary_search",
     "false_position",

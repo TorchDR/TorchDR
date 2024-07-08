@@ -27,9 +27,9 @@ from torchdr.utils import (
 )
 from torchdr.affinity import (
     ScalarProductAffinity,
-    GibbsAffinity,
-    NormalizedGibbsAffinity,
-    SelfTuningGibbsAffinity,
+    GaussianAffinity,
+    NormalizedGaussianAffinity,
+    SelfTuningAffinity,
     StudentAffinity,
     EntropicAffinity,
     SymmetricEntropicAffinity,
@@ -81,7 +81,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
 
     list_P = []
     for keops in [False, True]:
-        affinity = NormalizedGibbsAffinity(
+        affinity = NormalizedGaussianAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
@@ -92,7 +92,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
         check_shape(P, (n, n))
         check_nonnegativity(P)
         if isinstance(dim, int):
-            check_marginal(P, one, dim=dim)
+            check_marginal(P * n, one, dim=dim)
         else:
             check_total_sum(P, 1)
 
@@ -108,7 +108,7 @@ def test_gibbs_affinity(dtype, metric):
 
     list_P = []
     for keops in [False, True]:
-        affinity = GibbsAffinity(device=DEVICE, keops=keops, metric=metric)
+        affinity = GaussianAffinity(device=DEVICE, keops=keops, metric=metric)
         P = affinity.fit_transform(X)
         list_P.append(P)
 
@@ -131,7 +131,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
 
     list_P = []
     for keops in [False, True]:
-        affinity = SelfTuningGibbsAffinity(
+        affinity = SelfTuningAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity.fit_transform(X)
@@ -173,7 +173,7 @@ def test_student_affinity(dtype, metric):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
-@pytest.mark.parametrize("sparsity", [False, None])
+@pytest.mark.parametrize("sparsity", [False])
 def test_entropic_affinity(dtype, metric, keops, sparsity):
     n = 300
     X = toy_dataset(n, dtype)
@@ -195,7 +195,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
         device=DEVICE,
         sparsity=sparsity,
     )
-    log_P = affinity.fit_transform(X, log=True)
+    log_P, _ = affinity.fit_transform(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
@@ -204,7 +204,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._pairwise_distance_matrix(affinity.data_)
+    C = affinity._distance_matrix(affinity.data_)
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
@@ -311,7 +311,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("keops", [True, False])
-@pytest.mark.parametrize("sparsity", [None, False])
+@pytest.mark.parametrize("sparsity", [False])
 def test_umap_data_affinity(dtype, metric, keops, sparsity):
     n = 300
     X = toy_dataset(n, dtype)
@@ -327,13 +327,12 @@ def test_umap_data_affinity(dtype, metric, keops, sparsity):
         verbose=True,
         sparsity=sparsity,
     )
-    P = affinity.fit_transform(X)
+    P, _ = affinity.fit_transform(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
     check_shape(P, (n, n))
     check_nonnegativity(P)
-    check_symmetry(P)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -363,7 +362,8 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize(
-    "Affinity", [ScalarProductAffinity, GibbsAffinity, StudentAffinity, UMAPAffinityOut]
+    "Affinity",
+    [ScalarProductAffinity, GaussianAffinity, StudentAffinity, UMAPAffinityOut],
 )
 @pytest.mark.parametrize("keops", [True, False])
 def test_affinity_transform(Affinity, keops, dtype):

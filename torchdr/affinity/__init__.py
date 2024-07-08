@@ -4,21 +4,27 @@
 # License: BSD 3-Clause License
 
 
-from .base import Affinity, LogAffinity
+from .base import (
+    Affinity,
+    LogAffinity,
+    TransformableAffinity,
+    TransformableLogAffinity,
+    SparseLogAffinity,
+)
 
 from .simple import (
     ScalarProductAffinity,
-    GibbsAffinity,
+    GaussianAffinity,
     StudentAffinity,
-    NormalizedGibbsAffinity,
 )
 
-from .knn_normalized import SelfTuningGibbsAffinity
+from .knn_normalized import SelfTuningAffinity
 
 from .entropic import (
     EntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
+    NormalizedGaussianAffinity,
 )
 
 from .quadratic import DoublyStochasticQuadraticAffinity
@@ -28,10 +34,13 @@ from .umap import UMAPAffinityIn, UMAPAffinityOut
 __all__ = [
     "Affinity",
     "LogAffinity",
+    "TransformableAffinity",
+    "TransformableLogAffinity",
+    "SparseLogAffinity",
     "ScalarProductAffinity",
-    "GibbsAffinity",
-    "NormalizedGibbsAffinity",
-    "SelfTuningGibbsAffinity",
+    "GaussianAffinity",
+    "NormalizedGaussianAffinity",
+    "SelfTuningAffinity",
     "StudentAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",
