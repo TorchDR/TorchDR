@@ -14,6 +14,7 @@ except ImportError:
     LazyTensor = None
 from .wrappers import wrap_vectors
 
+
 def is_lazy_tensor(arg):
     r"""
     Returns True if the input is a KeOps lazy tensor.

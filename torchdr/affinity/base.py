@@ -10,7 +10,7 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
-try : # try to import LazyTensor from KeOps for type hinting
+try :  # try to import LazyTensor from KeOps for type hinting
     from keops.torch import LazyTensor
 except ImportError:
     LazyTensor = type(None)

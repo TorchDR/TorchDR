@@ -16,6 +16,7 @@ except ImportError:
     LazyTensor = None
 from sklearn.utils.validation import check_array
 
+
 def is_lazy_tensor(arg):
     r"""
     Returns True if the input is a KeOps lazy tensor.
