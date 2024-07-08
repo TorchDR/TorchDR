@@ -19,7 +19,7 @@ from torchdr.utils import logsumexp_red
 class COSNE(AffinityMatcher):
     """
     Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) algorithm
-    for embedding in hyperbolic space, introduced in [22]_.
+    for embedding in hyperbolic space, introduced in [23]_.
 
     Parameters
     ----------
@@ -31,8 +31,8 @@ class COSNE(AffinityMatcher):
         Dimension of the embedding space.
     lr : float, optional
         Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
+    optimizer : {'RAdam'}, optional
+        Which pytorch/Geoopt optimizer to use, by default 'RAdam'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
