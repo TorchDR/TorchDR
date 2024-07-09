@@ -9,7 +9,6 @@ Common simple affinities
 
 import torch
 from ..utils import LazyTensorType
-import numpy as np
 
 from torchdr.affinity.base import (
     TransformableAffinity,
