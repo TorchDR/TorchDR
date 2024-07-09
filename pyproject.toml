@@ -28,6 +28,8 @@ test = [
     "flake8",
     "coverage",
     "numpydoc",
+    "pytest-cov",
+    "codecov"
 ]
 
 keops = [
