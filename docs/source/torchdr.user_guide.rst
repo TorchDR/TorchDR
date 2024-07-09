@@ -104,21 +104,6 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     >>> print(affinity_matrix.shape)
     (100, 100)
 
-They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the **affinity matrix divided in blocks** given by the batch indices. The output is of size **(n_batch, batch_size, batch_size)** where n_batch is the number of blocks and batch_size is the number of samples per block.
-
-The number of blocks should be a divisor of the number of samples. Here is an example with 5 blocks of size 20 each:
-
-    >>> batch_size = n // 5
-    >>> indices = torch.randperm(n).reshape(-1, batch_size)
-    >>> batched_affinity_matrix = affinity.get_batch(indices)
-    >>> print(batched_affinity_matrix.shape)
-    (5, 20, 20)
-
-.. note::
-
-    In ``TorchDR``, :meth:`get_batch` is compatible with ``KeOps`` (:attr:`keops=True`).
-    This compatibility allows you to choose the batch size based solely on compute time, without memory limitations.
-
 
 Affinities based on entropic projections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,7 +125,7 @@ The following table details the aspects controlled by various formulations of en
      - **Symmetry**
      - **Marginal**
      - **Entropy**
-   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <torchdr.SNE>`) [1]_
+   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <SNE>`) [1]_
      - ❌
      - ✅
      - ✅
@@ -148,7 +133,7 @@ The following table details the aspects controlled by various formulations of en
      - ✅
      - ✅
      - ❌
-   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (SNEkhorn) [3]_
+   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (:class:`SNEkhorn <SNEkhorn>`) [3]_
      - ✅
      - ✅
      - ✅

@@ -188,7 +188,7 @@ class EntropicAffinity(SparseLogAffinity):
     :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
-    .. note:: A symmetric version is also available at 
+    .. note:: A symmetric version is also available at
         :class:`~torchdr.affinity.SymmetricEntropicAffinity`. It is the affinity matrix
         used in SNEkhorn/t-SNEkhorn [3]_.
 
