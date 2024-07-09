@@ -99,6 +99,7 @@ def test_pairwise_distances(dtype, metric):
     C = pairwise_distances(x, y, metric=metric, keops=False)
     check_shape(C, (n, m))
 
+
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS)
@@ -131,6 +132,7 @@ def test_symmetric_pairwise_distances(dtype, metric):
     # --- check consistency with pairwise_distances ---
     C_ = pairwise_distances(x, metric=metric, keops=False)
     check_similarity(C, C_)
+
 
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")
 @pytest.mark.parametrize("dtype", lst_types)
