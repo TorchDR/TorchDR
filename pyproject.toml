@@ -9,13 +9,14 @@ license = {text = "BSD (3-Clause)"}
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
     "numpy>=1.20",
-    "matplotlib",
     "scikit-learn",
     "torch",
-    "pykeops",
     "tqdm",
 ]
 dynamic = ["version"]
+
+[tool.setuptools]
+packages = ["torchdr"]
 
 
 [tool.setuptools.dynamic]
@@ -27,12 +28,23 @@ test = [
     "flake8",
     "coverage",
     "numpydoc",
+    "pytest-cov",
+    "codecov"
+]
+
+keops = [
+    "pykeops",
+]
+
+all =  [
+    "pykeops",
 ]
 
 doc = [
     "sphinx",
     "sphinx_gallery",
     "sphinx_rtd_theme",
+    "matplotlib",
     "numpydoc",
     "memory_profiler",
     "myst-parser",

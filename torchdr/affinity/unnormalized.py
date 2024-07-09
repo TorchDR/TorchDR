@@ -8,7 +8,7 @@ Common simple affinities
 # License: BSD 3-Clause License
 
 import torch
-import pykeops
+from ..utils import LazyTensorType
 
 from torchdr.affinity.base import (
     TransformableAffinity,
@@ -56,7 +56,7 @@ class GaussianAffinity(TransformableLogAffinity):
         )
         self.sigma = sigma
 
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C / self.sigma
 
 
@@ -103,7 +103,7 @@ class StudentAffinity(TransformableLogAffinity):
         )
         self.degrees_of_freedom = degrees_of_freedom
 
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return (
             -0.5
             * (self.degrees_of_freedom + 1)
@@ -140,5 +140,5 @@ class ScalarProductAffinity(TransformableAffinity):
             zero_diag=False,
         )
 
-    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C
