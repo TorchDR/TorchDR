@@ -17,11 +17,9 @@ from torchdr.utils import pykeops
 # define lists for keops testing
 if pykeops:
     lst_keops = [False, True]
-    lst_keops2 = [True, False]
 else:
     pykeops = False
-    lst_keops = [False, False]
-    lst_keops2 = [False]
+    lst_keops = [False]
 
 
 from torchdr.utils import (
@@ -79,7 +77,8 @@ def test_scalar_product_affinity(dtype):
         check_symmetry(P)
 
     # --- check consistency between torch and keops ---
-    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -108,7 +107,8 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -129,7 +129,8 @@ def test_gibbs_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -157,7 +158,8 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -178,14 +180,15 @@ def test_student_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", lst_keops2)
 @pytest.mark.parametrize("sparsity", [False])
-def test_entropic_affinity(dtype, metric, keops, sparsity):
+@pytest.mark.parametrize("keops", lst_keops)
+def test_entropic_affinity(dtype, metric, sparsity, keops):
     n = 300
     X = toy_dataset(n, dtype)
     perp = 30
@@ -228,7 +231,7 @@ def test_entropic_affinity(dtype, metric, keops, sparsity):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("optimizer", ["Adam", "LBFGS"])
-@pytest.mark.parametrize("keops", lst_keops2)
+@pytest.mark.parametrize("keops", lst_keops)
 def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
     n = 300
     X = toy_dataset(n, dtype)
@@ -265,7 +268,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", lst_keops2)
+@pytest.mark.parametrize("keops", lst_keops)
 def test_doubly_stochastic_entropic(dtype, metric, keops):
     n = 300
     X = toy_dataset(n, dtype)
@@ -293,7 +296,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", lst_keops2)
+@pytest.mark.parametrize("keops", lst_keops)
 def test_doubly_stochastic_quadratic(dtype, metric, keops):
     n = 300
     X = toy_dataset(n, dtype)
@@ -321,9 +324,9 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", lst_keops2)
 @pytest.mark.parametrize("sparsity", [False])
-def test_umap_data_affinity(dtype, metric, keops, sparsity):
+@pytest.mark.parametrize("keops", lst_keops)
+def test_umap_data_affinity(dtype, metric, sparsity, keops):
     n = 300
     X = toy_dataset(n, dtype)
     n_neighbors = 30
@@ -348,7 +351,7 @@ def test_umap_data_affinity(dtype, metric, keops, sparsity):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("keops", lst_keops2)
+@pytest.mark.parametrize("keops", lst_keops)
 @pytest.mark.parametrize("a, b", [(1, 2), (None, None)])
 def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     n = 300
@@ -376,7 +379,7 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     "Affinity",
     [ScalarProductAffinity, GaussianAffinity, StudentAffinity, UMAPAffinityOut],
 )
-@pytest.mark.parametrize("keops", lst_keops2)
+@pytest.mark.parametrize("keops", lst_keops)
 def test_affinity_transform(Affinity, keops, dtype):
     n = 50
     X = toy_dataset(n, dtype)
