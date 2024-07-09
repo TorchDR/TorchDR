@@ -44,7 +44,7 @@ jobs:
         python -m pip install --user --upgrade --progress-bar off pip
     - name: Install 'torchdr' package
       run: |
-        python -m pip install --user -e .[all]
+        python -m pip install --user -e .[all,test]
     # Run Tests
     - name: Run Tests without torch
       run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
