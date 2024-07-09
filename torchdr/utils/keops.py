@@ -10,10 +10,12 @@ Robust handling of pykeops as optional dependency
 try:
     import pykeops
     from pykeops.torch import LazyTensor
+
     LazyTensorType = LazyTensor
-except ImportError:
-    pykeops = False  # pykeops is not installed
-    LazyTensor = None  # pykeops is not installed
+
+except ImportError:  # pykeops is not installed
+    pykeops = False
+    LazyTensor = None
     LazyTensorType = type(None)
 
 

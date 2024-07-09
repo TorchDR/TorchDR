@@ -48,7 +48,8 @@ def pairwise_distances(
 
     if keops and not pykeops:  # pykeops no installed
         raise ValueError(
-            "pykeops is not installed. Please install it to use `keops=true`.")
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
 
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, Y, metric)
@@ -85,7 +86,8 @@ def symmetric_pairwise_distances(
 
     if keops and not pykeops:  # pykeops no installed
         raise ValueError(
-            "pykeops is not installed. Please install it to use `keops=true`.")
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
 
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, metric=metric)

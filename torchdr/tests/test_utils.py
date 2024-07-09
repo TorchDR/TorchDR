@@ -25,7 +25,7 @@ from torchdr.utils import (
     check_symmetry,
     check_shape,
     check_similarity,
-    pykeops
+    pykeops,
 )
 
 lst_types = [torch.double, torch.float]

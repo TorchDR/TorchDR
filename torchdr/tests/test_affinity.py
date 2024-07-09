@@ -35,6 +35,7 @@ from torchdr.utils import (
     entropy,
 )
 from torchdr.affinity import (
+    Affinity,
     ScalarProductAffinity,
     GaussianAffinity,
     NormalizedGaussianAffinity,
@@ -58,6 +59,12 @@ DEVICE = "cpu"
 def toy_dataset(n=300, dtype="float32"):
     X, _ = make_moons(n_samples=n, noise=0.05, random_state=0)
     return X.astype(dtype)
+
+
+@pytest.mark.skipif(pykeops, reason="pykeops is available")
+def test_keops_not_installed():
+    with pytest.raises(ValueError, match="KeOps is not available"):
+        Affinity(keops=True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
