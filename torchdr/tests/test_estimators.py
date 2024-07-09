@@ -26,7 +26,7 @@ DEVICE = "cpu"
 
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_keops_not_installed():
-    with pytest.raises(ValueError, match="KeOps is not available"):
+    with pytest.raises(ValueError, match="pykeops is not installed"):
         SNE(keops=True)
 
 
