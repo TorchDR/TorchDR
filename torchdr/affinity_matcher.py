@@ -113,6 +113,7 @@ class AffinityMatcher(DRModule):
 
         if optimizer not in OPTIMIZERS:
             raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
+
         self.optimizer = optimizer
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
