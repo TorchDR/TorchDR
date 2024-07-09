@@ -10,6 +10,13 @@ from .optim import binary_search, false_position, OPTIMIZERS
 
 from .losses import cross_entropy_loss, square_loss
 
+from .keops import (
+    pykeops,
+    LazyTensor,
+    LazyTensorType,
+    is_lazy_tensor,
+)
+
 from .wrappers import (
     wrap_vectors,
     to_torch,
@@ -52,7 +59,7 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     logsumexp_red,
-    batch_transpose,
+    batch_transpose
 )
 
 from .visu import (
@@ -60,6 +67,10 @@ from .visu import (
 )
 
 __all__ = [
+    "LazyTensor",
+    "LazyTensorType",
+    "is_lazy_tensor",
+    "pykeops",
     "binary_search",
     "false_position",
     "OPTIMIZERS",

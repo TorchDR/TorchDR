@@ -9,7 +9,7 @@ Ground metrics and distances
 # License: BSD 3-Clause License
 
 import torch
-from pykeops.torch import LazyTensor
+from .keops import LazyTensor, pykeops
 
 from torchdr.utils.utils import identity_matrix
 
@@ -47,6 +47,11 @@ def pairwise_distances(
     if Y is None:
         Y = X
 
+    if keops and not pykeops:  # pykeops no installed
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
+
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, Y, metric)
     else:
@@ -79,6 +84,11 @@ def symmetric_pairwise_distances(
     C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
     """  # noqa E501
+
+    if keops and not pykeops:  # pykeops no installed
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
 
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, metric=metric)

@@ -8,7 +8,7 @@ Affinity matrices used in UMAP.
 # License: BSD 3-Clause License
 
 import torch
-import pykeops
+from ..utils import LazyTensorType
 import math
 import numpy as np
 from scipy.optimize import curve_fit
@@ -196,5 +196,5 @@ class UMAPAffinityOut(TransformableAffinity):
             self._a = a
             self._b = b
 
-    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return 1 / (1 + self._a * C**self._b)
