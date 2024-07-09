@@ -35,7 +35,6 @@ from torchdr.utils import (
     entropy,
 )
 from torchdr.affinity import (
-    Affinity,
     ScalarProductAffinity,
     GaussianAffinity,
     NormalizedGaussianAffinity,
@@ -64,7 +63,7 @@ def toy_dataset(n=300, dtype="float32"):
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_keops_not_installed():
     with pytest.raises(ValueError, match="KeOps is not available"):
-        Affinity(keops=True)
+        ScalarProductAffinity(keops=True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
