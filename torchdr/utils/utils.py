@@ -8,20 +8,8 @@ Useful functions for defining objectives and constraints
 # License: BSD 3-Clause License
 
 import torch
-try:
-    from pykeops.torch import LazyTensor
-except ImportError:
-    LazyTensor = None
+from .keops import LazyTensor, is_lazy_tensor
 from .wrappers import wrap_vectors
-
-
-def is_lazy_tensor(arg):
-    r"""
-    Returns True if the input is a KeOps lazy tensor.
-    """
-    if LazyTensor is None:
-        return False
-    return isinstance(arg, LazyTensor)
 
 
 def entropy(P, log=True, dim=1):

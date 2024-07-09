@@ -9,12 +9,8 @@ Useful functions for testing, compatible with KeOps
 
 import torch
 from torch.testing import assert_close
-try:
-    import pykeops
-except ImportError:
-    pykeops = False
-
-from torchdr.utils.utils import entropy, is_lazy_tensor
+from .keops import pykeops, is_lazy_tensor
+from .utils import entropy
 
 
 def check_NaNs(input, msg=None):

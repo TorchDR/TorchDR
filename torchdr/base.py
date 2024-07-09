@@ -10,7 +10,7 @@ Base classes for DR methods
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from torchdr.utils import to_torch
+from torchdr.utils import to_torch, pykeops
 
 
 class DRModule(TransformerMixin, BaseEstimator, ABC):
@@ -27,6 +27,13 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         verbose: bool = True,
         random_state: float = 0,
     ):
+
+        if keops and not pykeops:
+            raise ValueError(
+                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
+                "`keops=true`."
+            )
+
         self.n_components = n_components
         self.device = device
         self.keops = keops

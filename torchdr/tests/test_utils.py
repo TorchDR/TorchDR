@@ -11,10 +11,6 @@ import torch
 import pytest
 
 from torch.testing import assert_close
-try:
-    import pykeops
-except ImportError:
-    pykeops = False
 
 
 from torchdr.utils import (
@@ -29,6 +25,7 @@ from torchdr.utils import (
     check_symmetry,
     check_shape,
     check_similarity,
+    pykeops
 )
 
 lst_types = [torch.double, torch.float]

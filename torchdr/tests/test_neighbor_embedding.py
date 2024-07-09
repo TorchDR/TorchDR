@@ -20,13 +20,11 @@ from torchdr.neighbor_embedding import (
     InfoTSNE,
     UMAP,
 )
-from torchdr.utils import check_shape
+from torchdr.utils import check_shape, pykeops
 
-try:
-    import pykeops
+if pykeops:
     lst_keops = [True, False]
-except ImportError:
-    pykeops = False
+else:
     lst_keops = [False]
 
 

@@ -12,12 +12,13 @@ import torch
 import numpy as np
 import math
 from sklearn.datasets import make_moons
+from torchdr.utils import pykeops
 
-try:
-    import pykeops
+# define lists for keops testing
+if pykeops:
     lst_keops = [False, True]
     lst_keops2 = [True, False]
-except ImportError:
+else:
     pykeops = False
     lst_keops = [False, False]
     lst_keops2 = [False]

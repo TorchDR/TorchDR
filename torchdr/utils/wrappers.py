@@ -10,10 +10,7 @@ Useful wrappers for dealing with backends and devices
 import functools
 import torch
 import numpy as np
-try:
-    from pykeops.torch import LazyTensor
-except ImportError:
-    LazyTensor = None
+from .keops import LazyTensor
 from sklearn.utils.validation import check_array
 
 

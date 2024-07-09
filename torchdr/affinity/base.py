@@ -10,10 +10,7 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
-try :  # try to import LazyTensor from KeOps for type hinting
-    from keops.torch import LazyTensor
-except ImportError:
-    LazyTensor = type(None)
+from ..utils import LazyTensor, pykeops
 
 import numpy as np
 from torchdr.utils import (
@@ -52,6 +49,13 @@ class Affinity(ABC):
         keops: bool = False,
         verbose: bool = True,
     ):
+
+        if keops and not pykeops:
+            raise ValueError(
+                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
+                "`keops=true`."
+            )
+
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag
