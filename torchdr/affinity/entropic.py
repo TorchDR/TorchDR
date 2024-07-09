@@ -152,7 +152,8 @@ def _check_perplexity(perplexity, n, verbose=True):
 
 class EntropicAffinity(SparseLogAffinity):
     r"""
-    Solves the directed entropic affinity problem introduced in [1]_.
+    Solves the directed entropic affinity problem introduced in [1]_ and
+    later used in TSNE [2]_.
     Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
     solving the convex optimization problem
 
@@ -187,10 +188,9 @@ class EntropicAffinity(SparseLogAffinity):
     :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
-    .. note:: Symmetric versions are also available. For the affinity matrix of
-    t-SNE [2]_, use :class:`~torchdr.affinity.L2SymmetricEntropicAffinity`.
-    For the affinity matrix of SNEkhorn/t-SNEkhorn [3]_, use
-    :class:`~torchdr.affinity.SymmetricEntropicAffinity`.
+    .. note:: A symmetric version is also available at
+        :class:`~torchdr.affinity.SymmetricEntropicAffinity`. It is the affinity matrix
+        used in SNEkhorn/t-SNEkhorn [3]_.
 
     Parameters
     ----------

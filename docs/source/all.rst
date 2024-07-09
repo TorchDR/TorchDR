@@ -24,6 +24,7 @@ Base DR Module
    
    DRModule
 
+
 Spectral DR
 ^^^^^^^^^^^
 
@@ -42,7 +43,6 @@ Affinity Matcher
    :template: myclass_template.rst
 
    AffinityMatcher
-   BatchedAffinityMatcher
 
 
 Neighbor Embedding
@@ -57,6 +57,8 @@ Neighbor Embedding
    InfoTSNE
    SNEkhorn
    TSNEkhorn
+   LargeVis
+   UMAP
 
 
 Affinity Modules

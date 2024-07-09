@@ -11,13 +11,9 @@ import torch
 from ..utils import LazyTensorType
 import numpy as np
 
-from torchdr.utils import to_torch
 from torchdr.affinity.base import (
-    Affinity,
+    TransformableAffinity,
     TransformableLogAffinity,
-)
-from torchdr.utils import (
-    inputs_to_torch,
 )
 
 
@@ -116,24 +112,19 @@ class StudentAffinity(TransformableLogAffinity):
         )
 
 
-class ScalarProductAffinity(Affinity):
+class ScalarProductAffinity(TransformableAffinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
-    where :math:`\mathbf{X}` is the input data. The affinity can be normalized
-    according to the specified normalization dimensions.
+    where :math:`\mathbf{X}` is the input data.
 
     Parameters
     ----------
-    normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix. Default is None.
     device : str, optional
         Device to use for computations. Default is "cuda".
     keops : bool, optional
         Whether to use KeOps for computations. Default is True.
     verbose : bool, optional
         Verbosity. Default is True.
-    centering : bool, optional
-        Whether to center the data by subtracting the mean. Default is False.
     """
 
     def __init__(
@@ -141,7 +132,6 @@ class ScalarProductAffinity(Affinity):
         device: str = "cuda",
         keops: bool = False,
         verbose: bool = True,
-        centering: bool = False,
     ):
         super().__init__(
             metric="angular",
@@ -150,62 +140,6 @@ class ScalarProductAffinity(Affinity):
             verbose=verbose,
             zero_diag=False,
         )
-        self.centering = centering
 
-    def fit(self, X: torch.Tensor | np.ndarray):
-        r"""
-        Fits the scalar product affinity model to the provided data.
-
-        This method computes the scalar product affinity matrix
-        :math:`\mathbf{X} \mathbf{X}^T` for the input data. If centering is
-        enabled, the data is centered by subtracting the mean before computing
-        the affinity matrix.
-        The affinity matrix is then normalized according to the specified
-        normalization dimensions.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Input data.
-
-        Returns
-        -------
-        self : ScalarProductAffinity
-            The fitted scalar product affinity model.
-        """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
-        if self.centering:
-            self.data_ = self.data_ - self.data_.mean(0)
-        self.affinity_matrix_ = -self._distance_matrix(self.data_)
-
-        return self
-
-    @inputs_to_torch
-    def transform(
-        self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
-        indices: torch.Tensor = None,
-    ):
-        r"""
-        Computes the scalar product affinity between X and Y.
-        If Y is None, sets Y = X.
-        If indices is not None, the output has shape (n, k) and its (i,j) element is the
-        affinity between X[i] and Y[indices[i, j]].
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-            Input data.
-        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
-            Second Input data. Default is None.
-        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
-            Indices of pairs to compute. Default is None.
-
-        Returns
-        -------
-        P : torch.Tensor or pykeops.torch.LazyTensor
-            Scalar product between X and Y.
-        """
-        C = self._distance_matrix_transform(X, Y=Y, indices=indices)
+    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C
