@@ -137,13 +137,16 @@ class AffinityMatcher(DRModule):
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
-                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
+                "[TorchDR] ERROR : affinity_in must be an Affinity instance "
+                "or precomputed."
             )
         self.affinity_in = affinity_in
 
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
-            raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
+            raise ValueError(
+                "[TorchDR] ERROR : affinity_out must be an Affinity instance."
+            )
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
@@ -220,7 +223,7 @@ class AffinityMatcher(DRModule):
 
             check_NaNs(
                 self.embedding_,
-                msg="[TorchDR] AffinityMatcher : NaNs in the embeddings "
+                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
                 f"at iter {k}.",
             )
 
