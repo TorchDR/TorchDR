@@ -102,7 +102,7 @@ or in Bibtex format :
     @misc{vanassel2024torchdr,
       author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},
       title = {TorchDR},
-      url = {https://torchdr.github.io/}
+      url = {https://torchdr.github.io/},
       year = {2024}
     }
 
