@@ -15,7 +15,7 @@ from sklearn.datasets import make_moons
 
 try:
     import pykeops
-    lst_keops = [True, False]
+    lst_keops = [False, True]
     lst_keops2 = [True, False]
 except ImportError:
     pykeops = False
