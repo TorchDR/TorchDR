@@ -9,7 +9,7 @@ Useful functions for testing, compatible with KeOps
 
 import torch
 from torch.testing import assert_close
-try: 
+try:
     import pykeops
 except ImportError:
     pykeops = False
@@ -48,9 +48,13 @@ def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5
     if pykeops:
         assert is_lazy_tensor(P_keops), "P_keops is not a LazyTensor."
     else:
-        assert_close(P, P_keops, atol=tol, rtol=tol, msg="Torch and Keops matrices are different.")
+        assert_close(
+            P,
+            P_keops,
+            atol=tol,
+            rtol=tol,
+            msg="Torch and Keops matrices are different.")
         return
-
 
     # retrieve largest P_keops values and arguments
     Largest_keops_values, Largest_keops_arg = (-P_keops).Kmin_argKmin(K=K, dim=1)

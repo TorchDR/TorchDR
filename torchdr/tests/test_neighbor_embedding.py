@@ -22,6 +22,13 @@ from torchdr.neighbor_embedding import (
 )
 from torchdr.utils import check_shape
 
+try:
+    import pykeops
+    lst_keops = [True, False]
+except ImportError:
+    pykeops = False
+    lst_keops = [False]
+
 
 lst_types = ["float32", "float64"]
 SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
@@ -52,7 +59,7 @@ def test_NE(DRModel, kwargs, dtype):
     n = 300
     X, y = toy_dataset(n, dtype)
 
-    for keops in [False, True]:
+    for keops in lst_keops:
         model = DRModel(
             n_components=2,
             keops=keops,

@@ -51,7 +51,8 @@ def pairwise_distances(
         Y = X
 
     if keops and (LazyTensor is None):  # pykeops no installed
-        raise ValueError("pykeops is not installed. Please install it to use `keops=true`.")
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`.")
 
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, Y, metric)
@@ -87,7 +88,8 @@ def symmetric_pairwise_distances(
     """  # noqa E501
 
     if keops and (LazyTensor is None):  # pykeops no installed
-        raise ValueError("pykeops is not installed. Please install it to use `keops=true`.")
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`.")
 
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, metric=metric)
