@@ -12,7 +12,7 @@ from .base import (
     SparseLogAffinity,
 )
 
-from .simple import (
+from .unnormalized import (
     ScalarProductAffinity,
     GaussianAffinity,
     StudentAffinity,

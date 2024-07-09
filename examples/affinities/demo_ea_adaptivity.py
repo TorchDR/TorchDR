@@ -58,7 +58,7 @@ def plot_affinity_graph(G):
 
 # %%
 # Row-normalised Gaussian affinity with constant bandwidth
-# -----------------------------------------------------
+# --------------------------------------------------------
 #
 # We first consider a Gaussian affinity, normalized by row,
 # with a **constant bandwidth**.

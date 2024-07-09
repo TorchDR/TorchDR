@@ -104,21 +104,6 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     >>> print(affinity_matrix.shape)
     (100, 100)
 
-They also have a :meth:`get_batch` method that can be called when the affinity is fitted. This method takes as input the indices of the samples that should be in the same batch. It returns the **affinity matrix divided in blocks** given by the batch indices. The output is of size **(n_batch, batch_size, batch_size)** where n_batch is the number of blocks and batch_size is the number of samples per block.
-
-The number of blocks should be a divisor of the number of samples. Here is an example with 5 blocks of size 20 each:
-
-    >>> batch_size = n // 5
-    >>> indices = torch.randperm(n).reshape(-1, batch_size)
-    >>> batched_affinity_matrix = affinity.get_batch(indices)
-    >>> print(batched_affinity_matrix.shape)
-    (5, 20, 20)
-
-.. note::
-
-    In ``TorchDR``, :meth:`get_batch` is compatible with ``KeOps`` (:attr:`keops=True`).
-    This compatibility allows you to choose the batch size based solely on compute time, without memory limitations.
-
 
 Affinities based on entropic projections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,7 +125,7 @@ The following table details the aspects controlled by various formulations of en
      - **Symmetry**
      - **Marginal**
      - **Entropy**
-   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <torchdr.SNE>`) [1]_
+   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <SNE>`) [1]_
      - ❌
      - ✅
      - ✅
@@ -148,7 +133,7 @@ The following table details the aspects controlled by various formulations of en
      - ✅
      - ✅
      - ❌
-   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (SNEkhorn) [3]_
+   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (:class:`SNEkhorn <SNEkhorn>`) [3]_
      - ✅
      - ✅
      - ✅
@@ -229,18 +214,8 @@ The following classes serve as parent classes for this approach, requiring the u
    :nosignatures:
 
    torchdr.affinity_matcher.AffinityMatcher
-   torchdr.affinity_matcher.BatchedAffinityMatcher
 
-We now present two families of such DR methods: those based on the :math:`\ell_2` loss (similar to MDS methods) and those based on the cross-entropy loss (neighbor embedding methods).
-
-MDS-like Methods
-"""""""""""""""""
-
-They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
-
-.. math::
-
-    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{D_X}]_{ij} - [\mathbf{D_Z}]_{ij} )^{2}
+We now present two families of such DR methods: those based on the cross-entropy loss (neighbor embedding methods) and those based on the square loss (similar to MDS methods).
 
 
 Neighbor Embedding
@@ -255,13 +230,13 @@ For consistency with the literature, we will denote the input affinity matrix by
 Overview of NE via Attraction and Repulsion
 ''''''''''''''''''''''''''''''''''''''''''''
 
-NE objectives share a common structure: they aim to minimize the weighted sum of an attractive term and a repulsive term. Interestingly, the attractive term is often the cross-entropy between the input and output affinities. Additionally, the repulsive term is typically a function of the output affinities only. Thus, the NE problem can be formulated as the following minimization problem:
+NE objectives share a common structure: they aim to **minimize** the **weighted sum** of an **attractive term** and a **repulsive term**. Interestingly, the **attractive term** is often the **cross-entropy** between the input and output affinities. Additionally, the **repulsive term** is typically a **function of the output affinities only**. Thus, the NE problem can be formulated as the following minimization problem:
 
 .. math::
 
     \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in ``TorchDR``.
 
 Many NE methods can be represented within this framework. The following table summarizes the ones implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
 
@@ -284,30 +259,35 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
+   * - :class:`SNEkhorn <SNEkhorn>` / :class:`TSNEkhorn <TSNEkhorn>` [3]_
+     - :math:`\sum_{ij} Q_{ij}`
+     - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>` / :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
+
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
-     - :math:`\log(\sum_{(ij) \in B} Q_{ij})`
+     - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-   * - :class:`SNEkhorn <SNEkhorn>` [3]_
-     - :math:`\sum_{ij} Q_{ij}`
-     - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>`
-
-   * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
-     - :math:`\sum_{ij} Q_{ij}`
-     - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
-
-   * - UMAP [8]_
-     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+   * - :class:`UMAP <UMAP>` [8]_
+     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
-   * - LargeVis [13]_
-     - :math:`- \sum_{ij} \log (1 - Q_{ij})`
+   * - :class:`LargeVis <LargeVis>` [13]_
+     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
+
+
+MDS-like Methods
+"""""""""""""""""
+
+They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+
+.. math::
+
+    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{D_X}]_{ij} - [\mathbf{D_Z}]_{ij} )^{2}
 
 
 References
@@ -332,8 +312,6 @@ References
 .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
 
 .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
-
-.. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
 .. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).
 
