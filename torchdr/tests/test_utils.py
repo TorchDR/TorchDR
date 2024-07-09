@@ -11,6 +11,11 @@ import torch
 import pytest
 
 from torch.testing import assert_close
+try:
+    import pykeops
+except ImportError:
+    pykeops = False
+
 
 from torchdr.utils import (
     center_kernel,
@@ -94,6 +99,18 @@ def test_pairwise_distances(dtype, metric):
     C = pairwise_distances(x, y, metric=metric, keops=False)
     check_shape(C, (n, m))
 
+@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS)
+def test_pairwise_distances_keops(dtype, metric):
+    n, m, p = 100, 50, 10
+    x = torch.randn(n, p, dtype=dtype)
+    y = torch.randn(m, p, dtype=dtype)
+
+    # --- check consistency between torch and keops ---
+    C = pairwise_distances(x, y, metric=metric, keops=False)
+    check_shape(C, (n, m))
+
     C_keops = pairwise_distances(x, y, metric=metric, keops=True)
     check_shape(C_keops, (n, m))
 
@@ -103,6 +120,22 @@ def test_pairwise_distances(dtype, metric):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS)
 def test_symmetric_pairwise_distances(dtype, metric):
+    n, p = 100, 10
+    x = torch.randn(n, p, dtype=dtype)
+
+    # --- check consistency between torch and keops ---
+    C = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    check_shape(C, (n, n))
+    check_symmetry(C)
+
+    # --- check consistency with pairwise_distances ---
+    C_ = pairwise_distances(x, metric=metric, keops=False)
+    check_similarity(C, C_)
+
+@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS)
+def test_symmetric_pairwise_distances_keops(dtype, metric):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)
 
