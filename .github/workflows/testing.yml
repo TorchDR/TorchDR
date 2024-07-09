@@ -42,11 +42,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --user --upgrade --progress-bar off pip
-        python -m pip install --user -r requirements.txt
-        python -m pip install --user --upgrade pytest pytest-cov codecov 
     - name: Install 'torchdr' package
       run: |
-        python -m pip install --user -e .
+        python -m pip install --user -e .[all]
     # Run Tests
     - name: Run Tests without torch
       run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
