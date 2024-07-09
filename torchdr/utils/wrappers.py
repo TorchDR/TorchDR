@@ -10,6 +10,7 @@ Useful wrappers for dealing with backends and devices
 import functools
 import torch
 import numpy as np
+from .keops import LazyTensor, is_lazy_tensor
 from sklearn.utils.validation import check_array
 
 
