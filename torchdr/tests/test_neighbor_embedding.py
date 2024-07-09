@@ -7,6 +7,8 @@ Tests for neighbor embedding methods.
 #
 # License: BSD 3-Clause License
 
+import torch
+import numpy as np
 import pytest
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
@@ -20,7 +22,7 @@ from torchdr.neighbor_embedding import (
     InfoTSNE,
     UMAP,
 )
-from torchdr.utils import check_shape, pykeops
+from torchdr.utils import check_shape, check_similarity, pykeops
 
 if pykeops:
     lst_keops = [True, False]
@@ -53,21 +55,52 @@ def toy_dataset(n=300, dtype="float32"):
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
-def test_NE(DRModel, kwargs, dtype):
+@pytest.mark.parametrize("keops", lst_keops)
+def test_NE(DRModel, kwargs, dtype, keops):
     n = 300
     X, y = toy_dataset(n, dtype)
 
-    for keops in lst_keops:
-        model = DRModel(
+    model = DRModel(
+        n_components=2,
+        keops=keops,
+        device=DEVICE,
+        init="normal",
+        max_iter=100,
+        random_state=0,
+        **kwargs
+    )
+    Z = model.fit_transform(X)
+
+    check_shape(Z, (n, 2))
+    assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+def test_array_init(dtype, keops):
+    n = 300
+    X, y = toy_dataset(n, dtype)
+
+    Z_init_np = np.random.randn(n, 2).astype(dtype)
+    # Z_init_torch = torch.from_numpy(Z_init_np)
+    Z_init_torch = Z_init_np
+
+    lst_Z = []
+    for Z_init in [Z_init_np, Z_init_torch]:
+        model = TSNE(
             n_components=2,
             keops=keops,
             device=DEVICE,
-            init="normal",
+            init=Z_init,
             max_iter=100,
             random_state=0,
-            **kwargs
+            lr=1e1,
         )
         Z = model.fit_transform(X)
+        lst_Z.append(Z)
 
         check_shape(Z, (n, 2))
         assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+    # --- checks that the two inits yield similar results ---
+    np.testing.assert_allclose(lst_Z[0], lst_Z[1])

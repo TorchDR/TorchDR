@@ -293,9 +293,9 @@ class AffinityMatcher(DRModule):
         n = X.shape[0]
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
-            embedding_ = to_torch(self.init, device=self.device, dtype=X.dtype)
+            embedding_ = to_torch(self.init, device=self.device)
 
-        if self.init == "normal":
+        elif self.init == "normal":
             embedding_ = torch.tensor(
                 self.generator_.standard_normal(size=(n, self.n_components)),
                 device=X.device if self.device == "auto" else self.device,
@@ -309,7 +309,8 @@ class AffinityMatcher(DRModule):
 
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : init {self.init} not supported in AffinityMatcher."
+                f"[TorchDR] ERROR : init {self.init} not supported in "
+                f"{self.__class__.__name__}."
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()

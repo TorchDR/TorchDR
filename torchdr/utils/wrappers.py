@@ -35,7 +35,7 @@ def output_contiguous(func):
 
 
 @output_contiguous
-def to_torch(x, device="auto", verbose=True, return_backend_device=False):
+def to_torch(x, device="auto", return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.
     If device="auto", the device is set to the device of the input x.
@@ -197,7 +197,7 @@ def handle_backend(func):
     @functools.wraps(func)
     def wrapper(self, X, *args, **kwargs):
         X_, input_backend, input_device = to_torch(
-            X, device=self.device, verbose=False, return_backend_device=True
+            X, device=self.device, return_backend_device=True
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
