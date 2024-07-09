@@ -10,17 +10,7 @@ Useful wrappers for dealing with backends and devices
 import functools
 import torch
 import numpy as np
-from .keops import LazyTensor
 from sklearn.utils.validation import check_array
-
-
-def is_lazy_tensor(arg):
-    r"""
-    Returns True if the input is a KeOps lazy tensor.
-    """
-    if LazyTensor is None:
-        return False
-    return isinstance(arg, LazyTensor)
 
 
 def output_contiguous(func):
