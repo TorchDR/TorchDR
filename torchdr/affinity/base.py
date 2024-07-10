@@ -261,7 +261,7 @@ class TransformableAffinity(Affinity):
         self : TransformableAffinity
             The fitted affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.affinity_matrix_ = self._affinity_formula(C)
         return self
@@ -446,7 +446,7 @@ class TransformableLogAffinity(LogAffinity):
         self : TransformableLogAffinity
             The fitted log affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = self._log_affinity_formula(C)
         return self
