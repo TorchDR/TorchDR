@@ -12,7 +12,13 @@ from tqdm import tqdm
 import numpy as np
 
 from torchdr.affinity import Affinity
-from torchdr.utils import OPTIMIZERS, wrap_vectors, check_NaNs, batch_transpose
+from torchdr.utils import (
+    OPTIMIZERS,
+    wrap_vectors,
+    check_NaNs,
+    batch_transpose,
+    to_torch,
+)
 
 
 @wrap_vectors
@@ -68,7 +74,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent.
 
     **Bregman projection.** Another way to write this problem is to consider the
-    :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
+    :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of
+    doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
 
     .. math::
         \mathrm{Proj}_{\mathcal{DS}}^{\ell_2}(- \mathbf{C} / \varepsilon) := \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \| \mathbf{P} + \mathbf{C} / \varepsilon \|_2 \:.
@@ -92,8 +99,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     tolog : bool, optional
         Whether to store intermediate result in a dictionary.
     metric : str, optional
-        Metric to use for computing distances (default "euclidean").
-    nodiag : bool, optional
+    Metric to use for computing distances (default "sqeuclidean").
+    zero_diag : bool, optional
         Whether to set the diagonal elements of the affinity matrix to 0.
     device : str, optional
         Device to use for computation.
@@ -120,14 +127,18 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         lr: float = 1e0,
         base_kernel: str = "gaussian",
         tolog: bool = False,
-        metric: str = "euclidean",
-        nodiag: bool = True,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.eps = eps
         self.init_dual = init_dual
@@ -156,9 +167,9 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
                 "Affinity matrix."
             )
-        super().fit(X)
 
-        C = self._pairwise_distance_matrix(self.data_)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
@@ -224,28 +235,3 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.affinity_matrix_ /= self.n_samples_in_
 
         return self
-
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        if self.base_kernel == "student":
-            C_batch = (1 + C_batch).log()
-
-        dual_batch = self.dual_[indices]
-        P_batch = _Pds(C_batch, dual_batch, self.eps)
-
-        P_batch /= self.n_samples_in_
-        return P_batch

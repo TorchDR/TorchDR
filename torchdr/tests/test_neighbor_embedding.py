@@ -18,8 +18,14 @@ from torchdr.neighbor_embedding import (
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
+    UMAP,
 )
-from torchdr.utils import check_shape
+from torchdr.utils import check_shape, pykeops
+
+if pykeops:
+    lst_keops = [True, False]
+else:
+    lst_keops = [False]
 
 
 lst_types = ["float32", "float64"]
@@ -43,6 +49,7 @@ def toy_dataset(n=300, dtype="float32"):
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),
         (InfoTSNE, {}),
+        (UMAP, {"min_dist": 1.0}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
@@ -50,10 +57,9 @@ def test_NE(DRModel, kwargs, dtype):
     n = 300
     X, y = toy_dataset(n, dtype)
 
-    for keops in [False, True]:
+    for keops in lst_keops:
         model = DRModel(
             n_components=2,
-            perplexity=30,
             keops=keops,
             device=DEVICE,
             init="normal",

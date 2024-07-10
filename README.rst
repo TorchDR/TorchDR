@@ -26,13 +26,11 @@ Benefits of ``TorchDR`` include:
    * - **Modularity**
      - All of it is written in python in a highly modular way, making it easy to create or transform components.
    * - **Speed**
-     - Supports GPU acceleration and batching strategies with contrastive learning techniques.
+     - Supports GPU acceleration, sparsity and batching strategies with contrastive learning techniques.
    * - **Memory efficiency**
-     - Relies on ``KeOps`` [19]_ symbolic tensors to completely avoid memory overflows.
+     - Relies on ``KeOps`` [19]_ symbolic tensors to avoid memory overflows.
    * - **Compatibility**
      - Implemented methods are fully compatible with the ``scikit-learn`` [21]_ API and ``torch`` [20]_ ecosystem.
-   * - **Parametric estimators**
-     - Neural estimators are seamlessly integrated for all methods.
 
 
 Getting Started
@@ -68,7 +66,7 @@ Affinities
 
 ``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
 
-* Usual affinities such that scalar product, Gibbs and Student kernels.
+* Usual affinities such that scalar product, Gaussian and Student kernels.
 * Self-tuning affinities [22]_.
 * Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
 * Adaptive affinities with entropy control [1]_ [4]_ and its symmetric version [3]_.
@@ -86,6 +84,27 @@ Finding Help
 
 If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
+
+
+Citation
+--------
+
+If you use ``TorchDR`` in your research, please cite the following reference:
+
+.. code-block:: apalike
+
+    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
+
+or in Bibtex format :
+
+.. code-block:: bibtex
+
+    @misc{vanassel2024torchdr,
+      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},
+      title = {TorchDR},
+      url = {https://torchdr.github.io/},
+      year = {2024}
+    }
 
 
 References

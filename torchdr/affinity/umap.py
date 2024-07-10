@@ -8,16 +8,17 @@ Affinity matrices used in UMAP.
 # License: BSD 3-Clause License
 
 import torch
+from ..utils import LazyTensorType
+import math
 import numpy as np
 from scipy.optimize import curve_fit
 
-from torchdr.affinity import Affinity
+from torchdr.affinity.base import TransformableAffinity, SparseLogAffinity
 from torchdr.utils import (
     false_position,
     kmin,
     wrap_vectors,
-    batch_transpose,
-    inputs_to_torch,
+    to_torch,
 )
 
 
@@ -27,13 +28,6 @@ def _log_Pumap(C, rho, sigma):
     Returns the log of the input affinity matrix used in UMAP.
     """
     return -(C - rho) / sigma
-
-
-def _Student_umap(C, a, b):
-    r"""
-    Returns the Student affinity function used in UMAP.
-    """
-    return 1 / (1 + a * C ** (2 * b))
 
 
 # from umap/umap/umap_.py
@@ -77,26 +71,43 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
         return n_neighbors
 
 
-class UMAPAffinityIn(Affinity):
+class UMAPAffinityIn(SparseLogAffinity):
     def __init__(
         self,
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
         tol: float = 1e-5,
         max_iter: int = 1000,
-        sparsity: bool = None,
-        metric: str = "euclidean",
-        nodiag: bool = True,
+        sparsity: bool | str = "auto",
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
-        super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
-        )
         self.n_neighbors = n_neighbors
         self.tol = tol
         self.max_iter = max_iter
-        self.sparsity = self.n_neighbors < 100 if sparsity is None else sparsity
+
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            sparsity=sparsity,
+        )
+
+    def _sparsity_rule(self):
+        if self.n_neighbors < 100:
+            return True
+        else:
+            if self.verbose:
+                print(
+                    "[TorchDR] WARNING Affinity: n_neighbors is large "
+                    f"({self.n_neighbors}) thus we turn off sparsity for "
+                    "the EntropicAffinity. "
+                )
+            return False
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""Computes the input affinity matrix of UMAP from input data X.
@@ -112,14 +123,11 @@ class UMAPAffinityIn(Affinity):
             The fitted instance.
         """
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
-                "Affinity matrix."
-            )
+            print("[TorchDR] Affinity : Computing the input affinity matrix of UMAP.")
 
-        super().fit(X)
+        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
 
-        C_full = self._pairwise_distance_matrix(self.data_)
+        C = self._distance_matrix(self.data_)
 
         if self.sparsity:
             print(
@@ -128,22 +136,24 @@ class UMAPAffinityIn(Affinity):
             )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
-            C_reduced, self.indices_ = kmin(C_full, k=self.n_neighbors, dim=1)
+            C_, self.indices_ = kmin(C, k=self.n_neighbors, dim=1)
         else:
-            C_reduced = C_full
+            C_, self.indices_ = C, None
 
-        self.rho_ = kmin(C_reduced, k=1, dim=1)[0].squeeze().contiguous()
+        self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        n = C_full.shape[0]
-        self.n_neighbors = _check_n_neighbors(self.n_neighbors, n, self.verbose)
+        self.n_samples_in_ = C.shape[0]
+        self.n_neighbors = _check_n_neighbors(
+            self.n_neighbors, self.n_samples_in_, self.verbose
+        )
 
         def marginal_gap(eps):  # function to find the root of
-            marg = _log_Pumap(C_reduced, self.rho_, eps).logsumexp(1).exp().squeeze()
-            return marg - np.log(self.n_neighbors)
+            marg = _log_Pumap(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
+            return marg - math.log(self.n_neighbors)
 
         self.eps_ = false_position(
             f=marginal_gap,
-            n=n,
+            n=self.n_samples_in_,
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
@@ -151,49 +161,30 @@ class UMAPAffinityIn(Affinity):
             device=self.data_.device,
         )
 
-        P = _log_Pumap(C_full, self.rho_, self.eps_).exp()
-        self.affinity_matrix_ = P + P.T - P * P.T  # symmetrize the affinity matrix
+        self.log_affinity_matrix_ = _log_Pumap(C_, self.rho_, self.eps_)
 
         return self
 
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the batch indices.
 
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        rho_batch = self.rho_[indices]
-        eps_batch = self.eps_[indices]
-        P_batch = _log_Pumap(C_batch, rho_batch, eps_batch).exp()
-        P_batch_t = batch_transpose(P_batch)
-        return P_batch + P_batch_t - P_batch * P_batch_t
-
-
-class UMAPAffinityOut(Affinity):
+class UMAPAffinityOut(TransformableAffinity):
     def __init__(
         self,
         min_dist: float = 0.1,
         spread: float = 1,
         a: float = None,
         b: float = None,
-        metric: str = "euclidean",
-        nodiag: bool = True,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
         super().__init__(
-            metric=metric, nodiag=nodiag, device=device, keops=keops, verbose=verbose
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
         )
         self.min_dist = min_dist
         self.spread = spread
@@ -205,66 +196,5 @@ class UMAPAffinityOut(Affinity):
             self._a = a
             self._b = b
 
-    def fit(self, X: torch.Tensor | np.ndarray):
-        r"""
-        Computes the embedding affinity matrix of UMAP from input data X.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which affinity is computed.
-
-        Returns
-        -------
-        self : UMAPAffinityEmbedding
-            The fitted instance.
-        """
-        super().fit(X)
-
-        C = self._pairwise_distance_matrix(self.data_)
-        self.affinity_matrix_ = _Student_umap(C, self._a, self._b)
-
-        return self
-
-    def get_batch(self, indices: torch.Tensor):
-        r"""
-        Extracts the affinity submatrix corresponding to the batch indices.
-
-        Parameters
-        ----------
-        indices : torch.Tensor of shape (n_batch, batch_size)
-            Indices of the batch.
-
-        Returns
-        -------
-        P_batch : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_batch, batch_size, batch_size)
-            The affinity matrix for the batch indices.
-        """
-        C_batch = super().get_batch(indices)
-        return _Student_umap(C_batch, self._a, self._b)
-
-    @inputs_to_torch
-    def transform(
-        self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
-    ):
-        r"""
-        Computes the affinity between X and Y.
-        If Y is None, computes the affinity between X and itself.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray
-            Input data.
-        Y : torch.Tensor or np.ndarray
-            Second Input data. Default is None.
-
-        Returns
-        -------
-        P : torch.Tensor or pykeops.torch.LazyTensor
-            Affinity between X and Y.
-        """
-        C = self._pairwise_distance_matrix(X, Y)
-        return _Student_umap(C, self._a, self._b)
+    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
+        return 1 / (1 + self._a * C**self._b)
