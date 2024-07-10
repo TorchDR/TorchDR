@@ -63,7 +63,7 @@ class Affinity(ABC):
         self.keops = keops
         self.verbose = verbose
         self.zero_diag = zero_diag
-        self.add_diagonal = 1e12 if self.zero_diag else None
+        self.add_diag = 1e12 if self.zero_diag else None
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -132,7 +132,7 @@ class Affinity(ABC):
             X=X,
             metric=self.metric,
             keops=self.keops,
-            add_diagonal=self.add_diagonal,
+            add_diag=self.add_diag,
         )
         return C
 
@@ -191,7 +191,7 @@ class Affinity(ABC):
 
         else:
             return symmetric_pairwise_distances(
-                X, metric=self.metric, keops=self.keops, add_diagonal=self.add_diagonal
+                X, metric=self.metric, keops=self.keops, add_diag=self.add_diag
             )
 
 

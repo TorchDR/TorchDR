@@ -60,7 +60,7 @@ def pairwise_distances(
 
 
 def symmetric_pairwise_distances(
-    X: torch.Tensor, metric: str, keops: bool = False, add_diagonal: float = None
+    X: torch.Tensor, metric: str, keops: bool = False, add_diag: float = None
 ):
     r"""
     Compute pairwise distances matrix between points in a dataset.
@@ -75,7 +75,7 @@ def symmetric_pairwise_distances(
         Metric to use for computing distances. The default is "sqeuclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
-    add_diagonal : float, optional
+    add_diag : float, optional
         If not None, adds weight on the diagonal of the distance matrix.
 
     Returns
@@ -94,9 +94,9 @@ def symmetric_pairwise_distances(
     else:
         C = _pairwise_distances_torch(X, metric=metric)
 
-    if add_diagonal is not None:  # add mass on the diagonal
+    if add_diag is not None:  # add mass on the diagonal
         I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
-        C += add_diagonal * I
+        C += add_diag * I
 
     return C
 

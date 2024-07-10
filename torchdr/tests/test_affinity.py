@@ -215,7 +215,7 @@ def test_entropic_affinity(dtype, metric, sparsity, keops):
         device=DEVICE,
         sparsity=sparsity,
     )
-    log_P, _ = affinity.fit_transform(X, log=True)
+    log_P = affinity.fit_transform(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
@@ -347,7 +347,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, keops):
         verbose=True,
         sparsity=sparsity,
     )
-    P, _ = affinity.fit_transform(X)
+    P = affinity.fit_transform(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
