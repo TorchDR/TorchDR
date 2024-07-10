@@ -11,12 +11,12 @@ from torchdr.spectral import KernelPCA
 from torchdr.affinity import GaussianAffinity, SinkhornAffinity
 
 
-def test_KernelPCA_sklearn():
+@pytest.mark.parametrize("n_components", [3, None])
+def test_KernelPCA_sklearn(n_components):
     torch.manual_seed(0)
     X = torch.randn(10, 20)
     X /= torch.linalg.norm(X, axis=0)  # otherwise all points at distance 1
     sigma = 2
-    n_components = 3
     aff = GaussianAffinity(zero_diag=False, sigma=sigma)
     model = KernelPCA(affinity=aff, n_components=n_components)
 
@@ -46,5 +46,10 @@ def test_KernelPCA_no_transform():
     model.fit_transform(X)
 
     with pytest.raises(
-            NotImplementedError, match="transform method not implemented"):
+            ValueError, match="cannot transform data without fitting"):
         model.transform(X)  # cannot use transform.
+
+
+def test_KernelPCA_keops():
+    with pytest.raises(NotImplementedError):
+        KernelPCA(keops=True)

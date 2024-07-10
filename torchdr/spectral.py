@@ -17,7 +17,9 @@ from torchdr.utils import (
     center_kernel,
     check_nonnegativity_eigenvalues,
 )
-from torchdr.affinity import Affinity, GaussianAffinity
+from torchdr.affinity import (
+    Affinity, GaussianAffinity, TransformableAffinity, TransformableLogAffinity
+)
 
 
 class PCA(DRModule):
@@ -74,7 +76,7 @@ class KernelPCA(DRModule):
         self.affinity.random_state = random_state
         self.nodiag = nodiag
 
-        if keops is True:
+        if keops:
             raise NotImplementedError(
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )
@@ -112,7 +114,8 @@ class KernelPCA(DRModule):
 
     @handle_backend
     def transform(self, X):
-        if not hasattr(self.affinity, "transform"):
+        if not isinstance(self.affinity,
+                          (TransformableAffinity, TransformableLogAffinity)):
             aff_name = self.affinity.__class__.__name__
             raise ValueError(
                 f"Affinity {aff_name} cannot transform data without fitting "
