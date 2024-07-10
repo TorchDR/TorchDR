@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
 from torchdr.spectral import KernelPCA
-from torchdr.affinity import GibbsAffinity, SinkhornAffinity
+from torchdr.affinity import GaussianAffinity, SinkhornAffinity
 
 
 def test_KernelPCA_sklearn():
@@ -17,7 +17,7 @@ def test_KernelPCA_sklearn():
     X /= torch.linalg.norm(X, axis=0)  # otherwise all points at distance 1
     sigma = 2
     n_components = 3
-    aff = GibbsAffinity(normalization_dim=None, nodiag=False, sigma=sigma)
+    aff = GaussianAffinity(zero_diag=False, sigma=sigma)
     model = KernelPCA(affinity=aff, n_components=n_components)
 
     # fit then transform does same as fit_transform:
@@ -38,7 +38,7 @@ def test_KernelPCA_no_transform():
     X = torch.randn(10, 20)
     X /= torch.linalg.norm(X, axis=0)
     n_components = 3
-    aff = SinkhornAffinity(nodiag=False)
+    aff = SinkhornAffinity(zero_diag=False)
     model = KernelPCA(affinity=aff, n_components=n_components)
 
     # this should work fine:

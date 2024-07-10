@@ -17,7 +17,7 @@ from torchdr.utils import (
     center_kernel,
     check_nonnegativity_eigenvalues,
 )
-from torchdr.affinity import Affinity, GibbsAffinity
+from torchdr.affinity import Affinity, GaussianAffinity
 
 
 class PCA(DRModule):
@@ -52,7 +52,7 @@ class PCA(DRModule):
 class KernelPCA(DRModule):
     def __init__(
         self,
-        affinity: Affinity = GibbsAffinity(),
+        affinity: Affinity = GaussianAffinity(),
         n_components: int = 2,
         device: str = "auto",
         keops: bool = False,
