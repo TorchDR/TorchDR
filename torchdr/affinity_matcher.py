@@ -19,7 +19,13 @@ from torchdr.utils import (
     handle_backend,
     to_torch,
 )
-from torchdr.affinity import Affinity
+from torchdr.affinity import (
+    Affinity,
+    LogAffinity,
+    SparseLogAffinity,
+    TransformableAffinity,
+    TransformableLogAffinity,
+)
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
 from torchdr.utils import square_loss, cross_entropy_loss
@@ -205,7 +211,12 @@ class AffinityMatcher(DRModule):
             check_nonnegativity(X)
             self.PX_ = X
         else:
-            self.PX_ = self.affinity_in.fit_transform(X)
+            if isinstance(self.affinity_in, SparseLogAffinity):
+                self.PX_, self.indices_ = self.affinity_in.fit_transform(
+                    X, return_indices=True
+                )
+            else:
+                self.PX_ = self.affinity_in.fit_transform(X)
 
         self._init_embedding(X)
         self._set_params()
@@ -236,7 +247,28 @@ class AffinityMatcher(DRModule):
         return self
 
     def _loss(self):
-        Q = self.affinity_out.fit_transform(self.embedding_, **self.kwargs_affinity_out)
+        if (self.loss_fn == "cross_entropy_loss") and isinstance(
+            self.affinity_out, LogAffinity
+        ):
+            self.kwargs_affinity_out.setdefault("log", True)
+            self.kwargs_loss.setdefault("log", True)
+
+        if hasattr(self, "indices_"):
+            if not isinstance(
+                self.affinity_out, (TransformableAffinity, TransformableLogAffinity)
+            ):
+                raise ValueError(
+                    "[TorchDR] ERROR : affinity_out must be a TransformableAffinity "
+                    "when affinity_in is sparse. Set sparsity = False in affinity_in."
+                )
+            else:
+                Q = self.affinity_out.transform(
+                    self.embedding_, indices=self.indices, **self.kwargs_affinity_out
+                )
+        else:
+            Q = self.affinity_out.fit_transform(
+                self.embedding_, **self.kwargs_affinity_out
+            )
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 
