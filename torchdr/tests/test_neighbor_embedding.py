@@ -40,39 +40,6 @@ def toy_dataset(n=300, dtype="float32"):
     return X.astype(dtype), y
 
 
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("keops", lst_keops)
-def test_array_init(dtype, keops):
-    n = 300
-    X, y = toy_dataset(n, dtype)
-
-    Z_init_np = np.random.randn(n, 2).astype(dtype)
-    Z_init_torch = torch.from_numpy(Z_init_np)
-
-    lst_Z = []
-    for Z_init in [Z_init_np, Z_init_torch]:
-        model = TSNE(
-            n_components=2,
-            keops=keops,
-            device=DEVICE,
-            init=Z_init,
-            max_iter=100,
-            random_state=0,
-            lr=1e1,
-            optimizer="SGD",
-        )
-        Z = model.fit_transform(X)
-        lst_Z.append(Z)
-
-        check_shape(Z, (n, 2))
-        assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
-
-    # --- checks that the two inits yield similar results ---
-    assert (
-        (lst_Z[0] - lst_Z[1]) ** 2
-    ).mean() < 1e-5, "The two inits should yield similar results."
-
-
 @pytest.mark.parametrize(
     "DRModel, kwargs",
     [
@@ -106,3 +73,37 @@ def test_NE(DRModel, kwargs, dtype, keops):
 
     check_shape(Z, (n, 2))
     assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+def test_array_init(dtype, keops):
+    n = 300
+    X, y = toy_dataset(n, dtype)
+
+    Z_init_np = np.random.randn(n, 2).astype(dtype)
+    Z_init_torch = torch.from_numpy(Z_init_np)
+
+    torch.use_deterministic_algorithms(True)
+
+    lst_Z = []
+    for Z_init in [Z_init_np, Z_init_torch]:
+        model = TSNE(
+            n_components=2,
+            keops=keops,
+            device=DEVICE,
+            init=Z_init,
+            max_iter=100,
+            random_state=0,
+            lr=1e1,
+        )
+        Z = model.fit_transform(X)
+        lst_Z.append(Z)
+
+        check_shape(Z, (n, 2))
+        assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+    # --- checks that the two inits yield similar results ---
+    assert (
+        (lst_Z[0] - lst_Z[1]) ** 2
+    ).mean() < 1e-5, "The two inits should yield similar results."
