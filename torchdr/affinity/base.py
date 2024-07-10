@@ -10,7 +10,8 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
-import pykeops
+from ..utils import LazyTensor, pykeops
+
 import numpy as np
 from torchdr.utils import (
     symmetric_pairwise_distances,
@@ -48,6 +49,13 @@ class Affinity(ABC):
         keops: bool = False,
         verbose: bool = True,
     ):
+
+        if keops and not pykeops:
+            raise ValueError(
+                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
+                "`keops=true`."
+            )
+
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag
@@ -227,7 +235,7 @@ class TransformableAffinity(Affinity):
         )
 
     @abstractmethod
-    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the affinity matrix from the pairwise distance matrix.
         This method must be overridden by subclasses.
@@ -253,7 +261,7 @@ class TransformableAffinity(Affinity):
         self : TransformableAffinity
             The fitted affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.affinity_matrix_ = self._affinity_formula(C)
         return self
@@ -412,7 +420,7 @@ class TransformableLogAffinity(LogAffinity):
         )
 
     @abstractmethod
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the log affinity matrix from the pairwise distances.
         This method must be overridden by subclasses.
@@ -438,7 +446,7 @@ class TransformableLogAffinity(LogAffinity):
         self : TransformableLogAffinity
             The fitted log affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = self._log_affinity_formula(C)
         return self
