@@ -296,16 +296,14 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _attractive_loss(self):
-        P, indices = self.PX_
-
         if isinstance(self.affinity_out, LogAffinity):
             log_Q = self.affinity_out.transform(
-                self.embedding_, log=True, indices=indices
+                self.embedding_, log=True, indices=self.indices_
             )
-            return cross_entropy_loss(P, log_Q, log=True)
+            return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
-            Q = self.affinity_out.transform(self.embedding_, indices=indices)
-            return cross_entropy_loss(P, Q)
+            Q = self.affinity_out.transform(self.embedding_, indices=self.indices_)
+            return cross_entropy_loss(self.PX_, Q)
 
     @abstractmethod
     def _repulsive_loss(self):
