@@ -46,5 +46,5 @@ def test_KernelPCA_no_transform():
     model.fit_transform(X)
 
     with pytest.raises(
-            ValueError, match="Use the fit_transform method instead"):
+            NotImplementedError, match="transform method not implemented"):
         model.transform(X)  # cannot use transform.
