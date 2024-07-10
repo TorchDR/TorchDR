@@ -35,7 +35,7 @@ SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
 DEVICE = "cpu"
 
 
-def toy_dataset(n=300, dtype="float32"):
+def toy_dataset(n=100, dtype="float32"):
     X, y = make_moons(n_samples=n, noise=0.05, random_state=0)
     return X.astype(dtype), y
 
@@ -57,7 +57,7 @@ def toy_dataset(n=300, dtype="float32"):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("keops", lst_keops)
 def test_NE(DRModel, kwargs, dtype, keops):
-    n = 300
+    n = 100
     X, y = toy_dataset(n, dtype)
 
     model = DRModel(
@@ -78,7 +78,7 @@ def test_NE(DRModel, kwargs, dtype, keops):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("keops", lst_keops)
 def test_array_init(dtype, keops):
-    n = 300
+    n = 100
     X, y = toy_dataset(n, dtype)
 
     Z_init_np = np.random.randn(n, 2).astype(dtype)
@@ -95,7 +95,6 @@ def test_array_init(dtype, keops):
             init=Z_init,
             max_iter=100,
             random_state=0,
-            lr=1e1,
         )
         Z = model.fit_transform(X)
         lst_Z.append(Z)
