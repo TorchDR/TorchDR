@@ -253,7 +253,7 @@ class AffinityMatcher(DRModule):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
 
-        if hasattr(self.indices_):
+        if hasattr(self, "indices_"):
             if not isinstance(
                 self.affinity_out, (TransformableAffinity, TransformableLogAffinity)
             ):
