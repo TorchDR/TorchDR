@@ -114,7 +114,7 @@ class SelfTuningAffinity(LogAffinity):
         self : SelfTuningAffinity
             The fitted local Gibbs affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)

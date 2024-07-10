@@ -7,6 +7,8 @@ Tests for neighbor embedding methods.
 #
 # License: BSD 3-Clause License
 
+import torch
+import numpy as np
 import pytest
 from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
@@ -33,7 +35,7 @@ SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
 DEVICE = "cpu"
 
 
-def toy_dataset(n=300, dtype="float32"):
+def toy_dataset(n=100, dtype="float32"):
     X, y = make_moons(n_samples=n, noise=0.05, random_state=0)
     return X.astype(dtype), y
 
@@ -53,21 +55,54 @@ def toy_dataset(n=300, dtype="float32"):
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
-def test_NE(DRModel, kwargs, dtype):
-    n = 300
+@pytest.mark.parametrize("keops", lst_keops)
+def test_NE(DRModel, kwargs, dtype, keops):
+    n = 100
     X, y = toy_dataset(n, dtype)
 
-    for keops in lst_keops:
-        model = DRModel(
+    model = DRModel(
+        n_components=2,
+        keops=keops,
+        device=DEVICE,
+        init="normal",
+        max_iter=100,
+        random_state=0,
+        **kwargs
+    )
+    Z = model.fit_transform(X)
+
+    check_shape(Z, (n, 2))
+    assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+def test_array_init(dtype, keops):
+    n = 100
+    X, y = toy_dataset(n, dtype)
+
+    Z_init_np = np.random.randn(n, 2).astype(dtype)
+    Z_init_torch = torch.from_numpy(Z_init_np)
+
+    torch.use_deterministic_algorithms(True)
+
+    lst_Z = []
+    for Z_init in [Z_init_np, Z_init_torch]:
+        model = TSNE(
             n_components=2,
             keops=keops,
             device=DEVICE,
-            init="normal",
+            init=Z_init,
             max_iter=100,
             random_state=0,
-            **kwargs
         )
         Z = model.fit_transform(X)
+        lst_Z.append(Z)
 
         check_shape(Z, (n, 2))
         assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+
+    # --- checks that the two inits yield similar results ---
+    assert (
+        (lst_Z[0] - lst_Z[1]) ** 2
+    ).mean() < 1e-5, "The two inits should yield similar results."

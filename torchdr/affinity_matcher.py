@@ -17,6 +17,7 @@ from torchdr.utils import (
     check_nonnegativity,
     check_NaNs,
     handle_backend,
+    to_torch,
 )
 from torchdr.affinity import Affinity
 from torchdr.spectral import PCA
@@ -64,7 +65,7 @@ class AffinityMatcher(DRModule):
         Tolerance for stopping criterion. Default is 1e-3.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
-    init : str, optional
+    init : str | torch.Tensor | np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
@@ -95,7 +96,7 @@ class AffinityMatcher(DRModule):
         scheduler_kwargs: dict = None,
         tol: float = 1e-3,
         max_iter: int = 1000,
-        init: str = "pca",
+        init: str | torch.Tensor | np.ndarray = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
@@ -291,19 +292,25 @@ class AffinityMatcher(DRModule):
     def _init_embedding(self, X):
         n = X.shape[0]
 
-        if self.init == "normal":
+        if isinstance(self.init, (torch.Tensor, np.ndarray)):
+            embedding_ = to_torch(self.init, device=self.device)
+
+        elif self.init == "normal":
             embedding_ = torch.tensor(
                 self.generator_.standard_normal(size=(n, self.n_components)),
-                device=X.device,
+                device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
 
         elif self.init == "pca":
-            embedding_ = PCA(n_components=self.n_components).fit_transform(X)
+            embedding_ = PCA(
+                n_components=self.n_components, device=self.device
+            ).fit_transform(X)
 
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : init {self.init} not supported in AffinityMatcher."
+                f"[TorchDR] ERROR : init {self.init} not supported in "
+                f"{self.__class__.__name__}."
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()

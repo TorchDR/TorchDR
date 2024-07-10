@@ -285,7 +285,7 @@ class EntropicAffinity(SparseLogAffinity):
         if self.verbose:
             print("[TorchDR] Affinity : Computing the Entropic Affinity matrix.")
 
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
 
         C = self._distance_matrix(self.data_)
         if self._sparsity:
@@ -456,7 +456,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 "[TorchDR] Affinity : Computing the Symmetric Entropic Affinity matrix."
             )
 
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
 
         C = self._distance_matrix(self.data_)
 
@@ -727,7 +727,7 @@ class SinkhornAffinity(LogAffinity):
         self : SinkhornAffinity
             The fitted instance.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
 
         C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
@@ -850,7 +850,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         self : NormalizedGaussianAffinity
             The fitted affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
 
         self.log_affinity_matrix_ = -C / self.sigma
