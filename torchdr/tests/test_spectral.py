@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
+from torchdr.utils import pykeops
 from torchdr.spectral import KernelPCA
 from torchdr.affinity import GaussianAffinity, SinkhornAffinity
 
@@ -49,7 +50,7 @@ def test_KernelPCA_no_transform():
             ValueError, match="cannot transform data without fitting"):
         model.transform(X)  # cannot use transform.
 
-
+@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
 def test_KernelPCA_keops():
     with pytest.raises(NotImplementedError):
         KernelPCA(keops=True)
