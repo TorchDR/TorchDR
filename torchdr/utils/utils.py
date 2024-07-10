@@ -8,9 +8,8 @@ Useful functions for defining objectives and constraints
 # License: BSD 3-Clause License
 
 import torch
-from pykeops.torch import LazyTensor
-
-from torchdr.utils.wrappers import wrap_vectors
+from .keops import LazyTensor, is_lazy_tensor
+from .wrappers import wrap_vectors
 
 
 def entropy(P, log=True, dim=1):
@@ -36,18 +35,18 @@ def kmin(A, k=1, dim=0):
         )
 
     if k >= A.shape[dim]:
-        return A, torch.arange(A.shape[dim])
+        return A, torch.arange(A.shape[dim]).int()
 
-    if isinstance(A, LazyTensor):
+    if is_lazy_tensor(A):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = A.Kmin_argKmin(K=k, dim=dim)
-        return dim_red(values), dim_red(indices)
+        return dim_red(values), dim_red(indices).int()
 
     else:
         values, indices = A.topk(k=k, dim=dim, largest=False)
-        return values, indices
+        return values, indices.int()
 
 
 def kmax(A, k=1, dim=0):
@@ -62,18 +61,18 @@ def kmax(A, k=1, dim=0):
         )
 
     if k >= A.shape[dim]:
-        return A, torch.arange(A.shape[dim])
+        return A, torch.arange(A.shape[dim]).int()
 
-    if isinstance(A, LazyTensor):
+    if is_lazy_tensor(A):
         dim_red = lambda P: (
             P.T if dim == 0 else P
         )  # reduces the same axis as torch.topk
         values, indices = (-A).Kmin_argKmin(K=k, dim=dim)
-        return -dim_red(values), dim_red(indices)
+        return -dim_red(values), dim_red(indices).int()
 
     else:
         values, indices = A.topk(k=k, dim=dim, largest=True)
-        return values, indices
+        return values, indices.int()
 
 
 # inspired from svd_flip from sklearn.utils.extmath
@@ -110,7 +109,7 @@ def sum_red(P, dim):
     if isinstance(P, torch.Tensor):
         return P.sum(dim, keepdim=True)
 
-    elif isinstance(P, LazyTensor):
+    elif is_lazy_tensor(P):
         if dim == (0, 1):
             return P.sum(1).sum(0)  # shape (1)
         elif dim == 1:
@@ -149,7 +148,7 @@ def logsumexp_red(log_P, dim):
     if isinstance(log_P, torch.Tensor):
         return log_P.logsumexp(dim, keepdim=True)
 
-    elif isinstance(log_P, LazyTensor):
+    elif is_lazy_tensor(log_P):
         if dim == (0, 1):
             return log_P.logsumexp(1).logsumexp(0)  # shape (1)
         elif dim == 1:
@@ -182,24 +181,6 @@ def normalize_matrix(P, dim=1, log=False):
         return P - logsumexp_red(P, dim)
     else:
         return P / sum_red(P, dim)
-
-
-def extract_batch_normalization(normalization, indices, dim):
-    r"""
-    From a pre-computed normalization, extracts the normalization
-    corresponding to batch indices.
-    """
-    if dim == (0, 1):
-        return normalization  # normalization is a scalar so return as is
-    elif dim == 0:
-        return normalization[:, indices].transpose(0, 1)
-    elif dim == 1:
-        return normalization[indices]
-    else:
-        raise ValueError(
-            f"[TorchDR] ERROR : invalid normalization_dim: {dim}."
-            "Should be (0, 1) or 0 or 1."
-        )
 
 
 def center_kernel(K):
@@ -241,7 +222,7 @@ def batch_transpose(arg):
     Transposes a tensor or lazy tensor that can have a batch dimension.
     The batch dimension is the first, thus only the last two axis are transposed.
     """
-    if isinstance(arg, LazyTensor):
+    if is_lazy_tensor(arg):
         return arg.T
     elif isinstance(arg, torch.Tensor):
         return arg.transpose(-2, -1)

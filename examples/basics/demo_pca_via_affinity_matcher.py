@@ -21,6 +21,7 @@ from torchdr import AffinityMatcher, ScalarProductAffinity
 
 digits = load_digits(n_class=5)
 X = digits.data
+X = X - X.mean(0)
 
 # %%
 # PCA via SVD
@@ -51,7 +52,7 @@ plt.show()
 
 model = AffinityMatcher(
     n_components=2,
-    affinity_in=ScalarProductAffinity(centering=True),
+    affinity_in=ScalarProductAffinity(),
     affinity_out=ScalarProductAffinity(),
     loss_fn="square_loss",
     init="normal",

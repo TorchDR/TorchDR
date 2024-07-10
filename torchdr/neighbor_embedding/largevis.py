@@ -7,15 +7,15 @@ LargeVis algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch, sum_red
+from torchdr.utils import sum_all_axis_except_batch
 
 
-class LargeVis(NeighborEmbedding):
+class LargeVis(SampledNeighborEmbedding):
     """
     Implementation of the LargeVis algorithm introduced in [13]_.
 
@@ -65,12 +65,12 @@ class LargeVis(NeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'euclidean'.
-    batch_size : int or str, optional
-        Batch size for the optimization, by default None.
+    metric_in : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
+    metric_out : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the output affinity, by default 'sqeuclidean'.
+    n_negatives : int, optional
+        Number of negative samples for the repulsive loss.
 
     References
     ----------
@@ -104,9 +104,9 @@ class LargeVis(NeighborEmbedding):
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
-        batch_size: int | str = "auto",
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
+        n_negatives: int = 5,
     ):
 
         self.metric_in = metric_in
@@ -152,18 +152,13 @@ class LargeVis(NeighborEmbedding):
             coeff_attraction=coeff_attraction,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
-            batch_size=batch_size,
+            n_negatives=n_negatives,
         )
 
     @sum_all_axis_except_batch
-    def _repulsive_loss(self, log_Q):
-
-        # normalize the mass of the input affinity
-        if not hasattr(self, "weight_affinity_in_"):
-            self.weight_affinity_in_ = (
-                sum_red(self.PX_, dim=(0, 1)) / (self.n_samples_in_**2)
-            ).item()
-
+    def _repulsive_loss(self):
+        indices = self._sample_negatives()
+        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
-        return -self.weight_affinity_in_ * (1 - Q).log()
+        return -(1 - Q).log() / self.n_samples_in_

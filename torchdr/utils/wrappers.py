@@ -10,11 +10,11 @@ Useful wrappers for dealing with backends and devices
 import functools
 import torch
 import numpy as np
-from pykeops.torch import LazyTensor
+from .keops import LazyTensor, is_lazy_tensor
 from sklearn.utils.validation import check_array
 
 
-def contiguous_output(func):
+def output_contiguous(func):
     """
     Convert all output torch tensors to contiguous.
     """
@@ -34,8 +34,8 @@ def contiguous_output(func):
     return wrapper
 
 
-@contiguous_output
-def to_torch(x, device="auto", verbose=True, return_backend_device=False):
+@output_contiguous
+def to_torch(x, device="auto", return_backend_device=False):
     """
     Convert input to torch tensor and specified device while performing some checks.
     If device="auto", the device is set to the device of the input x.
@@ -143,7 +143,7 @@ def wrap_vectors(func):
 
     @functools.wraps(func)
     def wrapper(C, *args, **kwargs):
-        use_keops = isinstance(C, LazyTensor)
+        use_keops = is_lazy_tensor(C)
 
         unsqueeze = lambda arg: keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
 
@@ -170,7 +170,7 @@ def sum_all_axis_except_batch(func):
         output = func(*args, **kwargs)
         ndim_output = len(output.shape)
 
-        if not (isinstance(output, torch.Tensor) or isinstance(output, LazyTensor)):
+        if not (isinstance(output, torch.Tensor) or is_lazy_tensor(output)):
             raise ValueError(
                 "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
                 "to a torch.Tensor or pykeops.torch.LazyTensor."
@@ -197,30 +197,9 @@ def handle_backend(func):
     @functools.wraps(func)
     def wrapper(self, X, *args, **kwargs):
         X_, input_backend, input_device = to_torch(
-            X, device=self.device, verbose=False, return_backend_device=True
+            X, device=self.device, return_backend_device=True
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
-
-    return wrapper
-
-
-def output_exp_if_not_log(func):
-    """
-    If log=True or True is passed as input, returns the output unchanged (should be in
-    log domain). Else, return the exponential of the output.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        log = kwargs.get("log", False) or any(
-            isinstance(arg, bool) and arg for arg in args
-        )
-        result = func(*args, **kwargs)
-
-        if log:
-            return result
-        else:
-            return result.exp()
 
     return wrapper

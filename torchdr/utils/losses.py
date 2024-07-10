@@ -11,12 +11,12 @@ from torchdr.utils.wrappers import sum_all_axis_except_batch
 
 
 @sum_all_axis_except_batch
-def cross_entropy_loss(P, Q, log_Q=False):
+def cross_entropy_loss(P, Q, log=False):
     r"""
     Computes the cross-entropy between P and Q.
     Supports log domain input for Q.
     """
-    if log_Q:
+    if log:
         return -P * Q
     else:
         return -P * Q.log()

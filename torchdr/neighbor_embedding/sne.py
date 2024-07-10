@@ -7,15 +7,15 @@ Stochastic Neighbor embedding (SNE) algorithm
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
-    GibbsAffinity,
+    GaussianAffinity,
 )
 from torchdr.utils import logsumexp_red
 
 
-class SNE(NeighborEmbedding):
+class SNE(SparseNeighborEmbedding):
     """
     Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
     introduced in [1]_.
@@ -66,10 +66,10 @@ class SNE(NeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output computation, by default 'euclidean'.
+    metric_in : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
+    metric_out : {'sqeuclidean', 'manhattan'}, optional
+        Metric to use for the output computation, by default 'sqeuclidean'.
 
     References
     ----------
@@ -102,8 +102,8 @@ class SNE(NeighborEmbedding):
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
-        metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -120,7 +120,7 @@ class SNE(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
         )
-        affinity_out = GibbsAffinity(
+        affinity_out = GaussianAffinity(
             metric=metric_out,
             device=device,
             keops=keops,
@@ -150,5 +150,6 @@ class SNE(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, log_Q):
+    def _repulsive_loss(self):
+        log_Q = self.affinity_out.transform(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

@@ -9,17 +9,28 @@ from .optim import binary_search, false_position, OPTIMIZERS
 
 from .losses import cross_entropy_loss, square_loss
 
+from .keops import (
+    pykeops,
+    LazyTensor,
+    LazyTensorType,
+    is_lazy_tensor,
+)
+
 from .wrappers import (
     wrap_vectors,
     to_torch,
     torch_to_backend,
     handle_backend,
     sum_all_axis_except_batch,
-    output_exp_if_not_log,
     inputs_to_torch,
 )
 
-from .geometry import pairwise_distances, LIST_METRICS
+from .geometry import (
+    pairwise_distances,
+    symmetric_pairwise_distances,
+    symmetric_pairwise_distances_indices,
+    LIST_METRICS,
+)
 
 from .validation import (
     check_NaNs,
@@ -47,12 +58,15 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     logsumexp_red,
-    batch_transpose,
-    extract_batch_normalization,
+    batch_transpose
 )
 
 
 __all__ = [
+    "LazyTensor",
+    "LazyTensorType",
+    "is_lazy_tensor",
+    "pykeops",
     "binary_search",
     "false_position",
     "OPTIMIZERS",
@@ -64,11 +78,12 @@ __all__ = [
     "sum_matrix_vector",
     "sum_red",
     "sum_all_axis_except_batch",
-    "output_exp_if_not_log",
     "inputs_to_torch",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
+    "symmetric_pairwise_distances",
+    "symmetric_pairwise_distances_indices",
     "LIST_METRICS",
     "check_marginal",
     "relative_similarity",
@@ -90,5 +105,4 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
-    "extract_batch_normalization",
 ]

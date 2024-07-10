@@ -24,6 +24,7 @@ Base DR Module
    
    DRModule
 
+
 Spectral DR
 ^^^^^^^^^^^
 
@@ -42,7 +43,6 @@ Affinity Matcher
    :template: myclass_template.rst
 
    AffinityMatcher
-   BatchedAffinityMatcher
 
 
 Neighbor Embedding
@@ -57,6 +57,8 @@ Neighbor Embedding
    InfoTSNE
    SNEkhorn
    TSNEkhorn
+   LargeVis
+   UMAP
 
 
 Affinity Modules
@@ -70,10 +72,10 @@ Simple Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
 
-   GibbsAffinity
+   GaussianAffinity
    StudentAffinity
    ScalarProductAffinity
-   SelfTuningGibbsAffinity
+   SelfTuningAffinity
 
 Entropic Affinities
 """""""""""""""""""
