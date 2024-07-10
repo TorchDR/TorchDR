@@ -72,5 +72,5 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         if self.verbose:
             print(f"[TorchDR] Fitting DR model {self.__class__.__name__} ...")
 
-        X = to_torch(X, device=self.device, verbose=self.verbose)
+        X = to_torch(X, device=self.device)
         return X

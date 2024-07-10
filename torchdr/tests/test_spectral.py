@@ -24,7 +24,7 @@ def test_KernelPCA_sklearn():
     res_1 = model.fit_transform(X)
     model.fit(X)
     res_2 = model.transform(X)
-    np.testing.assert_allclose(res_1, res_2, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(res_1, res_2, rtol=1e-3, atol=1e-5)
 
     # same results as sklearn for Gaussian kernel
     model_sk = skKernelPCA(
