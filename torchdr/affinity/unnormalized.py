@@ -157,13 +157,11 @@ class CauchyAffinity(TransformableLogAffinity):
 
     def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return (
-            (self.gamma / (C  + self.gamma**2)).log()
+            (self.gamma/(C  + self.gamma**2)).log()
         )
 
-
-
 class ScalarProductAffinity(TransformableAffinity):
-   r"""
+    r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
     where :math:`\mathbf{X}` is the input data.
 
@@ -176,7 +174,7 @@ class ScalarProductAffinity(TransformableAffinity):
     verbose : bool, optional
         Verbosity. Default is True.
     """
-   def __init__(
+    def __init__(
         self,
         device: str = "cuda",
         keops: bool = False,
