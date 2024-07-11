@@ -341,7 +341,8 @@ class AffinityMatcher(DRModule):
             self.embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
-            self.embedding_ = self.init_scaling * self.embedding_ / self.embedding_[:, 0].std()
+            self.embedding_ = self.init_scaling * \
+                self.embedding_ /self.embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
             self.embedding_ = torch.tensor(
