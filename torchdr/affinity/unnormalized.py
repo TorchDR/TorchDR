@@ -155,7 +155,7 @@ class CauchyAffinity(TransformableLogAffinity):
         )
         self.gamma = gamma
 
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return (
             (self.gamma / (C  + self.gamma**2)).log()
         )

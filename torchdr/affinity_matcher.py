@@ -327,7 +327,7 @@ class AffinityMatcher(DRModule):
         n = X.shape[0]
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
-            self.affinity_outembedding_ = to_torch(self.init, device=self.device)
+            self.embedding_ = to_torch(self.init, device=self.device)
 
         elif self.init == "normal":
             self.embedding_ = torch.tensor(
