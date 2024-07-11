@@ -13,5 +13,5 @@ from .largevis import LargeVis
 from .umap import UMAP
 from .cosne import COSNE
 
-__all__ = ["SNE", "TSNE", "InfoTSNE", "SNEkhorn", "TSNEkhorn", "LargeVis", "UMAP", 
+__all__ = ["SNE", "TSNE", "InfoTSNE", "SNEkhorn", "TSNEkhorn", "LargeVis", "UMAP",
            "COSNE"]
