@@ -25,8 +25,8 @@ from torchdr.affinity import (
     Affinity,
     LogAffinity,
     SparseLogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
+    UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
 )
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
@@ -56,7 +56,7 @@ class AffinityMatcher(DRModule):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -214,11 +214,9 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.indices_ = self.affinity_in.fit_transform(
-                    X, return_indices=True
-                )
+                self.PX_, self.indices_ = self.affinity_in(X, return_indices=True)
             else:
-                self.PX_ = self.affinity_in.fit_transform(X)
+                self.PX_ = self.affinity_in(X)
 
         self._init_embedding(X)
         self._set_params()
@@ -257,20 +255,18 @@ class AffinityMatcher(DRModule):
 
         if hasattr(self, "indices_"):
             if not isinstance(
-                self.affinity_out, (TransformableAffinity, TransformableLogAffinity)
+                self.affinity_out, (UnnormalizedAffinity, UnnormalizedLogAffinity)
             ):
                 raise ValueError(
-                    "[TorchDR] ERROR : affinity_out must be a TransformableAffinity "
+                    "[TorchDR] ERROR : affinity_out must be a UnnormalizedAffinity "
                     "when affinity_in is sparse. Set sparsity = False in affinity_in."
                 )
             else:
-                Q = self.affinity_out.transform(
-                    self.embedding_, indices=self.indices, **self.kwargs_affinity_out
+                Q = self.affinity_out(
+                    self.embedding_, indices=self.indices_, **self.kwargs_affinity_out
                 )
         else:
-            Q = self.affinity_out.fit_transform(
-                self.embedding_, **self.kwargs_affinity_out
-            )
+            Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 

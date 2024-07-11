@@ -81,36 +81,6 @@ def to_torch(x, device="auto", return_backend_device=False):
         return x_
 
 
-def inputs_to_torch(func):
-    """
-    Convert all array-like inputs to torch tensor and device specified
-    by attribute "device".
-    """
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        device = getattr(self, "device")
-        new_args = [
-            (
-                to_torch(arg, device=device)
-                if isinstance(arg, (np.ndarray, torch.Tensor))
-                else arg
-            )
-            for arg in args
-        ]
-        new_kwargs = {
-            k: (
-                to_torch(v, device=device)
-                if isinstance(v, (np.ndarray, torch.Tensor))
-                else v
-            )
-            for k, v in kwargs.items()
-        }
-        return func(self, *new_args, **new_kwargs)
-
-    return wrapper
-
-
 def torch_to_backend(x, backend="torch", device="cpu"):
     """
     Convert a torch tensor to specified backend and device.

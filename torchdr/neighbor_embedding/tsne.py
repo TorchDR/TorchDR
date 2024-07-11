@@ -153,5 +153,5 @@ class TSNE(SparseNeighborEmbedding):
         )
 
     def _repulsive_loss(self):
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=(0, 1))

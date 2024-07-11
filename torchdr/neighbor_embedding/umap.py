@@ -180,6 +180,6 @@ class UMAP(SampledNeighborEmbedding):
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
         indices = self._sample_negatives()
-        Q = self.affinity_out.transform(self.embedding_, indices=indices)
+        Q = self.affinity_out(self.embedding_, indices=indices)
         Q = Q / (Q + 1)  # stabilization trick
         return -(1 - Q).log()

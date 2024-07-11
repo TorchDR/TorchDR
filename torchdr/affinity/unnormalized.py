@@ -11,13 +11,10 @@ Common simple affinities
 import torch
 from ..utils import LazyTensorType
 
-from torchdr.affinity.base import (
-    TransformableAffinity,
-    TransformableLogAffinity,
-)
+from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 
 
-class GaussianAffinity(TransformableLogAffinity):
+class GaussianAffinity(UnnormalizedLogAffinity):
     r"""
     Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
@@ -61,7 +58,7 @@ class GaussianAffinity(TransformableLogAffinity):
         return -C / self.sigma
 
 
-class StudentAffinity(TransformableLogAffinity):
+class StudentAffinity(UnnormalizedLogAffinity):
     r"""
     Computes the Student affinity matrix based on the Student-t distribution:
 
@@ -161,7 +158,7 @@ class CauchyAffinity(TransformableLogAffinity):
         )
 
 
-class ScalarProductAffinity(TransformableAffinity):
+class ScalarProductAffinity(UnnormalizedAffinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
     where :math:`\mathbf{X}` is the input data.
@@ -177,7 +174,7 @@ class ScalarProductAffinity(TransformableAffinity):
     """
     def __init__(
         self,
-        device: str = "cuda",
+        device: str = "auto",
         keops: bool = False,
         verbose: bool = True,
     ):
