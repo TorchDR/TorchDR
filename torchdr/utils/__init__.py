@@ -61,6 +61,9 @@ from .utils import (
     batch_transpose
 )
 
+from .eval import (
+    silhouette_samples,
+    silhouette_score)
 
 __all__ = [
     "LazyTensor",
@@ -105,4 +108,6 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "silhouette_samples",
+    "silhouette_score"
 ]
