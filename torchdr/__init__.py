@@ -78,6 +78,7 @@ __all__ = [
     "PCA",
     "SNE",
     "TSNE",
+    "COSNE",
     "InfoTSNE",
     "SNEkhorn",
     "TSNEkhorn",

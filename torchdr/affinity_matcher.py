@@ -335,7 +335,7 @@ class AffinityMatcher(DRModule):
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
-            self.embedding_ = self.init_scaling * self.embedding_ 
+            self.embedding_ = self.init_scaling * self.embedding_
 
         elif self.init == "pca":
             self.embedding_ = PCA(
@@ -349,11 +349,12 @@ class AffinityMatcher(DRModule):
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
-            self.embedding_ = self.embedding_ * self.init_scaling 
+            self.embedding_ = self.embedding_ * self.init_scaling
             # need to project the initialised samples in the Poincaré Ball
             # and then register them to parameters to be optimized on the Poincaré Ball
             ball = geoopt.PoincareBall()
-            self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_),manifold=ball)
+            self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_), 
+                                                    manifold=ball)
         else:
             raise ValueError(
                 f"[TorchDR] ERROR : init {self.init} not supported in "

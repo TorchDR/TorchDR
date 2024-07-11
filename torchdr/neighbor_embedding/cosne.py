@@ -12,12 +12,11 @@ from torchdr.affinity import (
     EntropicAffinity,
     CauchyAffinity,
 )
-from torchdr.utils.losses import square_loss
+
 from torchdr.utils import logsumexp_red
 
 import torch
-import geoopt 
-
+import geoopt
 class COSNE(SparseNeighborEmbedding):
     """
     Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) algorithm
@@ -82,8 +81,8 @@ class COSNE(SparseNeighborEmbedding):
     References
     ----------
 
-    .. [23]  Guo, Y., Guo, H. & Yu, S. (2022). 
-            `CO-SNE: Dimensionality Reduction and Visualization for Hyperbolic Data`_. 
+    .. [23]  Guo, Y., Guo, H. & Yu, S. (2022).
+            `CO-SNE: Dimensionality Reduction and Visualization for Hyperbolic Data`_.
             International Conference on Computer Vision and Pattern Recognition (CVPR).
 
 
@@ -165,8 +164,6 @@ class COSNE(SparseNeighborEmbedding):
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
-        
-
 
     def _fit(self, X: torch.Tensor):
         # We compute once for all the norms of X data samples
@@ -180,4 +177,4 @@ class COSNE(SparseNeighborEmbedding):
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))
         Y_norm = (self.embedding_**2).sum(-1)
         distance_term = ((self.X_norm - Y_norm)**2).sum()
-        return rep_loss + self.lambda1 * distance_term  
+        return rep_loss + self.lambda1 * distance_term

@@ -176,8 +176,7 @@ class ScalarProductAffinity(TransformableAffinity):
     verbose : bool, optional
         Verbosity. Default is True.
     """
-
-    def __init__(
+   def __init__(
         self,
         device: str = "cuda",
         keops: bool = False,
@@ -190,6 +189,6 @@ class ScalarProductAffinity(TransformableAffinity):
             verbose=verbose,
             zero_diag=False,
         )
-
-    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
+        
+   def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C
