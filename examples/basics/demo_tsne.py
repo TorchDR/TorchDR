@@ -38,7 +38,7 @@ _ = ax.text2D(0.8, 0.05, s="n_samples={}".format(n_samples), transform=ax.transA
 # Compute the TSNE embedding
 # --------------------------
 
-tsne = TSNE(n_components=2, perplexity=30, max_iter=1000, verbose=True)
+tsne = TSNE(n_components=2, perplexity=30, max_iter=100, verbose=True)
 
 X_embedded = tsne.fit_transform(X)
 
@@ -55,7 +55,7 @@ plt.title("TSNE embedding of the Swiss Roll dataset")
 # See the impact of perplexity
 # ----------------------------
 
-perplexity_values = [5, 30, 50, 100]
+perplexity_values = [5, 30, 50, 70]
 X_embedded = []
 for perplexity in perplexity_values:
 
@@ -66,12 +66,11 @@ for perplexity in perplexity_values:
     tsne = TSNE(
         n_components=2,
         perplexity=perplexity,
-        max_iter=1000,
-        verbose=True,
+        max_iter=100,
         init=init)
     X_embedded.append(tsne.fit_transform(X))
 
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(12, 4))
 
 for i, perplexity in enumerate(perplexity_values):
     plt.subplot(1, 4, i + 1)
