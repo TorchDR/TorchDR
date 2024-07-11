@@ -49,3 +49,26 @@ X_embedded = tsne.fit_transform(X)
 plt.figure(figsize=(8, 6))
 plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=t, s=50, alpha=0.8)
 plt.title("TSNE embedding of the Swiss Roll dataset")
+
+
+# %%
+# See the impact of perplexity
+# ----------------------------
+
+perplexity_values = [5, 30, 50, 100]
+X_embedded =[]
+for perplexity in perplexity_values:
+
+    if len(X_embedded) == 0:
+        init = "pca"
+    else:
+        init = X_embedded[-1]
+    tsne = TSNE(n_components=2, perplexity=perplexity, max_iter=1000, verbose=True, init = init)
+    X_embedded.append(tsne.fit_transform(X))
+
+plt.figure(figsize=(12, 6))
+
+for i, perplexity in enumerate(perplexity_values):
+    plt.subplot(1, 4, i + 1)
+    plt.scatter(X_embedded[i][:, 0], X_embedded[i][:, 1], c=t, s=50, alpha=0.8)
+    plt.title("Perplexity = {}".format(perplexity))
