@@ -12,6 +12,7 @@ dependencies = [
     "scikit-learn",
     "torch",
     "tqdm",
+    "geoopt>=0.5"
 ]
 dynamic = ["version"]
 
