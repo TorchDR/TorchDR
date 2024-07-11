@@ -157,8 +157,9 @@ class CauchyAffinity(TransformableLogAffinity):
 
     def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return (
-            (self.gamma/(C  + self.gamma**2)).log()
+            (self.gamma/(C + self.gamma**2)).log()
         )
+
 
 class ScalarProductAffinity(TransformableAffinity):
     r"""

@@ -17,6 +17,8 @@ from torchdr.utils import logsumexp_red
 
 import torch
 import geoopt
+
+
 class COSNE(SparseNeighborEmbedding):
     """
     Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) algorithm

@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pylab as plt
 import geoopt
 
+
 def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0.1):
     # define geodesic grid parameters
     N_EVALS_PER_GEODESIC = 10000
