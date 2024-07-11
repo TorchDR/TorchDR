@@ -224,7 +224,7 @@ def symmetric_pairwise_distances_indices(
         X_norm = (X**2).sum(-1)
         C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
         denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
-        C_indices = torch.arccosh(1 + 2 * C_indices / denom +1e-8)**2
+        C_indices = torch.arccosh(1 + 2 * C_indices / denom + 1e-8)**2
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 
