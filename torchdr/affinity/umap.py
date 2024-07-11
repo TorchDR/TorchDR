@@ -13,12 +13,11 @@ import math
 import numpy as np
 from scipy.optimize import curve_fit
 
-from torchdr.affinity.base import TransformableAffinity, SparseLogAffinity
+from torchdr.affinity.base import UnnormalizedAffinity, SparseLogAffinity
 from torchdr.utils import (
     false_position,
     kmin,
     wrap_vectors,
-    to_torch,
 )
 
 
@@ -109,7 +108,7 @@ class UMAPAffinityIn(SparseLogAffinity):
                 )
             return False
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
         r"""Computes the input affinity matrix of UMAP from input data X.
 
         Parameters
@@ -125,48 +124,44 @@ class UMAPAffinityIn(SparseLogAffinity):
         if self.verbose:
             print("[TorchDR] Affinity : Computing the input affinity matrix of UMAP.")
 
-        self.data_ = to_torch(X, device=self.device)
+        C = self._distance_matrix(X)
 
-        C = self._distance_matrix(self.data_)
+        n_samples_in = C.shape[0]
+        n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
 
-        if self.sparsity:
+        if self._sparsity:
             print(
                 "[TorchDR] Affinity : Sparsity mode enabled, computing "
                 "nearest neighbors."
             )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
-            C_, self.indices_ = kmin(C, k=self.n_neighbors, dim=1)
+            C_, indices = kmin(C, k=n_neighbors, dim=1)
         else:
-            C_, self.indices_ = C, None
+            C_, indices = C, None
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        self.n_samples_in_ = C.shape[0]
-        self.n_neighbors = _check_n_neighbors(
-            self.n_neighbors, self.n_samples_in_, self.verbose
-        )
-
         def marginal_gap(eps):  # function to find the root of
             marg = _log_Pumap(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
-            return marg - math.log(self.n_neighbors)
+            return marg - math.log(n_neighbors)
 
         self.eps_ = false_position(
             f=marginal_gap,
-            n=self.n_samples_in_,
+            n=n_samples_in,
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
-            dtype=self.data_.dtype,
-            device=self.data_.device,
+            dtype=X.dtype,
+            device=X.device,
         )
 
-        self.log_affinity_matrix_ = _log_Pumap(C_, self.rho_, self.eps_)
+        log_affinity_matrix = _log_Pumap(C_, self.rho_, self.eps_)
 
-        return self
+        return log_affinity_matrix, indices
 
 
-class UMAPAffinityOut(TransformableAffinity):
+class UMAPAffinityOut(UnnormalizedAffinity):
     def __init__(
         self,
         min_dist: float = 0.1,
