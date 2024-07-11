@@ -346,7 +346,7 @@ class AffinityMatcher(DRModule):
         elif self.init == "hyperbolic":
             self.embedding_ = torch.tensor(
                 self.generator_.standard_normal(size=(n, self.n_components)),
-                device=X.device,
+                device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
             self.embedding_ = self.embedding_ * self.init_scaling 
