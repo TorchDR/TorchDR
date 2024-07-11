@@ -56,14 +56,19 @@ plt.title("TSNE embedding of the Swiss Roll dataset")
 # ----------------------------
 
 perplexity_values = [5, 30, 50, 100]
-X_embedded =[]
+X_embedded = []
 for perplexity in perplexity_values:
 
     if len(X_embedded) == 0:
         init = "pca"
     else:
         init = X_embedded[-1]
-    tsne = TSNE(n_components=2, perplexity=perplexity, max_iter=1000, verbose=True, init = init)
+    tsne = TSNE(
+        n_components=2,
+        perplexity=perplexity,
+        max_iter=1000,
+        verbose=True,
+        init=init)
     X_embedded.append(tsne.fit_transform(X))
 
 plt.figure(figsize=(12, 6))
