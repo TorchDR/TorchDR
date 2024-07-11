@@ -188,6 +188,6 @@ class ScalarProductAffinity(TransformableAffinity):
             verbose=verbose,
             zero_diag=False,
         )
-    
+
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C
