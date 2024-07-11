@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -54,6 +55,9 @@ from .utils import (
     batch_transpose,
 )
 
+from .visu import (
+    plotGrid
+)
 
 __all__ = [
     "binary_search",
@@ -94,4 +98,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "plotGrid"
 ]

@@ -38,6 +38,7 @@ from .affinity_matcher import (
 from .neighbor_embedding import (
     SNE,
     TSNE,
+    COSNE,
     InfoTSNE,
     SNEkhorn,
     TSNEkhorn,

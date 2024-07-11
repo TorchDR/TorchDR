@@ -4,6 +4,7 @@ Ground metrics and distances
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -12,7 +13,7 @@ from pykeops.torch import LazyTensor
 
 from torchdr.utils.utils import identity_matrix
 
-LIST_METRICS = ["sqeuclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS = ["sqeuclidean", "manhattan", "angular", "sqhyperbolic"]
 
 
 def pairwise_distances(
@@ -122,17 +123,17 @@ def _pairwise_distances_torch(
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+        # relu to avoid negative values dues to numerical preicision
     elif metric == "manhattan":
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(-1)
     elif metric == "angular":
         C = -X @ Y.transpose(-1, -2)
-    elif metric == "hyperbolic":
+    elif metric == "sqhyperbolic":
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
-        C = (
-            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
-        ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
-
+        denom = (1 - X_norm).unsqueeze(-1) * (1 - Y_norm).unsqueeze(-2)
+        C = torch.relu(X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)) 
+        C = torch.arccosh(1+2*(C / denom)+1e-8)**2
     return C
 
 
@@ -172,8 +173,6 @@ def _pairwise_distances_keops(
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
         C = -(X_i | Y_j)
-    elif metric == "hyperbolic":
-        C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
 
     return C
 
@@ -209,10 +208,12 @@ def symmetric_pairwise_distances_indices(
         C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
     elif metric == "angular":
         C_indices = -torch.sum(X.unsqueeze(1) * X_indices, dim=-1)
-    elif metric == "hyperbolic":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1) / (
-            X[:, 0].unsqueeze(1) * X_indices[:, :, 0]
-        )
+    elif metric == "sqhyperbolic":
+        X_indices_norm = (X_indices**2).sum(-1)
+        X_norm = (X**2).sum(-1)
+        C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
+        denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
+        C_indices = torch.arccosh(1+2*C_indices/ denom +1e-8)**2
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 
