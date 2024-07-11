@@ -60,7 +60,7 @@ plt.title("TSNE embedding of the Swiss Roll dataset")
 # See the impact of perplexity
 # ----------------------------
 
-perplexity_values = [5, 30, 50, 70]
+perplexity_values = [5, 20, 50, 100]
 X_embedded = []
 for perplexity in perplexity_values:
 
