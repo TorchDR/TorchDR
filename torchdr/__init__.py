@@ -1,5 +1,6 @@
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -20,6 +21,7 @@ from .affinity import (
     NormalizedGaussianAffinity,
     SelfTuningAffinity,
     StudentAffinity,
+    CauchyAffinity,
     ScalarProductAffinity,
     EntropicAffinity,
     SymmetricEntropicAffinity,
@@ -62,6 +64,7 @@ __all__ = [
     "NormalizedGaussianAffinity",
     "SelfTuningAffinity",
     "StudentAffinity",
+    "CauchyAffinity",
     "ScalarProductAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",
