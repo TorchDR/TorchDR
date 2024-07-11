@@ -158,7 +158,7 @@ class LargeVis(SampledNeighborEmbedding):
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
         indices = self._sample_negatives()
-        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
+        log_Q = self.affinity_out(self.embedding_, log=True, indices=indices)
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
         return -(1 - Q).log() / self.n_samples_in_

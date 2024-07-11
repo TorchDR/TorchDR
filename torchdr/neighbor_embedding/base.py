@@ -13,8 +13,7 @@ from abc import abstractmethod
 from torchdr.affinity import (
     Affinity,
     LogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
+    UnnormalizedAffinity,
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
@@ -34,7 +33,7 @@ class NeighborEmbedding(AffinityMatcher):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -166,7 +165,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _loss(self):
         log = isinstance(self.affinity_out, LogAffinity)
-        Q = self.affinity_out.fit_transform(self.embedding_, log=log)
+        Q = self.affinity_out(self.embedding_, log=log)
         P = self.PX_
 
         attractive_term = cross_entropy_loss(P, Q, log=log)
@@ -192,7 +191,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -263,12 +262,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             )
 
         # check affinity affinity_out
-        if not isinstance(
-            affinity_out, (TransformableAffinity, TransformableLogAffinity)
-        ):
+        if not isinstance(affinity_out, UnnormalizedAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
-                "must be a transformable affinity (ie with a transform method)."
+                "must be an UnnormalizedAffinity object."
             )
 
         super().__init__(
@@ -297,12 +294,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         if isinstance(self.affinity_out, LogAffinity):
-            log_Q = self.affinity_out.transform(
-                self.embedding_, log=True, indices=self.indices_
-            )
+            log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
-            Q = self.affinity_out.transform(self.embedding_, indices=self.indices_)
+            Q = self.affinity_out(self.embedding_, indices=self.indices_)
             return cross_entropy_loss(self.PX_, Q)
 
     @abstractmethod
@@ -330,7 +325,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
