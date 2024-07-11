@@ -5,6 +5,12 @@ TSNE embedding of the swiss roll dataset
 We show how to compute a TSNE embedding with TorchDR on the swiss roll dataset.
 
 """
+
+# Author: Rémi Flamary <remi.flamary@polytechnique.edu>
+#
+# License: BSD 3-Clause License
+
+
 # %%
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll
