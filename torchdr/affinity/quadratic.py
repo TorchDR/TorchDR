@@ -152,7 +152,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "Affinity matrix."
             )
 
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         if self.base_kernel == "student":
             C = (1 + C).log()

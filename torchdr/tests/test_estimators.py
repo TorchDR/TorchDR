@@ -18,9 +18,16 @@ from torchdr.neighbor_embedding import (
     TSNEkhorn,
     LargeVis,
 )
+from torchdr.utils import pykeops
 from sklearn.utils.estimator_checks import check_estimator
 
 DEVICE = "cpu"
+
+
+@pytest.mark.skipif(pykeops, reason="pykeops is available")
+def test_keops_not_installed():
+    with pytest.raises(ValueError, match="pykeops is not installed"):
+        SNE(keops=True)
 
 
 @pytest.mark.parametrize(

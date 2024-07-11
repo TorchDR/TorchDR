@@ -8,7 +8,7 @@ Ground metrics and distances
 # License: BSD 3-Clause License
 
 import torch
-from pykeops.torch import LazyTensor
+from .keops import LazyTensor, pykeops
 
 from torchdr.utils.utils import identity_matrix
 
@@ -46,6 +46,11 @@ def pairwise_distances(
     if Y is None:
         Y = X
 
+    if keops and not pykeops:  # pykeops no installed
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
+
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, Y, metric)
     else:
@@ -55,7 +60,7 @@ def pairwise_distances(
 
 
 def symmetric_pairwise_distances(
-    X: torch.Tensor, metric: str, keops: bool = False, add_diagonal: float = None
+    X: torch.Tensor, metric: str, keops: bool = False, add_diag: float = None
 ):
     r"""
     Compute pairwise distances matrix between points in a dataset.
@@ -70,7 +75,7 @@ def symmetric_pairwise_distances(
         Metric to use for computing distances. The default is "sqeuclidean".
     keops : bool, optional
         If True, uses KeOps for computing the distances.
-    add_diagonal : float, optional
+    add_diag : float, optional
         If not None, adds weight on the diagonal of the distance matrix.
 
     Returns
@@ -79,14 +84,19 @@ def symmetric_pairwise_distances(
         Pairwise distances matrix.
     """  # noqa E501
 
+    if keops and not pykeops:  # pykeops no installed
+        raise ValueError(
+            "pykeops is not installed. Please install it to use `keops=true`."
+        )
+
     if keops:  # recommended for large datasets
         C = _pairwise_distances_keops(X, metric=metric)
     else:
         C = _pairwise_distances_torch(X, metric=metric)
 
-    if add_diagonal is not None:  # add mass on the diagonal
+    if add_diag is not None:  # add mass on the diagonal
         I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
-        C += add_diagonal * I
+        C += add_diag * I
 
     return C
 

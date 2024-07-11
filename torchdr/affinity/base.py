@@ -10,7 +10,8 @@ Base classes for affinity matrices
 from abc import ABC, abstractmethod
 
 import torch
-import pykeops
+from ..utils import LazyTensor, pykeops
+
 import numpy as np
 from torchdr.utils import (
     symmetric_pairwise_distances,
@@ -48,6 +49,13 @@ class Affinity(ABC):
         keops: bool = False,
         verbose: bool = True,
     ):
+
+        if keops and not pykeops:
+            raise ValueError(
+                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
+                "`keops=true`."
+            )
+
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag
@@ -55,7 +63,7 @@ class Affinity(ABC):
         self.keops = keops
         self.verbose = verbose
         self.zero_diag = zero_diag
-        self.add_diagonal = 1e12 if self.zero_diag else None
+        self.add_diag = 1e12 if self.zero_diag else None
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray):
@@ -124,7 +132,7 @@ class Affinity(ABC):
             X=X,
             metric=self.metric,
             keops=self.keops,
-            add_diagonal=self.add_diagonal,
+            add_diag=self.add_diag,
         )
         return C
 
@@ -183,7 +191,7 @@ class Affinity(ABC):
 
         else:
             return symmetric_pairwise_distances(
-                X, metric=self.metric, keops=self.keops, add_diagonal=self.add_diagonal
+                X, metric=self.metric, keops=self.keops, add_diag=self.add_diag
             )
 
 
@@ -227,7 +235,7 @@ class TransformableAffinity(Affinity):
         )
 
     @abstractmethod
-    def _affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the affinity matrix from the pairwise distance matrix.
         This method must be overridden by subclasses.
@@ -253,7 +261,7 @@ class TransformableAffinity(Affinity):
         self : TransformableAffinity
             The fitted affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.affinity_matrix_ = self._affinity_formula(C)
         return self
@@ -412,7 +420,7 @@ class TransformableLogAffinity(LogAffinity):
         )
 
     @abstractmethod
-    def _log_affinity_formula(self, C: torch.Tensor | pykeops.torch.LazyTensor):
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensor):
         r"""
         Computes the log affinity matrix from the pairwise distances.
         This method must be overridden by subclasses.
@@ -438,7 +446,7 @@ class TransformableLogAffinity(LogAffinity):
         self : TransformableLogAffinity
             The fitted log affinity model.
         """
-        self.data_ = to_torch(X, device=self.device, verbose=self.verbose)
+        self.data_ = to_torch(X, device=self.device)
         C = self._distance_matrix(self.data_)
         self.log_affinity_matrix_ = self._log_affinity_formula(C)
         return self
@@ -539,7 +547,12 @@ class SparseLogAffinity(LogAffinity):
         """
         pass
 
-    def fit_transform(self, X: torch.Tensor | np.ndarray, log: bool = False):
+    def fit_transform(
+        self,
+        X: torch.Tensor | np.ndarray,
+        log: bool = False,
+        return_indices: bool = False,
+    ):
         r"""
         Computes the log affinity matrix from input data using the `fit` method and
         returns the resulting log affinity matrix.
@@ -554,6 +567,9 @@ class SparseLogAffinity(LogAffinity):
         log : bool, optional
             If True, returns the log of the affinity matrix. Else, returns
             the affinity matrix by exponentiating the log affinity matrix.
+        return_indices : bool, optional
+            If True, returns the indices of the non-zero elements in the affinity matrix
+            if sparsity is enabled. Default is False.
 
         Returns
         -------
@@ -561,8 +577,8 @@ class SparseLogAffinity(LogAffinity):
             The computed log affinity matrix if `log` is True, otherwise the
             exponentiated affinity matrix.
         indices_ : torch.Tensor
-            The indices of the non-zero elements in the affinity matrix if sparsity is
-            enabled. Otherwise, returns None.
+            If return_indices is True, returns the indices of the non-zero elements
+            in the affinity matrix if sparsity is enabled. Otherwise, returns None.
 
         Raises
         ------
@@ -572,13 +588,14 @@ class SparseLogAffinity(LogAffinity):
         """
         self.fit(X)
 
-        if not hasattr(self, "log_affinity_matrix_") or not hasattr(self, "indices_"):
+        if not all(
+            hasattr(self, attr) for attr in ["log_affinity_matrix_", "indices_"]
+        ):
             raise AssertionError(
                 "[TorchDR] ERROR : log_affinity_matrix_ and indices_ should be "
                 "computed in the fit method of a SparseLogAffinity."
             )
 
-        if log:
-            return self.log_affinity_matrix_, self.indices_
-        else:
-            return self.log_affinity_matrix_.exp(), self.indices_
+        affinity = self.log_affinity_matrix_ if log else self.log_affinity_matrix_.exp()
+
+        return (affinity, self.indices_) if return_indices else affinity
