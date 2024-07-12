@@ -9,21 +9,17 @@ Evaluation methods for dimensionality reduction
 
 import torch
 import numpy as np
-from torchdr.utils import (
-    to_torch,
-    LIST_METRICS,
-    pairwise_distances
-)
+from torchdr.utils import to_torch, LIST_METRICS, pairwise_distances
 
 
 def silhouette_samples(
-        X: torch.Tensor | np.ndarray,
-        labels: torch.Tensor | np.ndarray,
-        weights: torch.Tensor | np.ndarray = None,
-        metric: str = 'euclidean',
-        device: str = None,
-        keops: bool = True,
-        ):
+    X: torch.Tensor | np.ndarray,
+    labels: torch.Tensor | np.ndarray,
+    weights: torch.Tensor | np.ndarray = None,
+    metric: str = "euclidean",
+    device: str = None,
+    keops: bool = True,
+):
     """
     Compute the silhouette coefficients for each sample in :math:`\mathbf{X}`.
     Each coefficient is calculated using the mean intra-cluster
@@ -74,25 +70,24 @@ def silhouette_samples(
     B = torch.full(X.shape[0], torch.inf, dtype=X.dtype, device=X.device)
 
     for i, pos_i in enumerate(pos_labels[:-1]):
-        intra_cluster_dists = pairwise_distances(
-            X[pos_i], X[pos_i], metric, keops)
+        intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
 
         if weights is None:
-            intra_cluster_dists = intra_cluster_dists.sum(
-                axis=1) / (intra_cluster_dists.shape[0] - 1)
+            intra_cluster_dists = intra_cluster_dists.sum(axis=1) / (
+                intra_cluster_dists.shape[0] - 1
+            )
         else:
-            matrix_weights_i = weights[pos_i].view(1, -1).repeat(
-                (pos_i.shape[0], 1))
+            matrix_weights_i = weights[pos_i].view(1, -1).repeat((pos_i.shape[0], 1))
             intra_cluster_dists = intra_cluster_dists * matrix_weights_i
             matrix_weights_i = matrix_weights_i.fill_diagonal_(0.0)
             intra_cluster_dists = intra_cluster_dists.sum(
-                axis=1) / matrix_weights_i.sum(axis=1)
+                axis=1
+            ) / matrix_weights_i.sum(axis=1)
 
         A[pos_i] = intra_cluster_dists
 
-        for pos_j in pos_labels[i + 1:]:
-            inter_cluster_dists = pairwise_distances(
-                X[pos_i], X[pos_j], metric, keops)
+        for pos_j in pos_labels[i + 1 :]:
+            inter_cluster_dists = pairwise_distances(X[pos_i], X[pos_j], metric, keops)
 
             if weights is None:
                 dist_pos_i = inter_cluster_dists.mean(axis=1)
@@ -108,18 +103,19 @@ def silhouette_samples(
 
     # compute coefficients
     coefficients = (B - A) / torch.maximum(A, B)
-    return torch.nan_to_num(coefficients, 0.)
+    return torch.nan_to_num(coefficients, 0.0)
 
 
 def silhouette_score(
-        X: torch.Tensor | np.ndarray,
-        labels: torch.Tensor | np.ndarray,
-        weights: torch.Tensor | np.ndarray = None,
-        metric: str = 'euclidean',
-        device: str = None,
-        keops: bool = True,
-        sample_size: int = None,
-        random_state: int = None):
+    X: torch.Tensor | np.ndarray,
+    labels: torch.Tensor | np.ndarray,
+    weights: torch.Tensor | np.ndarray = None,
+    metric: str = "euclidean",
+    device: str = None,
+    keops: bool = True,
+    sample_size: int = None,
+    random_state: int = None,
+):
     """
 
     Compute the Silhouette Score for all samples in :math:`\mathbf{X}` as the
@@ -161,8 +157,7 @@ def silhouette_score(
 
     """  # noqa E501
 
-    coefficients = silhouette_samples(
-        X, labels, weights, metric, device, keops)
+    coefficients = silhouette_samples(X, labels, weights, metric, device, keops)
     silhouette_score = coefficients.mean()
 
     return silhouette_score

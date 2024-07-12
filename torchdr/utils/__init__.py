@@ -58,12 +58,10 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     logsumexp_red,
-    batch_transpose
+    batch_transpose,
 )
 
-from .eval import (
-    silhouette_samples,
-    silhouette_score)
+from .eval import silhouette_samples, silhouette_score
 
 __all__ = [
     "LazyTensor",
@@ -109,5 +107,5 @@ __all__ = [
     "handle_backend",
     "batch_transpose",
     "silhouette_samples",
-    "silhouette_score"
+    "silhouette_score",
 ]
