@@ -175,7 +175,7 @@ class COSNE(SparseNeighborEmbedding):
     def _repulsive_loss(self):
         ball = geoopt.PoincareBall()
         ball.assert_check_point_on_manifold(self.embedding_)
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out(self.embedding_, log=True)
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))
         Y_norm = (self.embedding_**2).sum(-1)
         distance_term = ((self.X_norm - Y_norm)**2).sum()

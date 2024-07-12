@@ -109,7 +109,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         )
 
 
-class CauchyAffinity(TransformableLogAffinity):
+class CauchyAffinity(UnnormalizedLogAffinity):
     r"""
     Computes the Cauchy affinity matrix based on the Cauchy distribution:
 
