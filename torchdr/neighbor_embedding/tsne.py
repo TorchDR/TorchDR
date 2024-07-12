@@ -14,7 +14,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, OPTIMIZERS
 
 
 class TSNE(SparseNeighborEmbedding):
@@ -31,11 +31,11 @@ class TSNE(SparseNeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or str, optional
-        Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
+        Learning rate for the algorithm, by default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
+        Which pytorch optimizer to use, by default 'auto'.
+    optimizer_kwargs : dict or str, optional
+        Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -87,8 +87,8 @@ class TSNE(SparseNeighborEmbedding):
         perplexity: float = 30,
         n_components: int = 2,
         lr: float | str = "auto",
-        optimizer: str = "SGD",
-        optimizer_kwargs: dict = None,
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = "auto",
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
@@ -139,15 +139,6 @@ class TSNE(SparseNeighborEmbedding):
             verbose=False,
         )
 
-        if lr == "auto":
-            if verbose:
-                print(
-                    "[TorchDR] Learning rate set to 'auto' for TSNE, "
-                    "using SGD and the same hyperparameters as in sklearn."
-                )
-            optimizer = "SGD"
-            optimizer_kwargs = [{"momentum": 0.5}, {"momentum": 0.8}]
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -177,6 +168,23 @@ class TSNE(SparseNeighborEmbedding):
 
     def _set_learning_rate(self):
         if self.lr == "auto":
+            # reproducing the TSNE implementation of sklearn
             self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
         else:
             self.lr_ = self.lr
+
+    def _set_optimizer(self):
+        # reproducing the TSNE implementation of sklearn
+        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
+        if self.optimizer_kwargs == "auto":
+            if self.coeff_attraction_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
+            else:
+                optimizer_kwargs = {"momentum": 0.8}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs
+
+        self.optimizer_ = OPTIMIZERS[optimizer](
+            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
+        )
+        return self.optimizer_

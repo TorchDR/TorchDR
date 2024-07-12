@@ -44,7 +44,7 @@ def toy_dataset(n=100, dtype="float32"):
     "DRModel, kwargs",
     [
         (SNE, {}),
-        (TSNE, {"lr": 1.0, "optimizer": "Adam"}),
+        (TSNE, {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}),
         (SNEkhorn, SEA_params | {"unrolling": True}),
         (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),

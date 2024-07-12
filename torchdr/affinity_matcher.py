@@ -118,7 +118,7 @@ class AffinityMatcher(DRModule):
             random_state=random_state,
         )
 
-        if optimizer not in OPTIMIZERS:
+        if optimizer not in OPTIMIZERS and optimizer != "auto":
             raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
 
         self.optimizer = optimizer
@@ -288,14 +288,9 @@ class AffinityMatcher(DRModule):
         self.params_ = [{"params": self.embedding_}]
         return self.params_
 
-    def _set_optimizer(self, index_kwargs=0):
-        if isinstance(self.optimizer_kwargs, list):
-            optimizer_kwargs = self.optimizer_kwargs[index_kwargs]
-        else:
-            optimizer_kwargs = self.optimizer_kwargs
-
+    def _set_optimizer(self):
         self.optimizer_ = OPTIMIZERS[self.optimizer](
-            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
+            self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
 

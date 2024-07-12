@@ -130,7 +130,7 @@ class NeighborEmbedding(AffinityMatcher):
             self.coeff_attraction_ = 1
             # reinitialize optimizer and scheduler
             self._set_learning_rate()
-            self._set_optimizer(index_kwargs=1)
+            self._set_optimizer()
             self._set_scheduler()
 
         return self
