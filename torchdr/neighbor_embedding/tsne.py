@@ -70,6 +70,8 @@ class TSNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
+    use_default_optim_params : bool, optional
+        Whether to use the default optimizer parameters, by default True.
 
     References
     ----------
@@ -105,6 +107,7 @@ class TSNE(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        use_default_optim_params: bool = True,
         **kwargs,
     ):
         # improve consistency with the sklearn API
@@ -120,6 +123,11 @@ class TSNE(SparseNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.use_default_optim_params = use_default_optim_params
+
+        if self.use_default_optim_params:
+            self.optimizer = "SGD"
+            self.optimizer_kwargs = {"momentum": 0.5}
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
