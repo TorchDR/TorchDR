@@ -58,6 +58,9 @@ def silhouette_samples(
             computational and applied mathematics, 20, 53-65.
 
     """
+    if metric not in LIST_METRICS:
+        raise ValueError(f"metric = {metric} must be in {LIST_METRICS}")
+
     X = to_torch(X)
     labels = to_torch(labels)
     if weights is not None:
