@@ -90,7 +90,7 @@ class SNE(SparseNeighborEmbedding):
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,

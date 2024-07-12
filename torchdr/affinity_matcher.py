@@ -245,7 +245,9 @@ class AffinityMatcher(DRModule):
             )
 
             if self.verbose:
-                pbar.set_description(f"Loss : {loss.item():.2e}")
+                pbar.set_description(
+                    f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e} "
+                )
 
             self._additional_updates(k)
 
