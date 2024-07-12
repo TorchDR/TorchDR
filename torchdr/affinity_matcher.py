@@ -211,9 +211,7 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, indices = self.affinity_in(X, return_indices=True)
-                if indices is not None:
-                    self.indices_ = indices
+                self.PX_, self.indices_ = self.affinity_in(X, return_indices=True)
             else:
                 self.PX_ = self.affinity_in(X)
 
@@ -252,7 +250,7 @@ class AffinityMatcher(DRModule):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
 
-        if hasattr(self, "indices_"):
+        if getattr(self, "indices_", None) is not None:
             if not isinstance(self.affinity_out, UnnormalizedAffinity):
                 raise ValueError(
                     "[TorchDR] ERROR : affinity_out must be a UnnormalizedAffinity "
