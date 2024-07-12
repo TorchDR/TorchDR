@@ -24,7 +24,6 @@ from torchdr.affinity import (
     LogAffinity,
     SparseLogAffinity,
     UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
 )
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
@@ -212,7 +211,9 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.indices_ = self.affinity_in(X, return_indices=True)
+                self.PX_, indices = self.affinity_in(X, return_indices=True)
+                if indices is not None:
+                    self.indices_ = indices
             else:
                 self.PX_ = self.affinity_in(X)
 
@@ -252,9 +253,7 @@ class AffinityMatcher(DRModule):
             self.kwargs_loss.setdefault("log", True)
 
         if hasattr(self, "indices_"):
-            if not isinstance(
-                self.affinity_out, (UnnormalizedAffinity, UnnormalizedLogAffinity)
-            ):
+            if not isinstance(self.affinity_out, UnnormalizedAffinity):
                 raise ValueError(
                     "[TorchDR] ERROR : affinity_out must be a UnnormalizedAffinity "
                     "when affinity_in is sparse. Set sparsity = False in affinity_in."
