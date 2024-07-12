@@ -12,6 +12,7 @@ Affinity matrices with entropic constraints
 import torch
 import numpy as np
 from tqdm import tqdm
+import warnings
 import contextlib
 import math
 from typing import Tuple
@@ -138,7 +139,7 @@ def _check_perplexity(perplexity, n, verbose=True):
     if perplexity >= n or perplexity <= 1:
         new_value = n // 2
         if verbose:
-            print(
+            warnings.warn(
                 "[TorchDR] WARNING Affinity: The perplexity parameter must be "
                 "greater than 1 and smaller than the number of samples "
                 f"(here n = {n}). Got perplexity = {perplexity}. "
@@ -259,7 +260,7 @@ class EntropicAffinity(SparseLogAffinity):
             return True
         else:
             if self.verbose:
-                print(
+                warnings.warn(
                     "[TorchDR] WARNING Affinity: perplexity is large "
                     f"({self.perplexity}) thus we turn off sparsity for "
                     "the EntropicAffinity. "
@@ -577,7 +578,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
-                        print(
+                        warnings.warn(
                             "[TorchDR] WARNING Affinity: max iter attained, "
                             "algorithm stops but may not have converged."
                         )
@@ -765,7 +766,7 @@ class SinkhornAffinity(LogAffinity):
                     break
 
                 if k == self.max_iter - 1 and self.verbose:
-                    print(
+                    warnings.warn(
                         "[TorchDR] WARNING Affinity: max iter attained, algorithm "
                         "stops but may not have converged."
                     )

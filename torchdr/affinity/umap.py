@@ -12,6 +12,7 @@ from ..utils import LazyTensorType
 import math
 import numpy as np
 from scipy.optimize import curve_fit
+import warnings
 
 from torchdr.affinity.base import UnnormalizedAffinity, SparseLogAffinity
 from torchdr.utils import (
@@ -60,7 +61,7 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
     if n_neighbors >= n or n_neighbors <= 1:
         new_value = n // 2
         if verbose:
-            print(
+            warnings.warn(
                 "[TorchDR] WARNING : The n_neighbors parameter must be greater than "
                 f"1 and smaller than the number of samples (here n = {n}). "
                 f"Got n_neighbors = {n_neighbors}. Setting n_neighbors to {new_value}."
@@ -101,7 +102,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             return True
         else:
             if self.verbose:
-                print(
+                warnings.warn(
                     "[TorchDR] WARNING Affinity: n_neighbors is large "
                     f"({self.n_neighbors}) thus we turn off sparsity for "
                     "the EntropicAffinity. "

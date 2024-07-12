@@ -9,6 +9,7 @@ Affinity matrices with quadratic constraints
 
 import torch
 from tqdm import tqdm
+import warnings
 
 from torchdr.affinity import Affinity
 from torchdr.utils import (
@@ -201,7 +202,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 break
 
             if k == self.max_iter - 1 and self.verbose:
-                print(
+                warnings.warn(
                     "[TorchDR] Affinity (WARNING) : max iter attained, "
                     "algorithm stops but may not have converged."
                 )

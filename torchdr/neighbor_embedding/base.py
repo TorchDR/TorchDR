@@ -8,6 +8,7 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
+import warnings
 from abc import abstractmethod
 
 from torchdr.affinity import (
@@ -140,7 +141,7 @@ class NeighborEmbedding(AffinityMatcher):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
                     if self.verbose:
-                        print(
+                        warnings.warn(
                             "[TorchDR] WARNING : Number of samples is smaller than "
                             f"{param_name} ({n} <= {param_value}), setting "
                             f"{param_name} to {n//2} (which corresponds to n//2)."
@@ -422,7 +423,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         if not hasattr(self, "n_negatives_"):
             if self.n_negatives > self.n_samples_in_:
                 if self.verbose:
-                    print(
+                    warnings.warn(
                         "[TorchDR] WARNING : n_negatives must be smaller than the "
                         f"number of samples. Here n_negatives={self.n_negatives} "
                         f"and n_samples_in={self.n_samples_in_}. Setting "
