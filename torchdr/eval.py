@@ -158,7 +158,7 @@ def silhouette_score(
     silhouette_score : float
         mean silhouette coefficients for all samples.
 
-    """  # noqa E501
+    """
 
     coefficients = silhouette_samples(X, labels, weights, metric, device, keops)
     silhouette_score = coefficients.mean()
