@@ -49,7 +49,7 @@ class UMAP(SampledNeighborEmbedding):
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
-        Precision threshold at which the algorithm stops, by default 1e-4.
+        Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm.
     tolog : bool, optional
@@ -106,7 +106,7 @@ class UMAP(SampledNeighborEmbedding):
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,

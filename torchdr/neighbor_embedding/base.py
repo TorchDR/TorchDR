@@ -48,7 +48,7 @@ class NeighborEmbedding(AffinityMatcher):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -84,7 +84,7 @@ class NeighborEmbedding(AffinityMatcher):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -129,8 +129,10 @@ class NeighborEmbedding(AffinityMatcher):
         ):
             self.coeff_attraction_ = 1
             # reinitialize optimizer and scheduler
+            self._set_learning_rate()
             self._set_optimizer()
             self._set_scheduler()
+
         return self
 
     def _check_n_neighbors(self, n):
@@ -206,7 +208,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -242,7 +244,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -340,7 +342,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -378,7 +380,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
