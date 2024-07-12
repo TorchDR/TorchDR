@@ -27,7 +27,7 @@ import geoopt
 
 class SyntheticDataset(torch.utils.data.Dataset):
     '''
-    Adopted from https://github.com/emilemathieu/pvae/blob/ca5c4997a90839fc8960ec812df4cbf83da55781/pvae/datasets/datasets.py
+    Adopted from https://github.com/emilemathieu/pvae/
 
     Implementation of a synthetic dataset by hierarchical diffusion. 
     Args:
