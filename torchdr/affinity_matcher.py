@@ -11,6 +11,7 @@ Affinity matcher base classes
 import torch
 import numpy as np
 from tqdm import tqdm
+import warnings
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -141,18 +142,26 @@ class AffinityMatcher(DRModule):
         self.tolog = tolog
         self.verbose = verbose
 
-        # --- check affinity_in ---
-        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
-            raise ValueError(
-                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
-            )
-        self.affinity_in = affinity_in
-
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
+
+        # --- check affinity_in ---
+        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
+            raise ValueError(
+                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
+            )
+        if getattr(affinity_in, "sparsity", False) and not isinstance(
+            self.affinity_out, UnnormalizedAffinity
+        ):
+            warnings.warn(
+                "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
+                "when affinity_in is sparse. Setting sparsity = False in affinity_in."
+            )
+            affinity_in._sparsity = False  # turn off sparsity
+        self.affinity_in = affinity_in
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
@@ -251,15 +260,9 @@ class AffinityMatcher(DRModule):
             self.kwargs_loss.setdefault("log", True)
 
         if getattr(self, "indices_", None) is not None:
-            if not isinstance(self.affinity_out, UnnormalizedAffinity):
-                raise ValueError(
-                    "[TorchDR] ERROR : affinity_out must be a UnnormalizedAffinity "
-                    "when affinity_in is sparse. Set sparsity = False in affinity_in."
-                )
-            else:
-                Q = self.affinity_out(
-                    self.embedding_, indices=self.indices_, **self.kwargs_affinity_out
-                )
+            Q = self.affinity_out(
+                self.embedding_, indices=self.indices_, **self.kwargs_affinity_out
+            )
         else:
             Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
