@@ -186,7 +186,7 @@ def _pairwise_distances_keops(
     if metric == "sqeuclidean":
         C = ((X_i - Y_j) ** 2).sum(-1)
     elif metric == "euclidean":
-        C = ((X_i - Y_j) ** 2).sum(-1) ** (1 / 2)
+        C = ((X_i - Y_j) ** 2).sum(-1) ** (1.0 / 2.0)
     elif metric == "manhattan":
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
@@ -225,8 +225,7 @@ def symmetric_pairwise_distances_indices(
     if metric == "sqeuclidean":
         C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
     elif metric == "euclidean":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
-        C_indices = torch.clip(C_indices, min=0.0).sqrt()
+        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1).sqrt()
     elif metric == "manhattan":
         C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
     elif metric == "angular":
