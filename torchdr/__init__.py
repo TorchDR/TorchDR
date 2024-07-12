@@ -48,6 +48,8 @@ from .neighbor_embedding import (
 # import utils
 from .utils import pairwise_distances, binary_search, false_position
 
+from .eval import silhouette_samples, silhouette_score
+
 __all__ = [
     "__title__",
     "__summary__",
@@ -82,4 +84,6 @@ __all__ = [
     "pairwise_distances",
     "binary_search",
     "false_position",
+    "silhouette_samples",
+    "silhouette_score",
 ]
