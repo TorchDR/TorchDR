@@ -48,8 +48,8 @@ tsne = TSNE(
     n_components=2,
     perplexity=30,
     max_iter=100,
-    verbose=True,
-    coeff_attraction=1)
+    early_exaggeration_iter=50,
+    verbose=True)
 
 X_embedded = tsne.fit_transform(X)
 
@@ -78,7 +78,7 @@ for perplexity in perplexity_values:
         n_components=2,
         perplexity=perplexity,
         max_iter=100,
-        coeff_attraction=1,
+        early_exaggeration_iter=50,
         init=init)
     X_embedded.append(tsne.fit_transform(X))
 
