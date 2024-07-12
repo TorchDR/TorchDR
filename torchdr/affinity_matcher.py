@@ -11,6 +11,7 @@ Affinity matcher base classes
 import torch
 import numpy as np
 from tqdm import tqdm
+import warnings
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -23,8 +24,7 @@ from torchdr.affinity import (
     Affinity,
     LogAffinity,
     SparseLogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
+    UnnormalizedAffinity,
 )
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
@@ -54,21 +54,21 @@ class AffinityMatcher(DRModule):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
         Optimizer to use for the optimization. Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or str, optional
         Learning rate for the optimizer. Default is 1e0.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str | torch.Tensor | np.ndarray, optional
@@ -97,10 +97,10 @@ class AffinityMatcher(DRModule):
         kwargs_loss: dict = {},
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        lr: float | str = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str | torch.Tensor | np.ndarray = "pca",
         init_scaling: float = 1e-4,
@@ -118,7 +118,7 @@ class AffinityMatcher(DRModule):
             random_state=random_state,
         )
 
-        if optimizer not in OPTIMIZERS:
+        if optimizer not in OPTIMIZERS and optimizer != "auto":
             raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
 
         self.optimizer = optimizer
@@ -142,18 +142,26 @@ class AffinityMatcher(DRModule):
         self.tolog = tolog
         self.verbose = verbose
 
-        # --- check affinity_in ---
-        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
-            raise ValueError(
-                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
-            )
-        self.affinity_in = affinity_in
-
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
             raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
+
+        # --- check affinity_in ---
+        if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
+            raise ValueError(
+                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
+            )
+        if getattr(affinity_in, "sparsity", False) and not isinstance(
+            self.affinity_out, UnnormalizedAffinity
+        ):
+            warnings.warn(
+                "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
+                "when affinity_in is sparse. Setting sparsity = False in affinity_in."
+            )
+            affinity_in._sparsity = False  # turn off sparsity
+        self.affinity_in = affinity_in
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
@@ -212,14 +220,13 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.indices_ = self.affinity_in.fit_transform(
-                    X, return_indices=True
-                )
+                self.PX_, self.indices_ = self.affinity_in(X, return_indices=True)
             else:
-                self.PX_ = self.affinity_in.fit_transform(X)
+                self.PX_ = self.affinity_in(X)
 
         self._init_embedding(X)
         self._set_params()
+        self._set_learning_rate()
         self._set_optimizer()
         self._set_scheduler()
 
@@ -228,6 +235,16 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
+
+            grad_norm = self.embedding_.grad.norm(2).item()
+            if grad_norm < self.tol:
+                if self.verbose:
+                    pbar.set_description(
+                        f"Convergence reached at iter {k} with grad norm: "
+                        f"{grad_norm:.2e}."
+                    )
+                break
+
             self.optimizer_.step()
             self.scheduler_.step()
 
@@ -238,7 +255,9 @@ class AffinityMatcher(DRModule):
             )
 
             if self.verbose:
-                pbar.set_description(f"Loss : {loss.item():.2e}")
+                pbar.set_description(
+                    f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e} "
+                )
 
             self._additional_updates(k)
 
@@ -253,22 +272,12 @@ class AffinityMatcher(DRModule):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
 
-        if hasattr(self, "indices_"):
-            if not isinstance(
-                self.affinity_out, (TransformableAffinity, TransformableLogAffinity)
-            ):
-                raise ValueError(
-                    "[TorchDR] ERROR : affinity_out must be a TransformableAffinity "
-                    "when affinity_in is sparse. Set sparsity = False in affinity_in."
-                )
-            else:
-                Q = self.affinity_out.transform(
-                    self.embedding_, indices=self.indices, **self.kwargs_affinity_out
-                )
-        else:
-            Q = self.affinity_out.fit_transform(
-                self.embedding_, **self.kwargs_affinity_out
+        if getattr(self, "indices_", None) is not None:
+            Q = self.affinity_out(
+                self.embedding_, indices=self.indices_, **self.kwargs_affinity_out
             )
+        else:
+            Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 
@@ -281,9 +290,20 @@ class AffinityMatcher(DRModule):
 
     def _set_optimizer(self):
         self.optimizer_ = OPTIMIZERS[self.optimizer](
-            self.params_, lr=self.lr, **(self.optimizer_kwargs or {})
+            self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
+
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            if self.verbose:
+                warnings.warn(
+                    "[TorchDR] WARNING : lr set to 'auto' without "
+                    "any implemented rule. Setting lr=1.0 by default."
+                )
+            self.lr_ = 1.0
+        else:
+            self.lr_ = self.lr
 
     def _set_scheduler(self):
         if not hasattr(self, "optimizer_"):

@@ -12,6 +12,7 @@ Affinity matrices with entropic constraints
 import torch
 import numpy as np
 from tqdm import tqdm
+import warnings
 import contextlib
 import math
 from typing import Tuple
@@ -27,7 +28,6 @@ from torchdr.utils import (
     logsumexp_red,
     batch_transpose,
     OPTIMIZERS,
-    to_torch,
 )
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 
@@ -139,7 +139,7 @@ def _check_perplexity(perplexity, n, verbose=True):
     if perplexity >= n or perplexity <= 1:
         new_value = n // 2
         if verbose:
-            print(
+            warnings.warn(
                 "[TorchDR] WARNING Affinity: The perplexity parameter must be "
                 "greater than 1 and smaller than the number of samples "
                 f"(here n = {n}). Got perplexity = {perplexity}. "
@@ -201,9 +201,9 @@ class EntropicAffinity(SparseLogAffinity):
         Precision threshold at which the root finding algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
-    sparsity: bool, optional
+    sparsity: bool or str, optional
         If True, keeps only the 3 * perplexity smallest element on each row of
-        the ground cost matrix. Recommended if perplexity is small (<50).
+        the ground cost matrix. Recommended if perplexity is not too big.
     metric : str, optional
         Metric to use for computing distances (default "sqeuclidean").
     zero_diag : bool, optional
@@ -260,34 +260,40 @@ class EntropicAffinity(SparseLogAffinity):
             return True
         else:
             if self.verbose:
-                print(
+                warnings.warn(
                     "[TorchDR] WARNING Affinity: perplexity is large "
                     f"({self.perplexity}) thus we turn off sparsity for "
                     "the EntropicAffinity. "
                 )
             return False
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""
         Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
-        from input data X.
+        from the input data.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
         -------
-        self : EntropicAffinity
-            The fitted instance.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_samples, n_samples)
+            Log of the entropic affinity matrix.
+        indices : torch.Tensor or None
+            Indices of the nearest neighbors if sparsity is used.
         """
         if self.verbose:
             print("[TorchDR] Affinity : Computing the Entropic Affinity matrix.")
 
-        self.data_ = to_torch(X, device=self.device)
+        C = self._distance_matrix(X)
 
-        C = self._distance_matrix(self.data_)
+        n_samples_in = C.shape[0]
+        perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
+        target_entropy = np.log(perplexity) + 1
+
         if self._sparsity:
             if self.verbose:
                 print(
@@ -296,43 +302,37 @@ class EntropicAffinity(SparseLogAffinity):
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k) where k is 3 * perplexity.
-            C_, self.indices_ = kmin(C, k=3 * self.perplexity, dim=1)
+            C_, indices = kmin(C, k=3 * perplexity, dim=1)
         else:
-            C_, self.indices_ = C, None
-
-        self.n_samples_in_ = X.shape[0]
-        self.perplexity = _check_perplexity(
-            self.perplexity, self.n_samples_in_, self.verbose
-        )
-        target_entropy = np.log(self.perplexity) + 1
+            C_, indices = C, None
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_, eps)
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(C_, self.perplexity)
+        begin, end = _bounds_entropic_affinity(C_, perplexity)
         begin += 1e-6  # avoid numerical issues
 
         self.eps_ = false_position(
             f=entropy_gap,
-            n=self.n_samples_in_,
+            n=n_samples_in,
             begin=begin,
             end=end,
             tol=self.tol,
             max_iter=self.max_iter,
             verbose=self.verbose,
-            dtype=self.data_.dtype,
-            device=self.data_.device,
+            dtype=X.dtype,
+            device=X.device,
         )
 
         log_P_final = _log_Pe(C_, self.eps_)
-        self.log_normalization = logsumexp_red(log_P_final, dim=1)
-        self.log_affinity_matrix_ = log_P_final - self.log_normalization
+        self.log_normalization_ = logsumexp_red(log_P_final, dim=1)
+        log_affinity_matrix = log_P_final - self.log_normalization_
 
-        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+        log_affinity_matrix -= math.log(n_samples_in)
 
-        return self
+        return log_affinity_matrix, indices
 
 
 class SymmetricEntropicAffinity(LogAffinity):
@@ -435,20 +435,21 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.tolog = tolog
         self.eps_square = eps_square
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_log_affinity(self, X: torch.Tensor):
         r"""
         Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
         matrix from input data X.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
         -------
-        self : SymmetricEntropicAffinity
-            The fitted instance.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_samples, n_samples)
+            Log of the symmetric entropic affinity matrix.
         """
         self.log_ = {}
         if self.verbose:
@@ -456,27 +457,17 @@ class SymmetricEntropicAffinity(LogAffinity):
                 "[TorchDR] Affinity : Computing the Symmetric Entropic Affinity matrix."
             )
 
-        self.data_ = to_torch(X, device=self.device)
+        C = self._distance_matrix(X)
 
-        C = self._distance_matrix(self.data_)
+        n_samples_in = X.shape[0]
+        perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
+        target_entropy = np.log(perplexity) + 1
 
-        self.n_samples_in_ = X.shape[0]
-        self.perplexity = _check_perplexity(
-            self.perplexity, self.n_samples_in_, self.verbose
-        )
-        target_entropy = np.log(self.perplexity) + 1
-
-        one = torch.ones(
-            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-        )
+        one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         # dual variables, size (n_samples)
-        self.eps_ = torch.ones(
-            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-        )
-        self.mu_ = torch.ones(
-            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-        )
+        self.eps_ = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
+        self.mu_ = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         if self.optimizer == "LBFGS":
 
@@ -520,7 +511,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 self.log_["eps"] = [self.eps_.clone().detach().cpu()]
                 self.log_["mu"] = [self.eps_.clone().detach().cpu()]
 
-            self.log_affinity_matrix_ = _log_Pse(
+            log_affinity_matrix = _log_Pse(
                 C, self.eps_, self.mu_, eps_square=self.eps_square
             )
 
@@ -587,17 +578,17 @@ class SymmetricEntropicAffinity(LogAffinity):
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
-                        print(
+                        warnings.warn(
                             "[TorchDR] WARNING Affinity: max iter attained, "
                             "algorithm stops but may not have converged."
                         )
 
             self.n_iter_ = k
-            self.log_affinity_matrix_ = log_P
+            log_affinity_matrix = log_P
 
-        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+        log_affinity_matrix -= math.log(n_samples_in)
 
-        return self
+        return log_affinity_matrix
 
 
 class SinkhornAffinity(LogAffinity):
@@ -713,23 +704,22 @@ class SinkhornAffinity(LogAffinity):
         self.tolog = tolog
         self.with_grad = with_grad
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_log_affinity(self, X: torch.Tensor):
         r"""
         Computes the entropic doubly stochastic affinity matrix from input data X.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
         -------
-        self : SinkhornAffinity
-            The fitted instance.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_samples, n_samples)
+            Log of the doubly stochastic affinity matrix.
         """
-        self.data_ = to_torch(X, device=self.device)
-
-        C = self._distance_matrix(self.data_)
+        C = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
@@ -739,14 +729,12 @@ class SinkhornAffinity(LogAffinity):
                 "Affinity matrix (Sinkhorn affinity)."
             )
 
-        self.n_samples_in_ = C.shape[0]
+        n_samples_in = C.shape[0]
         log_K = -C / self.eps
 
         # Performs warm-start if a dual variable f is provided
         self.dual_ = (
-            torch.zeros(
-                self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-            )
+            torch.zeros(n_samples_in, dtype=X.dtype, device=X.device)
             if self.init_dual is None
             else self.init_dual
         )
@@ -778,17 +766,17 @@ class SinkhornAffinity(LogAffinity):
                     break
 
                 if k == self.max_iter - 1 and self.verbose:
-                    print(
+                    warnings.warn(
                         "[TorchDR] WARNING Affinity: max iter attained, algorithm "
                         "stops but may not have converged."
                     )
 
         self.n_iter_ = k
-        self.log_affinity_matrix_ = _log_Pds(log_K, self.dual_)
+        log_affinity_matrix = _log_Pds(log_K, self.dual_)
 
-        self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+        log_affinity_matrix -= math.log(n_samples_in)
 
-        return self
+        return log_affinity_matrix
 
 
 class NormalizedGaussianAffinity(LogAffinity):
@@ -836,35 +824,33 @@ class NormalizedGaussianAffinity(LogAffinity):
         self.sigma = sigma
         self.normalization_dim = normalization_dim
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_log_affinity(self, X: torch.Tensor):
         r"""
         Fits the normalized Gaussian affinity model to the provided data.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             Input data.
 
         Returns
         -------
-        self : NormalizedGaussianAffinity
-            The fitted affinity model.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape (n_samples, n_samples)
+            Log of the normalized Gaussian affinity matrix.
         """
-        self.data_ = to_torch(X, device=self.device)
-        C = self._distance_matrix(self.data_)
+        C = self._distance_matrix(X)
 
-        self.log_affinity_matrix_ = -C / self.sigma
+        log_affinity_matrix = -C / self.sigma
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
+                log_affinity_matrix, self.normalization_dim
             )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         if isinstance(self.normalization_dim, int):
-            self.n_samples_in_ = X.shape[0]
-            self.log_affinity_matrix_ -= math.log(self.n_samples_in_)
+            n_samples_in = X.shape[0]
+            log_affinity_matrix -= math.log(n_samples_in)
 
-        return self
+        return log_affinity_matrix

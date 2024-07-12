@@ -9,7 +9,7 @@ Affinity matrices with quadratic constraints
 
 import torch
 from tqdm import tqdm
-import numpy as np
+import warnings
 
 from torchdr.affinity import Affinity
 from torchdr.utils import (
@@ -17,7 +17,6 @@ from torchdr.utils import (
     wrap_vectors,
     check_NaNs,
     batch_transpose,
-    to_torch,
 )
 
 
@@ -133,18 +132,18 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.base_kernel = base_kernel
         self.tolog = tolog
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_affinity(self, X: torch.Tensor):
         r"""Computes the quadratic doubly stochastic affinity matrix from input data X.
 
         Parameters
         ----------
-        X : tensor of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
 
         Returns
         -------
-        self : DoublyStochasticQuadraticAffinity
-            The fitted instance.
+        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix.
         """
         if self.verbose:
             print(
@@ -152,21 +151,16 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "Affinity matrix."
             )
 
-        self.data_ = to_torch(X, device=self.device)
-        C = self._distance_matrix(self.data_)
+        C = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
-        self.n_samples_in_ = C.shape[0]
-        one = torch.ones(
-            self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-        )
+        n_samples_in = C.shape[0]
+        one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         # Performs warm-start if an initial dual variable is provided
         self.dual_ = (
-            torch.ones(
-                self.n_samples_in_, dtype=self.data_.dtype, device=self.data_.device
-            )
+            torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
             if self.init_dual is None
             else self.init_dual
         )
@@ -208,14 +202,14 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 break
 
             if k == self.max_iter - 1 and self.verbose:
-                print(
+                warnings.warn(
                     "[TorchDR] Affinity (WARNING) : max iter attained, "
                     "algorithm stops but may not have converged."
                 )
 
         self.n_iter_ = k
-        self.affinity_matrix_ = _Pds(C, self.dual_, self.eps)
+        affinity_matrix = _Pds(C, self.dual_, self.eps)
 
-        self.affinity_matrix_ /= self.n_samples_in_
+        affinity_matrix /= n_samples_in
 
-        return self
+        return affinity_matrix

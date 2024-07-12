@@ -42,7 +42,7 @@ class LargeVis(SampledNeighborEmbedding):
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
-        Precision threshold at which the algorithm stops, by default 1e-4.
+        Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 100.
     tolog : bool, optional
@@ -92,7 +92,7 @@ class LargeVis(SampledNeighborEmbedding):
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,
@@ -158,7 +158,7 @@ class LargeVis(SampledNeighborEmbedding):
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
         indices = self._sample_negatives()
-        log_Q = self.affinity_out.transform(self.embedding_, log=True, indices=indices)
+        log_Q = self.affinity_out(self.embedding_, log=True, indices=indices)
         Q = log_Q.exp()
         Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
         return -(1 - Q).log() / self.n_samples_in_

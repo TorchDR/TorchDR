@@ -7,12 +7,14 @@ t-distributed Stochastic Neighbor embedding (TSNE) algorithm
 #
 # License: BSD 3-Clause License
 
+import numpy as np
+
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, OPTIMIZERS
 
 
 class TSNE(SparseNeighborEmbedding):
@@ -28,12 +30,12 @@ class TSNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
+    lr : float or str, optional
+        Learning rate for the algorithm, by default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
+        Which pytorch optimizer to use, by default 'auto'.
+    optimizer_kwargs : dict or str, optional
+        Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -43,7 +45,7 @@ class TSNE(SparseNeighborEmbedding):
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
-        Precision threshold at which the algorithm stops, by default 1e-4.
+        Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 100.
     tolog : bool, optional
@@ -57,7 +59,7 @@ class TSNE(SparseNeighborEmbedding):
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+        Coefficient for the attraction term, by default 12.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -84,28 +86,36 @@ class TSNE(SparseNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: float | str = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = "auto",
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        coeff_attraction: float = 12.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        **kwargs,
     ):
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.tol = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
 
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -153,5 +163,28 @@ class TSNE(SparseNeighborEmbedding):
         )
 
     def _repulsive_loss(self):
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=(0, 1))
+
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            # reproducing the TSNE implementation of sklearn
+            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
+        else:
+            self.lr_ = self.lr
+
+    def _set_optimizer(self):
+        # reproducing the TSNE implementation of sklearn
+        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
+        if self.optimizer_kwargs == "auto":
+            if self.coeff_attraction_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
+            else:
+                optimizer_kwargs = {"momentum": 0.8}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs
+
+        self.optimizer_ = OPTIMIZERS[optimizer](
+            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
+        )
+        return self.optimizer_

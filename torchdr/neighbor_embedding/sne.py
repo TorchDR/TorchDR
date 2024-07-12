@@ -90,7 +90,7 @@ class SNE(SparseNeighborEmbedding):
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         tolog: bool = False,
         device: str = None,
@@ -151,5 +151,5 @@ class SNE(SparseNeighborEmbedding):
         )
 
     def _repulsive_loss(self):
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

@@ -70,9 +70,10 @@ def plot_affinity_graph(G):
 # parameter ``normalization_dim=1``.
 #
 
-K = NormalizedGaussianAffinity(
+aff = NormalizedGaussianAffinity(
     sigma=1, normalization_dim=1, keops=False, zero_diag=False
-).fit_transform(X)
+)
+K = aff(X)
 
 plt.figure(1, (6, 3))
 
@@ -105,9 +106,10 @@ plt.show()
 # In ``TorchDR``, this object is available here :
 # :class:`torchdr.EntropicAffinity`.
 
-EA = EntropicAffinity(
+aff_ea = EntropicAffinity(
     perplexity=5, keops=False, verbose=False, zero_diag=False, sparsity=False
-).fit_transform(X)
+)
+EA = aff_ea(X)
 
 plt.figure(1, (6, 3))
 

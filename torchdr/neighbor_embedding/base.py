@@ -8,13 +8,13 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
+import warnings
 from abc import abstractmethod
 
 from torchdr.affinity import (
     Affinity,
     LogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
+    UnnormalizedAffinity,
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
@@ -34,7 +34,7 @@ class NeighborEmbedding(AffinityMatcher):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -48,7 +48,7 @@ class NeighborEmbedding(AffinityMatcher):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -84,7 +84,7 @@ class NeighborEmbedding(AffinityMatcher):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -129,8 +129,10 @@ class NeighborEmbedding(AffinityMatcher):
         ):
             self.coeff_attraction_ = 1
             # reinitialize optimizer and scheduler
+            self._set_learning_rate()
             self._set_optimizer()
             self._set_scheduler()
+
         return self
 
     def _check_n_neighbors(self, n):
@@ -141,7 +143,7 @@ class NeighborEmbedding(AffinityMatcher):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
                     if self.verbose:
-                        print(
+                        warnings.warn(
                             "[TorchDR] WARNING : Number of samples is smaller than "
                             f"{param_name} ({n} <= {param_value}), setting "
                             f"{param_name} to {n//2} (which corresponds to n//2)."
@@ -166,7 +168,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _loss(self):
         log = isinstance(self.affinity_out, LogAffinity)
-        Q = self.affinity_out.fit_transform(self.embedding_, log=log)
+        Q = self.affinity_out(self.embedding_, log=log)
         P = self.PX_
 
         attractive_term = cross_entropy_loss(P, Q, log=log)
@@ -192,7 +194,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -206,7 +208,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -242,7 +244,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -263,12 +265,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             )
 
         # check affinity affinity_out
-        if not isinstance(
-            affinity_out, (TransformableAffinity, TransformableLogAffinity)
-        ):
+        if not isinstance(affinity_out, UnnormalizedAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
-                "must be a transformable affinity (ie with a transform method)."
+                "must be an UnnormalizedAffinity object."
             )
 
         super().__init__(
@@ -297,12 +297,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         if isinstance(self.affinity_out, LogAffinity):
-            log_Q = self.affinity_out.transform(
-                self.embedding_, log=True, indices=self.indices_
-            )
+            log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
-            Q = self.affinity_out.transform(self.embedding_, indices=self.indices_)
+            Q = self.affinity_out(self.embedding_, indices=self.indices_)
             return cross_entropy_loss(self.PX_, Q)
 
     @abstractmethod
@@ -330,7 +328,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     affinity_out : Affinity
         The affinity object for the output embedding space.
     kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out fit_transform method.
+        Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     optimizer : str, optional
@@ -344,7 +342,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, optional
@@ -382,7 +380,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -427,7 +425,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         if not hasattr(self, "n_negatives_"):
             if self.n_negatives > self.n_samples_in_:
                 if self.verbose:
-                    print(
+                    warnings.warn(
                         "[TorchDR] WARNING : n_negatives must be smaller than the "
                         f"number of samples. Here n_negatives={self.n_negatives} "
                         f"and n_samples_in={self.n_samples_in_}. Setting "
