@@ -34,12 +34,15 @@ class SyntheticDataset(torch.utils.data.Dataset):
     :param int dim: dimension of the input sample
     :param int depth: depth of the tree; the root corresponds to the depth 0
     :param int :numberOfChildren: Number of children of each node in the tree
-    :param int :numberOfsiblings: Number of noisy observations obtained from the nodes of the tree
+    :param int :numberOfsiblings: Number of noisy observations obtained from the 
+    nodes of the tree
     :param float sigma_children: noise
-    :param int param: integer by which :math:`\\sigma_children` is divided at each deeper level of the tree
+    :param int param: integer by which :math:`\\sigma_children` is divided at each 
+    deeper level of the tree
     '''
 
-    def __init__(self, ball, dim, depth, numberOfChildren=2, dist_children=1, sigma_sibling=2, param=1, numberOfsiblings=1):
+    def __init__(self, ball, dim, depth, numberOfChildren=2, dist_children=1, 
+                 sigma_sibling=2, param=1, numberOfsiblings=1):
         assert numberOfChildren == 2
         self.dim = int(dim)
         self.ball = ball
@@ -53,7 +56,6 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.origin_data, self.origin_labels, self.data, self.labels = map(
             torch.detach, self.bst())
         self.num_classes = self.origin_labels.max().item()+1
-        # self.data = ball.mobius_add(self.data, -ball.weighted_midpoint(self.data)).detach()
 
     def __len__(self):
         '''
@@ -73,9 +75,11 @@ class SyntheticDataset(torch.utils.data.Dataset):
         :param 1d-array parent_value
         :param 1d-array parent_label
         :param int current_depth
-        :param  Boolean offspring: if True the parent node gives birth to numberOfChildren nodes
-                                    if False the parent node gives birth to numberOfsiblings noisy observations
-        :return: list of 2-tuples containing the value and label of each child of a parent node
+        :param  Boolean offspring: 
+        if True the parent node gives birth to numberOfChildren nodes
+        if False the parent node gives birth to numberOfsiblings noisy observations
+        :return: list of 2-tuples containing the value and label of each child of a 
+        parent node
         :rtype: list of length numberOfChildren
         '''
         if offspring:
@@ -136,7 +140,6 @@ class SyntheticDataset(torch.utils.data.Dataset):
                     labels_clones.append(clone[1])
         length = int(((self.numberOfChildren) ** (self.depth + 1) - 1) /
                      (self.numberOfChildren - 1))
-        length_leaves = int(self.numberOfChildren**self.depth)
         images = torch.cat([i for i in visited]).reshape(length, self.dim)
         labels_visited = torch.cat([i for i in labels_visited]).reshape(
             length, self.depth+1)[:, :self.depth]
