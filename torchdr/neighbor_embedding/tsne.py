@@ -7,6 +7,8 @@ t-distributed Stochastic Neighbor embedding (TSNE) algorithm
 #
 # License: BSD 3-Clause License
 
+import numpy as np
+
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
@@ -28,7 +30,7 @@ class TSNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
+    lr : float or str, optional
         Learning rate for the algorithm, by default 1.0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
@@ -57,7 +59,7 @@ class TSNE(SparseNeighborEmbedding):
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+        Coefficient for the attraction term, by default 12.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -70,8 +72,6 @@ class TSNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
-    use_default_optim_params : bool, optional
-        Whether to use the default optimizer parameters, by default True.
 
     References
     ----------
@@ -86,8 +86,8 @@ class TSNE(SparseNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
+        lr: float | str = "auto",
+        optimizer: str = "SGD",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
@@ -100,34 +100,28 @@ class TSNE(SparseNeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        coeff_attraction: float = 12.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        use_default_optim_params: bool = True,
         **kwargs,
     ):
         # improve consistency with the sklearn API
         if "learning_rate" in kwargs:
             self.lr = kwargs["learning_rate"]
-        if "early_exaggeration" in kwargs:
-            self.coeff_attraction = kwargs["early_exaggeration"]
         if "min_grad_norm" in kwargs:
             self.tol = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
 
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.use_default_optim_params = use_default_optim_params
-
-        if self.use_default_optim_params:
-            self.optimizer = "SGD"
-            self.optimizer_kwargs = {"momentum": 0.5}
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -144,6 +138,15 @@ class TSNE(SparseNeighborEmbedding):
             keops=keops,
             verbose=False,
         )
+
+        if lr == "auto":
+            if verbose:
+                print(
+                    "[TorchDR] Learning rate set to 'auto' for TSNE, "
+                    "using SGD and the same hyperparameters as in sklearn."
+                )
+            optimizer = "SGD"
+            optimizer_kwargs = [{"momentum": 0.5}, {"momentum": 0.8}]
 
         super().__init__(
             affinity_in=affinity_in,
@@ -171,3 +174,9 @@ class TSNE(SparseNeighborEmbedding):
     def _repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=(0, 1))
+
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
+        else:
+            self.lr_ = self.lr

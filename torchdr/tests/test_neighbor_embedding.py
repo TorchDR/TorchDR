@@ -44,7 +44,7 @@ def toy_dataset(n=100, dtype="float32"):
     "DRModel, kwargs",
     [
         (SNE, {}),
-        (TSNE, {}),
+        (TSNE, {"lr": 1.0, "optimizer": "Adam"}),
         (SNEkhorn, SEA_params | {"unrolling": True}),
         (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
@@ -89,7 +89,7 @@ def test_array_init(dtype, keops):
 
     lst_Z = []
     for Z_init in [Z_init_np, Z_init_torch]:
-        model = TSNE(
+        model = SNE(
             n_components=2,
             keops=keops,
             device=DEVICE,

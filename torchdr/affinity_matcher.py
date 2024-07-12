@@ -61,7 +61,7 @@ class AffinityMatcher(DRModule):
         Optimizer to use for the optimization. Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or str, optional
         Learning rate for the optimizer. Default is 1e0.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
@@ -97,7 +97,7 @@ class AffinityMatcher(DRModule):
         kwargs_loss: dict = {},
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        lr: float | str = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
@@ -226,6 +226,7 @@ class AffinityMatcher(DRModule):
 
         self._init_embedding(X)
         self._set_params()
+        self._set_learning_rate()
         self._set_optimizer()
         self._set_scheduler()
 
@@ -287,11 +288,27 @@ class AffinityMatcher(DRModule):
         self.params_ = [{"params": self.embedding_}]
         return self.params_
 
-    def _set_optimizer(self):
+    def _set_optimizer(self, index_kwargs=0):
+        if isinstance(self.optimizer_kwargs, list):
+            optimizer_kwargs = self.optimizer_kwargs[index_kwargs]
+        else:
+            optimizer_kwargs = self.optimizer_kwargs
+
         self.optimizer_ = OPTIMIZERS[self.optimizer](
-            self.params_, lr=self.lr, **(self.optimizer_kwargs or {})
+            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
         )
         return self.optimizer_
+
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            if self.verbose:
+                warnings.warn(
+                    "[TorchDR] WARNING : lr set to 'auto' without "
+                    "any implemented rule. Setting lr=1.0 by default."
+                )
+            self.lr_ = 1.0
+        else:
+            self.lr_ = self.lr
 
     def _set_scheduler(self):
         if not hasattr(self, "optimizer_"):
