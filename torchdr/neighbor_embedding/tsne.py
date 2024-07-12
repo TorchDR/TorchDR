@@ -105,7 +105,15 @@ class TSNE(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        **kwargs,
     ):
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
+        if "min_grad_norm" in kwargs:
+            self.tol = kwargs["min_grad_norm"]
 
         self.metric_in = metric_in
         self.metric_out = metric_out

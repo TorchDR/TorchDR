@@ -67,6 +67,7 @@ def test_NE(DRModel, kwargs, dtype, keops):
         init="normal",
         max_iter=100,
         random_state=0,
+        tol=1e-10,
         **kwargs
     )
     Z = model.fit_transform(X)

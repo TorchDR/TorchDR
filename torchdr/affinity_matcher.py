@@ -68,7 +68,7 @@ class AffinityMatcher(DRModule):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str | torch.Tensor | np.ndarray, optional
@@ -100,7 +100,7 @@ class AffinityMatcher(DRModule):
         lr: float = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
+        tol: float = 1e-7,
         max_iter: int = 1000,
         init: str | torch.Tensor | np.ndarray = "pca",
         init_scaling: float = 1e-4,
@@ -226,6 +226,16 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
+
+            grad_norm = self.embedding_.grad.norm(2).item()
+            if grad_norm < self.tol:
+                if self.verbose:
+                    pbar.set_description(
+                        f"Convergence reached at iter {k} with grad norm: "
+                        f"{grad_norm:.2e}."
+                    )
+                break
+
             self.optimizer_.step()
             self.scheduler_.step()
 
