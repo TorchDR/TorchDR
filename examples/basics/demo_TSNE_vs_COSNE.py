@@ -3,8 +3,8 @@ TSNE and COSNE  via AffinityMatcher
 ===================================
 
 We compare in this example two dimensionalty reduction methods:
-T-SNE and CO-SNE on a synthetic hierarchical toy dataset The first 
-method computes an emebdding in a 2D Euclidean space while the 
+T-SNE and CO-SNE on a synthetic hierarchical toy dataset The first
+method computes an emebdding in a 2D Euclidean space while the
 second one operates in the Hyperbolic Poincaré Ball model.
 
 
@@ -29,19 +29,19 @@ class SyntheticDataset(torch.utils.data.Dataset):
     '''
     Adopted from https://github.com/emilemathieu/pvae/
 
-    Implementation of a synthetic dataset by hierarchical diffusion. 
+    Implementation of a synthetic dataset by hierarchical diffusion.
     Args:
     :param int dim: dimension of the input sample
     :param int depth: depth of the tree; the root corresponds to the depth 0
     :param int :numberOfChildren: Number of children of each node in the tree
-    :param int :numberOfsiblings: Number of noisy observations obtained from the 
+    :param int :numberOfsiblings: Number of noisy observations obtained from the
     nodes of the tree
     :param float sigma_children: noise
-    :param int param: integer by which :math:`\\sigma_children` is divided at each 
+    :param int param: integer by which :math:`\\sigma_children` is divided at each
     deeper level of the tree
     '''
 
-    def __init__(self, ball, dim, depth, numberOfChildren=2, dist_children=1, 
+    def __init__(self, ball, dim, depth, numberOfChildren=2, dist_children=1,
                  sigma_sibling=2, param=1, numberOfsiblings=1):
         assert numberOfChildren == 2
         self.dim = int(dim)
@@ -75,10 +75,10 @@ class SyntheticDataset(torch.utils.data.Dataset):
         :param 1d-array parent_value
         :param 1d-array parent_label
         :param int current_depth
-        :param  Boolean offspring: 
+        :param  Boolean offspring:
         if True the parent node gives birth to numberOfChildren nodes
         if False the parent node gives birth to numberOfsiblings noisy observations
-        :return: list of 2-tuples containing the value and label of each child of a 
+        :return: list of 2-tuples containing the value and label of each child of a
         parent node
         :rtype: list of length numberOfChildren
         '''
