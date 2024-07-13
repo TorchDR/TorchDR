@@ -7,14 +7,12 @@ t-distributed Stochastic Neighbor embedding (TSNE) algorithm
 #
 # License: BSD 3-Clause License
 
-import numpy as np
-
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import logsumexp_red, OPTIMIZERS
+from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
@@ -165,26 +163,3 @@ class TSNE(SparseNeighborEmbedding):
     def _repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=(0, 1))
-
-    def _set_learning_rate(self):
-        if self.lr == "auto":
-            # reproducing the TSNE implementation of sklearn
-            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
-        else:
-            self.lr_ = self.lr
-
-    def _set_optimizer(self):
-        # reproducing the TSNE implementation of sklearn
-        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
-        if self.optimizer_kwargs == "auto":
-            if self.coeff_attraction_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
-            else:
-                optimizer_kwargs = {"momentum": 0.8}
-        else:
-            optimizer_kwargs = self.optimizer_kwargs
-
-        self.optimizer_ = OPTIMIZERS[optimizer](
-            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
-        )
-        return self.optimizer_

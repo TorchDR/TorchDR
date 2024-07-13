@@ -27,12 +27,12 @@ class LargeVis(SampledNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
+    lr : float or 'auto, optional
+        Learning rate for the algorithm, by default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
+        Which pytorch optimizer to use, by default 'auto'.
+    optimizer_kwargs : dict or 'auto, optional
+        Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -56,7 +56,7 @@ class LargeVis(SampledNeighborEmbedding):
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+        Coefficient for the attraction term, by default 12.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -85,9 +85,9 @@ class LargeVis(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: float | str = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = "auto",
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
@@ -99,8 +99,8 @@ class LargeVis(SampledNeighborEmbedding):
         keops: bool = False,
         verbose: bool = True,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 7.0,
+        coeff_attraction: float = 12.0,
+        coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
