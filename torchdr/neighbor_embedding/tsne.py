@@ -30,11 +30,11 @@ class TSNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float or str, optional
+    lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
     optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
         Which pytorch optimizer to use, by default 'auto'.
-    optimizer_kwargs : dict or str, optional
+    optimizer_kwargs : dict or 'auto', optional
         Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.

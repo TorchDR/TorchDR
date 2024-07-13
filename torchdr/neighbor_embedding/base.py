@@ -128,7 +128,7 @@ class NeighborEmbedding(AffinityMatcher):
             self.coeff_attraction_ > 1 and step == self.early_exaggeration_iter
         ):
             self.coeff_attraction_ = 1
-            # reinitialize optimizer and scheduler
+            # reinitialize optim
             self._set_learning_rate()
             self._set_optimizer()
             self._set_scheduler()

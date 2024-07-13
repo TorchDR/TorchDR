@@ -230,7 +230,7 @@ class SparseLogAffinity(LogAffinity):
         operations. Default is False.
     verbose : bool, optional
         If True, prints additional information during computation. Default is True.
-    sparsity : bool or str, optional
+    sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
 

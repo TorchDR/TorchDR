@@ -61,7 +61,7 @@ class AffinityMatcher(DRModule):
         Optimizer to use for the optimization. Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
-    lr : float or str, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".

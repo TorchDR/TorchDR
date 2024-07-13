@@ -203,7 +203,7 @@ class EntropicAffinity(SparseLogAffinity):
         Precision threshold at which the root finding algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
-    sparsity: bool or str, optional
+    sparsity: bool or 'auto', optional
         If True, keeps only the 3 * perplexity smallest element on each row of
         the ground cost matrix. Recommended if perplexity is not too big.
     metric : str, optional
