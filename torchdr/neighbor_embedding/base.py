@@ -97,6 +97,7 @@ class NeighborEmbedding(AffinityMatcher):
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
+        **kwargs,
     ):
 
         super().__init__(
@@ -123,6 +124,14 @@ class NeighborEmbedding(AffinityMatcher):
         self.coeff_attraction = coeff_attraction
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
+
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.tol = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
