@@ -154,20 +154,31 @@ class EntropicAffinity(SparseLogAffinity):
     r"""
     Solves the directed entropic affinity problem introduced in [1]_ and
     later used in TSNE [2]_.
-    Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` in [3]_,
-    solving the convex optimization problem
+
+    The algorithm computes the optimal dual variable
+    :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
-        \mathbf{P}^{\mathrm{e}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
-        \text{s.t.} \quad  &\mathbf{P} \mathbf{1} = \mathbf{1} \\
-                            &\forall i, \: \mathrm{h}(\mathbf{P}_{i:}) \geq \log (\xi) + 1 \:.
+        \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)}   \:.
 
     where :
 
     - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
     - :math:`\xi`: perplexity parameter.
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
-    - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
+
+    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
+    since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
+
+    **Convex problem.** Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` 
+    in [3]_, solving the convex optimization problem
+
+    .. math::
+        \mathbf{P}^{\mathrm{e}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
+        \text{s.t.} \quad  &\mathbf{P} \mathbf{1} = \mathbf{1} \\
+                            &\forall i, \: \mathrm{h}(\mathbf{P}_{i:}) \geq \log (\xi) + 1 \:.
+
+    where :math:`\mathbf{1} := (1,...,1)^\top`: is the all-ones vector.
 
     The entropic affinity matrix is akin to a **soft** :math:`k` **-NN affinity**,
     with the perplexity parameter :math:`\xi` acting as :math:`k`.
@@ -179,18 +190,9 @@ class EntropicAffinity(SparseLogAffinity):
     with large :math:`\xi`, it spreads across more neighbors thus capturing
     larger scales of dependencies.
 
-    The algorithm computes the optimal dual variable
-    :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
-
-    .. math::
-        \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)}   \:.
-
-    :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
-    since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
-
     .. note:: A symmetric version is also available at
-        :class:`~torchdr.affinity.SymmetricEntropicAffinity`. It is the affinity matrix
-        used in SNEkhorn/t-SNEkhorn [3]_.
+        :class:`~torchdr.SymmetricEntropicAffinity`. It is the affinity matrix
+        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_.
 
     Parameters
     ----------
@@ -338,8 +340,18 @@ class EntropicAffinity(SparseLogAffinity):
 class SymmetricEntropicAffinity(LogAffinity):
     r"""
     Computes the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
-    affinity problem (SEA) described in [3]_ with the dual ascent procedure.
-    It amounts to the following convex optimization problem:
+    affinity (SEA) problem described in [3]_.
+
+    The algorithm computes the optimal dual variables
+    :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and
+    :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent.
+    The affinity matrix is then given by
+
+    .. math::
+        \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
+
+    
+    **Convex problem.** It amounts to the following convex optimization problem:
 
     .. math::
         \mathbf{P}^{\mathrm{se}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
@@ -354,20 +366,16 @@ class SymmetricEntropicAffinity(LogAffinity):
     - :math:`\mathrm{h}`: (row-wise) Shannon entropy such that :math:`\mathrm{h}(\mathbf{p}) = - \sum_{i} p_{i} (\log p_{i} - 1)`.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    It is a symmetric version of :class:`~torchdr.affinity.EntropicAffinity`,
-    where we simply added symmetry as a constraint in the optimization problem.
+    It is a symmetric version of :class:`~torchdr.EntropicAffinity`,
+    where a symmetry constraint is added in the optimization problem.
 
-    The algorithm computes the optimal dual variables
-    :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and
-    :math:`\mathbf{\varepsilon}^\star \in \mathbb{R}^n_{>0}` using dual ascent.
-    The affinity matrix is then given by
-
-    .. math::
-        \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
-
-    .. note:: Unlike :class:`~torchdr.affinity.L2SymmetricEntropicAffinity` that is
-    used in t-SNE, :class:`~torchdr.affinity.SymmetricEntropicAffinity` enables to
-    control the entropy and mass of each row/column of the affinity matrix.
+    .. note:: Unlike 
+        :math:`(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top )/ 2` used in 
+        :class:`~torchdr.TSNE` where :math:`\mathbf{P}^{\mathrm{e}}` is the 
+        :class:`~torchdr.EntropicAffinity` matrix, 
+        :class:`~torchdr.affinity.SymmetricEntropicAffinity` 
+        allows to control the entropy and mass of each row/column of the 
+        affinity matrix.
 
     Parameters
     ----------
@@ -596,18 +604,6 @@ class SinkhornAffinity(LogAffinity):
     Computes the symmetric doubly stochastic affinity matrix
     :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the
     symmetric Sinkhorn algorithm [5]_.
-    Consists in solving the following symmetric entropic optimal transport problem [6]_:
-
-    .. math::
-        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
-
-    where :
-
-    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
-    - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
-    - :math:`\varepsilon`: entropic regularization parameter.
-    - :math:`\mathrm{H}`: (global) Shannon entropy such that :math:`\mathrm{H}(\mathbf{P}) := - \sum_{ij} P_{ij} (\log P_{ij} - 1)`.
-    - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
@@ -615,7 +611,23 @@ class SinkhornAffinity(LogAffinity):
     .. math::
         \mathbf{P}^{\mathrm{ds}} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{ds}}_{ij} = \exp(f^\star_i + f^\star_j - C_{ij} / \varepsilon) \:.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (equation in 25 in [7]_).
+    where :
+
+    - :math:`\mathbf{C}`: symmetric pairwise distance matrix between the samples.
+    - :math:`\varepsilon`: entropic regularization parameter.
+    - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
+
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (eq. 25 in [7]_).
+
+    **Convex problem.** Consists in solving the following symmetric entropic optimal transport problem [6]_:
+
+    .. math::
+        \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
+
+    where :
+
+    - :math:`\mathcal{DS} := \left\{ \mathbf{P} \in \mathbb{R}_+^{n \times n}: \: \mathbf{P} = \mathbf{P}^\top \:,\: \mathbf{P} \mathbf{1} = \mathbf{1} \right\}`: set of symmetric doubly stochastic matrices.
+    - :math:`\mathrm{H}`: (global) Shannon entropy such that :math:`\mathrm{H}(\mathbf{P}) := - \sum_{ij} P_{ij} (\log P_{ij} - 1)`.
 
     **Bregman projection.** Another way to write this problem is to consider the
     KL projection of the Gaussian kernel
@@ -633,7 +645,7 @@ class SinkhornAffinity(LogAffinity):
     ----------
     eps : float, optional
         Regularization parameter for the Sinkhorn algorithm.
-    init_dual : tensor of shape (n_samples), optional
+    init_dual : torch.Tensor of shape (n_samples), optional
         Initialization for the dual variable of the Sinkhorn algorithm (default None).
     tol : float, optional
         Precision threshold at which the algorithm stops.
@@ -784,7 +796,7 @@ class NormalizedGaussianAffinity(LogAffinity):
     Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
-    according to the specified normalization dimensions.
+    according to the specified normalization dimension.
 
     Parameters
     ----------

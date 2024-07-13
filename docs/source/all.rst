@@ -84,8 +84,9 @@ Entropic Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
    
-   EntropicAffinity
+   NormalizedGaussianAffinity
    SinkhornAffinity
+   EntropicAffinity
    SymmetricEntropicAffinity
 
 Quadratic Affinities

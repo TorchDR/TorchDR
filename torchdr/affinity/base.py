@@ -213,6 +213,7 @@ class SparseLogAffinity(LogAffinity):
 
     If sparsity is enabled, returns the log affinity matrix in a rectangular format
     with the corresponding indices.
+    Otherwise, returns the full affinity matrix and None.
 
     Parameters
     ----------

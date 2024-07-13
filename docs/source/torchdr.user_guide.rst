@@ -91,7 +91,7 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.LogAffinity
 
 
-All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
+Affinities are objects that can directly be called. The outputed affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
 Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
 
@@ -100,7 +100,7 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     >>> n = 100
     >>> data = torch.randn(n, 2)
     >>> affinity = torchdr.GaussianAffinity()
-    >>> affinity_matrix = affinity.fit_transform(data)
+    >>> affinity_matrix = affinity(data)
     >>> print(affinity_matrix.shape)
     (100, 100)
 
@@ -122,18 +122,22 @@ The following table details the aspects controlled by various formulations of en
    :header-rows: 1
 
    * - **Affinity (associated DR method)**
-     - **Symmetry**
      - **Marginal**
+     - **Symmetry**
      - **Entropy**
-   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <SNE>`) [1]_
-     - ❌
-     - ✅
-     - ✅
-   * - :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` (DOSNES) [5]_ [9]_
+   * - :class: `NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
      - ✅
      - ❌
-   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (:class:`SNEkhorn <SNEkhorn>`) [3]_
+   * - :class:`SinkhornAffinity <SinkhornAffinity>` [5]_ [9]_
+     - ✅
+     - ✅
+     - ❌
+   * - :class:`EntropicAffinity <EntropicAffinity>` [1]_
+     - ✅
+     - ❌
+     - ✅
+   * - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>` [3]_
      - ✅
      - ✅
      - ✅
