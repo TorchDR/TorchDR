@@ -12,7 +12,7 @@ from torchdr.affinity import (
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
@@ -35,9 +35,9 @@ class UMAP(SampledNeighborEmbedding):
     b : float, optional
         Parameter for the Student t-distribution.
     lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
+        Learning rate for the algorithm, by default 1e-1.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
+        Which pytorch optimizer to use, by default 'SGD'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
@@ -99,8 +99,8 @@ class UMAP(SampledNeighborEmbedding):
         spread: float = 1.0,
         a: float = None,
         b: float = None,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
+        lr: float = 1e-1,
+        optimizer: str = "SGD",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
@@ -181,5 +181,10 @@ class UMAP(SampledNeighborEmbedding):
     def _repulsive_loss(self):
         indices = self._sample_negatives()
         Q = self.affinity_out(self.embedding_, indices=indices)
-        Q = Q / (Q + 1)  # stabilization trick
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return -(1 - Q).log()
+
+    def _attractive_loss(self):
+        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
+        return cross_entropy_loss(self.PX_, Q)

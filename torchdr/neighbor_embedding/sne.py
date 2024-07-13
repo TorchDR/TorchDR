@@ -28,12 +28,12 @@ class SNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedded space (corresponds to the number of features of Z).
-    lr : float, optional
-        Learning rate for the algorithm.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer.
+    lr : float or 'auto', optional
+        Learning rate for the algorithm. By default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
+        Which pytorch optimizer to use. By default 'auto'.
+    optimizer_kwargs : dict or 'auto', optional
+        Arguments for the optimizer. By default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -83,9 +83,9 @@ class SNE(SparseNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: float | str = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
