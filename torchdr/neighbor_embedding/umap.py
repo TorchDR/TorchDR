@@ -12,7 +12,7 @@ from torchdr.affinity import (
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
@@ -181,5 +181,10 @@ class UMAP(SampledNeighborEmbedding):
     def _repulsive_loss(self):
         indices = self._sample_negatives()
         Q = self.affinity_out(self.embedding_, indices=indices)
-        Q = Q / (Q + 1)  # stabilization trick
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return -(1 - Q).log()
+
+    def _attractive_loss(self):
+        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
+        return cross_entropy_loss(self.PX_, Q)
