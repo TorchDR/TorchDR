@@ -51,7 +51,7 @@ def toy_dataset(n=100, dtype="float32"):
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),
         (InfoTSNE, {}),
-        (UMAP, {"min_dist": 1.0}),
+        (UMAP, {}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)

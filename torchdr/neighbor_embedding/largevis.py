@@ -12,7 +12,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
@@ -158,7 +158,11 @@ class LargeVis(SampledNeighborEmbedding):
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
         indices = self._sample_negatives()
-        log_Q = self.affinity_out(self.embedding_, log=True, indices=indices)
-        Q = log_Q.exp()
-        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+        Q = self.affinity_out(self.embedding_, indices=indices)
+        Q = Q / (Q + 1)
         return -(1 - Q).log() / self.n_samples_in_
+
+    def _attractive_loss(self):
+        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = Q / (Q + 1)
+        return cross_entropy_loss(self.PX_, Q)
