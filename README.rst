@@ -6,12 +6,6 @@ Torch Dimensionality Reduction
    :alt: torchdr logo
    :align: center
 
-
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
-  :width: 800px
-  :alt: mnist readme
-  :align: center
-
 |Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
 
 Github repository: `<https://github.com/torchdr/torchdr/>`_.
@@ -83,6 +77,12 @@ DR algorithms
 **Spectral.** ``TorchDR`` provides spectral embeddings calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
 **Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
+
+
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
+   :width: 800px
+   :alt: various neighbor embedding methods on MNIST
+   :align: center
 
 
 Finding Help
