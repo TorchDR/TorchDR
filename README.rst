@@ -7,7 +7,7 @@ Torch Dimensionality Reduction
    :align: center
 
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.pdf
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
   :width: 800px
   :alt: mnist readme
   :align: center
