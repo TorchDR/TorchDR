@@ -75,7 +75,7 @@ class UMAPAffinityIn(SparseLogAffinity):
     r"""
     Computes the input affinity used in UMAP [8]_.
 
-    The algorithm computes the optimal dual variable
+    The algorithm computes via root search the variable
     :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
