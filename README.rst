@@ -6,6 +6,12 @@ Torch Dimensionality Reduction
    :alt: torchdr logo
    :align: center
 
+
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.pdf
+  :width: 800px
+  :alt: mnist readme
+  :align: center
+
 |Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
 
 Github repository: `<https://github.com/torchdr/torchdr/>`_.
