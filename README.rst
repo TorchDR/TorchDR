@@ -65,6 +65,12 @@ Here is a comparison of various neighbor embedding methods on the MNIST dataset:
 The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`_.
 
 
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
+   :width: 800px
+   :alt: single cell embeddings
+   :align: center
+
+
 Implemented Methods
 -------------------
 
