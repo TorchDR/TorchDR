@@ -633,8 +633,6 @@ class SinkhornAffinity(LogAffinity):
     ----------
     eps : float, optional
         Regularization parameter for the Sinkhorn algorithm.
-    init_dual : tensor of shape (n_samples), optional
-        Initialization for the dual variable of the Sinkhorn algorithm (default None).
     tol : float, optional
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
@@ -677,7 +675,6 @@ class SinkhornAffinity(LogAffinity):
     def __init__(
         self,
         eps: float = 1.0,
-        init_dual: torch.Tensor = None,
         tol: float = 1e-5,
         max_iter: int = 1000,
         base_kernel: str = "gaussian",
@@ -697,14 +694,13 @@ class SinkhornAffinity(LogAffinity):
             verbose=verbose,
         )
         self.eps = eps
-        self.init_dual = init_dual
         self.tol = tol
         self.max_iter = max_iter
         self.base_kernel = base_kernel
         self.tolog = tolog
         self.with_grad = with_grad
 
-    def _compute_log_affinity(self, X: torch.Tensor):
+    def _compute_log_affinity(self, X: torch.Tensor, init_dual: torch.Tensor = None):
         r"""
         Computes the entropic doubly stochastic affinity matrix from input data X.
 
@@ -712,6 +708,8 @@ class SinkhornAffinity(LogAffinity):
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
+        init_dual : torch.Tensor of shape (n_samples), optional
+            Initialization for the dual variable of the Sinkhorn algorithm.
 
         Returns
         -------
@@ -735,8 +733,8 @@ class SinkhornAffinity(LogAffinity):
         # Performs warm-start if a dual variable f is provided
         self.dual_ = (
             torch.zeros(n_samples_in, dtype=X.dtype, device=X.device)
-            if self.init_dual is None
-            else self.init_dual
+            if init_dual is None
+            else init_dual
         )
 
         if self.tolog:

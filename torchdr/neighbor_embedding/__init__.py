@@ -7,8 +7,8 @@
 from .sne import SNE
 from .tsne import TSNE
 from .ncsne import InfoTSNE
-from .snekhorn import SNEkhorn, TSNEkhorn
+from .tsnekhorn import TSNEkhorn
 from .largevis import LargeVis
 from .umap import UMAP
 
-__all__ = ["SNE", "TSNE", "InfoTSNE", "SNEkhorn", "TSNEkhorn", "LargeVis", "UMAP"]
+__all__ = ["SNE", "TSNE", "InfoTSNE", "TSNEkhorn", "LargeVis", "UMAP"]
