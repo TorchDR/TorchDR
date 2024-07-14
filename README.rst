@@ -55,7 +55,14 @@ Getting Started
     z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
 
 
-For additional examples, visit the `examples directory <https://github.com/TorchDR/TorchDR/tree/main/examples>`_.
+Here is a comparison of various neighbor embedding methods on the MNIST dataset:
+
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
+   :width: 800px
+   :alt: various neighbor embedding methods on MNIST
+   :align: center
+
+The code to generate this figure is available `here  <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`.
 
 
 Implemented Methods
@@ -78,12 +85,6 @@ DR algorithms
 
 **Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
-
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
-   :width: 800px
-   :alt: various neighbor embedding methods on MNIST
-   :align: center
-   
 
 Finding Help
 ------------
