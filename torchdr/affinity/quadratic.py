@@ -147,7 +147,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         """
         if self.verbose:
             print(
-                "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
+                "[TorchDR] Affinity : computing the Doubly Stochastic Quadratic "
                 "Affinity matrix."
             )
 
