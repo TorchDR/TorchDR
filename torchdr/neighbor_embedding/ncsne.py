@@ -99,7 +99,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 5,
+        n_negatives: int = 50,
     ):
 
         self.metric_in = metric_in
