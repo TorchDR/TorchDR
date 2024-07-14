@@ -7,9 +7,9 @@
 from .base import (
     Affinity,
     LogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
     SparseLogAffinity,
+    UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
 )
 
 from .unnormalized import (
@@ -34,8 +34,8 @@ from .umap import UMAPAffinityIn, UMAPAffinityOut
 __all__ = [
     "Affinity",
     "LogAffinity",
-    "TransformableAffinity",
-    "TransformableLogAffinity",
+    "UnnormalizedAffinity",
+    "UnnormalizedLogAffinity",
     "SparseLogAffinity",
     "ScalarProductAffinity",
     "GaussianAffinity",

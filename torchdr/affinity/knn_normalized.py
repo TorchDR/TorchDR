@@ -9,7 +9,6 @@ Affinity matrices with normalizations using nearest neighbor distances
 # License: BSD 3-Clause License
 
 import torch
-import numpy as np
 from typing import Tuple
 
 from torchdr.utils import logsumexp_red
@@ -18,7 +17,6 @@ from torchdr.utils import (
     kmin,
     wrap_vectors,
     batch_transpose,
-    to_torch,
 )
 
 
@@ -100,33 +98,30 @@ class SelfTuningAffinity(LogAffinity):
         self.K = K
         self.normalization_dim = normalization_dim
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_log_affinity(self, X: torch.Tensor):
         r"""
         Fits the local Gibbs affinity model to the provided data.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor
             Input data.
 
         Returns
         -------
-        self : SelfTuningAffinity
-            The fitted local Gibbs affinity model.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix in log domain.
         """
-        self.data_ = to_torch(X, device=self.device)
-        C = self._distance_matrix(self.data_)
+        C = self._distance_matrix(X)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        self.log_affinity_matrix_ = _log_SelfTuning(C, self.sigma_)
+        log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
+                log_affinity_matrix, self.normalization_dim
             )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
-        return self
+        return log_affinity_matrix
