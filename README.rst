@@ -79,6 +79,12 @@ DR algorithms
 **Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
 
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
+   :width: 800px
+   :alt: various neighbor embedding methods on MNIST
+   :align: center
+   
+
 Finding Help
 ------------
 
