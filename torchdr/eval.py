@@ -66,11 +66,14 @@ def silhouette_samples(
     if weights is not None:
         weights = to_torch(weights)
 
+    if device is None:
+        device = X.device
+
     # compute intra and inter cluster distances by block
     unique_labels = torch.unique(labels)
     pos_labels = [torch.where(labels == label)[0] for label in unique_labels]
-    A = torch.zeros(X.shape[0], dtype=X.dtype, device=X.device)
-    B = torch.full(X.shape[0], torch.inf, dtype=X.dtype, device=X.device)
+    A = torch.zeros(X.shape[0], dtype=X.dtype, device=device)
+    B = torch.full(X.shape[0], torch.inf, dtype=X.dtype, device=device)
 
     for i, pos_i in enumerate(pos_labels[:-1]):
         intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
