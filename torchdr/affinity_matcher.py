@@ -320,14 +320,15 @@ class AffinityMatcher(DRModule):
             )
 
         elif self.scheduler == "linear":
-            linear_decay = lambda epoch: (1 - epoch / self.max_iter)
+            # if early_exaggeration_iter is set, decrease to 0
+            # in the early_exaggeration phase
+            if self.coeff_attraction_ > 1:
+                n_iter = min(self.early_exaggeration_iter, self.max_iter)
+            else:
+                n_iter = self.max_iter - self.early_exaggeration_iter
+            linear_decay = lambda epoch: (1 - epoch / n_iter)
             self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer_, lr_lambda=linear_decay
-            )
-
-        elif self.scheduler == "exponential":  # param gamma
-            self.scheduler_ = torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizer_, **(self.scheduler_kwargs or {})
             )
 
         else:
