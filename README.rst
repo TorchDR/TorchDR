@@ -36,7 +36,7 @@ Benefits of ``TorchDR`` include:
 Getting Started
 ---------------
 
-``TorchDR`` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
+``TorchDR`` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the ``fit_transform`` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
 .. code-block:: python
 
