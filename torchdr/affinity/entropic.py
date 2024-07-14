@@ -288,7 +288,7 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         if self.verbose:
-            print("[TorchDR] Affinity : Computing the Entropic Affinity matrix.")
+            print("[TorchDR] Affinity : computing the Entropic Affinity matrix.")
 
         C = self._distance_matrix(X)
 
@@ -462,7 +462,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.log_ = {}
         if self.verbose:
             print(
-                "[TorchDR] Affinity : Computing the Symmetric Entropic Affinity matrix."
+                "[TorchDR] Affinity : computing the Symmetric Entropic Affinity matrix."
             )
 
         C = self._distance_matrix(X)
@@ -735,7 +735,7 @@ class SinkhornAffinity(LogAffinity):
 
         if self.verbose:
             print(
-                "[TorchDR] Affinity : Computing the (KL) Doubly Stochastic "
+                "[TorchDR] Affinity : computing the (KL) Doubly Stochastic "
                 "Affinity matrix (Sinkhorn affinity)."
             )
 
