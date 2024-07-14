@@ -24,19 +24,19 @@ Benefits of ``TorchDR`` include:
    :header-rows: 0
 
    * - **Modularity**
-     - All of it is written in python in a highly modular way, making it easy to create or transform components.
+     - All of it is written in **python** in a **highly modular** way, making it easy to create or transform components.
    * - **Speed**
-     - Supports GPU acceleration, sparsity and batching strategies with contrastive learning techniques.
+     - Supports **GPU acceleration**, **sparsity** and **batching** strategies with **contrastive learning** techniques.
    * - **Memory efficiency**
-     - Relies on ``KeOps`` [19]_ symbolic tensors to avoid memory overflows.
+     - Relies on ``KeOps`` [19]_ symbolic tensors to **avoid memory overflows**.
    * - **Compatibility**
-     - Implemented methods are fully compatible with the ``scikit-learn`` [21]_ API and ``torch`` [20]_ ecosystem.
+     - Implemented methods are fully **compatible** with the ``scikit-learn`` [21]_ API and ``torch`` [20]_ ecosystem.
 
 
 Getting Started
 ---------------
 
-``TorchDR`` offers a **user-friendly API similar to scikit-learn**. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
+``TorchDR`` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the :meth:`fit_transform` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
 .. code-block:: python
 
@@ -54,8 +54,8 @@ Getting Started
 
     z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
 
-
-Here is a comparison of various neighbor embedding methods on the MNIST dataset:
+**MNIST example.**
+Here is a comparison of various neighbor embedding methods on the MNIST digits dataset.
 
 .. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
    :width: 800px
@@ -64,20 +64,24 @@ Here is a comparison of various neighbor embedding methods on the MNIST dataset:
 
 The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`_.
 
+**Single cell example.**
+Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.
 
 .. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
-   :width: 800px
+   :width: 700px
    :alt: single cell embeddings
    :align: center
 
+The code for this figure is `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
 
-Implemented Methods
--------------------
+
+Implemented Methods (so far)
+----------------------------
 
 Affinities
 ~~~~~~~~~~
 
-``TorchDR`` features a wide range of affinity matrices which can then be used as a building block for DR algorithms. It includes:
+``TorchDR`` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gaussian and Student kernels.
 * Self-tuning affinities [22]_.
@@ -87,9 +91,20 @@ Affinities
 DR algorithms
 ~~~~~~~~~~~~~
 
-**Spectral.** ``TorchDR`` provides spectral embeddings calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** ``TorchDR`` includes various neighbor embedding methods such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
+**Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
+
+
+Installation
+------------
+
+The library is not yet available on PyPI. You can install it from the source code.
+
+.. code-block:: bash
+
+    pip install git+https://github.com/torchdr/torchdr
+
 
 
 Finding Help
