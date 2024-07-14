@@ -266,7 +266,7 @@ Many NE methods can be represented within this framework. The following table su
    * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
      - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>` / :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
      - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`

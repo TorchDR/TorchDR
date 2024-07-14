@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:01.678** total execution time for 2 files **from all galleries**:
+**00:01.698** total execution time for 2 files **from all galleries**:
 
 .. container::
 
@@ -33,8 +33,8 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_basics_demo_pca_via_affinity_matcher.py` (``../../examples/basics/demo_pca_via_affinity_matcher.py``)
-     - 00:00.853
+     - 00:00.925
      - 0.0
    * - :ref:`sphx_glr_auto_examples_affinities_demo_ea_adaptivity.py` (``../../examples/affinities/demo_ea_adaptivity.py``)
-     - 00:00.825
+     - 00:00.773
      - 0.0
