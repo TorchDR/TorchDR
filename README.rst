@@ -62,7 +62,7 @@ Here is a comparison of various neighbor embedding methods on the MNIST dataset:
    :alt: various neighbor embedding methods on MNIST
    :align: center
 
-The code to generate this figure is available `here  <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`.
+The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`_.
 
 
 Implemented Methods
