@@ -50,7 +50,7 @@ class NeighborEmbedding(AffinityMatcher):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -85,7 +85,7 @@ class NeighborEmbedding(AffinityMatcher):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
@@ -233,7 +233,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -268,7 +268,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
@@ -368,7 +368,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -405,7 +405,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
