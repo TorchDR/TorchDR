@@ -8,8 +8,8 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
+import numpy as np
 import warnings
-from abc import abstractmethod
 
 from torchdr.affinity import (
     Affinity,
@@ -18,7 +18,7 @@ from torchdr.affinity import (
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import cross_entropy_loss
+from torchdr.utils import cross_entropy_loss, OPTIMIZERS
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -50,7 +50,7 @@ class NeighborEmbedding(AffinityMatcher):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -85,7 +85,7 @@ class NeighborEmbedding(AffinityMatcher):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
@@ -96,6 +96,7 @@ class NeighborEmbedding(AffinityMatcher):
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
+        **kwargs,
     ):
 
         super().__init__(
@@ -122,6 +123,14 @@ class NeighborEmbedding(AffinityMatcher):
         self.coeff_attraction = coeff_attraction
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
+
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.tol = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
@@ -162,23 +171,37 @@ class NeighborEmbedding(AffinityMatcher):
 
         super()._fit(X)
 
-    @abstractmethod
-    def _repulsive_loss(self, log_Q):
-        pass
-
     def _loss(self):
-        log = isinstance(self.affinity_out, LogAffinity)
-        Q = self.affinity_out(self.embedding_, log=log)
-        P = self.PX_
+        raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")
 
-        attractive_term = cross_entropy_loss(P, Q, log=log)
-        repulsive_term = self._repulsive_loss(Q, log=log)
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            if self.optimizer not in ["auto", "SGD"]:
+                if self.verbose:
+                    warnings.warn(
+                        "[TorchDR] WARNING : when 'auto' is used for the learning "
+                        "rate, the optimizer should be 'SGD'."
+                    )
+            # from the sklearn TSNE implementation
+            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
+        else:
+            self.lr_ = self.lr
 
-        loss = (
-            self.coeff_attraction_ * attractive_term
-            + self.coeff_repulsion * repulsive_term
+    def _set_optimizer(self):
+        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
+        # from the sklearn TSNE implementation
+        if self.optimizer_kwargs == "auto":
+            if self.coeff_attraction_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
+            else:
+                optimizer_kwargs = {"momentum": 0.8}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs
+
+        self.optimizer_ = OPTIMIZERS[optimizer](
+            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
         )
-        return loss
+        return self.optimizer_
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
@@ -210,7 +233,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -245,7 +268,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
@@ -303,9 +326,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             Q = self.affinity_out(self.embedding_, indices=self.indices_)
             return cross_entropy_loss(self.PX_, Q)
 
-    @abstractmethod
     def _repulsive_loss(self):
-        pass
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _repulsive_loss method must be implemented."
+        )
 
     def _loss(self):
         loss = (
@@ -344,7 +368,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -381,7 +405,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
@@ -435,6 +459,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             else:
                 self.n_negatives_ = self.n_negatives
 
+        # For each point, uniformly sample n_negatives_ points
+        # from the set of all other points.
         indices = self.generator_.integers(
             1, self.n_samples_in_, (self.n_samples_in_, self.n_negatives_)
         )

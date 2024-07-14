@@ -55,7 +55,6 @@ Neighbor Embedding
    SNE
    TSNE
    InfoTSNE
-   SNEkhorn
    TSNEkhorn
    LargeVis
    UMAP
