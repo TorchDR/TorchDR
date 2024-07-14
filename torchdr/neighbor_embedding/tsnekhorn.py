@@ -7,15 +7,16 @@ SNEkhorn algorithm (inverse OT DR)
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
     SymmetricEntropicAffinity,
+    EntropicAffinity,
     SinkhornAffinity,
 )
-from torchdr.utils import logsumexp_red, sum_red
+from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
-class TSNEkhorn(SparseNeighborEmbedding):
+class TSNEkhorn(NeighborEmbedding):
     """
     Implementation of the TSNEkhorn algorithm introduced in [3]_.
 
@@ -78,6 +79,9 @@ class TSNEkhorn(SparseNeighborEmbedding):
     unrolling : bool, optional
         Whether to use unrolling for solving inverse OT. If False, uses
         the gap objective. Default is False.
+    symmetric_affinity : bool, optional
+        Whether to use symmetric entropic affinity. If False, uses
+        entropic affinity. Default is False.
 
     References
     ----------
@@ -116,6 +120,7 @@ class TSNEkhorn(SparseNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         unrolling: bool = False,
+        symmetric_affinity: bool = False,
     ):
 
         self.metric_in = metric_in
@@ -126,18 +131,31 @@ class TSNEkhorn(SparseNeighborEmbedding):
         self.max_iter_affinity_in = max_iter_affinity_in
         self.tol_affinity_in = tol_affinity_in
         self.unrolling = unrolling
+        self.symmetric_affinity = symmetric_affinity
 
-        affinity_in = SymmetricEntropicAffinity(
-            perplexity=perplexity,
-            lr=lr_affinity_in,
-            eps_square=eps_square_affinity_in,
-            metric=metric_in,
-            tol=tol_affinity_in,
-            max_iter=max_iter_affinity_in,
-            device=device,
-            keops=keops,
-            verbose=verbose,
-        )
+        if self.symmetric_affinity:
+            affinity_in = SymmetricEntropicAffinity(
+                perplexity=perplexity,
+                lr=lr_affinity_in,
+                eps_square=eps_square_affinity_in,
+                metric=metric_in,
+                tol=tol_affinity_in,
+                max_iter=max_iter_affinity_in,
+                device=device,
+                keops=keops,
+                verbose=verbose,
+                zero_diag=False,
+            )
+        else:
+            affinity_in = EntropicAffinity(
+                perplexity=perplexity,
+                metric=metric_in,
+                tol=tol_affinity_in,
+                max_iter=max_iter_affinity_in,
+                device=device,
+                keops=keops,
+                verbose=verbose,
+            )
         affinity_out = SinkhornAffinity(
             metric=metric_out,
             device=device,
@@ -145,6 +163,7 @@ class TSNEkhorn(SparseNeighborEmbedding):
             verbose=False,
             base_kernel="student",
             with_grad=unrolling,
+            max_iter=5,
         )
 
         super().__init__(
@@ -170,11 +189,24 @@ class TSNEkhorn(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _repulsive_loss(self, Q, log=True):
+    def _loss(self):
+        if not hasattr(self, "dual_sinkhorn"):
+            self.dual_sinkhorn_ = None
+
+        log_Q = self.affinity_out(
+            self.embedding_, log=True, init_dual=self.dual_sinkhorn_
+        )
+        self.dual_sinkhorn_ = self.affinity_out.dual_.detach()
+        P = self.PX_
+
+        attractive_term = cross_entropy_loss(P, log_Q, log=True)
         if self.unrolling:
-            return 0
+            repulsive_term = 0
         else:
-            if log:
-                return logsumexp_red(Q, dim=(0, 1)).exp()
-            else:
-                return sum_red(Q, dim=(0, 1))
+            repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
+
+        loss = (
+            self.coeff_attraction_ * attractive_term
+            + self.coeff_repulsion * repulsive_term
+        )
+        return loss

@@ -10,7 +10,6 @@ Base classes for Neighbor Embedding methods
 import torch
 import numpy as np
 import warnings
-from abc import abstractmethod
 
 from torchdr.affinity import (
     Affinity,
@@ -172,23 +171,8 @@ class NeighborEmbedding(AffinityMatcher):
 
         super()._fit(X)
 
-    @abstractmethod
-    def _repulsive_loss(self, log_Q):
-        pass
-
     def _loss(self):
-        log = isinstance(self.affinity_out, LogAffinity)
-        Q = self.affinity_out(self.embedding_, log=log)
-        P = self.PX_
-
-        attractive_term = cross_entropy_loss(P, Q, log=log)
-        repulsive_term = self._repulsive_loss(Q, log=log)
-
-        loss = (
-            self.coeff_attraction_ * attractive_term
-            + self.coeff_repulsion * repulsive_term
-        )
-        return loss
+        raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")
 
     def _set_learning_rate(self):
         if self.lr == "auto":
@@ -342,9 +326,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             Q = self.affinity_out(self.embedding_, indices=self.indices_)
             return cross_entropy_loss(self.PX_, Q)
 
-    @abstractmethod
     def _repulsive_loss(self):
-        pass
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _repulsive_loss method must be implemented."
+        )
 
     def _loss(self):
         loss = (

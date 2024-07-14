@@ -64,7 +64,7 @@ class Affinity(ABC):
         self.zero_diag = zero_diag
         self.add_diag = 1e12 if self.zero_diag else None
 
-    def __call__(self, X: torch.Tensor | np.ndarray):
+    def __call__(self, X: torch.Tensor | np.ndarray, **kwargs):
         r"""
         Computes the affinity matrix from the input data.
 
@@ -79,7 +79,7 @@ class Affinity(ABC):
             The computed affinity matrix.
         """
         X = to_torch(X, device=self.device)
-        return self._compute_affinity(X)
+        return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""
@@ -161,7 +161,7 @@ class LogAffinity(Affinity):
             verbose=verbose,
         )
 
-    def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False):
+    def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False, **kwargs):
         r"""
         Computes the affinity matrix from the input data.
 
@@ -180,7 +180,7 @@ class LogAffinity(Affinity):
             exponentiated log affinity matrix.
         """
         X = to_torch(X, device=self.device)
-        log_affinity = self._compute_log_affinity(X)
+        log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
         else:
@@ -276,6 +276,7 @@ class SparseLogAffinity(LogAffinity):
         X: torch.Tensor | np.ndarray,
         log: bool = False,
         return_indices: bool = False,
+        **kwargs,
     ):
         r"""
         Computes and returns the log affinity matrix from input data.
@@ -304,7 +305,7 @@ class SparseLogAffinity(LogAffinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         X = to_torch(X, device=self.device)
-        log_affinity, indices = self._compute_sparse_log_affinity(X)
+        log_affinity, indices = self._compute_sparse_log_affinity(X, **kwargs)
         affinity_to_return = log_affinity if log else log_affinity.exp()
         return (affinity_to_return, indices) if return_indices else affinity_to_return
 
@@ -374,6 +375,7 @@ class UnnormalizedAffinity(Affinity):
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
         indices: torch.Tensor = None,
+        **kwargs,
     ):
         r"""
         Computes the affinity matrix from the input data.
@@ -396,7 +398,7 @@ class UnnormalizedAffinity(Affinity):
         X = to_torch(X, device=self.device)
         if Y is not None:
             Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
@@ -520,6 +522,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Y: torch.Tensor | np.ndarray = None,
         indices: torch.Tensor = None,
         log: bool = False,
+        **kwargs,
     ):
         r"""
         Computes the affinity matrix in log domain from the input data.
@@ -545,7 +548,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         X = to_torch(X, device=self.device)
         if Y is not None:
             Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:
             return log_affinity
