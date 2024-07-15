@@ -86,7 +86,7 @@ class AffinityMatcher(DRModule):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     """  # noqa: E501
@@ -111,7 +111,7 @@ class AffinityMatcher(DRModule):
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
     ):
         super().__init__(

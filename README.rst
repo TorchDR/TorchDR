@@ -88,10 +88,10 @@ Affinities
 * Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
 * Adaptive affinities with entropy control [1]_ [4]_ and its symmetric version [3]_.
 
-DR algorithms
-~~~~~~~~~~~~~
+Dimensionality Reduction Algorithms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** ``TorchDR`` provides **spectral embeddings** [11]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
 **Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
