@@ -18,7 +18,7 @@ from torchdr.utils import (
     check_nonnegativity_eigenvalues,
 )
 from torchdr.affinity import (
-    Affinity, GaussianAffinity, TransformableAffinity, TransformableLogAffinity
+    Affinity, GaussianAffinity, UnnormalizedAffinity, UnnormalizedLogAffinity
 )
 
 
@@ -84,7 +84,7 @@ class KernelPCA(DRModule):
     def fit(self, X):
         X = super().fit(X)
         self.X_train_ = X
-        K = self.affinity.fit_transform(X)
+        K = self.affinity(X)
         K = center_kernel(K)
 
         # compute eigendecomposition
@@ -116,11 +116,12 @@ class KernelPCA(DRModule):
     @handle_backend
     def transform(self, X):
         if not isinstance(self.affinity,
-                          (TransformableAffinity, TransformableLogAffinity)):
+                          (UnnormalizedAffinity, UnnormalizedLogAffinity)):
             aff_name = self.affinity.__class__.__name__
             raise ValueError(
-                f"Affinity {aff_name} cannot transform data without fitting "
-                "first. Use the fit_transform method instead."
+                "KernelPCA.transform can only be used when `affinity` is "
+                "an UnnormalizedAffinity or UnnormalizedLogAffinity. "
+                f"{aff_name} is not. Use the fit_transform method instead."
             )
         K = self.affinity(X, self.X_train_)
         K = center_kernel(K)

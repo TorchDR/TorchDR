@@ -46,8 +46,9 @@ def test_KernelPCA_no_transform():
     model.fit(X)
     model.fit_transform(X)
 
-    with pytest.raises(
-            ValueError, match="cannot transform data without fitting"):
+    match = ("can only be used when `affinity` is an UnnormalizedAffinity or "
+             "UnnormalizedLogAffinity")
+    with pytest.raises(ValueError, match=match):
         model.transform(X)  # cannot use transform.
 
 
