@@ -36,6 +36,7 @@ from .affinity_matcher import (
     AffinityMatcher,
 )
 from .neighbor_embedding import (
+    NeighborEmbedding,
     SNE,
     TSNE,
     InfoTSNE,

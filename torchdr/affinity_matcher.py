@@ -39,13 +39,17 @@ LOSS_DICT = {
 class AffinityMatcher(DRModule):
     r"""
     Performs dimensionality reduction by matching two affinity matrices.
-    It amounts to solving the following optimization problem:
+    It amounts to solving a problem of the form:
 
     .. math::
 
-        \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \:.
+        \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z})
 
-    Optimization of the embedding is perfomed using torch autodiff.
+    where :math:`\mathcal{L}` is a loss function, :math:`\mathbf{A_X}` is the
+    input affinity matrix and :math:`\mathbf{A_Z}` is the affinity matrix of the
+    embedding.
+
+    The embedding optimization is performed using a first-order optimization method, with gradients calculated through PyTorch's automatic differentiation.
 
     Parameters
     ----------

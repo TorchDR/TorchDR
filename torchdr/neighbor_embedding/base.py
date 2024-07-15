@@ -25,7 +25,13 @@ class NeighborEmbedding(AffinityMatcher):
     r"""
     Performs dimensionality reduction by solving the neighbor embedding problem.
 
-    It amounts to solving the following optimization problem:
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
 
     Parameters
     ----------

@@ -52,6 +52,7 @@ Neighbor Embedding
    :toctree: gen_modules/
    :template: myclass_template.rst
 
+   NeighborEmbedding
    SNE
    TSNE
    InfoTSNE
