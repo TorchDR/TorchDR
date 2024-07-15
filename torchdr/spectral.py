@@ -135,8 +135,6 @@ class KernelPCA(DRModule):
         K -= self.K_fit_rows_
         K -= pred_cols
         K += self.K_fit_all_
-        print("KKKK")
-        print(K)
 
         result = (
             K

@@ -15,10 +15,10 @@ from torchdr.affinity import GaussianAffinity, SinkhornAffinity
 @pytest.mark.parametrize("n_components", [3, None])
 def test_KernelPCA_sklearn(n_components):
     torch.manual_seed(0)
-    X = torch.randn(3, 20)
+    X = torch.randn(10, 20)
     X /= torch.linalg.norm(X, axis=0, keepdims=True)
     # otherwise all points at distance 1
-    Y = torch.randn(2, 20)
+    Y = torch.randn(5, 20)
     Y /= torch.linalg.norm(Y, axis=0, keepdims=True)
     sigma = 2
     aff = GaussianAffinity(zero_diag=False, sigma=sigma)
