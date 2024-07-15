@@ -16,8 +16,20 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the LargeVis algorithm introduced in [13]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -27,7 +39,7 @@ class LargeVis(SampledNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float or 'auto, optional
+    lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
     optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
         Which pytorch optimizer to use, by default 'auto'.
@@ -52,7 +64,7 @@ class LargeVis(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
@@ -97,7 +109,7 @@ class LargeVis(SampledNeighborEmbedding):
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 12.0,
         coeff_repulsion: float = 1.0,

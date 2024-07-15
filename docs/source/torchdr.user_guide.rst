@@ -17,8 +17,8 @@ User Guide
 Overview
 --------
 
-DR General Formulation
-^^^^^^^^^^^^^^^^^^^^^^
+General Formulation of Dimensionality Reduction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
 
@@ -91,7 +91,7 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.LogAffinity
 
 
-All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
+Affinities are objects that can directly be called. The outputed affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
 Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
 
@@ -100,13 +100,13 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     >>> n = 100
     >>> data = torch.randn(n, 2)
     >>> affinity = torchdr.GaussianAffinity()
-    >>> affinity_matrix = affinity.fit_transform(data)
+    >>> affinity_matrix = affinity(data)
     >>> print(affinity_matrix.shape)
     (100, 100)
 
 
-Affinities based on entropic projections
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Spotlight on affinities based on entropic projections
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
 
@@ -122,18 +122,22 @@ The following table details the aspects controlled by various formulations of en
    :header-rows: 1
 
    * - **Affinity (associated DR method)**
-     - **Symmetry**
      - **Marginal**
+     - **Symmetry**
      - **Entropy**
-   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <SNE>`) [1]_
-     - ❌
-     - ✅
-     - ✅
-   * - :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` (DOSNES) [5]_ [9]_
+   * - :class:`NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
      - ✅
      - ❌
-   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (:class:`TSNEkhorn <TSNEkhorn>`) [3]_
+   * - :class:`SinkhornAffinity <SinkhornAffinity>` [5]_ [9]_
+     - ✅
+     - ✅
+     - ❌
+   * - :class:`EntropicAffinity <EntropicAffinity>` [1]_
+     - ✅
+     - ❌
+     - ✅
+   * - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>` [3]_
      - ✅
      - ✅
      - ✅
@@ -143,7 +147,11 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 
 .. note::
     The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
-    However the l2 symmetrization of :class:`EntropicAffinity <torchdr.EntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
+    However the :math:`\ell_2` symmetrization : 
+    :math:`\overline{\mathbf{P}^{\mathrm{e}}} = \frac{1}{2}(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top)`, 
+    performed in TSNE, where :math:`\mathbf{P}^{\mathrm{e}}` is the 
+    :class:`EntropicAffinity <torchdr.EntropicAffinity>` matrix, is more efficient 
+    to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
 
 
 .. minigallery:: torchdr.EntropicAffinity
@@ -161,8 +169,10 @@ Another example is the doubly stochastic normalization of a base affinity under 
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
-DR Modules
-----------
+Dimensionality Reduction Modules
+--------------------------------
+
+``TorchDR`` provides a wide range of dimensionality reduction (DR) methods, including spectral methods and neighbor embedding methods.
 
 All DR estimators inherit the structure of the :meth:`DRModule` class:
 
@@ -262,7 +272,7 @@ Many NE methods can be represented within this framework. The following table su
    * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
      - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>` / :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
      - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`
@@ -279,11 +289,14 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
+In the above table, :math:`N(i)` denotes the set of negative samples 
+for point :math:`i`.
+
 
 MDS-like Methods
 """""""""""""""""
 
-They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+They rely on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
 
 .. math::
 

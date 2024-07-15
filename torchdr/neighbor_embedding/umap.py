@@ -16,9 +16,21 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the UMAP algorithm introduced in [8]_ and further studied
     in [12]_.
+
+    It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -59,7 +71,7 @@ class UMAP(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
@@ -111,7 +123,7 @@ class UMAP(SampledNeighborEmbedding):
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,

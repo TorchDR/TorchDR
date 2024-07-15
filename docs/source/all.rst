@@ -11,12 +11,12 @@ API and Modules
    :no-inherited-members:
 
 
-DR Modules - ``sklearn`` Compatible
------------------------------------
+Dimensionality Reduction Modules - ``sklearn`` Compatible
+----------------------------------------------------------
 
 
-Base DR Module
-^^^^^^^^^^^^^^
+Base Dimensionality Reduction Module
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -25,8 +25,8 @@ Base DR Module
    DRModule
 
 
-Spectral DR
-^^^^^^^^^^^
+Spectral Embedding
+^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -48,14 +48,37 @@ Affinity Matcher
 Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
 
+Base Modules
+""""""""""""
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   NeighborEmbedding
+   SparseNeighborEmbedding
+   SampledNeighborEmbedding
+   
+Classical Neighbor Embedding Methods
+"""""""""""""""""""""""""""""""""""""
+   
 .. autosummary::
    :toctree: gen_modules/
    :template: myclass_template.rst
 
    SNE
    TSNE
-   InfoTSNE
    TSNEkhorn
+
+
+Noise Contrastive Neighbor Embedding Methods
+"""""""""""""""""""""""""""""""""""""""""""""
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   InfoTSNE
    LargeVis
    UMAP
 
@@ -83,8 +106,9 @@ Entropic Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
    
-   EntropicAffinity
+   NormalizedGaussianAffinity
    SinkhornAffinity
+   EntropicAffinity
    SymmetricEntropicAffinity
 
 Quadratic Affinities
@@ -130,3 +154,11 @@ References
 .. [5] Richard Sinkhorn, Paul Knopp (1967). `Concerning nonnegative matrices and doubly stochastic matrices <https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf>`_. Pacific Journal of Mathematics, 21(2), 343-348.
 
 .. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
+
+.. [12] Sebastian Damrich, Fred Hamprecht (2021). `On UMAP's True Loss Function <https://proceedings.neurips.cc/paper/2021/file/2de5d16682c3c35007e4e92982f1a2ba-Paper.pdf>`_. Advances in Neural Information Processing Systems 34 (NeurIPS).
+
+.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
+
+.. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
+
+.. [22] Max Zelnik-Manor, L., & Perona, P. (2004). `Self-Tuning Spectral Clustering <https://proceedings.neurips.cc/paper_files/paper/2004/file/40173ea48d9567f1f393b20c855bb40b-Paper.pdf>`_. Advances in Neural Information Processing Systems 17 (NeurIPS).
