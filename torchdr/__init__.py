@@ -74,6 +74,7 @@ __all__ = [
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",
+    "KernelPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
     "SampledNeighborEmbedding",
