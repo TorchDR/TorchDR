@@ -13,8 +13,8 @@ import warnings
 
 from torchdr.affinity import (
     Affinity,
-    LogAffinity,
     UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
@@ -337,7 +337,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _attractive_loss(self):
-        if isinstance(self.affinity_out, LogAffinity):
+        if isinstance(self.affinity_out, UnnormalizedLogAffinity):
             log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
