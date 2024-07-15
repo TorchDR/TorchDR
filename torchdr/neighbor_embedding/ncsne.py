@@ -23,7 +23,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float or 'auto, optional
+    lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
     optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
         Which pytorch optimizer to use, by default 'auto'.

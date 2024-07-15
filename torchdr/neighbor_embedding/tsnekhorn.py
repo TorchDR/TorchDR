@@ -29,7 +29,7 @@ class TSNEkhorn(NeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
+        Learning rate for the algorithm, by default 1e0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional

@@ -43,12 +43,12 @@ class NeighborEmbedding(AffinityMatcher):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -85,9 +85,9 @@ class NeighborEmbedding(AffinityMatcher):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
@@ -226,12 +226,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -268,9 +268,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
@@ -361,12 +361,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -407,9 +407,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         n_components: int = 2,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        lr: float | str = 1e0,
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: dict | str = None,
         tol: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
