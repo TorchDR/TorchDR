@@ -12,6 +12,7 @@ import torch
 
 from torchdr.base import DRModule
 from torchdr.utils import (
+    sum_red,
     svd_flip,
     handle_backend,
     center_kernel,
@@ -88,7 +89,9 @@ class KernelPCA(DRModule):
         X = super().fit(X)
         self.X_fit_ = X.clone()
         K = self.affinity(X)
-        K = center_kernel(K)
+        K, _, col_mean, mean = center_kernel(K, return_all=True)
+        self.K_fit_rows_ = col_mean
+        self.K_fit_all_ = mean
 
         # compute eigendecomposition
         eigvals, eigvecs = torch.linalg.eigh(K)
@@ -126,7 +129,13 @@ class KernelPCA(DRModule):
                 f"{aff_name} is not. Use the fit_transform method instead."
             )
         K = self.affinity(X, self.X_fit_)
-        K = center_kernel(K)
+        # K = center_kernel(K)
+        # center à la sklearn: using fit data for rows and all, new data for col
+        pred_cols = sum_red(K, 1) / self.K_fit_rows_.shape[1]
+        K -= self.K_fit_rows_
+        K -= pred_cols
+        K += self.K_fit_all_
+        print("KKKK")
         print(K)
 
         result = (
