@@ -22,7 +22,6 @@ from .wrappers import (
     torch_to_backend,
     handle_backend,
     sum_all_axis_except_batch,
-    inputs_to_torch,
 )
 
 from .geometry import (
@@ -58,7 +57,7 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     logsumexp_red,
-    batch_transpose
+    batch_transpose,
 )
 
 
@@ -78,7 +77,6 @@ __all__ = [
     "sum_matrix_vector",
     "sum_red",
     "sum_all_axis_except_batch",
-    "inputs_to_torch",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",

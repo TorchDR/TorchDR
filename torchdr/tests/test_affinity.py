@@ -31,8 +31,8 @@ from torchdr.utils import (
     check_shape,
     check_nonnegativity,
     check_total_sum,
-    check_similarity,
     entropy,
+    to_torch,
 )
 from torchdr.affinity import (
     ScalarProductAffinity,
@@ -74,7 +74,7 @@ def test_scalar_product_affinity(dtype):
     list_P = []
     for keops in lst_keops:
         affinity = ScalarProductAffinity(device=DEVICE, keops=keops)
-        P = affinity.fit_transform(X)
+        P = affinity(X)
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
@@ -100,7 +100,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
         affinity = NormalizedGaussianAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
-        P = affinity.fit_transform(X)
+        P = affinity(X)
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
@@ -126,7 +126,7 @@ def test_gibbs_affinity(dtype, metric):
     list_P = []
     for keops in lst_keops:
         affinity = GaussianAffinity(device=DEVICE, keops=keops, metric=metric)
-        P = affinity.fit_transform(X)
+        P = affinity(X)
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
@@ -152,7 +152,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
         affinity = SelfTuningAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
-        P = affinity.fit_transform(X)
+        P = affinity(X)
         list_P.append(P)
         # -- check properties of the affinity matrix --
         check_type(P, keops=keops)
@@ -177,7 +177,7 @@ def test_student_affinity(dtype, metric):
     list_P = []
     for keops in lst_keops:
         affinity = StudentAffinity(device=DEVICE, keops=keops, metric=metric)
-        P = affinity.fit_transform(X)
+        P = affinity(X)
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
@@ -215,7 +215,7 @@ def test_entropic_affinity(dtype, metric, sparsity, keops):
         device=DEVICE,
         sparsity=sparsity,
     )
-    log_P, _ = affinity.fit_transform(X, log=True)
+    log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
@@ -224,7 +224,7 @@ def test_entropic_affinity(dtype, metric, sparsity, keops):
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C = affinity._distance_matrix(affinity.data_)
+    C = affinity._distance_matrix(to_torch(X, device=DEVICE))
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
     assert (
         entropy_gap(begin, C) < 0
@@ -260,7 +260,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
         device=DEVICE,
         optimizer=optimizer,
     )
-    log_P = affinity.fit_transform(X, log=True)
+    log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
@@ -291,7 +291,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
         tolog=True,
         verbose=True,
     )
-    log_P = affinity.fit_transform(X, log=True)
+    log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
     check_type(log_P, keops=keops)
@@ -319,7 +319,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
         tolog=True,
         verbose=True,
     )
-    P = affinity.fit_transform(X)
+    P = affinity(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
@@ -347,7 +347,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, keops):
         verbose=True,
         sparsity=sparsity,
     )
-    P, _ = affinity.fit_transform(X)
+    P = affinity(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
@@ -371,27 +371,10 @@ def test_umap_embedding_affinity(dtype, metric, keops, a, b):
         a=a,
         b=b,
     )
-    P = affinity.fit_transform(X)
+    P = affinity(X)
 
     # -- check properties of the affinity matrix --
     check_type(P, keops=keops)
     check_shape(P, (n, n))
     check_nonnegativity(P)
     check_symmetry(P)
-
-
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize(
-    "Affinity",
-    [ScalarProductAffinity, GaussianAffinity, StudentAffinity, UMAPAffinityOut],
-)
-@pytest.mark.parametrize("keops", lst_keops)
-def test_affinity_transform(Affinity, keops, dtype):
-    n = 50
-    X = toy_dataset(n, dtype)
-
-    affinity = Affinity(device=DEVICE, keops=keops)
-    P = affinity.fit_transform(X)
-    P_transform = affinity.transform(X)
-
-    check_similarity(P, P_transform)
