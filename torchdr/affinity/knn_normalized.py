@@ -69,7 +69,7 @@ class SelfTuningAffinity(LogAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -86,7 +86,7 @@ class SelfTuningAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = None,
         keops: bool = True,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

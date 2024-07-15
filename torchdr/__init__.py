@@ -36,6 +36,9 @@ from .affinity_matcher import (
     AffinityMatcher,
 )
 from .neighbor_embedding import (
+    NeighborEmbedding,
+    SparseNeighborEmbedding,
+    SampledNeighborEmbedding,
     SNE,
     TSNE,
     InfoTSNE,
@@ -71,6 +74,9 @@ __all__ = [
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",
+    "NeighborEmbedding",
+    "SparseNeighborEmbedding",
+    "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
     "InfoTSNE",

@@ -10,5 +10,16 @@ from .ncsne import InfoTSNE
 from .tsnekhorn import TSNEkhorn
 from .largevis import LargeVis
 from .umap import UMAP
+from .base import NeighborEmbedding, SparseNeighborEmbedding, SampledNeighborEmbedding
 
-__all__ = ["SNE", "TSNE", "InfoTSNE", "TSNEkhorn", "LargeVis", "UMAP"]
+__all__ = [
+    "NeighborEmbedding",
+    "SparseNeighborEmbedding",
+    "SampledNeighborEmbedding",
+    "SNE",
+    "TSNE",
+    "InfoTSNE",
+    "TSNEkhorn",
+    "LargeVis",
+    "UMAP",
+]

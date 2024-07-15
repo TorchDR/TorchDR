@@ -72,6 +72,46 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
 
 
 class UMAPAffinityIn(SparseLogAffinity):
+    r"""
+    Computes the input affinity used in UMAP [8]_.
+
+    The algorithm computes via root search the variable
+    :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
+
+    .. math::
+        \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors}) \quad \text{where} \quad \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i)
+
+    and :math:`\rho_i = \min_j C_{ij}`.
+
+    Parameters
+    ----------
+    n_neighbors : float, optional
+        Number of effective nearest neighbors to consider. Similar to the perplexity.
+    tol : float, optional
+        Precision threshold for the root search.
+    max_iter : int, optional
+        Maximum number of iterations for the root search.
+    sparsity : bool or 'auto', optional
+        Whether to use sparsity mode.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+
+    References
+    ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
+
+    """  # noqa: E501
+
     def __init__(
         self,
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
@@ -82,7 +122,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.tol = tol
@@ -163,6 +203,47 @@ class UMAPAffinityIn(SparseLogAffinity):
 
 
 class UMAPAffinityOut(UnnormalizedAffinity):
+    r"""
+    Computes the affinity used in embedding space in UMAP [8]_.
+
+    Its :math:`(i,j)` coefficient is as follows:
+
+    .. math::
+        1 / \left(1 + a C_{ij}^{b} \right)
+
+    where parameters a and b are fitted to the spread and min_dist parameters.
+
+    Parameters
+    ----------
+    min_dist : float, optional
+        min_dist parameter from UMAP. Provides the minimum distance apart that
+        points are allowed to be.
+    spread : float, optional
+        spread parameter from UMAP.
+    a : float, optional
+        factor of the cost matrix.
+    b : float, optional
+        exponent of the cost matrix.
+    degrees_of_freedom : int, optional
+        Degrees of freedom for the Student-t distribution.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+
+    References
+    ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
+    """
+
     def __init__(
         self,
         min_dist: float = 0.1,
@@ -173,7 +254,7 @@ class UMAPAffinityOut(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

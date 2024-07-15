@@ -59,7 +59,7 @@ scatter = axes[0].scatter(
     z_tsne[:, 0], z_tsne[:, 1], c=y_macosko_encoded, cmap="tab10", s=1, alpha=0.5
 )
 axes[0].set_title(
-    r"TSNE on Macosko et al. 2015 $(4.5 \times 10^{5})$", fontsize=fontsize
+    r"TSNE on Macosko et al. 2015 $(4.5 \times 10^{4})$", fontsize=fontsize
 )
 
 axes[1].scatter(
