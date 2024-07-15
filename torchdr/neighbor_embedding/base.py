@@ -62,7 +62,7 @@ class NeighborEmbedding(AffinityMatcher):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -91,7 +91,7 @@ class NeighborEmbedding(AffinityMatcher):
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -245,7 +245,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -274,7 +274,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -380,7 +380,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -411,7 +411,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,

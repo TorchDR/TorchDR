@@ -79,7 +79,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
     """
 
     def __init__(
@@ -89,7 +89,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -120,14 +120,14 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     keops : bool, optional
         Whether to use KeOps for computations. Default is True.
     verbose : bool, optional
-        Verbosity. Default is True.
+        Verbosity. Default is False.
     """
 
     def __init__(
         self,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric="angular",

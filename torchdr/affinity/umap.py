@@ -102,7 +102,7 @@ class UMAPAffinityIn(SparseLogAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -122,7 +122,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.tol = tol
@@ -235,7 +235,7 @@ class UMAPAffinityOut(UnnormalizedAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -254,7 +254,7 @@ class UMAPAffinityOut(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

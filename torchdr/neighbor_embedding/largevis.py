@@ -52,7 +52,7 @@ class LargeVis(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
@@ -97,7 +97,7 @@ class LargeVis(SampledNeighborEmbedding):
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 12.0,
         coeff_repulsion: float = 1.0,

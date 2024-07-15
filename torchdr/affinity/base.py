@@ -37,7 +37,7 @@ class Affinity(ABC):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -46,7 +46,7 @@ class Affinity(ABC):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
 
         if keops and not pykeops:
@@ -142,7 +142,7 @@ class LogAffinity(Affinity):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -151,7 +151,7 @@ class LogAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -229,7 +229,7 @@ class SparseLogAffinity(LogAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
@@ -240,7 +240,7 @@ class SparseLogAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         sparsity: bool | str = "auto",
     ):
         super().__init__(
@@ -352,7 +352,7 @@ class UnnormalizedAffinity(Affinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -361,7 +361,7 @@ class UnnormalizedAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -498,7 +498,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -507,7 +507,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

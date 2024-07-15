@@ -215,7 +215,7 @@ class EntropicAffinity(SparseLogAffinity):
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -242,7 +242,7 @@ class EntropicAffinity(SparseLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self.perplexity = perplexity
         self.tol = tol
@@ -405,7 +405,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
-        Verbosity (default True).
+        Verbosity. Default is False.
 
     References
     ----------
@@ -426,7 +426,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -662,7 +662,7 @@ class SinkhornAffinity(LogAffinity):
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
     with_grad : bool, optional (default=False)
         If True, the Sinkhorn iterations are done with gradient tracking.
         If False, torch.no_grad() is used for the iterations.
@@ -821,7 +821,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         normalization_dim: int | Tuple[int] = (0, 1),
     ):
         super().__init__(

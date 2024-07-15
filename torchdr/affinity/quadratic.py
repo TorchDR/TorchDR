@@ -91,7 +91,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -115,7 +115,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
