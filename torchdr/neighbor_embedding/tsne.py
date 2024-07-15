@@ -17,8 +17,17 @@ from torchdr.utils import logsumexp_red
 
 class TSNE(SparseNeighborEmbedding):
     """
-    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
-    introduced in [2]_.
+    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm introduced in [2]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \log \Big( \sum_{ij} Q_{ij} \Big) \:.
 
     Parameters
     ----------

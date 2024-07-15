@@ -8,8 +8,8 @@ Common simple affinities
 # License: BSD 3-Clause License
 
 import torch
-from ..utils import LazyTensorType
 
+from torchdr.utils import LazyTensorType
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 
 
@@ -59,7 +59,9 @@ class GaussianAffinity(UnnormalizedLogAffinity):
 
 class StudentAffinity(UnnormalizedLogAffinity):
     r"""
-    Computes the Student affinity matrix based on the Student-t distribution:
+    Computes the Student affinity matrix based on the Student-t distribution.
+
+    Its expression is given by:
 
     .. math::
         \left(1 + \frac{\mathbf{C}}{\nu}\right)^{-\frac{\nu + 1}{2}}

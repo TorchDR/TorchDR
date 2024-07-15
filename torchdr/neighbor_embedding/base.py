@@ -23,7 +23,9 @@ from torchdr.utils import cross_entropy_loss, OPTIMIZERS
 
 class NeighborEmbedding(AffinityMatcher):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem.
+
+    It amounts to solving:
 
     .. math::
 
@@ -212,9 +214,19 @@ class NeighborEmbedding(AffinityMatcher):
 
 class SparseNeighborEmbedding(NeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -347,9 +359,28 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 class SampledNeighborEmbedding(SparseNeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix and a
+    stochastic estimation of the repulsive term.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a
+    :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
+    :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
+    can be computed with linear complexity.
+
+    **Fast repulsion.** A stochastic estimation of the repulsive term is used
+    to reduce its complexity to linear.
+    This is done by sampling a fixed number of negative samples
+    :attr:`n_negatives` for each point.
 
     Parameters
     ----------

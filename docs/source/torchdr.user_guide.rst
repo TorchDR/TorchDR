@@ -17,8 +17,8 @@ User Guide
 Overview
 --------
 
-DR General Formulation
-^^^^^^^^^^^^^^^^^^^^^^
+General Formulation of Dimensionality Reduction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
 
@@ -105,8 +105,8 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     (100, 100)
 
 
-Affinities based on entropic projections
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Spotlight on affinities based on entropic projections
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
 
@@ -125,7 +125,7 @@ The following table details the aspects controlled by various formulations of en
      - **Marginal**
      - **Symmetry**
      - **Entropy**
-   * - :class: `NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
+   * - :class:`NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
      - ✅
      - ❌
@@ -165,8 +165,10 @@ Another example is the doubly stochastic normalization of a base affinity under 
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
-DR Modules
-----------
+Dimensionality Reduction Modules
+--------------------------------
+
+``TorchDR`` provides a wide range of dimensionality reduction (DR) methods, including spectral methods and neighbor embedding methods.
 
 All DR estimators inherit the structure of the :meth:`DRModule` class:
 
@@ -287,7 +289,7 @@ Many NE methods can be represented within this framework. The following table su
 MDS-like Methods
 """""""""""""""""
 
-They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+They rely on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
 
 .. math::
 

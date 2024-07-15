@@ -16,9 +16,19 @@ from torchdr.utils import logsumexp_red
 
 
 class SNE(SparseNeighborEmbedding):
-    """
+    r"""
     Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
     introduced in [1]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j} Q_{ij} \Big) \:.
 
     Parameters
     ----------

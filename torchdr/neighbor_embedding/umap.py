@@ -20,6 +20,18 @@ class UMAP(SampledNeighborEmbedding):
     Implementation of the UMAP algorithm introduced in [8]_ and further studied
     in [12]_.
 
+    It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
+
     Parameters
     ----------
     n_neighbors : int

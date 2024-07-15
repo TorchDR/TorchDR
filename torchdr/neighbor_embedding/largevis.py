@@ -16,8 +16,20 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the LargeVis algorithm introduced in [13]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------

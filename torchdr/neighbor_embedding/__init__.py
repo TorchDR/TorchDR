@@ -10,10 +10,12 @@ from .ncsne import InfoTSNE
 from .tsnekhorn import TSNEkhorn
 from .largevis import LargeVis
 from .umap import UMAP
-from .base import NeighborEmbedding
+from .base import NeighborEmbedding, SparseNeighborEmbedding, SampledNeighborEmbedding
 
 __all__ = [
     "NeighborEmbedding",
+    "SparseNeighborEmbedding",
+    "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
     "InfoTSNE",
