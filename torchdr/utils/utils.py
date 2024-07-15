@@ -185,11 +185,11 @@ def normalize_matrix(P, dim=1, log=False):
 
 def center_kernel(K):
     r"""Center a kernel matrix."""
-    n = K.shape[0]
-    row_mean = sum_red(K, dim=1) / n
+    n, d = K.shape
+    row_mean = sum_red(K, dim=1) / d
     col_mean = sum_red(K, dim=0) / n
     mean = col_mean.mean()
-    K -= row_mean + col_mean - mean
+    K = K - row_mean - col_mean + mean
     return K
 
 

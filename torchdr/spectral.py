@@ -86,7 +86,7 @@ class KernelPCA(DRModule):
 
     def fit(self, X):
         X = super().fit(X)
-        self.X_train_ = X
+        self.X_fit_ = X.clone()
         K = self.affinity(X)
         K = center_kernel(K)
 
@@ -125,8 +125,10 @@ class KernelPCA(DRModule):
                 "an UnnormalizedAffinity or UnnormalizedLogAffinity. "
                 f"{aff_name} is not. Use the fit_transform method instead."
             )
-        K = self.affinity(X, self.X_train_)
+        K = self.affinity(X, self.X_fit_)
         K = center_kernel(K)
+        print(K)
+
         result = (
             K
             @ self.eigenvectors_
