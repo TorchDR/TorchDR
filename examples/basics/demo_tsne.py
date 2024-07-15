@@ -21,7 +21,7 @@ from torchdr import TSNE
 # Load toy images
 # ---------------
 #
-# First, let's load 5 classes of the digits dataset from sklearn.
+# First, let's load swiss roll dataset from sklearn.
 
 n_samples = 500
 
@@ -48,7 +48,7 @@ tsne = TSNE(
     n_components=2,
     perplexity=30,
     max_iter=100,
-    early_exaggeration_iter=50,
+    early_exaggeration_iter=25,
     verbose=True)
 
 X_embedded = tsne.fit_transform(X)
@@ -78,7 +78,8 @@ for perplexity in perplexity_values:
         n_components=2,
         perplexity=perplexity,
         max_iter=100,
-        early_exaggeration_iter=50,
+        early_exaggeration_iter=0,
+        coeff_attraction=1,
         init=init)
     X_embedded.append(tsne.fit_transform(X))
 
