@@ -62,7 +62,12 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
 
     @abstractmethod
     def fit(self, X, y=None):
-        """Projects input data X onto a low-dimensional space.
+        r"""Fits the DR model to project the input data :math:`\mathbf{X}` onto
+        a low-dimensional space.
+
+        This method must be overridden by subclasses. This base implementation
+        only converts the input data :math:`\mathbf{X}` to a torch tensor with
+        the right device.
 
         Parameters
         ----------
@@ -78,5 +83,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
             Fitted Estimator.
         """
         if self.verbose:
-            print("[TorchDR] Fitting DR model ...")
-        return self
+            print(f"[TorchDR] Fitting DR model {self.__class__.__name__} ...")
+
+        X = to_torch(X, device=self.device)
+        return X

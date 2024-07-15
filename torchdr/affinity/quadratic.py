@@ -25,6 +25,22 @@ def _Pds(C, dual, eps):
     r"""
     Returns the quadratic doubly stochastic matrix P
     from the dual variable f and cost matrix C.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Pairwise distance matrix.
+    dual : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the normalization constraint.
+    eps : float
+        Dual variable of the quadratic constraint.
+
+    Returns
+    -------
+    P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Quadratic doubly stochastic affinity matrix.
     """
     dual_t = batch_transpose(dual)
     return (dual + dual_t - C).clamp(0, float("inf")) / eps
