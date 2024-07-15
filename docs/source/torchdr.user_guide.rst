@@ -147,7 +147,11 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 
 .. note::
     The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
-    However the l2 symmetrization of :class:`EntropicAffinity <torchdr.EntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
+    However the :math:`\ell_2` symmetrization : 
+    :math:`\overline{\mathbf{P}^{\mathrm{e}}} = \frac{1}{2}(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top)`, 
+    performed in TSNE, where :math:`\mathbf{P}^{\mathrm{e}}` is the 
+    :class:`EntropicAffinity <torchdr.EntropicAffinity>` matrix, is more efficient 
+    to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
 
 
 .. minigallery:: torchdr.EntropicAffinity
@@ -284,6 +288,9 @@ Many NE methods can be represented within this framework. The following table su
      - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
+
+In the above table, :math:`N(i)` denotes the set of negative samples 
+for point :math:`i`.
 
 
 MDS-like Methods

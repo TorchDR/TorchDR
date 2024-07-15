@@ -16,7 +16,7 @@ from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
-    """
+    r"""
     Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm introduced in [2]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input

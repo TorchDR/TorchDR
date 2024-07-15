@@ -16,7 +16,7 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the UMAP algorithm introduced in [8]_ and further studied
     in [12]_.
 

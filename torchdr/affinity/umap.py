@@ -110,7 +110,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         UMAP: Uniform manifold approximation and projection for dimension reduction.
         arXiv preprint arXiv:1802.03426.
 
-    """
+    """  # noqa: E501
 
     def __init__(
         self,

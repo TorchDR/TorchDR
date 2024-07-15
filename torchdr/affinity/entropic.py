@@ -170,7 +170,7 @@ class EntropicAffinity(SparseLogAffinity):
     :math:`\mathbf{\varepsilon}^*` is computed by performing one dimensional searches
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
-    **Convex problem.** Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}` 
+    **Convex problem.** Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}`
     in [3]_, solving the convex optimization problem
 
     .. math::
@@ -348,9 +348,8 @@ class SymmetricEntropicAffinity(LogAffinity):
     The affinity matrix is then given by
 
     .. math::
-        \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:.
+        \forall (i,j), \: P^{\mathrm{se}}_{ij} = \exp \left( \frac{\mu^\star_{i} + \mu^\star_j - 2 C_{ij}}{\varepsilon^\star_i + \varepsilon^\star_j} \right) \:
 
-    
     **Convex problem.** It amounts to the following convex optimization problem:
 
     .. math::
@@ -369,12 +368,12 @@ class SymmetricEntropicAffinity(LogAffinity):
     It is a symmetric version of :class:`~torchdr.EntropicAffinity`,
     where a symmetry constraint is added in the optimization problem.
 
-    .. note:: Unlike 
-        :math:`(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top )/ 2` used in 
-        :class:`~torchdr.TSNE` where :math:`\mathbf{P}^{\mathrm{e}}` is the 
-        :class:`~torchdr.EntropicAffinity` matrix, 
-        :class:`~torchdr.affinity.SymmetricEntropicAffinity` 
-        allows to control the entropy and mass of each row/column of the 
+    .. note:: Unlike
+        :math:`(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top )/ 2` used in
+        :class:`~torchdr.TSNE` where :math:`\mathbf{P}^{\mathrm{e}}` is the
+        :class:`~torchdr.EntropicAffinity` matrix,
+        :class:`~torchdr.affinity.SymmetricEntropicAffinity`
+        allows to control the entropy and mass of each row/column of the
         affinity matrix.
 
     Parameters

@@ -10,7 +10,6 @@ Base classes for affinity matrices
 from abc import ABC
 
 import torch
-from ..utils import LazyTensorType, pykeops
 
 import numpy as np
 from torchdr.utils import (
@@ -18,6 +17,8 @@ from torchdr.utils import (
     symmetric_pairwise_distances_indices,
     pairwise_distances,
     to_torch,
+    LazyTensorType,
+    pykeops,
 )
 
 
@@ -104,9 +105,8 @@ class Affinity(ABC):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between all samples in the input
-        data, using the specified metric and optionally leveraging KeOps for memory
-        efficient computation.
+        It uses the specified metric and optionally leveraging KeOps
+        for memory efficient computation.
 
         Parameters
         ----------
@@ -432,9 +432,8 @@ class UnnormalizedAffinity(Affinity):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between samples, using
-        the specified metric and optionally leveraging KeOps for memory efficient
-        computation.
+        It uses the specified metric and optionally leverages KeOps
+        for memory efficient computation.
         It supports computing the full pairwise distance matrix, the pairwise
         distance matrix between two sets of samples, or the pairwise distance matrix
         between a set of samples and a subset of samples specified by indices.
