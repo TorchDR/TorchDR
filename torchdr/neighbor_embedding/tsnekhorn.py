@@ -17,8 +17,28 @@ from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
 class TSNEkhorn(NeighborEmbedding):
-    """
+    r"""
     Implementation of the TSNEkhorn algorithm introduced in [3]_.
+
+    It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{ij} Q_{ij} \:.
+
+    The above loss is the gap objective for inverse symmetric optimal transport
+    described in this
+    `blog <https://huguesva.github.io/blog/2024/inverseOT_mongegap/>`_.
+
+    .. note::
+        The :class:`~torchdr.SymmetricEntropicAffinity` requires a careful choice of
+        learning rate (parameter :attr:`lr_affinity_in`). If it is too unstable, one
+        can resort to using :class:`~torchdr.EntropicAffinity` instead by setting
+        :attr:`symmetric_affinity` to ``False``.
 
     Parameters
     ----------
@@ -81,7 +101,7 @@ class TSNEkhorn(NeighborEmbedding):
         the gap objective. Default is False.
     symmetric_affinity : bool, optional
         Whether to use symmetric entropic affinity. If False, uses
-        entropic affinity. Default is False.
+        entropic affinity. Default is True.
 
     References
     ----------
@@ -120,7 +140,7 @@ class TSNEkhorn(NeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         unrolling: bool = False,
-        symmetric_affinity: bool = False,
+        symmetric_affinity: bool = True,
     ):
 
         self.metric_in = metric_in
