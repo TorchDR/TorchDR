@@ -16,9 +16,18 @@ from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
-    """
-    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm
-    introduced in [2]_.
+    r"""
+    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm introduced in [2]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \log \Big( \sum_{ij} Q_{ij} \Big) \:.
 
     Parameters
     ----------
@@ -28,11 +37,11 @@ class TSNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float or str, optional
+    lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
     optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
         Which pytorch optimizer to use, by default 'auto'.
-    optimizer_kwargs : dict or str, optional
+    optimizer_kwargs : dict or 'auto', optional
         Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
@@ -45,7 +54,7 @@ class TSNE(SparseNeighborEmbedding):
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
+        Number of maximum iterations for the descent algorithm, by default 2000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -53,7 +62,7 @@ class TSNE(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
@@ -92,11 +101,11 @@ class TSNE(SparseNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 12.0,
         coeff_repulsion: float = 1.0,

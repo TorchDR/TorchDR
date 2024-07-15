@@ -10,7 +10,6 @@ Base classes for affinity matrices
 from abc import ABC
 
 import torch
-from ..utils import LazyTensorType, pykeops
 
 import numpy as np
 from torchdr.utils import (
@@ -18,6 +17,8 @@ from torchdr.utils import (
     symmetric_pairwise_distances_indices,
     pairwise_distances,
     to_torch,
+    LazyTensorType,
+    pykeops,
 )
 
 
@@ -37,7 +38,7 @@ class Affinity(ABC):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -46,7 +47,7 @@ class Affinity(ABC):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
 
         if keops and not pykeops:
@@ -104,9 +105,8 @@ class Affinity(ABC):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between all samples in the input
-        data, using the specified metric and optionally leveraging KeOps for memory
-        efficient computation.
+        It uses the specified metric and optionally leveraging KeOps
+        for memory efficient computation.
 
         Parameters
         ----------
@@ -142,7 +142,7 @@ class LogAffinity(Affinity):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -151,7 +151,7 @@ class LogAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -213,6 +213,7 @@ class SparseLogAffinity(LogAffinity):
 
     If sparsity is enabled, returns the log affinity matrix in a rectangular format
     with the corresponding indices.
+    Otherwise, returns the full affinity matrix and None.
 
     Parameters
     ----------
@@ -228,8 +229,8 @@ class SparseLogAffinity(LogAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
-    sparsity : bool or str, optional
+        If True, prints additional information during computation. Default is False.
+    sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
 
@@ -239,7 +240,7 @@ class SparseLogAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         sparsity: bool | str = "auto",
     ):
         super().__init__(
@@ -351,7 +352,7 @@ class UnnormalizedAffinity(Affinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -360,7 +361,7 @@ class UnnormalizedAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -431,9 +432,8 @@ class UnnormalizedAffinity(Affinity):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between samples, using
-        the specified metric and optionally leveraging KeOps for memory efficient
-        computation.
+        It uses the specified metric and optionally leverages KeOps
+        for memory efficient computation.
         It supports computing the full pairwise distance matrix, the pairwise
         distance matrix between two sets of samples, or the pairwise distance matrix
         between a set of samples and a subset of samples specified by indices.
@@ -497,7 +497,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -506,7 +506,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

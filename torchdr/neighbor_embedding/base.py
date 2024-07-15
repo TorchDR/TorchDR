@@ -23,9 +23,17 @@ from torchdr.utils import cross_entropy_loss, OPTIMIZERS
 
 class NeighborEmbedding(AffinityMatcher):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
 
     Parameters
     ----------
@@ -37,12 +45,12 @@ class NeighborEmbedding(AffinityMatcher):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -50,7 +58,7 @@ class NeighborEmbedding(AffinityMatcher):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -62,7 +70,7 @@ class NeighborEmbedding(AffinityMatcher):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -79,19 +87,19 @@ class NeighborEmbedding(AffinityMatcher):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -137,7 +145,7 @@ class NeighborEmbedding(AffinityMatcher):
             self.coeff_attraction_ > 1 and step == self.early_exaggeration_iter
         ):
             self.coeff_attraction_ = 1
-            # reinitialize optimizer and scheduler
+            # reinitialize optim
             self._set_learning_rate()
             self._set_optimizer()
             self._set_scheduler()
@@ -206,9 +214,19 @@ class NeighborEmbedding(AffinityMatcher):
 
 class SparseNeighborEmbedding(NeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -220,12 +238,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -233,7 +251,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -245,7 +263,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -262,19 +280,19 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -341,9 +359,28 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 class SampledNeighborEmbedding(SparseNeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix and a
+    stochastic estimation of the repulsive term.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a
+    :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
+    :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
+    can be computed with linear complexity.
+
+    **Fast repulsion.** A stochastic estimation of the repulsive term is used
+    to reduce its complexity to linear.
+    This is done by sampling a fixed number of negative samples
+    :attr:`n_negatives` for each point.
 
     Parameters
     ----------
@@ -355,12 +392,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
@@ -368,7 +405,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     tol : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -380,7 +417,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -401,17 +438,17 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         n_components: int = 2,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        lr: float | str = 1e0,
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: dict | str = None,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
