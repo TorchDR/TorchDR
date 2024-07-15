@@ -17,6 +17,8 @@ def test_KernelPCA_sklearn(n_components):
     torch.manual_seed(0)
     X = torch.randn(10, 20)
     X /= torch.linalg.norm(X, axis=0)  # otherwise all points at distance 1
+    Y = torch.randn(5, 20)
+    Y /= torch.linalg.norm(Y, axis=0)
     sigma = 2
     aff = GaussianAffinity(zero_diag=False, sigma=sigma)
     model = KernelPCA(affinity=aff, n_components=n_components)
@@ -26,12 +28,16 @@ def test_KernelPCA_sklearn(n_components):
     model.fit(X)
     res_2 = model.transform(X)
     np.testing.assert_allclose(res_1, res_2, rtol=1e-3, atol=1e-5)
+    res_Y = model.transform(Y)
 
     # same results as sklearn for Gaussian kernel
     model_sk = skKernelPCA(
-        n_components=n_components, kernel="rbf", gamma=1/sigma).fit(X)
+        n_components=n_components, kernel="rbf", gamma=1 / sigma
+    ).fit(X)
     X_sk = model_sk.transform(X)
+    Y_sk = model_sk.transform(Y)
     np.testing.assert_allclose(X_sk, res_1, rtol=1e-3)
+    np.testing.assert_allclose(Y_sk, res_Y, rtol=1e-3)
 
 
 def test_KernelPCA_no_transform():
@@ -46,8 +52,10 @@ def test_KernelPCA_no_transform():
     model.fit(X)
     model.fit_transform(X)
 
-    match = ("can only be used when `affinity` is an UnnormalizedAffinity or "
-             "UnnormalizedLogAffinity")
+    match = (
+        "can only be used when `affinity` is an UnnormalizedAffinity or "
+        "UnnormalizedLogAffinity"
+    )
     with pytest.raises(ValueError, match=match):
         model.transform(X)  # cannot use transform.
 

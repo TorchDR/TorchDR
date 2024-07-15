@@ -18,7 +18,10 @@ from torchdr.utils import (
     check_nonnegativity_eigenvalues,
 )
 from torchdr.affinity import (
-    Affinity, GaussianAffinity, UnnormalizedAffinity, UnnormalizedLogAffinity
+    Affinity,
+    GaussianAffinity,
+    UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
 )
 
 
@@ -94,9 +97,7 @@ class KernelPCA(DRModule):
         eigvals = check_nonnegativity_eigenvalues(eigvals)
 
         # flip eigenvectors' sign to enforce deterministic output
-        eigvecs, _ = svd_flip(
-            eigvecs, torch.zeros_like(eigvecs).T
-        )
+        eigvecs, _ = svd_flip(eigvecs, torch.zeros_like(eigvecs).T)
 
         # sort eigenvectors in descending order (torch eigvals are increasing)
         eigvals = torch.flip(eigvals, dims=(0,))
@@ -107,7 +108,7 @@ class KernelPCA(DRModule):
             eigvecs = eigvecs[:, eigvals > 0]
             eigvals = eigvals[eigvals > 0]
 
-        eigvecs = eigvecs[:, :self.n_components]
+        eigvecs = eigvecs[:, : self.n_components]
 
         self.eigenvectors_ = eigvecs
         self.eigenvalues_ = eigvals
@@ -115,8 +116,9 @@ class KernelPCA(DRModule):
 
     @handle_backend
     def transform(self, X):
-        if not isinstance(self.affinity,
-                          (UnnormalizedAffinity, UnnormalizedLogAffinity)):
+        if not isinstance(
+            self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)
+        ):
             aff_name = self.affinity.__class__.__name__
             raise ValueError(
                 "KernelPCA.transform can only be used when `affinity` is "
@@ -128,15 +130,15 @@ class KernelPCA(DRModule):
         result = (
             K
             @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[:self.n_components]).sqrt()
+            @ torch.diag(1 / self.eigenvalues_[: self.n_components]).sqrt()
         )
         # remove np.inf arising from division by 0 eigenvalues:
-        zero_eigvals = self.eigenvalues_[:self.n_components] == 0
+        zero_eigvals = self.eigenvalues_[: self.n_components] == 0
         if zero_eigvals.any():
-            result[:,  zero_eigvals] = 0
+            result[:, zero_eigvals] = 0
         return result
 
     @handle_backend
     def fit_transform(self, X):
         self.fit(X)
-        return self.eigenvectors_ * self.eigenvalues_[:self.n_components].sqrt()
+        return self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
