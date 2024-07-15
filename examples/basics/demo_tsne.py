@@ -47,8 +47,7 @@ _ = ax.text2D(0.8, 0.05, s="n_samples={}".format(n_samples), transform=ax.transA
 tsne = TSNE(
     n_components=2,
     perplexity=10,
-    max_iter=200,
-    verbose=False)
+    max_iter=200)
 
 X_embedded = tsne.fit_transform(X)
 
@@ -77,7 +76,6 @@ for perplexity in perplexity_values:
         n_components=2,
         perplexity=perplexity,
         max_iter=200,
-        verbose=False,
         init=init)
     X_embedded.append(tsne.fit_transform(X))
 
