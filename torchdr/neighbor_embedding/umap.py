@@ -12,13 +12,25 @@ from torchdr.affinity import (
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the UMAP algorithm introduced in [8]_ and further studied
     in [12]_.
+
+    It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -35,9 +47,9 @@ class UMAP(SampledNeighborEmbedding):
     b : float, optional
         Parameter for the Student t-distribution.
     lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
+        Learning rate for the algorithm, by default 1e-1.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
+        Which pytorch optimizer to use, by default 'SGD'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
@@ -51,7 +63,7 @@ class UMAP(SampledNeighborEmbedding):
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm.
+        Number of maximum iterations for the descent algorithm. by default 2000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -59,7 +71,7 @@ class UMAP(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
@@ -99,19 +111,19 @@ class UMAP(SampledNeighborEmbedding):
         spread: float = 1.0,
         a: float = None,
         b: float = None,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
+        lr: float = 1e-1,
+        optimizer: str = "SGD",
         optimizer_kwargs: dict = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -181,5 +193,10 @@ class UMAP(SampledNeighborEmbedding):
     def _repulsive_loss(self):
         indices = self._sample_negatives()
         Q = self.affinity_out(self.embedding_, indices=indices)
-        Q = Q / (Q + 1)  # stabilization trick
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return -(1 - Q).log()
+
+    def _attractive_loss(self):
+        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
+        return cross_entropy_loss(self.PX_, Q)

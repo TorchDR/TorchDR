@@ -12,12 +12,24 @@ from torchdr.affinity import (
     EntropicAffinity,
     StudentAffinity,
 )
-from torchdr.utils import sum_all_axis_except_batch
+from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
-    """
+    r"""
     Implementation of the LargeVis algorithm introduced in [13]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -27,12 +39,12 @@ class LargeVis(SampledNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
+    lr : float or 'auto', optional
+        Learning rate for the algorithm, by default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
+        Which pytorch optimizer to use, by default 'auto'.
+    optimizer_kwargs : dict or 'auto, optional
+        Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -44,7 +56,7 @@ class LargeVis(SampledNeighborEmbedding):
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
+        Number of maximum iterations for the descent algorithm, by default 3000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -52,11 +64,11 @@ class LargeVis(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
     coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+        Coefficient for the attraction term, by default 12.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -85,22 +97,22 @@ class LargeVis(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: float | str = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = "auto",
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 3000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 7.0,
+        coeff_attraction: float = 12.0,
+        coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -158,7 +170,11 @@ class LargeVis(SampledNeighborEmbedding):
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
         indices = self._sample_negatives()
-        log_Q = self.affinity_out(self.embedding_, log=True, indices=indices)
-        Q = log_Q.exp()
-        Q = Q / (Q + 1)  # stabilization trick inspired by UMAP
+        Q = self.affinity_out(self.embedding_, indices=indices)
+        Q = Q / (Q + 1)
         return -(1 - Q).log() / self.n_samples_in_
+
+    def _attractive_loss(self):
+        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = Q / (Q + 1)
+        return cross_entropy_loss(self.PX_, Q)
