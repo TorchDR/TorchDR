@@ -83,6 +83,7 @@ class KernelPCA(DRModule):
 
     def fit(self, X):
         X = super().fit(X)
+        self.X_train_ = X
         K = self.affinity.fit_transform(X)
         K = center_kernel(K)
 
@@ -121,7 +122,7 @@ class KernelPCA(DRModule):
                 f"Affinity {aff_name} cannot transform data without fitting "
                 "first. Use the fit_transform method instead."
             )
-        K = self.affinity.transform(X)
+        K = self.affinity(X, self.X_train_)
         K = center_kernel(K)
         result = (
             K
