@@ -17,6 +17,19 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
     """
     Base class for DR methods.
     Each children class should implement the fit method.
+
+    Parameters
+    ----------
+    n_components : int, default=2
+        Number of components to project the input data onto.
+    device : str, default="auto"
+        Device on which the computations are performed.
+    keops : bool, default=False
+        Whether to use KeOps for computations.
+    verbose : bool, default=False
+        Whether to print information during the computations.
+    random_state : float, default=0
+        Random seed for reproducibility.
     """
 
     def __init__(
@@ -24,7 +37,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         n_components: int = 2,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
     ):
 
