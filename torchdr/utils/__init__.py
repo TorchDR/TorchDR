@@ -10,6 +10,11 @@ from .optim import binary_search, false_position, OPTIMIZERS
 
 from .losses import cross_entropy_loss, square_loss
 
+from .manifold import (
+    geoopt,
+    is_geoopt_available
+)
+
 from .keops import (
     pykeops,
     LazyTensor,
@@ -107,5 +112,7 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
-    "plotGrid"
+    "plotGrid",
+    "geoopt",
+    "is_geoopt_available"
 ]

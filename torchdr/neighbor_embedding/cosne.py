@@ -7,16 +7,17 @@ Hyperbolic Stochastic Neighbor embedding (CO-SNE) algorithm
 #
 # License: BSD 3-Clause License
 
+import torch
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import (
     EntropicAffinity,
     CauchyAffinity,
 )
-
-from torchdr.utils import logsumexp_red
-
-import torch
-import geoopt
+from torchdr.utils import (
+    logsumexp_red,
+    geoopt,
+    is_geoopt_available
+)
 
 
 class COSNE(SparseNeighborEmbedding):
@@ -118,54 +119,54 @@ class COSNE(SparseNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqhyperbolic",
     ):
+        if is_geoopt_available():
+            self.metric_in = metric_in
+            self.metric_out = metric_out
+            self.perplexity = perplexity
+            self.lambda1 = lambda1
+            self.gamma = gamma
+            self.max_iter_affinity = max_iter_affinity
+            self.tol_affinity = tol_affinity
 
-        self.metric_in = metric_in
-        self.metric_out = metric_out
-        self.perplexity = perplexity
-        self.lambda1 = lambda1
-        self.gamma = gamma
-        self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
+            affinity_in = EntropicAffinity(
+                perplexity=perplexity,
+                metric=self.metric_in,
+                tol=tol_affinity,
+                max_iter=max_iter_affinity,
+                device=device,
+                keops=keops,
+                verbose=verbose,
+            )
+            affinity_out = CauchyAffinity(
+                metric=self.metric_out,
+                gamma=self.gamma,
+                device=device,
+                keops=keops,
+                verbose=False,
+            )
 
-        affinity_in = EntropicAffinity(
-            perplexity=perplexity,
-            metric=self.metric_in,
-            tol=tol_affinity,
-            max_iter=max_iter_affinity,
-            device=device,
-            keops=keops,
-            verbose=verbose,
-        )
-        affinity_out = CauchyAffinity(
-            metric=self.metric_out,
-            gamma=self.gamma,
-            device=device,
-            keops=keops,
-            verbose=False,
-        )
-
-        super().__init__(
-            affinity_in=affinity_in,
-            affinity_out=affinity_out,
-            n_components=n_components,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
-            tol=tol,
-            max_iter=max_iter,
-            lr=lr,
-            scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
-            init=init,
-            init_scaling=init_scaling,
-            tolog=tolog,
-            device=device,
-            keops=keops,
-            verbose=verbose,
-            random_state=random_state,
-            coeff_attraction=coeff_attraction,
-            coeff_repulsion=coeff_repulsion,
-            early_exaggeration_iter=early_exaggeration_iter,
-        )
+            super().__init__(
+                affinity_in=affinity_in,
+                affinity_out=affinity_out,
+                n_components=n_components,
+                optimizer=optimizer,
+                optimizer_kwargs=optimizer_kwargs,
+                tol=tol,
+                max_iter=max_iter,
+                lr=lr,
+                scheduler=scheduler,
+                scheduler_kwargs=scheduler_kwargs,
+                init=init,
+                init_scaling=init_scaling,
+                tolog=tolog,
+                device=device,
+                keops=keops,
+                verbose=verbose,
+                random_state=random_state,
+                coeff_attraction=coeff_attraction,
+                coeff_repulsion=coeff_repulsion,
+                early_exaggeration_iter=early_exaggeration_iter,
+            )
 
     def _fit(self, X: torch.Tensor):
         # We compute once for all the norms of X data samples

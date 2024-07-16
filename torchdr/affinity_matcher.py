@@ -9,12 +9,10 @@ Affinity matcher base classes
 #
 # License: BSD 3-Clause License
 
+import warnings
 import torch
 import numpy as np
 from tqdm import tqdm
-import warnings
-
-import geoopt
 
 
 from torchdr.utils import (
@@ -23,6 +21,8 @@ from torchdr.utils import (
     check_NaNs,
     handle_backend,
     to_torch,
+    geoopt,
+    is_geoopt_available
 )
 from torchdr.affinity import (
     Affinity,
@@ -374,17 +374,18 @@ class AffinityMatcher(DRModule):
                 self.embedding_ / self.embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
-            self.embedding_ = torch.tensor(
-                self.generator_.standard_normal(size=(n, self.n_components)),
-                device=X.device if self.device == "auto" else self.device,
-                dtype=X.dtype,
-            )
-            self.embedding_ = self.embedding_ * self.init_scaling
-            # need to project the initialised samples in the Poincaré Ball
-            # and then register them to parameters to be optimized on the Poincaré Ball
-            ball = geoopt.PoincareBall()
-            self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_),
-                                                    manifold=ball)
+            if is_geoopt_available():
+                self.embedding_ = torch.tensor(
+                    self.generator_.standard_normal(size=(n, self.n_components)),
+                    device=X.device if self.device == "auto" else self.device,
+                    dtype=X.dtype,
+                )
+                self.embedding_ = self.embedding_ * self.init_scaling
+                # need to project the initialised samples in the Poincaré Ball
+                # and then register them to parameters to be optimized on the Poincaré Ball
+                ball = geoopt.PoincareBall()
+                self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_),
+                                                        manifold=ball)
         else:
             raise ValueError(
                 f"[TorchDR] ERROR : init {self.init} not supported in "

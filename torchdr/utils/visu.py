@@ -10,7 +10,10 @@ Useful functions to draw outputs of TorchDr
 import torch
 import numpy as np
 import matplotlib.pylab as plt
-import geoopt
+from torchdr.utils import (
+    geoopt,
+    is_geoopt_available
+)
 
 
 def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0.1):
@@ -96,7 +99,7 @@ def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0
 
 
 def plotGrid(ax, lw=0.3):
-    manifold = geoopt.PoincareBall(c=1)
-    add_geodesic_grid(ax, manifold, line_width=lw)
-    circle = plt.Circle((0, 0), 1, color="k", linewidth=3, fill=False)
-    ax.add_patch(circle)
+    if is_geoopt_available():
+        add_geodesic_grid(ax, geoopt.PoincareBall(c=1), line_width=lw)
+        circle = plt.Circle((0, 0), 1, color="k", linewidth=3, fill=False)
+        ax.add_patch(circle)

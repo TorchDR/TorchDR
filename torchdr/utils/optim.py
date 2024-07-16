@@ -5,14 +5,11 @@ Tools for optimization problems
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Rémi Flamary <remi.flamary@polytechnique.edu>
-#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
 import torch
 from tqdm import tqdm
-
-import geoopt
 
 DTYPE = torch.double
 DEVICE = "cpu"
@@ -21,7 +18,6 @@ OPTIMIZERS = {
     "SGD": torch.optim.SGD,
     "Adam": torch.optim.Adam,
     "NAdam": torch.optim.NAdam,
-    "RAdam": geoopt.optim.RiemannianAdam
 }
 
 
