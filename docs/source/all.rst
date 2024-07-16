@@ -11,8 +11,8 @@ API and Modules
    :no-inherited-members:
 
 
-Dimensionality Reduction ``sklearn`` compatible estimators
-----------------------------------------------------------
+Dimensionality Reduction ``sklearn`` Compatible Estimators
+-----------------------------------------------------------
 
 TorchDR provides a set of classes that are compatible with the ``sklearn`` API.
 For example, running :class:`TSNE <TSNE>` can be done in the exact same way as running 
@@ -76,13 +76,13 @@ Noise Contrastive Neighbor Embedding Methods
 
 
 
-Advanced dimensionality reduction with ``torchdr``
+Advanced Dimensionality Reduction with ``torchdr``
 --------------------------------------------------
 
 TorchDR provides a set of generic classes that can be used to implement new
 dimensionality reduction methods. These classes provide a modular and extensible framework that allows you to focus on the core components of your method.
 
-Base classes 
+Base Classes 
 ^^^^^^^^^^^^
 
 The :class:`torchdr.DRModule` class is the base class for a dimensionality
@@ -100,7 +100,7 @@ two affinities in input and embedding spaces.
    AffinityMatcher
    
 
-Base Neighbor embedding Modules
+Base Neighbor Embedding Modules
 """""""""""""""""""""""""""""""
 
 Neighbor embedding base modules inherit from the :class:`torchdr.AffinityMatcher`
@@ -120,7 +120,7 @@ approximate the repulsive term of the loss via negative samples.
    SampledNeighborEmbedding
    
 
-Affinity classes
+Affinity Classes
 ^^^^^^^^^^^^^^^^
 
 The following classes are used to compute the affinities between the data points.
@@ -137,7 +137,19 @@ Simple Affinities
    GaussianAffinity
    StudentAffinity
    ScalarProductAffinity
+   NormalizedGaussianAffinity
+
+
+Affinities Normalized by kNN Distances
+"""""""""""""""""""""""""""""""""""""""
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
    SelfTuningAffinity
+   MAGICAffinity
+
 
 Entropic Affinities
 """""""""""""""""""
@@ -146,7 +158,6 @@ Entropic Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
    
-   NormalizedGaussianAffinity
    SinkhornAffinity
    EntropicAffinity
    SymmetricEntropicAffinity
@@ -205,3 +216,5 @@ References
 .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
 
 .. [22] Max Zelnik-Manor, L., & Perona, P. (2004). `Self-Tuning Spectral Clustering <https://proceedings.neurips.cc/paper_files/paper/2004/file/40173ea48d9567f1f393b20c855bb40b-Paper.pdf>`_. Advances in Neural Information Processing Systems 17 (NeurIPS).
+
+.. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A. J., ... & Pe’er, D. (2018). `Recovering Gene Interactions from Single-Cell Data Using Data Diffusion <https://www.cell.com/action/showPdf?pii=S0092-8674%2818%2930724-4>`_. Cell, 174(3).
