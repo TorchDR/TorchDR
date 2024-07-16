@@ -29,11 +29,16 @@ class NeighborEmbedding(AffinityMatcher):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function.
+    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
+    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
+
+    Note that the early exaggeration coefficient :math:`\lambda` is set to
+    :math:`1` after the early exaggeration phase which duration is controlled by the
+    :attr:`early_exaggeration_iter` parameter.
 
     Parameters
     ----------
@@ -221,11 +226,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function.
+    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
+    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
@@ -368,11 +374,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function.
+    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
+    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a
     :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
