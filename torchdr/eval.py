@@ -60,7 +60,7 @@ def silhouette_samples(
 
     References
     ----------
-    .. [23] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
+    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
             interpretation and validation of cluster analysis. Journal of
             computational and applied mathematics, 20, 53-65.
 
@@ -204,6 +204,11 @@ def silhouette_score(
     silhouette_score : float
         mean silhouette coefficients for all samples.
 
+    References
+    ----------
+    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
+            interpretation and validation of cluster analysis. Journal of
+            computational and applied mathematics, 20, 53-65.
     """
     if sample_size is None:
         coefficients = silhouette_samples(
