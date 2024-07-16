@@ -78,10 +78,11 @@ dimensionality reduction methods. These classes are not compatible with the
 Base classes 
 ^^^^^^^^^^^^
 
-The :class:`torchdr.DRModule` class is the base class that allows to perform DR using user defined
-affinities. It is the base class for all the DR classes in TorchDR.
-:class:`torchdr.AffinityMatcher` is the Basis class for all the DR methods that
-use generic affinities.
+The :class:`torchdr.DRModule` class is the base class for a dimensionality
+reduction estimator. It is the base class for all the DR classes in TorchDR.
+:class:`torchdr.AffinityMatcher` is the basis class for all the DR methods that
+use generic affinities. Both are compatible with
+`sklearn` API.
 
 .. autosummary::
    :toctree: gen_modules/
