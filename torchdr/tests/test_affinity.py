@@ -39,6 +39,7 @@ from torchdr.affinity import (
     GaussianAffinity,
     NormalizedGaussianAffinity,
     SelfTuningAffinity,
+    MAGICAffinity,
     StudentAffinity,
     EntropicAffinity,
     SymmetricEntropicAffinity,
@@ -162,6 +163,29 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
             check_marginal(P, one, dim=dim)
         else:
             check_total_sum(P, 1)
+
+    # --- check consistency between torch and keops ---
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_magic_affinity(dtype, metric):
+    n = 10
+    X = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    list_P = []
+    for keops in lst_keops:
+        affinity = MAGICAffinity(device=DEVICE, keops=keops, metric=metric)
+        P = affinity(X)
+        list_P.append(P)
+        # -- check properties of the affinity matrix --
+        check_type(P, keops=keops)
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        check_marginal(P, one, dim=1)
 
     # --- check consistency between torch and keops ---
     if len(lst_keops) > 1:

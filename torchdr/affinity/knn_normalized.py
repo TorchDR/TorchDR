@@ -215,7 +215,7 @@ class MAGICAffinity(Affinity):
         )
         self.K = K
 
-    def _compute_log_affinity(self, X: torch.Tensor):
+    def _compute_affinity(self, X: torch.Tensor):
         r"""
         Fits the local Gibbs affinity model to the provided data.
 
