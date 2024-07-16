@@ -84,7 +84,7 @@ Affinities
 TorchDR features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gaussian and Student kernels.
-* Self-tuning affinities [22]_.
+* Affinities based on k-NN normalizations such Self-tuning affinities [22]_ and MAGIC [23]_.
 * Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
 * Adaptive affinities with entropy control [1]_ [4]_ and its symmetric version [3]_.
 
@@ -180,6 +180,8 @@ References
 .. [21] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). `Scikit-learn: Machine learning in Python <https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf?ref=https:/>`_. Journal of machine Learning research, 12 (JMLR).
 
 .. [22] Max Zelnik-Manor, L., & Perona, P. (2004). `Self-Tuning Spectral Clustering <https://proceedings.neurips.cc/paper_files/paper/2004/file/40173ea48d9567f1f393b20c855bb40b-Paper.pdf>`_. Advances in Neural Information Processing Systems 17 (NeurIPS).
+
+.. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A. J., ... & Pe’er, D. (2018). `Recovering Gene Interactions from Single-Cell Data Using Data Diffusion <https://www.cell.com/action/showPdf?pii=S0092-8674%2818%2930724-4>`_. Cell, 174(3).
 
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
