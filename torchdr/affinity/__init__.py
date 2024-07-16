@@ -16,6 +16,7 @@ from .unnormalized import (
     ScalarProductAffinity,
     GaussianAffinity,
     StudentAffinity,
+    CauchyAffinity,
 )
 
 from .knn_normalized import SelfTuningAffinity, MAGICAffinity
@@ -43,6 +44,7 @@ __all__ = [
     "SelfTuningAffinity",
     "MAGICAffinity",
     "StudentAffinity",
+    "CauchyAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",

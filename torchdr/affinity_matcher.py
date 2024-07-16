@@ -5,13 +5,15 @@ Affinity matcher base classes
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
+import warnings
 import torch
 import numpy as np
 from tqdm import tqdm
-import warnings
+
 
 from torchdr.utils import (
     OPTIMIZERS,
@@ -19,6 +21,8 @@ from torchdr.utils import (
     check_NaNs,
     handle_backend,
     to_torch,
+    geoopt,
+    is_geoopt_available
 )
 from torchdr.affinity import (
     Affinity,
@@ -352,25 +356,41 @@ class AffinityMatcher(DRModule):
         n = X.shape[0]
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
-            embedding_ = to_torch(self.init, device=self.device)
+            self.embedding_ = to_torch(self.init, device=self.device)
 
         elif self.init == "normal":
-            embedding_ = torch.tensor(
+            self.embedding_ = torch.tensor(
                 self.generator_.standard_normal(size=(n, self.n_components)),
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
+            self.embedding_ = self.init_scaling * self.embedding_
 
         elif self.init == "pca":
-            embedding_ = PCA(
+            self.embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
+            self.embedding_ = self.init_scaling * \
+                self.embedding_ / self.embedding_[:, 0].std()
 
+        elif self.init == "hyperbolic":
+            if is_geoopt_available():
+                self.embedding_ = torch.tensor(
+                    self.generator_.standard_normal(size=(n, self.n_components)),
+                    device=X.device if self.device == "auto" else self.device,
+                    dtype=X.dtype,
+                )
+                self.embedding_ = self.embedding_ * self.init_scaling
+                # need to project the initialised samples in the Poincaré Ball
+                # and then register them to parameters to be optimized on the Poincaré
+                # Ball
+                ball = geoopt.PoincareBall()
+                self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_),
+                                                        manifold=ball)
         else:
             raise ValueError(
                 f"[TorchDR] ERROR : init {self.init} not supported in "
                 f"{self.__class__.__name__}."
             )
 
-        self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()

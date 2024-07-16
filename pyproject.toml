@@ -10,8 +10,9 @@ dependencies = [
     "numpy>=1.20",
     "scikit-learn",
     "torch",
-    "tqdm",
+    "tqdm"
 ]
+
 dynamic = ["version"]
 
 [tool.setuptools]
@@ -35,8 +36,19 @@ keops = [
     "pykeops",
 ]
 
+manifold = [
+    # change this when geoopt is updated wrt. error in line search
+    "scipy<=1.13",
+    "geoopt>=0.5",
+    "matplotlib"
+]
+
 all =  [
     "pykeops",
+    # change this when geoopt is updated wrt. error in line search
+    "scipy<=1.13",
+    "geoopt>=0.5",
+    "matplotlib"
 ]
 
 doc = [

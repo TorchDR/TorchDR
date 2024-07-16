@@ -4,6 +4,7 @@ Tests for neighbor embedding methods.
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -16,6 +17,7 @@ from sklearn.metrics import silhouette_score
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
+    #    COSNE,
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
@@ -39,7 +41,8 @@ def toy_dataset(n=100, dtype="float32"):
     return X.astype(dtype), y
 
 
-param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
+# Note : removed "optimizer": "Adam" to have default optimizer
+param_optim = {"lr": 1.0,  "optimizer_kwargs": None}
 
 
 @pytest.mark.parametrize(
@@ -47,6 +50,7 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
     [
         (SNE, {}),
         (TSNE, {}),
+        #        (COSNE, {}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),

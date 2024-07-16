@@ -4,6 +4,7 @@ Common simple affinities
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -110,6 +111,55 @@ class StudentAffinity(UnnormalizedLogAffinity):
         )
 
 
+class CauchyAffinity(UnnormalizedLogAffinity):
+    r"""
+    Computes the Cauchy affinity matrix based on the Cauchy distribution:
+
+    .. math::
+        \frac{1}{\pi \gamma} \left[\frac{\gamma^2}{\mathbf{C}+\gamma^2}\right]
+
+    where :math:`\gamma > 0` is a scale parameter.
+
+    Parameters
+    ----------
+    gamma : float, optional
+        Scale parameter for the Cauchy distribution.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    """
+
+    def __init__(
+        self,
+        gamma: float = 1,
+        metric: str = "sqhyperbolic",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.gamma = gamma
+
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+        return (
+            (self.gamma/(C + self.gamma**2)).log()
+        )
+
+
 class ScalarProductAffinity(UnnormalizedAffinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
@@ -124,7 +174,6 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     verbose : bool, optional
         Verbosity. Default is False.
     """
-
     def __init__(
         self,
         device: str = "auto",

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -8,6 +9,11 @@
 from .optim import binary_search, false_position, OPTIMIZERS
 
 from .losses import cross_entropy_loss, square_loss
+
+from .manifold import (
+    geoopt,
+    is_geoopt_available
+)
 
 from .keops import (
     pykeops,
@@ -103,4 +109,6 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "geoopt",
+    "is_geoopt_available"
 ]

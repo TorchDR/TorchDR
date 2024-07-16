@@ -1,5 +1,6 @@
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -21,6 +22,7 @@ from .affinity import (
     SelfTuningAffinity,
     MAGICAffinity,
     StudentAffinity,
+    CauchyAffinity,
     ScalarProductAffinity,
     EntropicAffinity,
     SymmetricEntropicAffinity,
@@ -42,6 +44,7 @@ from .neighbor_embedding import (
     SampledNeighborEmbedding,
     SNE,
     TSNE,
+    COSNE,
     InfoTSNE,
     TSNEkhorn,
     LargeVis,
@@ -65,6 +68,7 @@ __all__ = [
     "SelfTuningAffinity",
     "MAGICAffinity",
     "StudentAffinity",
+    "CauchyAffinity",
     "ScalarProductAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",
@@ -82,6 +86,7 @@ __all__ = [
     "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
+    "COSNE",
     "InfoTSNE",
     "TSNEkhorn",
     "LargeVis",
