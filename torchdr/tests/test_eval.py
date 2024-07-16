@@ -20,7 +20,6 @@ from torchdr.utils import pykeops
 lst_types = [torch.float32, torch.float64]
 if pykeops:
     lst_keops = [True, False]
-    # lst_keops = [False]
 else:
     lst_keops = [False]
 DEVICE = "cpu"
@@ -55,6 +54,8 @@ def test_silhouette_score_euclidean(dtype, keops):
             assert_close(coeffs, weighted_coeffs)
             score = silhouette_score(I, y_I, None, metric, DEVICE, keops)
             assert_close(coeffs.mean(), score)
+            sampled_score = silhouette_score(I, y_I, None, metric, DEVICE, keops, n)
+            assert_close(score, sampled_score)
 
             # tests with equidistant samples
             coeffs_2 = silhouette_samples(I, y_I2, ones / n, metric, None, keops)

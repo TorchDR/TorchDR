@@ -10,6 +10,7 @@ Evaluation methods for dimensionality reduction
 import torch
 import numpy as np
 import warnings
+from random import sample, seed
 
 from torchdr.utils import to_torch, pairwise_distances, wrap_vectors, batch_transpose
 
@@ -83,8 +84,6 @@ def silhouette_samples(
 
     @wrap_vectors
     def weighted_distances(C, w, transpose=False):
-        print("call to weighted_distances")
-        print(f"C : {C.shape} / w : {w.shape}")
         if transpose:
             w = batch_transpose(w)
         return C * w
@@ -94,7 +93,9 @@ def silhouette_samples(
             intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
 
             if weights is None:
-                intra_cluster_dists = intra_cluster_dists.sum(1) / (pos_i.shape[0] - 1)
+                intra_cluster_dists = intra_cluster_dists.sum(1).squeeze(-1) / (
+                    pos_i.shape[0] - 1
+                )
             else:
                 intra_cluster_dists = (
                     weighted_distances(intra_cluster_dists, weights[pos_i])
@@ -126,8 +127,8 @@ def silhouette_samples(
             inter_cluster_dists = pairwise_distances(X[pos_i], X[pos_j], metric, keops)
 
             if weights is None:
-                dist_pos_i = inter_cluster_dists.sum(1) / pos_j.shape[0]
-                dist_pos_j = inter_cluster_dists.sum(0) / pos_i.shape[0]
+                dist_pos_i = inter_cluster_dists.sum(1).squeeze(-1) / pos_j.shape[0]
+                dist_pos_j = inter_cluster_dists.sum(0).squeeze(-1) / pos_i.shape[0]
             else:
                 # dist_pos_i = inter_cluster_dists * weights[pos_j][None, :]
                 # dist_pos_j = inter_cluster_dists * weights[pos_i][:, None]
@@ -161,6 +162,7 @@ def silhouette_score(
     keops: bool = True,
     sample_size: int = None,
     random_state: int = None,
+    warn: bool = True,
 ):
     r"""
     Compute the Silhouette Score for all samples in :math:`\mathbf{X}` as the
@@ -194,6 +196,8 @@ def silhouette_score(
     random_state : int, optional
         Random state for selecting a subset of samples. Used when sample_size
         is not None.
+    warn : bool, optional
+        Whether to output warnings when edge cases are identified.
 
     Returns
     -------
@@ -201,8 +205,19 @@ def silhouette_score(
         mean silhouette coefficients for all samples.
 
     """
+    if sample_size is None:
+        coefficients = silhouette_samples(
+            X, labels, weights, metric, device, keops, warn
+        )
+    else:
+        seed(random_state)
+        indices = sample(range(X.shape[0]), sample_size)
+        sub_weights = None if weights is None else weights[indices]
 
-    coefficients = silhouette_samples(X, labels, weights, metric, device, keops)
+        coefficients = silhouette_samples(
+            X[indices], labels[indices], sub_weights, metric, device, keops, warn
+        )
+
     silhouette_score = coefficients.mean()
 
     return silhouette_score
