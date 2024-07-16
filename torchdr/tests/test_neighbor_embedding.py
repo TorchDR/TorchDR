@@ -50,7 +50,7 @@ param_optim = {"lr": 1.0,  "optimizer_kwargs": None}
     [
         (SNE, {}),
         (TSNE, {}),
-        (COSNE, {}),
+#        (COSNE, {}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),
