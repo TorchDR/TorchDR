@@ -36,6 +36,7 @@ dimension data.
    :template: myclass_template.rst
    
    PCA
+   KernelPCA
 
 
 Neighbor Embedding
