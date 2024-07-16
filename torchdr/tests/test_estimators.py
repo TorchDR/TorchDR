@@ -14,7 +14,6 @@ from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
     InfoTSNE,
-    SNEkhorn,
     TSNEkhorn,
     LargeVis,
 )
@@ -36,7 +35,6 @@ def test_keops_not_installed():
         (SNE, {}),
         (TSNE, {}),
         (InfoTSNE, {}),
-        (SNEkhorn, {"lr_affinity_in": 1e-3}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
         (LargeVis, {}),
     ],

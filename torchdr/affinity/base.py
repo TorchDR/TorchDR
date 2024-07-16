@@ -10,7 +10,6 @@ Base classes for affinity matrices
 from abc import ABC
 
 import torch
-from ..utils import LazyTensorType, pykeops
 
 import numpy as np
 from torchdr.utils import (
@@ -18,6 +17,8 @@ from torchdr.utils import (
     symmetric_pairwise_distances_indices,
     pairwise_distances,
     to_torch,
+    LazyTensorType,
+    pykeops,
 )
 
 
@@ -37,7 +38,7 @@ class Affinity(ABC):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -46,7 +47,7 @@ class Affinity(ABC):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
 
         if keops and not pykeops:
@@ -64,7 +65,7 @@ class Affinity(ABC):
         self.zero_diag = zero_diag
         self.add_diag = 1e12 if self.zero_diag else None
 
-    def __call__(self, X: torch.Tensor | np.ndarray):
+    def __call__(self, X: torch.Tensor | np.ndarray, **kwargs):
         r"""
         Computes the affinity matrix from the input data.
 
@@ -79,7 +80,7 @@ class Affinity(ABC):
             The computed affinity matrix.
         """
         X = to_torch(X, device=self.device)
-        return self._compute_affinity(X)
+        return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""
@@ -104,9 +105,8 @@ class Affinity(ABC):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between all samples in the input
-        data, using the specified metric and optionally leveraging KeOps for memory
-        efficient computation.
+        It uses the specified metric and optionally leveraging KeOps
+        for memory efficient computation.
 
         Parameters
         ----------
@@ -142,7 +142,7 @@ class LogAffinity(Affinity):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation (default is True).
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -151,7 +151,7 @@ class LogAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -161,7 +161,7 @@ class LogAffinity(Affinity):
             verbose=verbose,
         )
 
-    def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False):
+    def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False, **kwargs):
         r"""
         Computes the affinity matrix from the input data.
 
@@ -180,7 +180,7 @@ class LogAffinity(Affinity):
             exponentiated log affinity matrix.
         """
         X = to_torch(X, device=self.device)
-        log_affinity = self._compute_log_affinity(X)
+        log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
         else:
@@ -213,6 +213,7 @@ class SparseLogAffinity(LogAffinity):
 
     If sparsity is enabled, returns the log affinity matrix in a rectangular format
     with the corresponding indices.
+    Otherwise, returns the full affinity matrix and None.
 
     Parameters
     ----------
@@ -228,8 +229,8 @@ class SparseLogAffinity(LogAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
-    sparsity : bool or str, optional
+        If True, prints additional information during computation. Default is False.
+    sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
     """
 
@@ -239,7 +240,7 @@ class SparseLogAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         sparsity: bool | str = "auto",
     ):
         super().__init__(
@@ -276,6 +277,7 @@ class SparseLogAffinity(LogAffinity):
         X: torch.Tensor | np.ndarray,
         log: bool = False,
         return_indices: bool = False,
+        **kwargs,
     ):
         r"""
         Computes and returns the log affinity matrix from input data.
@@ -304,7 +306,7 @@ class SparseLogAffinity(LogAffinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         X = to_torch(X, device=self.device)
-        log_affinity, indices = self._compute_sparse_log_affinity(X)
+        log_affinity, indices = self._compute_sparse_log_affinity(X, **kwargs)
         affinity_to_return = log_affinity if log else log_affinity.exp()
         return (affinity_to_return, indices) if return_indices else affinity_to_return
 
@@ -350,7 +352,7 @@ class UnnormalizedAffinity(Affinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -359,7 +361,7 @@ class UnnormalizedAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -374,6 +376,7 @@ class UnnormalizedAffinity(Affinity):
         X: torch.Tensor | np.ndarray,
         Y: torch.Tensor | np.ndarray = None,
         indices: torch.Tensor = None,
+        **kwargs,
     ):
         r"""
         Computes the affinity matrix from the input data.
@@ -396,7 +399,7 @@ class UnnormalizedAffinity(Affinity):
         X = to_torch(X, device=self.device)
         if Y is not None:
             Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
@@ -429,9 +432,8 @@ class UnnormalizedAffinity(Affinity):
         r"""
         Computes the pairwise distance matrix from the input data.
 
-        This method calculates the pairwise distances between samples, using
-        the specified metric and optionally leveraging KeOps for memory efficient
-        computation.
+        It uses the specified metric and optionally leverages KeOps
+        for memory efficient computation.
         It supports computing the full pairwise distance matrix, the pairwise
         distance matrix between two sets of samples, or the pairwise distance matrix
         between a set of samples and a subset of samples specified by indices.
@@ -495,7 +497,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Whether to use KeOps for efficient computation of large-scale kernel
         operations. Default is False.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is True.
+        If True, prints additional information during computation. Default is False.
     """
 
     def __init__(
@@ -504,7 +506,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -520,6 +522,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Y: torch.Tensor | np.ndarray = None,
         indices: torch.Tensor = None,
         log: bool = False,
+        **kwargs,
     ):
         r"""
         Computes the affinity matrix in log domain from the input data.
@@ -545,7 +548,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         X = to_torch(X, device=self.device)
         if Y is not None:
             Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:
             return log_affinity

@@ -8,23 +8,32 @@ Base classes for Neighbor Embedding methods
 # License: BSD 3-Clause License
 
 import torch
-from abc import abstractmethod
+import numpy as np
+import warnings
 
 from torchdr.affinity import (
     Affinity,
-    LogAffinity,
     UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
     SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import cross_entropy_loss
+from torchdr.utils import cross_entropy_loss, OPTIMIZERS
 
 
 class NeighborEmbedding(AffinityMatcher):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
 
     Parameters
     ----------
@@ -36,20 +45,20 @@ class NeighborEmbedding(AffinityMatcher):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -61,7 +70,7 @@ class NeighborEmbedding(AffinityMatcher):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -78,23 +87,24 @@ class NeighborEmbedding(AffinityMatcher):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
-        max_iter: int = 1000,
+        tol: float = 1e-7,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
+        **kwargs,
     ):
 
         super().__init__(
@@ -122,14 +132,24 @@ class NeighborEmbedding(AffinityMatcher):
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
 
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.tol = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.coeff_attraction = kwargs["early_exaggeration"]
+
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
             self.coeff_attraction_ > 1 and step == self.early_exaggeration_iter
         ):
             self.coeff_attraction_ = 1
-            # reinitialize optimizer and scheduler
+            # reinitialize optim
+            self._set_learning_rate()
             self._set_optimizer()
             self._set_scheduler()
+
         return self
 
     def _check_n_neighbors(self, n):
@@ -140,7 +160,7 @@ class NeighborEmbedding(AffinityMatcher):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
                     if self.verbose:
-                        print(
+                        warnings.warn(
                             "[TorchDR] WARNING : Number of samples is smaller than "
                             f"{param_name} ({n} <= {param_value}), setting "
                             f"{param_name} to {n//2} (which corresponds to n//2)."
@@ -159,30 +179,54 @@ class NeighborEmbedding(AffinityMatcher):
 
         super()._fit(X)
 
-    @abstractmethod
-    def _repulsive_loss(self, log_Q):
-        pass
-
     def _loss(self):
-        log = isinstance(self.affinity_out, LogAffinity)
-        Q = self.affinity_out(self.embedding_, log=log)
-        P = self.PX_
+        raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")
 
-        attractive_term = cross_entropy_loss(P, Q, log=log)
-        repulsive_term = self._repulsive_loss(Q, log=log)
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            if self.optimizer not in ["auto", "SGD"]:
+                if self.verbose:
+                    warnings.warn(
+                        "[TorchDR] WARNING : when 'auto' is used for the learning "
+                        "rate, the optimizer should be 'SGD'."
+                    )
+            # from the sklearn TSNE implementation
+            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
+        else:
+            self.lr_ = self.lr
 
-        loss = (
-            self.coeff_attraction_ * attractive_term
-            + self.coeff_repulsion * repulsive_term
+    def _set_optimizer(self):
+        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
+        # from the sklearn TSNE implementation
+        if self.optimizer_kwargs == "auto":
+            if self.coeff_attraction_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
+            else:
+                optimizer_kwargs = {"momentum": 0.8}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs
+
+        self.optimizer_ = OPTIMIZERS[optimizer](
+            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
         )
-        return loss
+        return self.optimizer_
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -194,20 +238,20 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -219,7 +263,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -236,19 +280,19 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         affinity_out: Affinity,
         kwargs_affinity_out: dict = {},
         n_components: int = 2,
+        lr: float | str = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
-        max_iter: int = 1000,
+        tol: float = 1e-7,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -293,16 +337,17 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _attractive_loss(self):
-        if isinstance(self.affinity_out, LogAffinity):
+        if isinstance(self.affinity_out, UnnormalizedLogAffinity):
             log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
             Q = self.affinity_out(self.embedding_, indices=self.indices_)
             return cross_entropy_loss(self.PX_, Q)
 
-    @abstractmethod
     def _repulsive_loss(self):
-        pass
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _repulsive_loss method must be implemented."
+        )
 
     def _loss(self):
         loss = (
@@ -314,9 +359,28 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 class SampledNeighborEmbedding(SparseNeighborEmbedding):
     r"""
-    Performs dimensionality reduction by solving the neighbor embedding problem.
+    Solves the neighbor embedding problem with a sparse input affinity matrix and a
+    stochastic estimation of the repulsive term.
 
-    It amounts to solving the following optimization problem:
+    It amounts to solving:
+
+    .. math::
+
+        \min_{\mathbf{Z}} \: -\sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+
+    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
+    term of the loss function.
+
+    **Fast attraction.** This class should be used when the input affinity matrix is a
+    :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
+    :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
+    can be computed with linear complexity.
+
+    **Fast repulsion.** A stochastic estimation of the repulsive term is used
+    to reduce its complexity to linear.
+    This is done by sampling a fixed number of negative samples
+    :attr:`n_negatives` for each point.
 
     Parameters
     ----------
@@ -328,20 +392,20 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
+    optimizer : str or 'auto', optional
+        Optimizer to use for the optimization. Default is "Adam".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     tol : float, optional
-        Tolerance for stopping criterion. Default is 1e-3.
+        Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
-        Maximum number of iterations. Default is 1000.
+        Maximum number of iterations. Default is 2000.
     init : str, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
@@ -353,7 +417,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     coeff_attraction : float, optional
@@ -374,17 +438,17 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         n_components: int = 2,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = None,
-        lr: float = 1e0,
+        lr: float | str = 1e0,
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
-        tol: float = 1e-3,
-        max_iter: int = 1000,
+        scheduler_kwargs: dict | str = None,
+        tol: float = 1e-7,
+        max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         coeff_attraction: float = 1.0,
         coeff_repulsion: float = 1.0,
@@ -422,7 +486,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         if not hasattr(self, "n_negatives_"):
             if self.n_negatives > self.n_samples_in_:
                 if self.verbose:
-                    print(
+                    warnings.warn(
                         "[TorchDR] WARNING : n_negatives must be smaller than the "
                         f"number of samples. Here n_negatives={self.n_negatives} "
                         f"and n_samples_in={self.n_samples_in_}. Setting "
@@ -432,6 +496,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             else:
                 self.n_negatives_ = self.n_negatives
 
+        # For each point, uniformly sample n_negatives_ points
+        # from the set of all other points.
         indices = self.generator_.integers(
             1, self.n_samples_in_, (self.n_samples_in_, self.n_negatives_)
         )

@@ -33,16 +33,18 @@ from .affinity import (
 
 # import DR methods
 from .base import DRModule
-from .spectral import PCA
+from .spectral import PCA, KernelPCA
 from .affinity_matcher import (
     AffinityMatcher,
 )
 from .neighbor_embedding import (
+    NeighborEmbedding,
+    SparseNeighborEmbedding,
+    SampledNeighborEmbedding,
     SNE,
     TSNE,
     COSNE,
     InfoTSNE,
-    SNEkhorn,
     TSNEkhorn,
     LargeVis,
     UMAP,
@@ -76,11 +78,14 @@ __all__ = [
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",
+    "KernelPCA",
+    "NeighborEmbedding",
+    "SparseNeighborEmbedding",
+    "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
     "COSNE",
     "InfoTSNE",
-    "SNEkhorn",
     "TSNEkhorn",
     "LargeVis",
     "UMAP",
