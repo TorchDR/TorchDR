@@ -184,6 +184,9 @@ def _pairwise_distances_keops(
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
         C = -(X_i | Y_j)
+    elif metric == "sqhyperbolic":
+        # Note: arccosh is missing from this Keops implementation
+        C = ((X_i - X_j) ** 2).sum(-1) / (X_i[0] * X_j[0])
 
     return C
 
