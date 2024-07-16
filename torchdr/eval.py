@@ -9,7 +9,11 @@ Evaluation methods for dimensionality reduction
 
 import torch
 import numpy as np
-from torchdr.utils import to_torch, LIST_METRICS, pairwise_distances
+import warnings
+
+from torchdr.utils import to_torch, pairwise_distances
+
+admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic"]
 
 
 def silhouette_samples(
@@ -19,6 +23,7 @@ def silhouette_samples(
     metric: str = "euclidean",
     device: str = None,
     keops: bool = True,
+    warn: bool = True,
 ):
     r"""
     Compute the silhouette coefficients for each sample in :math:`\mathbf{X}`.
@@ -45,7 +50,8 @@ def silhouette_samples(
         Device to use for computations.
     keops : bool, optional
         Whether to use KeOps for computations.
-
+    warn : bool, optional
+        Whether to output warnings when edge cases are identified.
     Returns
     -------
     coefficients : torch.Tensor or np.ndarray of shape (n_samples_x,)
@@ -58,8 +64,8 @@ def silhouette_samples(
             computational and applied mathematics, 20, 53-65.
 
     """
-    if metric not in LIST_METRICS:
-        raise ValueError(f"metric = {metric} must be in {LIST_METRICS}")
+    if metric not in admissible_LIST_METRICS:
+        raise ValueError(f"metric = {metric} must be in {admissible_LIST_METRICS}")
 
     X = to_torch(X)
     labels = to_torch(labels)
@@ -72,23 +78,33 @@ def silhouette_samples(
     # compute intra and inter cluster distances by block
     unique_labels = torch.unique(labels)
     pos_labels = [torch.where(labels == label)[0] for label in unique_labels]
-    A = torch.zeros(X.shape[0], dtype=X.dtype, device=device)
-    B = torch.full(X.shape[0], torch.inf, dtype=X.dtype, device=device)
+    A = torch.zeros((X.shape[0],), dtype=X.dtype, device=device)
+    B = torch.full((X.shape[0],), torch.inf, dtype=X.dtype, device=device)
 
-    for i, pos_i in enumerate(pos_labels[:-1]):
-        intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
+    for i, pos_i in enumerate(pos_labels):
+        if pos_i.shape[0] > 1:
+            intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
 
-        if weights is None:
-            intra_cluster_dists = intra_cluster_dists.sum(axis=1) / (
-                intra_cluster_dists.shape[0] - 1
-            )
+            if weights is None:
+                intra_cluster_dists = intra_cluster_dists.sum(1) / (pos_i.shape[0] - 1)
+            else:
+                matrix_weights_i = (
+                    weights[pos_i].view(1, -1).repeat((pos_i.shape[0], 1))
+                )
+                intra_cluster_dists = intra_cluster_dists * matrix_weights_i
+                matrix_weights_i = matrix_weights_i.fill_diagonal_(0.0)
+                intra_cluster_dists = intra_cluster_dists.sum(1) / (
+                    matrix_weights_i.sum(1)
+                )
+
         else:
-            matrix_weights_i = weights[pos_i].view(1, -1).repeat((pos_i.shape[0], 1))
-            intra_cluster_dists = intra_cluster_dists * matrix_weights_i
-            matrix_weights_i = matrix_weights_i.fill_diagonal_(0.0)
-            intra_cluster_dists = intra_cluster_dists.sum(
-                axis=1
-            ) / matrix_weights_i.sum(axis=1)
+            intra_cluster_dists = 0.0
+            if warn:
+                warnings.warn(
+                    "ill-defined intra-cluster mean distance as one cluster"
+                    "contains only one sample.",
+                    stacklevel=2,
+                )
 
         A[pos_i] = intra_cluster_dists
 
@@ -96,13 +112,13 @@ def silhouette_samples(
             inter_cluster_dists = pairwise_distances(X[pos_i], X[pos_j], metric, keops)
 
             if weights is None:
-                dist_pos_i = inter_cluster_dists.mean(axis=1)
-                dist_pos_j = inter_cluster_dists.mean(axis=0)
+                dist_pos_i = inter_cluster_dists.sum(1) / pos_j.shape[0]
+                dist_pos_j = inter_cluster_dists.sum(0) / pos_i.shape[0]
             else:
                 dist_pos_i = inter_cluster_dists * weights[pos_j][None, :]
                 dist_pos_j = inter_cluster_dists * weights[pos_i][:, None]
-                dist_pos_i = dist_pos_i.sum(dim=1) / weights[pos_j].sum()
-                dist_pos_j = dist_pos_j.sum(dim=0) / weights[pos_i].sum()
+                dist_pos_i = dist_pos_i.sum(1) / weights[pos_j].sum()
+                dist_pos_j = dist_pos_j.sum(0) / weights[pos_i].sum()
 
             B[pos_i] = torch.minimum(dist_pos_i, B[pos_i])
             B[pos_j] = torch.minimum(dist_pos_j, B[pos_j])
