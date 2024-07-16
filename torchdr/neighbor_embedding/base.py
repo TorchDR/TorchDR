@@ -73,8 +73,9 @@ class NeighborEmbedding(AffinityMatcher):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term. Default is 1.0.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
@@ -101,7 +102,7 @@ class NeighborEmbedding(AffinityMatcher):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 1.0,
+        early_exaggeration: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
         **kwargs,
@@ -128,7 +129,7 @@ class NeighborEmbedding(AffinityMatcher):
             random_state=random_state,
         )
 
-        self.coeff_attraction = coeff_attraction
+        self.early_exaggeration = early_exaggeration
         self.coeff_repulsion = coeff_repulsion
         self.early_exaggeration_iter = early_exaggeration_iter
 
@@ -138,13 +139,13 @@ class NeighborEmbedding(AffinityMatcher):
         if "min_grad_norm" in kwargs:
             self.tol = kwargs["min_grad_norm"]
         if "early_exaggeration" in kwargs:
-            self.coeff_attraction = kwargs["early_exaggeration"]
+            self.early_exaggeration = kwargs["early_exaggeration"]
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
-            self.coeff_attraction_ > 1 and step == self.early_exaggeration_iter
+            self.early_exaggeration_ > 1 and step == self.early_exaggeration_iter
         ):
-            self.coeff_attraction_ = 1
+            self.early_exaggeration_ = 1
             # reinitialize optim
             self._set_learning_rate()
             self._set_optimizer()
@@ -173,9 +174,9 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _fit(self, X: torch.Tensor):
         self._check_n_neighbors(X.shape[0])
-        self.coeff_attraction_ = (
-            self.coeff_attraction
-        )  # coeff_attraction_ may change during the optimization
+        self.early_exaggeration_ = (
+            self.early_exaggeration
+        )  # early_exaggeration_ may change during the optimization
 
         super()._fit(X)
 
@@ -191,7 +192,7 @@ class NeighborEmbedding(AffinityMatcher):
                         "rate, the optimizer should be 'SGD'."
                     )
             # from the sklearn TSNE implementation
-            self.lr_ = np.maximum(self.n_samples_in_ / self.coeff_attraction_ / 4, 50)
+            self.lr_ = np.maximum(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
         else:
             self.lr_ = self.lr
 
@@ -199,7 +200,7 @@ class NeighborEmbedding(AffinityMatcher):
         optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
         # from the sklearn TSNE implementation
         if self.optimizer_kwargs == "auto":
-            if self.coeff_attraction_ > 1:
+            if self.early_exaggeration_ > 1:
                 optimizer_kwargs = {"momentum": 0.5}
             else:
                 optimizer_kwargs = {"momentum": 0.8}
@@ -266,8 +267,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term. Default is 1.0.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
@@ -294,7 +296,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 1.0,
+        early_exaggeration: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
     ):
@@ -331,7 +333,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
@@ -351,7 +353,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _loss(self):
         loss = (
-            self.coeff_attraction_ * self._attractive_loss()
+            self.early_exaggeration_ * self._attractive_loss()
             + self.coeff_repulsion * self._repulsive_loss()
         )
         return loss
@@ -420,8 +422,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term. Default is 1.0.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
@@ -450,7 +453,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 1.0,
+        early_exaggeration: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = None,
         n_negatives: int = 5,
@@ -477,7 +480,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
