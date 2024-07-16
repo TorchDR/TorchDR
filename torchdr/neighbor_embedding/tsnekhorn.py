@@ -76,8 +76,9 @@ class TSNEkhorn(NeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 10.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -130,7 +131,7 @@ class TSNEkhorn(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        early_exaggeration: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e0,
@@ -204,7 +205,7 @@ class TSNEkhorn(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
@@ -226,7 +227,7 @@ class TSNEkhorn(NeighborEmbedding):
             repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
 
         loss = (
-            self.coeff_attraction_ * attractive_term
+            self.early_exaggeration_ * attractive_term
             + self.coeff_repulsion * repulsive_term
         )
         return loss

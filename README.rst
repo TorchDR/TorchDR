@@ -128,8 +128,7 @@ or in Bibtex format :
 .. code-block:: bibtex
 
     @misc{vanassel2024torchdr,
-      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},
-      title = {TorchDR},
+      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},      title = {TorchDR},
       url = {https://torchdr.github.io/},
       year = {2024}
     }
@@ -172,7 +171,7 @@ References
 
 .. [17] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
-.. [18] Böhm, J. N., Berens, P., & Kobak, D. (2022). `Attraction-Repulsion Spectrum in Neighbor Embeddings <https://www.jmlr.org/papers/volume23/21-0055/21-0055.pdf>`_. Journal of Machine Learning Research, 23 (JMLR).
+.. [18] Wang, Y., Huang, H., Rudin, C., & Shaposhnik, Y. (2021). `Understanding how dimension reduction tools work: an empirical approach to deciphering t-SNE, UMAP, TriMAP, and PaCMAP for data visualization <https://www.jmlr.org/papers/volume22/20-1061/20-1061.pdf>`_. Journal of Machine Learning Research, 22 (JMLR).
 
 .. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research, 22 (JMLR).
 
