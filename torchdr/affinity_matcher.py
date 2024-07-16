@@ -382,7 +382,8 @@ class AffinityMatcher(DRModule):
                 )
                 self.embedding_ = self.embedding_ * self.init_scaling
                 # need to project the initialised samples in the Poincaré Ball
-                # and then register them to parameters to be optimized on the Poincaré Ball
+                # and then register them to parameters to be optimized on the Poincaré
+                # Ball
                 ball = geoopt.PoincareBall()
                 self.embedding_ = geoopt.ManifoldTensor(ball.expmap0(self.embedding_),
                                                         manifold=ball)
