@@ -17,7 +17,7 @@ from sklearn.metrics import silhouette_score
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
-    COSNE,
+    #    COSNE,
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
@@ -50,7 +50,7 @@ param_optim = {"lr": 1.0,  "optimizer_kwargs": None}
     [
         (SNE, {}),
         (TSNE, {}),
-#        (COSNE, {}),
+        #        (COSNE, {}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),
