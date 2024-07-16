@@ -120,6 +120,7 @@ class COSNE(SparseNeighborEmbedding):
         metric_out: str = "sqhyperbolic",
     ):
         if is_geoopt_available():
+            print("touf")
             self.metric_in = metric_in
             self.metric_out = metric_out
             self.perplexity = perplexity

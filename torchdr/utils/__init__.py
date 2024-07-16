@@ -66,9 +66,6 @@ from .utils import (
     batch_transpose,
 )
 
-from .visu import (
-    plotGrid
-)
 
 __all__ = [
     "LazyTensor",
@@ -112,7 +109,6 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
-    "plotGrid",
     "geoopt",
     "is_geoopt_available"
 ]

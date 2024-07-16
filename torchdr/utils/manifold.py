@@ -22,3 +22,5 @@ def is_geoopt_available():
                 "[TorchDR] ERROR : geoopt is not installed. Please install it to use "
                 "`manifold=true`."
             )
+    else:
+        return True
