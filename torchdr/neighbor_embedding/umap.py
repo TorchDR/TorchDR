@@ -74,8 +74,9 @@ class UMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 1.0.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -125,7 +126,7 @@ class UMAP(SampledNeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 1.0,
+        early_exaggeration: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,
@@ -183,7 +184,7 @@ class UMAP(SampledNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
