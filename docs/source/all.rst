@@ -11,8 +11,8 @@ API and Modules
    :no-inherited-members:
 
 
-Dimensionality Reduction Modules - ``sklearn`` Compatibility
-------------------------------------------------------------
+Dimensionality Reduction ``sklearn`` compatible estimators
+----------------------------------------------------------
 
 TorchDR provides a set of classes that are compatible with the ``sklearn`` API. 
 Note that the ``torchdr`` classes work seamlessly with both Numpy and PyTorch tensors and
@@ -71,8 +71,8 @@ Advanced dimensionality reduction with ``torchdr``
 --------------------------------------------------
 
 TorchDR provides a set of generic classes that can be used to implement new
-dimensionality reduction methods. These classes are not compatible with the
-``sklearn`` API, but provide a more flexible way to implement new methods.
+dimensionality reduction methods. These classes provide a more flexible way to
+implement new methods.
 
 
 Base classes 
