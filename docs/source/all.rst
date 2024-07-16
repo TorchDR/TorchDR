@@ -11,22 +11,25 @@ API and Modules
    :no-inherited-members:
 
 
-Dimensionality Reduction Modules - ``sklearn`` Compatible
-----------------------------------------------------------
+Dimensionality Reduction Modules - ``sklearn`` Compatibility
+------------------------------------------------------------
 
-
-Base Dimensionality Reduction Module
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-   
-   DRModule
+TorchDR provides a set of classes that are compatible with the ``sklearn`` API. 
+Note that the ``torchdr`` classes work seamlessly with both Numpy and PyTorch tensors and
+provide additional functionalities that are not available in the ``sklearn``
+classes. For example, the ``torchdr`` classes can be used with GPU
+acceleration using `device='cuda'` parameter and LazyTensor objects that
+allows to perform DR on large datasets that do not fit in memory with
+`keops=True`.
 
 
 Spectral Embedding
 ^^^^^^^^^^^^^^^^^^
+
+Those classes are used to perform classical spectral embedding of the data. They
+are equivalent to use the :class:`torchdr.AffinityMatcher` with a specific
+affinity on the data and a :class:`torchdr.ScalarProductAffinity` on the reduced
+dimension data.
 
 .. autosummary::
    :toctree: gen_modules/
@@ -35,30 +38,10 @@ Spectral Embedding
    PCA
 
 
-Affinity Matcher
-^^^^^^^^^^^^^^^^
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   AffinityMatcher
-
-
 Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
 
-Base Modules
-""""""""""""
 
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   NeighborEmbedding
-   SparseNeighborEmbedding
-   SampledNeighborEmbedding
-   
 Classical Neighbor Embedding Methods
 """""""""""""""""""""""""""""""""""""
    
@@ -83,8 +66,58 @@ Noise Contrastive Neighbor Embedding Methods
    UMAP
 
 
-Affinity Modules
-----------------
+
+Advanced dimensionality reduction with ``torchdr``
+--------------------------------------------------
+
+TorchDR provides a set of generic classes that can be used to implement new
+dimensionality reduction methods. These classes are not compatible with the
+``sklearn`` API, but provide a more flexible way to implement new methods.
+
+
+Base classes 
+^^^^^^^^^^^^
+
+The :class:`torchdr.DRModule` class is the base class that allows to perform DR using user defined
+affinities. It is the base class for all the DR classes in TorchDR.
+:class:`torchdr.AffinityMatcher` is the Basis class for all the DR methods that
+use generic affinities.
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   DRModule
+   AffinityMatcher
+   
+
+Base Neighbor embedding Modules
+"""""""""""""""""""""""""""""""
+
+Neighbor embedding methods are based on the idea of preserving the local
+structure of the data. The following classes are the base classes for the
+neighbor embedding methods that allows for specific and more efficient
+implementations such as sparsity acceleration with
+:class:`torchdr.SparseNeighborEmbedding` and stochastic optimization with
+:class:`torchdr.SampledNeighborEmbedding`.
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   NeighborEmbedding
+   SparseNeighborEmbedding
+   SampledNeighborEmbedding
+   
+
+
+Affinity classes
+^^^^^^^^^^^^^^^^
+
+The following classes are used to compute the affinities between the data points
+in the high-dimensional and low dimensional spaces. The affinities are used to
+define the similarity between the data points and are used to preserve the
+structure of the data in the reduced dimension space.
 
 
 Simple Affinities
@@ -131,7 +164,11 @@ UMAP Affinities
    UMAPAffinityOut   
 
 Utils
------
+^^^^^
+
+The following classes are used to perform various operations such as computing
+the pairwise distances between the data points, binary search, and false
+position optimization.
 
 .. autosummary::
    :toctree: gen_modules/
