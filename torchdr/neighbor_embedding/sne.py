@@ -16,9 +16,19 @@ from torchdr.utils import logsumexp_red
 
 
 class SNE(SparseNeighborEmbedding):
-    """
+    r"""
     Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
     introduced in [1]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j} Q_{ij} \Big) \:.
 
     Parameters
     ----------
@@ -28,12 +38,12 @@ class SNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedded space (corresponds to the number of features of Z).
-    lr : float, optional
-        Learning rate for the algorithm.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer.
+    lr : float or 'auto', optional
+        Learning rate for the algorithm. By default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
+        Which pytorch optimizer to use. By default 'auto'.
+    optimizer_kwargs : dict or 'auto', optional
+        Arguments for the optimizer. By default None.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -53,11 +63,12 @@ class SNE(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 10.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -83,21 +94,21 @@ class SNE(SparseNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: float | str = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-4,
-        max_iter: int = 1000,
+        tol: float = 1e-7,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        early_exaggeration: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
@@ -145,11 +156,11 @@ class SNE(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
     def _repulsive_loss(self):
-        log_Q = self.affinity_out.transform(self.embedding_, log=True)
+        log_Q = self.affinity_out(self.embedding_, log=True)
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

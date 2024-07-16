@@ -9,16 +9,15 @@ Affinity matrices with normalizations using nearest neighbor distances
 # License: BSD 3-Clause License
 
 import torch
-import numpy as np
 from typing import Tuple
 
-from torchdr.utils import logsumexp_red
-from torchdr.affinity.base import LogAffinity
+from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import (
     kmin,
     wrap_vectors,
     batch_transpose,
-    to_torch,
+    logsumexp_red,
+    sum_red,
 )
 
 
@@ -42,6 +41,27 @@ def _log_SelfTuning(C, sigma):
     """
     sigma_t = batch_transpose(sigma)
     return -C / (sigma * sigma_t)
+
+
+@wrap_vectors
+def _log_MAGIC(C, sigma):
+    r"""
+    Returns the MAGIC affinity matrix with sample-wise bandwidth
+    determined by the distance from a point to its K-th neirest neighbor
+    in log domain.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        Pairwise distance matrix.
+    sigma : torch.Tensor of shape (n,)
+        Sample-wise bandwidth parameter.
+
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor
+    """
+    return -C / sigma
 
 
 class SelfTuningAffinity(LogAffinity):
@@ -71,7 +91,7 @@ class SelfTuningAffinity(LogAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -88,7 +108,7 @@ class SelfTuningAffinity(LogAffinity):
         zero_diag: bool = True,
         device: str = None,
         keops: bool = True,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -100,33 +120,123 @@ class SelfTuningAffinity(LogAffinity):
         self.K = K
         self.normalization_dim = normalization_dim
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def _compute_log_affinity(self, X: torch.Tensor):
         r"""
         Fits the local Gibbs affinity model to the provided data.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
+        X : torch.Tensor
             Input data.
 
         Returns
         -------
-        self : SelfTuningAffinity
-            The fitted local Gibbs affinity model.
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix in log domain.
         """
-        self.data_ = to_torch(X, device=self.device)
-        C = self._distance_matrix(self.data_)
+        C = self._distance_matrix(X)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        self.log_affinity_matrix_ = _log_SelfTuning(C, self.sigma_)
+        log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
-                self.log_affinity_matrix_, self.normalization_dim
+                log_affinity_matrix, self.normalization_dim
             )
-            self.log_affinity_matrix_ = (
-                self.log_affinity_matrix_ - self.log_normalization_
-            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
-        return self
+        return log_affinity_matrix
+
+
+class MAGICAffinity(Affinity):
+    r"""
+    Computes the MAGIC [23]_ affinity matrix.
+
+    The construction is as follows. First, it computes a Gaussian
+    kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+
+    .. math::
+        P_{ij} \leftarrow \exp \left( - \frac{C_{ij}}{\sigma_i} \right)
+
+    In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
+    :math:`\mathbf{x}_i`.
+
+    Then it averages the affinity matrix with its transpose:
+
+    .. math::
+        P_{ij} \leftarrow \frac{P_{ij} + P_{ji}}{2} \:.
+
+    Finally, it normalizes the affinity matrix along each row:
+
+    .. math::
+        P_{ij} \leftarrow \frac{P_{ij}}{\sum_{t} P_{it}} \:.
+
+
+    Parameters
+    ----------
+    K : int, optional
+        K-th neirest neighbor .
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+
+    References
+    ----------
+    .. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A.
+            J., ... & Pe’er, D. (2018).
+            Recovering Gene Interactions from Single-Cell Data Using Data Diffusion
+            Cell, 174(3).
+    """
+
+    def __init__(
+        self,
+        K: int = 7,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.K = K
+
+    def _compute_affinity(self, X: torch.Tensor):
+        r"""
+        Fits the local Gibbs affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input data.
+
+        Returns
+        -------
+        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix.
+        """
+        C = self._distance_matrix(X)
+
+        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        self.sigma_ = minK_values[:, -1]
+        affinity_matrix = _log_MAGIC(C, self.sigma_).exp()
+        affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
+
+        self.normalization_ = sum_red(affinity_matrix, 1)
+        affinity_matrix = affinity_matrix / self.normalization_
+
+        return affinity_matrix

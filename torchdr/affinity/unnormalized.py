@@ -8,15 +8,12 @@ Common simple affinities
 # License: BSD 3-Clause License
 
 import torch
-from ..utils import LazyTensorType
 
-from torchdr.affinity.base import (
-    TransformableAffinity,
-    TransformableLogAffinity,
-)
+from torchdr.utils import LazyTensorType
+from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 
 
-class GaussianAffinity(TransformableLogAffinity):
+class GaussianAffinity(UnnormalizedLogAffinity):
     r"""
     Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
@@ -60,9 +57,11 @@ class GaussianAffinity(TransformableLogAffinity):
         return -C / self.sigma
 
 
-class StudentAffinity(TransformableLogAffinity):
+class StudentAffinity(UnnormalizedLogAffinity):
     r"""
-    Computes the Student affinity matrix based on the Student-t distribution:
+    Computes the Student affinity matrix based on the Student-t distribution.
+
+    Its expression is given by:
 
     .. math::
         \left(1 + \frac{\mathbf{C}}{\nu}\right)^{-\frac{\nu + 1}{2}}
@@ -82,7 +81,7 @@ class StudentAffinity(TransformableLogAffinity):
     keops : bool, optional
         Whether to use KeOps for computations.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
     """
 
     def __init__(
@@ -92,7 +91,7 @@ class StudentAffinity(TransformableLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -111,7 +110,7 @@ class StudentAffinity(TransformableLogAffinity):
         )
 
 
-class ScalarProductAffinity(TransformableAffinity):
+class ScalarProductAffinity(UnnormalizedAffinity):
     r"""
     Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
     where :math:`\mathbf{X}` is the input data.
@@ -123,14 +122,14 @@ class ScalarProductAffinity(TransformableAffinity):
     keops : bool, optional
         Whether to use KeOps for computations. Default is True.
     verbose : bool, optional
-        Verbosity. Default is True.
+        Verbosity. Default is False.
     """
 
     def __init__(
         self,
-        device: str = "cuda",
+        device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric="angular",

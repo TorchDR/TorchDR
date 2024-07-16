@@ -7,9 +7,9 @@
 from .base import (
     Affinity,
     LogAffinity,
-    TransformableAffinity,
-    TransformableLogAffinity,
     SparseLogAffinity,
+    UnnormalizedAffinity,
+    UnnormalizedLogAffinity,
 )
 
 from .unnormalized import (
@@ -18,7 +18,7 @@ from .unnormalized import (
     StudentAffinity,
 )
 
-from .knn_normalized import SelfTuningAffinity
+from .knn_normalized import SelfTuningAffinity, MAGICAffinity
 
 from .entropic import (
     EntropicAffinity,
@@ -34,13 +34,14 @@ from .umap import UMAPAffinityIn, UMAPAffinityOut
 __all__ = [
     "Affinity",
     "LogAffinity",
-    "TransformableAffinity",
-    "TransformableLogAffinity",
+    "UnnormalizedAffinity",
+    "UnnormalizedLogAffinity",
     "SparseLogAffinity",
     "ScalarProductAffinity",
     "GaussianAffinity",
     "NormalizedGaussianAffinity",
     "SelfTuningAffinity",
+    "MAGICAffinity",
     "StudentAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",

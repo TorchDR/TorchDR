@@ -19,6 +19,7 @@ from .affinity import (
     GaussianAffinity,
     NormalizedGaussianAffinity,
     SelfTuningAffinity,
+    MAGICAffinity,
     StudentAffinity,
     ScalarProductAffinity,
     EntropicAffinity,
@@ -31,15 +32,17 @@ from .affinity import (
 
 # import DR methods
 from .base import DRModule
-from .spectral import PCA
+from .spectral import PCA, KernelPCA
 from .affinity_matcher import (
     AffinityMatcher,
 )
 from .neighbor_embedding import (
+    NeighborEmbedding,
+    SparseNeighborEmbedding,
+    SampledNeighborEmbedding,
     SNE,
     TSNE,
     InfoTSNE,
-    SNEkhorn,
     TSNEkhorn,
     LargeVis,
     UMAP,
@@ -62,6 +65,7 @@ __all__ = [
     "GaussianAffinity",
     "NormalizedGaussianAffinity",
     "SelfTuningAffinity",
+    "MAGICAffinity",
     "StudentAffinity",
     "ScalarProductAffinity",
     "EntropicAffinity",
@@ -74,10 +78,13 @@ __all__ = [
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",
+    "KernelPCA",
+    "NeighborEmbedding",
+    "SparseNeighborEmbedding",
+    "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
     "InfoTSNE",
-    "SNEkhorn",
     "TSNEkhorn",
     "LargeVis",
     "UMAP",

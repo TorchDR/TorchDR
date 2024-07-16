@@ -16,7 +16,6 @@ from sklearn.metrics import silhouette_score
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
-    SNEkhorn,
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
@@ -40,18 +39,19 @@ def toy_dataset(n=100, dtype="float32"):
     return X.astype(dtype), y
 
 
+param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
+
+
 @pytest.mark.parametrize(
     "DRModel, kwargs",
     [
         (SNE, {}),
         (TSNE, {}),
-        (SNEkhorn, SEA_params | {"unrolling": True}),
-        (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),
         (InfoTSNE, {}),
-        (UMAP, {"min_dist": 1.0}),
+        (UMAP, {}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
@@ -67,7 +67,8 @@ def test_NE(DRModel, kwargs, dtype, keops):
         init="normal",
         max_iter=100,
         random_state=0,
-        **kwargs
+        tol=1e-10,
+        **(param_optim | kwargs),
     )
     Z = model.fit_transform(X)
 
@@ -88,13 +89,14 @@ def test_array_init(dtype, keops):
 
     lst_Z = []
     for Z_init in [Z_init_np, Z_init_torch]:
-        model = TSNE(
+        model = SNE(
             n_components=2,
             keops=keops,
             device=DEVICE,
             init=Z_init,
             max_iter=100,
             random_state=0,
+            **param_optim,
         )
         Z = model.fit_transform(X)
         lst_Z.append(Z)
