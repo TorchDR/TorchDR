@@ -12,7 +12,7 @@ dependencies = [
     "scikit-learn",
     "torch",
     "tqdm",
-    "scipy=1.13",
+    "scipy<=1.13",
     "geoopt>=0.5"
 ]
 dynamic = ["version"]
