@@ -28,7 +28,8 @@ def _log_Pumap(C, rho, sigma):
 
 # from umap/umap/umap_.py
 def find_ab_params(spread, min_dist):
-    """Fit a, b params as in UMAP.
+    """
+    Fit a, b params as in UMAP.
 
     Fit (a, b) for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
