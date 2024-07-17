@@ -81,7 +81,6 @@ def test_silhouette_score_euclidean(dtype, keops, metric):
 def test_consistency_sklearn(dtype, keops, metric):
     n = 100
     X, y = toy_dataset(n, dtype)
-    print(X.shape)
     score_torchdr = silhouette_score(X, y, None, metric, DEVICE, keops)
     score_sklearn = sk_silhouette_score(X, y, metric=metric)
     assert (
