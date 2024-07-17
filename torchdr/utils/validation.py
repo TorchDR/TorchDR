@@ -211,15 +211,33 @@ def check_nonnegativity(P):
     assert P.min() >= 0, "Input contains negative values."
 
 
-def check_nonnegativity_eigenvalues(lambdas, tol_neg_ratio=1e-3, small_pos_ratio=1e-6):
+def check_nonnegativity_eigenvalues(lambdas):
     """
     Checks if vector of eigenvalues lambdas contains only non-negative entries.
     """
     max_lam = lambdas.max()
     min_lam = lambdas.min()
 
+    is_double_precision = lambdas.dtype == torch.float64
+    significant_imag_ratio = 1e-5
+    significant_neg_ratio = 1e-5 if is_double_precision else 5e-3
+    significant_neg_value = 1e-10 if is_double_precision else 1e-6
+    small_pos_ratio = 1e-12 if is_double_precision else 2e-7
+
+    # Check that there are no significant imaginary parts
+    if not torch.isreal(lambdas).all():
+        max_imag_abs = torch.abs(lambdas.imag).max().item()
+        max_real_abs = torch.abs(lambdas.real).max().item()
+        if max_imag_abs > significant_imag_ratio * max_real_abs:
+            raise ValueError(
+                "There are significant imaginary parts in eigenvalues "
+                f"({max_imag_abs / max_real_abs:.6g} of the maximum real part). "
+                "Either the matrix is not PSD, or there was an issue while "
+                "computing the eigendecomposition of the matrix."
+            )
+
     # check if negative eigenvalues are significant
-    if min_lam < -tol_neg_ratio * max_lam:
+    if min_lam < -significant_neg_ratio * max_lam and min_eig < -significant_neg_value:
         raise ValueError("Input matrix has significant negative eigenvalues.")
 
     # set negative eigenvalues to zero
