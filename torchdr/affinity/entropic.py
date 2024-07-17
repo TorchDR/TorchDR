@@ -186,7 +186,7 @@ def _check_perplexity(perplexity, n, verbose=True):
 
 class EntropicAffinity(SparseLogAffinity):
     r"""Solve the directed entropic affinity problem introduced in [1]_.
-    
+
     The algorithm computes the optimal dual variable
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
 
