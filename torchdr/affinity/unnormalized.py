@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Common simple affinities
-"""
+"""Common simple affinities."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -14,8 +12,9 @@ from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 
 
 class GaussianAffinity(UnnormalizedLogAffinity):
-    r"""
-    Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    r"""Compute the Gaussian affinity matrix.
+
+    Its expression is as follows : :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter.
 
@@ -58,8 +57,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
 
 
 class StudentAffinity(UnnormalizedLogAffinity):
-    r"""
-    Computes the Student affinity matrix based on the Student-t distribution.
+    r"""Compute the Student affinity matrix based on the Student-t distribution.
 
     Its expression is given by:
 
@@ -111,8 +109,9 @@ class StudentAffinity(UnnormalizedLogAffinity):
 
 
 class ScalarProductAffinity(UnnormalizedAffinity):
-    r"""
-    Computes the scalar product affinity matrix :math:`\mathbf{X} \mathbf{X}^\top`
+    r"""Compute the scalar product affinity matrix.
+
+    Its expression is given by :math:`\mathbf{X} \mathbf{X}^\top`
     where :math:`\mathbf{X}` is the input data.
 
     Parameters
