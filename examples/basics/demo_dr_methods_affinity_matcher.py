@@ -37,7 +37,7 @@ optim_params = {
     'early_exaggeration_iter': 0,
     'optimizer': 'Adam',
     'optimizer_kwargs': None,
-    'coeff_attraction': 1.0
+    'early_exaggeration': 1.0
     }
 
 sne = SNE(n_components=2,
