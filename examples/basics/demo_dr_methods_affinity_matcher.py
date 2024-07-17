@@ -38,7 +38,7 @@ optim_params = {
     'optimizer': 'Adam',
     'optimizer_kwargs': None,
     'early_exaggeration': 1.0,
-    'max_iter': 200
+    'max_iter': 100
     }
 
 sne = SNE(n_components=2,
