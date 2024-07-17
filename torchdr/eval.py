@@ -17,6 +17,18 @@ from torchdr.utils import to_torch, pairwise_distances, wrap_vectors, batch_tran
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic"]
 
 
+@wrap_vectors
+def weighted_distances(C, w, transpose=False):
+    """
+    It computes : C * w_ where w_ is w[:, None] if C is a torch.Tensor
+    and LazyTensor(w[:, None], 0) if C is a LazyTensor.
+    If transpose is True, w_ is transposed.
+    """
+    if transpose:
+        w = batch_transpose(w)
+    return C * w
+
+
 def silhouette_samples(
     X: torch.Tensor | np.ndarray,
     labels: torch.Tensor | np.ndarray,
@@ -53,6 +65,7 @@ def silhouette_samples(
         Whether to use KeOps for computations.
     warn : bool, optional
         Whether to output warnings when edge cases are identified.
+
     Returns
     -------
     coefficients : torch.Tensor or np.ndarray of shape (n_samples_x,)
@@ -81,15 +94,6 @@ def silhouette_samples(
     pos_labels = [torch.where(labels == label)[0] for label in unique_labels]
     A = torch.zeros((X.shape[0],), dtype=X.dtype, device=device)
     B = torch.full((X.shape[0],), torch.inf, dtype=X.dtype, device=device)
-
-    @wrap_vectors
-    def weighted_distances(C, w, transpose=False):
-        """
-        If C is a LazyTensor, transforms w into a LazyTensor and transpose it if needed.
-        """
-        if transpose:
-            w = batch_transpose(w)
-        return C * w
 
     for i, pos_i in enumerate(pos_labels):
         if pos_i.shape[0] > 1:
@@ -133,8 +137,6 @@ def silhouette_samples(
                 dist_pos_i = inter_cluster_dists.sum(1).squeeze(-1) / pos_j.shape[0]
                 dist_pos_j = inter_cluster_dists.sum(0).squeeze(-1) / pos_i.shape[0]
             else:
-                # dist_pos_i = inter_cluster_dists * weights[pos_j][None, :]
-                # dist_pos_j = inter_cluster_dists * weights[pos_i][:, None]
                 dist_pos_i = (
                     weighted_distances(inter_cluster_dists, weights[pos_j], True)
                     .sum(1)
@@ -151,7 +153,6 @@ def silhouette_samples(
             B[pos_i] = torch.minimum(dist_pos_i, B[pos_i])
             B[pos_j] = torch.minimum(dist_pos_j, B[pos_j])
 
-    # compute coefficients
     coefficients = (B - A) / torch.maximum(A, B)
     return torch.nan_to_num(coefficients, 0.0)
 
