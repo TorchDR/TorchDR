@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Tests for functions in utils module.
-"""
+"""Tests for functions in utils module."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #

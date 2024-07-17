@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-UMAP algorithm
-"""
+"""UMAP algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,9 +14,7 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    r"""
-    Implementation of the UMAP algorithm introduced in [8]_ and further studied
-    in [12]_.
+    r"""Implementation of UMAP introduced in [8]_ and further studied in [12]_.
 
     It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
@@ -101,7 +97,6 @@ class UMAP(SampledNeighborEmbedding):
     .. [12] Sebastian Damrich, Fred Hamprecht (2021).
         On UMAP's True Loss Function.
         Advances in Neural Information Processing Systems 34 (NeurIPS).
-
     """  # noqa: E501
 
     def __init__(

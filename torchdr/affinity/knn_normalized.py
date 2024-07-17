@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices with normalizations using nearest neighbor distances
-"""
+"""Affinity matrices with normalizations using nearest neighbor distances."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Cédric Vincent-Cuaz <cedric.vincent-cuaz@inria.fr>
@@ -23,10 +21,10 @@ from torchdr.utils import (
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
-    r"""
-    Returns the self-tuning affinity matrix with sample-wise bandwidth
-    determined by the distance from a point to its K-th neirest neighbor
-    in log domain.
+    r"""Return the self-tuning affinity matrix with sample-wise bandwidth.
+
+    The bandwidth isdetermined by the distance from a point to its
+    K-th neirest neighbor in log domain.
 
     Parameters
     ----------
@@ -45,10 +43,10 @@ def _log_SelfTuning(C, sigma):
 
 @wrap_vectors
 def _log_MAGIC(C, sigma):
-    r"""
-    Returns the MAGIC affinity matrix with sample-wise bandwidth
-    determined by the distance from a point to its K-th neirest neighbor
-    in log domain.
+    r"""Return the MAGIC affinity matrix with sample-wise bandwidth.
+
+    The bandwidth is determined by the distance from a point
+    to its K-th neirest neighbor in log domain.
 
     Parameters
     ----------
@@ -65,9 +63,9 @@ def _log_MAGIC(C, sigma):
 
 
 class SelfTuningAffinity(LogAffinity):
-    r"""
-    Computes the self-tuning [22]_ Gaussian affinity matrix with
-    sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+    r"""Compute the self-tuning affinity introduced in [22]_.
+
+    The affinity has a sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
 
     .. math::
         \exp \left( - \frac{C_{ij}}{\sigma_i \sigma_j} \right)
@@ -121,8 +119,7 @@ class SelfTuningAffinity(LogAffinity):
         self.normalization_dim = normalization_dim
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""
-        Fits the local Gibbs affinity model to the provided data.
+        r"""Fit the self-tuning affinity model to the provided data.
 
         Parameters
         ----------
@@ -150,8 +147,7 @@ class SelfTuningAffinity(LogAffinity):
 
 
 class MAGICAffinity(Affinity):
-    r"""
-    Computes the MAGIC [23]_ affinity matrix.
+    r"""Compute the MAGIC affinity introduced in [23]_.
 
     The construction is as follows. First, it computes a Gaussian
     kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
@@ -216,8 +212,7 @@ class MAGICAffinity(Affinity):
         self.K = K
 
     def _compute_affinity(self, X: torch.Tensor):
-        r"""
-        Fits the local Gibbs affinity model to the provided data.
+        r"""Fit the MAGIC affinity model to the provided data.
 
         Parameters
         ----------
