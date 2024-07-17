@@ -1,17 +1,20 @@
 r"""
 Comparison of different DR methods and the use of affinity matcher
-========================================
+==================================================================
 
-We illustrate the basic usage of TorchDR with different DR methods on the swiss roll dataset.
+We illustrate the basic usage of TorchDR with different DR methods
+on the swiss roll dataset.
 
 """
 # %%
+import torch
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll
-from torchdr import AffinityMatcher
-from torchdr.affinity import EntropicAffinity, NormalizedGaussianAffinity, NormalizedStudentAffinity
-from torchdr import SNE, UMAP, TSNE
-import torch
+
+from torchdr import AffinityMatcher, SNE, UMAP, TSNE
+from torchdr.affinity import EntropicAffinity, NormalizedGaussianAffinity
+
+
 # %%
 # Load toy images
 # ---------------
@@ -24,8 +27,9 @@ X, t = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=0)
 init_embedding = torch.normal(0, 1, size=(
                 n_samples, 2), dtype=torch.double)
 # %%
-# Compute the different embedding (tune hyperparameters for better looking results)
-# --------------------------
+# Compute the different embedding
+# (tune hyperparameters for better looking results)
+# -------------------------------------------------
 perplexity = 30
 lr = 1e-1
 optim_params = {
@@ -60,7 +64,7 @@ for method_name, method in all_methods.items():
 
 # %%
 # Plot the different embeddings
-# --------------------------
+# -----------------------------
 fig = plt.figure(figsize=(15, 4))
 fs = 24
 ax = fig.add_subplot(1, 4, 1, projection='3d')
@@ -77,14 +81,17 @@ for i, (method_name, method) in enumerate(all_methods.items()):
     ax.set_yticks([])
 plt.tight_layout()
 # %%
-# We can reproduce the same kind of results using the flexible class
-# AffinityMatcher :class:`torchdr.AffinityMatcher`.
-# It take as input two affinities and minimize
-# a certain matching loss between them.
-# To reproduce for example the SNE algorithm we can match with the cross entropy loss
-# an EntropicAffinity :class:`torchdr.affinity.EntropicAffinity` with given perplexity and
-# a NormalizedGaussianAffinity :class:`torchdr.affinity.NormalizedGaussianAffinity`
-# --------------------------
+# We can reproduce the same kind of results using the
+# flexible class AffinityMatcher
+# :class:`torchdr.AffinityMatcher`. It take as input
+# two affinities and minimize a certain matching loss
+# between them. To reproduce for example the SNE algorithm
+# we can match with the cross entropy loss
+# an EntropicAffinity
+# :class:`torchdr.affinity.EntropicAffinity` with given
+# perplexity and a NormalizedGaussianAffinity
+# :class:`torchdr.affinity.NormalizedGaussianAffinity`
+# ---------------------------------------------------------
 sne_affinity_matcher = AffinityMatcher(
     n_components=2,
     # SNE matches an EntropicAffinity

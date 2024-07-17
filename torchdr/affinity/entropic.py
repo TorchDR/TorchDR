@@ -834,7 +834,9 @@ class SinkhornAffinity(LogAffinity):
 
 class NormalizedGaussianAffinity(LogAffinity):
     r"""
-    Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
+    Computes the Gaussian affinity matrix.
+
+    The formula is given by :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
@@ -911,7 +913,9 @@ class NormalizedGaussianAffinity(LogAffinity):
 
 class NormalizedStudentAffinity(LogAffinity):
     r"""
-    Computes the Student affinity matrix :math:`(1 + \mathbf{C} / \sigma)^{-1}`
+    Computes the Student affinity matrix.
+
+    The formula is given by :math:`(1 + \mathbf{C} / \sigma)^{-1}`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
