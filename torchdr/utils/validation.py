@@ -49,7 +49,8 @@ def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5
             P_keops,
             atol=tol,
             rtol=tol,
-            msg="Torch and Keops matrices are different.")
+            msg="Torch and Keops matrices are different.",
+        )
         return
 
     # retrieve largest P_keops values and arguments
