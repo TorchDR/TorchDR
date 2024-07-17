@@ -27,8 +27,7 @@ def silhouette_samples(
     keops: bool = True,
     warn: bool = True,
 ):
-    r"""
-    Compute the silhouette coefficients for each sample in :math:`\mathbf{X}`.
+    r"""Compute the silhouette coefficients for each sample in :math:`\mathbf{X}`.
     Each coefficient is calculated using the mean intra-cluster
     distance (:math:`a`) and the mean nearest-cluster distance (:math:`b`) of
     the sample, according to the formula :math:`(b - a) / max(a, b)`.
@@ -178,8 +177,7 @@ def silhouette_score(
     random_state: int = None,
     warn: bool = True,
 ):
-    r"""
-    Compute the Silhouette Score for all samples in :math:`\mathbf{X}` as the
+    r"""Compute the Silhouette Score for all samples in :math:`\mathbf{X}` as the
     mean of silhouette coefficient of each sample.
     Each coefficient is calculated using the mean intra-cluster
     distance (:math:`a`) and the mean nearest-cluster distance (:math:`b`) of
