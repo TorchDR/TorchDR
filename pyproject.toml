@@ -2,7 +2,6 @@
 name = "torchdr"
 description = "Torch Dimensionality Reduction Library"
 authors = [
-    {name = "Hugues Van Assel", email = "vanasselhugues@gmail.com"},
     {name = " TorchDR contributors"}
 ]
 license = {text = "BSD (3-Clause)"}

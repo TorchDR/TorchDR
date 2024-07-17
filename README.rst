@@ -32,6 +32,7 @@ Benefits of TorchDR include:
    * - **Compatibility**
      - Implemented methods are fully **compatible** with the ``sklearn`` [21]_ API and ``torch`` [20]_ ecosystem.
 
+This library is a community-driven project and welcomes contributions of all forms.
 
 Getting Started
 ---------------
@@ -112,27 +113,6 @@ Finding Help
 
 If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
-
-
-Citation
---------
-
-If you use TorchDR in your research, please cite the following reference:
-
-.. code-block:: apalike
-
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
-
-or in Bibtex format :
-
-.. code-block:: bibtex
-
-    @misc{vanassel2024torchdr,
-      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vincent-Cuaz, Cédric},
-      title = {TorchDR},
-      url = {https://torchdr.github.io/},
-      year = {2024}
-    }
 
 
 References
