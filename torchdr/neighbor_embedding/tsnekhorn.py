@@ -58,7 +58,7 @@ class TSNEkhorn(NeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler, by default None.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
@@ -133,7 +133,7 @@ class TSNEkhorn(NeighborEmbedding):
         coeff_attraction: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
-        lr_affinity_in: float = 1e0,
+        lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
         max_iter_affinity_in: int = 100,
