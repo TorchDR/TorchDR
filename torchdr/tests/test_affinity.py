@@ -11,7 +11,7 @@ import pytest
 import torch
 import numpy as np
 import math
-from sklearn.datasets import make_moons
+
 from torchdr.utils import pykeops
 
 # define lists for keops testing
@@ -49,16 +49,12 @@ from torchdr.affinity import (
     UMAPAffinityOut,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
+from torchdr.tests.utils import toy_dataset
 
 lst_types = ["float32", "float64"]
 
 LIST_METRICS_TEST = ["sqeuclidean"]
 DEVICE = "cpu"
-
-
-def toy_dataset(n=300, dtype="float32"):
-    X, _ = make_moons(n_samples=n, noise=0.05, random_state=0)
-    return X.astype(dtype)
 
 
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
@@ -70,7 +66,7 @@ def test_keops_not_installed():
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
     n = 50
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
 
     list_P = []
     for keops in lst_keops:
@@ -93,7 +89,7 @@ def test_scalar_product_affinity(dtype):
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_normalized_gibbs_affinity(dtype, metric, dim):
     n = 50
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
@@ -122,7 +118,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 def test_gibbs_affinity(dtype, metric):
     n = 50
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
 
     list_P = []
     for keops in lst_keops:
@@ -145,7 +141,7 @@ def test_gibbs_affinity(dtype, metric):
 @pytest.mark.parametrize("dim", [0, 1, (0, 1)])
 def test_self_tuning_gibbs_affinity(dtype, metric, dim):
     n = 10
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
@@ -173,7 +169,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 def test_magic_affinity(dtype, metric):
     n = 10
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
 
     list_P = []
@@ -196,7 +192,7 @@ def test_magic_affinity(dtype, metric):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 def test_student_affinity(dtype, metric):
     n = 50
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
 
     list_P = []
     for keops in lst_keops:
@@ -220,7 +216,7 @@ def test_student_affinity(dtype, metric):
 @pytest.mark.parametrize("keops", lst_keops)
 def test_entropic_affinity(dtype, metric, sparsity, keops):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     perp = 30
     tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
@@ -264,7 +260,7 @@ def test_entropic_affinity(dtype, metric, sparsity, keops):
 @pytest.mark.parametrize("keops", lst_keops)
 def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     perp = 30
     tol = 1e-2
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
@@ -301,7 +297,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, keops):
 @pytest.mark.parametrize("keops", lst_keops)
 def test_doubly_stochastic_entropic(dtype, metric, keops):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     eps = 1e0
     tol = 1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
@@ -329,7 +325,7 @@ def test_doubly_stochastic_entropic(dtype, metric, keops):
 @pytest.mark.parametrize("keops", lst_keops)
 def test_doubly_stochastic_quadratic(dtype, metric, keops):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     eps = 1e0
     tol = 1e-3
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
@@ -358,7 +354,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, keops):
 @pytest.mark.parametrize("keops", lst_keops)
 def test_umap_data_affinity(dtype, metric, sparsity, keops):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
     n_neighbors = 30
     tol = 1e-3
 
@@ -385,7 +381,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, keops):
 @pytest.mark.parametrize("a, b", [(1, 2), (None, None)])
 def test_umap_embedding_affinity(dtype, metric, keops, a, b):
     n = 300
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
 
     affinity = UMAPAffinityOut(
         device=DEVICE,
