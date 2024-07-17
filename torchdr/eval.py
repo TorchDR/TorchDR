@@ -84,6 +84,9 @@ def silhouette_samples(
 
     @wrap_vectors
     def weighted_distances(C, w, transpose=False):
+        """
+        If C is a LazyTensor, transforms w into a LazyTensor and transpose it if needed.
+        """
         if transpose:
             w = batch_transpose(w)
         return C * w
@@ -117,8 +120,8 @@ def silhouette_samples(
             intra_cluster_dists = 0.0
             if warn:
                 warnings.warn(
-                    "ill-defined intra-cluster mean distance as one cluster"
-                    "contains only one sample.",
+                    "[TorchDR] WARNING : ill-defined intra-cluster mean distance "
+                    "as one cluster contains only one sample.",
                     stacklevel=2,
                 )
         A[pos_i] = intra_cluster_dists

@@ -13,7 +13,6 @@ import warnings
 
 from torch.testing import assert_close
 
-
 from torchdr.eval import silhouette_samples, silhouette_score, admissible_LIST_METRICS
 from torchdr.utils import pykeops
 
