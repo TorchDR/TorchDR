@@ -63,7 +63,8 @@ def to_torch(x, device="auto", return_backend_device=False):
 
     else:
         # check sparsity and if it contains only finite values
-        x = check_array(x, accept_sparse=False)
+        if x.ndim == 2:
+            x = check_array(x, accept_sparse=False)
         input_backend = "numpy"
         input_device = "cpu"
 

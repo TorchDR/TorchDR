@@ -32,6 +32,7 @@ Benefits of TorchDR include:
    * - **Compatibility**
      - Implemented methods are fully **compatible** with the ``sklearn`` [21]_ API and ``torch`` [20]_ ecosystem.
 
+This library is a community-driven project and welcomes contributions of all forms.
 
 Getting Started
 ---------------
@@ -114,27 +115,6 @@ If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
 
 
-Citation
---------
-
-If you use TorchDR in your research, please cite the following reference:
-
-.. code-block:: apalike
-
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
-
-or in Bibtex format :
-
-.. code-block:: bibtex
-
-    @misc{vanassel2024torchdr,
-      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vincent-Cuaz, Cédric},
-      title = {TorchDR},
-      url = {https://torchdr.github.io/},
-      year = {2024}
-    }
-
-
 References
 ----------
 
@@ -184,6 +164,7 @@ References
 
 .. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A. J., ... & Pe’er, D. (2018). `Recovering Gene Interactions from Single-Cell Data Using Data Diffusion <https://www.cell.com/action/showPdf?pii=S0092-8674%2818%2930724-4>`_. Cell, 174(3).
 
+.. [23] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`. Journal of computational and applied mathematics, 20, 53-65.
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/

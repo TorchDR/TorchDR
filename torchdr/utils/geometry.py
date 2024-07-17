@@ -12,7 +12,7 @@ from .keops import LazyTensor, pykeops
 
 from torchdr.utils.utils import identity_matrix
 
-LIST_METRICS = ["sqeuclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
 
 
 def pairwise_distances(
@@ -132,6 +132,13 @@ def _pairwise_distances_torch(
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+    elif metric == "euclidean":
+        X_norm = (X**2).sum(-1)
+        Y_norm = (Y**2).sum(-1)
+        C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+        C = torch.clip(
+            C, min=0.0
+        ).sqrt()  # negative values can appear because of float precision
     elif metric == "manhattan":
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(-1)
     elif metric == "angular":
@@ -178,6 +185,8 @@ def _pairwise_distances_keops(
 
     if metric == "sqeuclidean":
         C = ((X_i - Y_j) ** 2).sum(-1)
+    elif metric == "euclidean":
+        C = ((X_i - Y_j) ** 2).sum(-1) ** (1.0 / 2.0)
     elif metric == "manhattan":
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
@@ -215,6 +224,8 @@ def symmetric_pairwise_distances_indices(
 
     if metric == "sqeuclidean":
         C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
+    elif metric == "euclidean":
+        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1).sqrt()
     elif metric == "manhattan":
         C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
     elif metric == "angular":
