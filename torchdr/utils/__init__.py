@@ -55,11 +55,11 @@ from .utils import (
     svd_flip,
     center_kernel,
     sum_matrix_vector,
+    prod_matrix_vector,
     sum_red,
     logsumexp_red,
     batch_transpose,
 )
-
 
 __all__ = [
     "LazyTensor",
@@ -75,6 +75,7 @@ __all__ = [
     "kmin",
     "kmax",
     "sum_matrix_vector",
+    "prod_matrix_vector",
     "sum_red",
     "sum_all_axis_except_batch",
     "logsumexp_red",
