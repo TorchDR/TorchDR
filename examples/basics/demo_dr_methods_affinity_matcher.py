@@ -37,7 +37,8 @@ optim_params = {
     'early_exaggeration_iter': 0,
     'optimizer': 'Adam',
     'optimizer_kwargs': None,
-    'early_exaggeration': 1.0
+    'early_exaggeration': 1.0,
+    'max_iter': 200
     }
 
 sne = SNE(n_components=2,
@@ -100,7 +101,7 @@ sne_affinity_matcher = AffinityMatcher(
     affinity_out=NormalizedGaussianAffinity(normalization_dim=1),
     loss_fn="cross_entropy_loss",  # and the cross_entropy loss
     init=init_embedding,
-    max_iter=2000,
+    max_iter=200,
     lr=lr
 )
 sne_affinity_matcher.fit(X)
