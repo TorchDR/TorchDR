@@ -28,8 +28,9 @@ init_embedding = torch.normal(0, 1, size=(
                 n_samples, 2), dtype=torch.double)
 # %%
 # Compute the different embedding
-# (tune hyperparameters for better looking results)
-# -------------------------------------------------
+# -------------------------------
+#
+# Tune the different hyperparameters for better results.
 perplexity = 30
 lr = 1e-1
 optim_params = {
@@ -82,17 +83,20 @@ for i, (method_name, method) in enumerate(all_methods.items()):
     ax.set_yticks([])
 plt.tight_layout()
 # %%
+# Using AffinityMatcher
+# -----------------------------
+#
 # We can reproduce the same kind of results using the
 # flexible class AffinityMatcher
 # :class:`torchdr.AffinityMatcher`. It take as input
 # two affinities and minimize a certain matching loss
-# between them. To reproduce for example the SNE algorithm
+# between them. To reproduce the SNE algorithm
 # we can match with the cross entropy loss
 # an EntropicAffinity
 # :class:`torchdr.affinity.EntropicAffinity` with given
 # perplexity and a NormalizedGaussianAffinity
-# :class:`torchdr.affinity.NormalizedGaussianAffinity`
-# ---------------------------------------------------------
+# :class:`torchdr.affinity.NormalizedGaussianAffinity`.
+
 sne_affinity_matcher = AffinityMatcher(
     n_components=2,
     # SNE matches an EntropicAffinity
@@ -105,7 +109,7 @@ sne_affinity_matcher = AffinityMatcher(
     lr=lr
 )
 sne_affinity_matcher.fit(X)
-# %%
+
 fig = plt.figure(figsize=(10, 4))
 fs = 24
 two_sne_dict = {'SNE': sne, 'SNE (with affinity matcher)': sne_affinity_matcher}
