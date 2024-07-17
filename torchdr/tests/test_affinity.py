@@ -11,7 +11,7 @@ import pytest
 import torch
 import numpy as np
 import math
-from sklearn.datasets import make_moons
+
 from torchdr.utils import pykeops
 
 # define lists for keops testing
@@ -49,16 +49,12 @@ from torchdr.affinity import (
     UMAPAffinityOut,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
+from torchdr.tests.utils import toy_dataset
 
 lst_types = ["float32", "float64"]
 
 LIST_METRICS_TEST = ["sqeuclidean"]
 DEVICE = "cpu"
-
-
-def toy_dataset(n=300, dtype="float32"):
-    X, _ = make_moons(n_samples=n, noise=0.05, random_state=0)
-    return X.astype(dtype)
 
 
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
@@ -70,7 +66,7 @@ def test_keops_not_installed():
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
     n = 50
-    X = toy_dataset(n, dtype)
+    X, _ = toy_dataset(n, dtype)
 
     list_P = []
     for keops in lst_keops:
