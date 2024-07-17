@@ -8,6 +8,7 @@ Tests for functions in eval module.
 # License: BSD 3-Clause License
 
 import torch
+import numpy as np
 import pytest
 import warnings
 from sklearn.metrics import silhouette_score as sk_silhouette_score
@@ -81,8 +82,21 @@ def test_silhouette_score_euclidean(dtype, keops, metric):
 def test_consistency_sklearn(dtype, keops, metric):
     n = 100
     X, y = toy_dataset(n, dtype)
+
     score_torchdr = silhouette_score(X, y, None, metric, DEVICE, keops)
     score_sklearn = sk_silhouette_score(X, y, metric=metric)
     assert (
         score_torchdr - score_sklearn
     ) ** 2 < 1e-5, "Silhouette scores from torchdr and sklearn should be close."
+
+    # Generate y_noise by permuting half of the indices in y randomly
+    y_noise = y.copy()
+    y_noise[: n // 2] = np.random.permutation(y_noise[: n // 2])
+
+    score_torchdr_noise = silhouette_score(X, y_noise, None, metric, DEVICE, keops)
+    score_sklearn_noise = sk_silhouette_score(X, y_noise, metric=metric)
+    assert (
+        score_torchdr_noise - score_sklearn_noise
+    ) ** 2 < 1e-5, (
+        "Silhouette scores from torchdr and sklearn should be close on noised labels."
+    )
