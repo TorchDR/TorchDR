@@ -16,7 +16,7 @@ from sklearn.metrics import silhouette_score as sk_silhouette_score
 from torch.testing import assert_close
 
 from torchdr.eval import silhouette_samples, silhouette_score, admissible_LIST_METRICS
-from torchdr.utils import pykeops
+from torchdr.utils import pykeops, pairwise_distances
 from torchdr.tests.utils import toy_dataset
 
 lst_types = ["float32", "float64"]
@@ -74,6 +74,32 @@ def test_silhouette_score_euclidean(dtype, keops, metric):
     else:
         with pytest.raises(ValueError):
             coeffs = silhouette_samples(I, y_I, None, metric, None, keops, True)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+def test_silhouette_score_precomputed(dtype, keops):
+    # perfect silhouette
+    n = 10
+    I = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    CI = pairwise_distances(I, I, "euclidean")
+
+    y_I = torch.arange(n, device=DEVICE)
+    ones = torch.ones(n, device=DEVICE, dtype=getattr(torch, dtype))
+
+    # tests edge cases with isolated samples
+    coeffs_pre = silhouette_samples(CI, y_I, None, "precomputed", None, keops, True)
+    coeffs = silhouette_samples(I, y_I, None, "euclidean", None, keops, True)
+
+    assert_close(coeffs_pre, coeffs)
+    weighted_coeffs_pre = silhouette_samples(
+        CI, y_I, ones / n, "precomputed", DEVICE, keops, False
+    )
+    assert_close(coeffs_pre, weighted_coeffs_pre)
+    score_pre = silhouette_score(CI, y_I, None, "precomputed", DEVICE, keops)
+    assert_close(coeffs_pre.mean(), score_pre)
+    sampled_score_pre = silhouette_score(CI, y_I, None, "precomputed", DEVICE, keops, n)
+    assert_close(score_pre, sampled_score_pre)
 
 
 @pytest.mark.parametrize("dtype", lst_types)

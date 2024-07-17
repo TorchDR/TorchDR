@@ -196,12 +196,25 @@ def center_kernel(K, return_all=False):
 
 
 @wrap_vectors
-def sum_matrix_vector(M, v):
+def sum_matrix_vector(M, v, transpose=False):
     r"""
     Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
-    Equivalent to M + v[:, None].
+    Equivalent to `M + v[:, None]` if `transpose=False` else `M + v[None, :]`.
     """
+    if transpose:
+        v = batch_transpose(v)
     return M + v
+
+
+@wrap_vectors
+def prod_matrix_vector(M, v, transpose=False):
+    r"""
+    Returns the product of a matrix and a vector. M can be tensor or lazy tensor.
+    Equivalent to `M * v[:, None]` if `transpose=False` else `M * v[None, :]`.
+    """
+    if transpose:
+        v = batch_transpose(v)
+    return M * v
 
 
 def identity_matrix(n, keops, device, dtype):

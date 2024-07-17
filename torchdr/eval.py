@@ -12,21 +12,10 @@ import numpy as np
 import warnings
 from random import sample, seed
 
-from torchdr.utils import to_torch, pairwise_distances, wrap_vectors, batch_transpose
-
-admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic"]
+from torchdr.utils import to_torch, pairwise_distances, prod_matrix_vector
 
 
-@wrap_vectors
-def weighted_distances(C, w, transpose=False):
-    """
-    It computes : C * w_ where w_ is w[:, None] if C is a torch.Tensor
-    and LazyTensor(w[:, None], 0) if C is a LazyTensor.
-    If transpose is True, w_ is transposed.
-    """
-    if transpose:
-        w = batch_transpose(w)
-    return C * w
+admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
 
 
 def silhouette_samples(
@@ -49,8 +38,9 @@ def silhouette_samples(
 
     Parameters
     ----------
-    X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-        Input data.
+    X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features)
+        Input data as a pairwise distance matrix or a feature matrix.
     labels : torch.Tensor or np.ndarray of shape (n_samples_x,)
         Labels associated to X.
     weights : torch.Tensor or np.ndarray of shape (n_samples_x,), optional
@@ -58,7 +48,8 @@ def silhouette_samples(
         of samples in X. The default is None and considers uniform weights.
     metric : str, optional
         The distance to use for computing pairwise distances. Must be an
-        element of LIST_METRICS. The default is 'euclidean'.
+        element of ["euclidean", "manhattan", "hyperbolic", "precomputed"].
+        The default is 'euclidean'.
     device : str, optional
         Device to use for computations.
     keops : bool, optional
@@ -81,6 +72,15 @@ def silhouette_samples(
     if metric not in admissible_LIST_METRICS:
         raise ValueError(f"metric = {metric} must be in {admissible_LIST_METRICS}")
 
+    if metric == "precomputed":
+        if X.shape[0] != X.shape[1]:
+            raise ValueError("X must be a square matrix with metric = 'precomputed'")
+        if keops and warn:
+            warnings.warn(
+                "[TorchDR] WARNING : keops not supported with metric = 'precomputed'",
+                stacklevel=2,
+            )
+
     X = to_torch(X)
     labels = to_torch(labels)
     if weights is not None:
@@ -97,7 +97,12 @@ def silhouette_samples(
 
     for i, pos_i in enumerate(pos_labels):
         if pos_i.shape[0] > 1:
-            intra_cluster_dists = pairwise_distances(X[pos_i], X[pos_i], metric, keops)
+            if metric == "precomputed":
+                intra_cluster_dists = X[pos_i, :][:, pos_i]
+            else:
+                intra_cluster_dists = pairwise_distances(
+                    X[pos_i], X[pos_i], metric, keops
+                )
 
             if weights is None:
                 intra_cluster_dists = intra_cluster_dists.sum(1).squeeze(-1) / (
@@ -105,7 +110,7 @@ def silhouette_samples(
                 )
             else:
                 intra_cluster_dists = (
-                    weighted_distances(intra_cluster_dists, weights[pos_i])
+                    prod_matrix_vector(intra_cluster_dists, weights[pos_i])
                     .sum(dim=1)
                     .squeeze(-1)
                 )
@@ -131,19 +136,24 @@ def silhouette_samples(
         A[pos_i] = intra_cluster_dists
 
         for pos_j in pos_labels[i + 1 :]:
-            inter_cluster_dists = pairwise_distances(X[pos_i], X[pos_j], metric, keops)
+            if metric == "precomputed":
+                inter_cluster_dists = X[pos_i, :][:, pos_j]
+            else:
+                inter_cluster_dists = pairwise_distances(
+                    X[pos_i], X[pos_j], metric, keops
+                )
 
             if weights is None:
                 dist_pos_i = inter_cluster_dists.sum(1).squeeze(-1) / pos_j.shape[0]
                 dist_pos_j = inter_cluster_dists.sum(0).squeeze(-1) / pos_i.shape[0]
             else:
                 dist_pos_i = (
-                    weighted_distances(inter_cluster_dists, weights[pos_j], True)
+                    prod_matrix_vector(inter_cluster_dists, weights[pos_j], True)
                     .sum(1)
                     .squeeze(-1)
                 )
                 dist_pos_j = (
-                    weighted_distances(inter_cluster_dists, weights[pos_i])
+                    prod_matrix_vector(inter_cluster_dists, weights[pos_i])
                     .sum(0)
                     .squeeze(-1)
                 )
@@ -180,8 +190,9 @@ def silhouette_score(
 
     Parameters
     ----------
-    X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-        Input data.
+    X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features)
+        Input data as a pairwise distance matrix or a feature matrix.
     labels : torch.Tensor or np.ndarray of shape (n_samples_x,)
         Labels associated to X.
     weights : torch.Tensor or np.ndarray of shape (n_samples_x,), optional
@@ -189,7 +200,8 @@ def silhouette_score(
         of samples in X. The default is None and considers uniform weights.
     metric : str, optional
         The distance to use for computing pairwise distances. Must be an
-        element of LIST_METRICS. The default is 'euclidean'.
+        element of ["euclidean", "manhattan", "hyperbolic", "precomputed"].
+        The default is 'euclidean'.
     device : str, optional
         Device to use for computations.
     keops : bool, optional
@@ -223,8 +235,18 @@ def silhouette_score(
         indices = sample(range(X.shape[0]), sample_size)
         sub_weights = None if weights is None else weights[indices]
 
+        if metric == "precomputed":
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    "X must be a square matrix with metric = 'precomputed'"
+                )
+
+            sub_X = X[indices, :][:, indices]
+        else:
+            sub_X = X[indices]
+
         coefficients = silhouette_samples(
-            X[indices], labels[indices], sub_weights, metric, device, keops, warn
+            sub_X, labels[indices], sub_weights, metric, device, keops, warn
         )
 
     silhouette_score = coefficients.mean()
