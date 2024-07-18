@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-LargeVis algorithm
-"""
+"""LargeVis algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,8 +14,7 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
-    r"""
-    Implementation of the LargeVis algorithm introduced in [13]_.
+    r"""Implementation of the LargeVis algorithm introduced in [13]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
@@ -49,7 +46,7 @@ class LargeVis(SampledNeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler, by default None.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.

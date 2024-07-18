@@ -25,6 +25,7 @@ from .entropic import (
     SymmetricEntropicAffinity,
     SinkhornAffinity,
     NormalizedGaussianAffinity,
+    NormalizedStudentAffinity,
 )
 
 from .quadratic import DoublyStochasticQuadraticAffinity
@@ -40,6 +41,7 @@ __all__ = [
     "ScalarProductAffinity",
     "GaussianAffinity",
     "NormalizedGaussianAffinity",
+    "NormalizedStudentAffinity",
     "SelfTuningAffinity",
     "MAGICAffinity",
     "StudentAffinity",
