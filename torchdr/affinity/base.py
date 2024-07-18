@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Base classes for affinity matrices
-"""
+"""Base classes for affinity matrices."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -23,8 +21,7 @@ from torchdr.utils import (
 
 
 class Affinity(ABC):
-    r"""
-    Base class for affinity matrices.
+    r"""Base class for affinity matrices.
 
     Parameters
     ----------
@@ -66,8 +63,7 @@ class Affinity(ABC):
         self.add_diag = 1e12 if self.zero_diag else None
 
     def __call__(self, X: torch.Tensor | np.ndarray, **kwargs):
-        r"""
-        Computes the affinity matrix from the input data.
+        r"""Compute the affinity matrix from the input data.
 
         Parameters
         ----------
@@ -83,13 +79,14 @@ class Affinity(ABC):
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
-        r"""
-        Computes the affinity matrix from the input data.
+        r"""Compute the affinity matrix from the input data.
+
         This method must be overridden by subclasses.
 
         Parameters
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
+            Input data.
 
         Raises
         ------
@@ -102,8 +99,7 @@ class Affinity(ABC):
         )
 
     def _distance_matrix(self, X: torch.Tensor):
-        r"""
-        Computes the pairwise distance matrix from the input data.
+        r"""Compute the pairwise distance matrix from the input data.
 
         It uses the specified metric and optionally leveraging KeOps
         for memory efficient computation.
@@ -129,8 +125,7 @@ class Affinity(ABC):
 
 
 class LogAffinity(Affinity):
-    r"""
-    Base class for affinity matrices in log domain.
+    r"""Base class for affinity matrices in log domain.
 
     Parameters
     ----------
@@ -162,8 +157,7 @@ class LogAffinity(Affinity):
         )
 
     def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False, **kwargs):
-        r"""
-        Computes the affinity matrix from the input data.
+        r"""Compute the affinity matrix from the input data.
 
         Parameters
         ----------
@@ -187,8 +181,8 @@ class LogAffinity(Affinity):
             return log_affinity.exp()
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""
-        Computes the log affinity matrix from the input data.
+        r"""Compute the log affinity matrix from the input data.
+
         This method must be overridden by subclasses.
 
         Parameters
@@ -208,8 +202,7 @@ class LogAffinity(Affinity):
 
 
 class SparseLogAffinity(LogAffinity):
-    r"""
-    Base class for sparse log affinity matrices.
+    r"""Base class for sparse log affinity matrices.
 
     If sparsity is enabled, returns the log affinity matrix in a rectangular format
     with the corresponding indices.
@@ -257,8 +250,8 @@ class SparseLogAffinity(LogAffinity):
             self._sparsity = sparsity
 
     def _sparsity_rule(self):
-        r"""
-        Rule to determine whether to compute the affinity matrix in a sparse format.
+        r"""Rule to determine whether to compute the affinity matrix in a sparse format.
+
         This method must be overridden by subclasses.
 
         Raises
@@ -279,8 +272,7 @@ class SparseLogAffinity(LogAffinity):
         return_indices: bool = False,
         **kwargs,
     ):
-        r"""
-        Computes and returns the log affinity matrix from input data.
+        r"""Compute and return the log affinity matrix from input data.
 
         If sparsity is enabled, returns the log affinity in rectangular format with the
         corresponding indices. Otherwise, returns the full affinity matrix and None.
@@ -311,8 +303,8 @@ class SparseLogAffinity(LogAffinity):
         return (affinity_to_return, indices) if return_indices else affinity_to_return
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
-        r"""
-        Computes the log affinity matrix in a sparse format from the input data.
+        r"""Compute the log affinity matrix in a sparse format from the input data.
+
         This method must be overridden by subclasses.
 
         Parameters
@@ -333,8 +325,8 @@ class SparseLogAffinity(LogAffinity):
 
 
 class UnnormalizedAffinity(Affinity):
-    r"""
-    Base class for unnormalized affinities.
+    r"""Base class for unnormalized affinities.
+
     These affinities are defined using a closed-form formula on the pairwise distance
     matrix and can be directly applied to a subset of the data by providing indices.
 
@@ -378,8 +370,7 @@ class UnnormalizedAffinity(Affinity):
         indices: torch.Tensor = None,
         **kwargs,
     ):
-        r"""
-        Computes the affinity matrix from the input data.
+        r"""Compute the affinity matrix from the input data.
 
         Parameters
         ----------
@@ -403,9 +394,8 @@ class UnnormalizedAffinity(Affinity):
         return self._affinity_formula(C)
 
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
-        r"""
-        Closed form formula to compute the affinity matrix from the
-        pairwise distance matrix.
+        r"""Compute the affinity from the distance matrix.
+
         This method must be overridden by subclasses.
 
         Parameters
@@ -429,8 +419,7 @@ class UnnormalizedAffinity(Affinity):
         Y: torch.Tensor | np.ndarray = None,
         indices: torch.Tensor = None,
     ):
-        r"""
-        Computes the pairwise distance matrix from the input data.
+        r"""Compute the pairwise distance matrix from the input data.
 
         It uses the specified metric and optionally leverages KeOps
         for memory efficient computation.
@@ -455,7 +444,6 @@ class UnnormalizedAffinity(Affinity):
             value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-
         if Y is not None and indices is not None:
             raise NotImplementedError(
                 "[TorchDR] ERROR : transform method cannot be called with both Y "
@@ -477,8 +465,8 @@ class UnnormalizedAffinity(Affinity):
 
 
 class UnnormalizedLogAffinity(UnnormalizedAffinity):
-    r"""
-    Base class for unnormalized affinities in log domain.
+    r"""Base class for unnormalized affinities in log domain.
+
     These log affinities are defined using a closed-form formula on the pairwise
     distance matrix and can be directly applied to a subset of the data by providing
     indices.
@@ -524,8 +512,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         log: bool = False,
         **kwargs,
     ):
-        r"""
-        Computes the affinity matrix in log domain from the input data.
+        r"""Compute the affinity matrix in log domain from the input data.
 
         Parameters
         ----------
@@ -556,9 +543,8 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             return log_affinity.exp()
 
     def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
-        r"""
-        Closed form formula to compute the log affinity matrix from the
-        pairwise distance matrix.
+        r"""Compute the log affinity from the distance matrix.
+
         This method must be overridden by subclasses.
 
         Parameters

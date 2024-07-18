@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-t-distributed Stochastic Neighbor embedding (TSNE) algorithm
-"""
+"""t-distributed Stochastic Neighbor embedding (TSNE) algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,8 +14,7 @@ from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
-    r"""
-    Implementation of the t-Stochastic Neighbor Embedding (t-SNE) algorithm introduced in [2]_.
+    r"""Implementation of t-Stochastic Neighbor Embedding (t-SNE) introduced in [2]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output

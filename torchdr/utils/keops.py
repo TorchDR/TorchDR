@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Robust handling of pykeops as optional dependency
-"""
+"""Robust handling of pykeops as optional dependency."""
 
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #
@@ -20,9 +18,7 @@ except ImportError:  # pykeops is not installed
 
 
 def is_lazy_tensor(arg):
-    r"""
-    Returns True if the input is a KeOps lazy tensor.
-    """
+    r"""Return True if the input is a KeOps lazy tensor."""
     if not pykeops:
         return False
     return isinstance(arg, LazyTensor)
