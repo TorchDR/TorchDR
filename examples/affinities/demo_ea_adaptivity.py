@@ -5,16 +5,11 @@ Entropic Affinities can adapt to varying noise levels
 We show the adaptivity property of entropic affinities on a toy
 simulated dataset with heteroscedastic noise.
 
-We use the following modules from ``TorchDR``:
-
-.. autosummary::
-   :toctree: stubs
-   :template: myclass_template.rst
-
-   torchdr.NormalizedGaussianAffinity
-   torchdr.EntropicAffinity
-
 """
+
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
 
 import torch
 import matplotlib.pyplot as plt
