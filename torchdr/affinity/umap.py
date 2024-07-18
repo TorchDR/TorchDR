@@ -166,10 +166,11 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
 
         if self._sparsity:
-            print(
-                "[TorchDR] Affinity : sparsity mode enabled, computing "
-                "nearest neighbors."
-            )
+            if self.verbose:
+                print(
+                    "[TorchDR] Affinity : sparsity mode enabled, computing "
+                    "nearest neighbors."
+                )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
             C_, indices = kmin(C, k=n_neighbors, dim=1)
