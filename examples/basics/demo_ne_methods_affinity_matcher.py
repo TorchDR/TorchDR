@@ -79,7 +79,7 @@ for i, (method_name, method) in enumerate(all_methods.items()):
     ax = fig.add_subplot(1, 3, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
     ax.scatter(emb[:, 0], emb[:, 1], c=t, s=10)
-    ax.set_title("{0}".format(method_name), font="Times New Roman", fontsize=24)
+    ax.set_title("{0}".format(method_name), fontsize=24)
     ax.set_xticks([])
     ax.set_yticks([])
 plt.tight_layout()
@@ -114,7 +114,7 @@ for i, (method_name, method) in enumerate(two_sne_dict.items()):
     ax = fig.add_subplot(1, 2, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
     ax.scatter(emb[:, 0], emb[:, 1], c=t, s=10)
-    ax.set_title("{0}".format(method_name), font="Times New Roman", fontsize=24)
+    ax.set_title("{0}".format(method_name), fontsize=15)
     ax.set_xticks([])
     ax.set_yticks([])
 plt.tight_layout()
