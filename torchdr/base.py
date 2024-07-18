@@ -71,14 +71,14 @@ class DRModule(BaseEstimator, ABC):
 
         Returns
         -------
-        self : object
-            Fitted Estimator.
+        X_torch : torch.Tensor
+            Input data as torch tensor
         """
         if self.verbose:
             print(f"[TorchDR] Fitting DR model {self.__class__.__name__} ...")
 
-        X = to_torch(X, device=self.device)
-        return X
+        X_torch = to_torch(X, device=self.device)
+        return X_torch
 
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
         """Fit the dimensionality reduction model and transform the input data.

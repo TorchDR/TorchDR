@@ -54,28 +54,48 @@ class ClusteringModule(BaseEstimator, ABC):
         self.verbose = verbose
         self.random_state = random_state
 
-    def fit_predict(self, X, y=None, **kwargs):
-        """Perform clustering on input data and return cluster labels.
+    @abstractmethod
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+        r"""Fit the clustering model.
+
+        This method must be overridden by subclasses. This base implementation
+        only converts the input data :math:`\mathbf{X}` to a torch tensor with
+        the right device.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
-            Input data.
-
-        y : Ignored
-            Not used, present for API consistency by convention.
-
-        **kwargs : dict
-            Arguments to be passed to ``fit``.
-
-            .. versionadded:: 1.4
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
 
         Returns
         -------
-        labels : ndarray of shape (n_samples,), dtype=np.int64
+        X_torch : torch.Tensor
+            Input data as a torch tensor.
+        """
+        if self.verbose:
+            print(f"[TorchDR] Fitting clustering model {self.__class__.__name__} ...")
+
+        X_torch = to_torch(X, device=self.device)
+        return X_torch
+
+    def fit_predict(self, X: torch.Tensor | np.ndarray, y=None):
+        """Fit the clustering model and output the predicted labels.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        labels : torch.Tensor or np.ndarray of shape (n_samples,)
             Cluster labels.
         """
-        # non-optimized default implementation; override when a better
-        # method is possible for a given clustering algorithm
-        self.fit(X, **kwargs)
+        self.fit(X)
         return self.labels_
