@@ -6,14 +6,15 @@
 # License: BSD 3-Clause License
 
 import torch
+import numpy as np
 
 from abc import ABC, abstractmethod
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator
 
 from torchdr.utils import to_torch, pykeops
 
 
-class ClusteringModule(TransformerMixin, BaseEstimator, ABC):
+class ClusteringModule(BaseEstimator, ABC):
     """Base class for clustering methods.
 
     Each children class should implement the fit method.

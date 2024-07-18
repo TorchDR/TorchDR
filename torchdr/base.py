@@ -6,14 +6,14 @@
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator
 import torch
 import numpy as np
 
 from torchdr.utils import to_torch, pykeops, handle_backend
 
 
-class DRModule(TransformerMixin, BaseEstimator, ABC):
+class DRModule(BaseEstimator, ABC):
     """Base class for DR methods.
 
     Each children class should implement the fit method.
@@ -79,3 +79,23 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
 
         X = to_torch(X, device=self.device)
         return X
+
+    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+        """Fit the dimensionality reduction model and transform the input data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
+
+        Raises
+        ------
+        NotImplementedError
+            This method should be overridden by subclasses.
+        """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : fit_transform method is not implemented."
+        )

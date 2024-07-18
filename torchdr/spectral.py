@@ -91,6 +91,22 @@ class PCA(DRModule):
         """
         return (X - self.mean_) @ self.components_.T
 
+    def fit_transform(self, X: torch.Tensor | np.ndarray):
+        r"""Fit the PCA model and project the input data onto the components.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data on which to fit the PCA model and project onto the components.
+
+        Returns
+        -------
+        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
+            Projected data.
+        """
+        self.fit(X)
+        return self.embedding_
+
 
 class KernelPCA(DRModule):
     r"""Kernel Principal Component Analysis module.
@@ -162,10 +178,7 @@ class KernelPCA(DRModule):
         self.K_fit_rows_ = col_mean
         self.K_fit_all_ = mean
 
-        # compute eigendecomposition
         eigvals, eigvecs = torch.linalg.eigh(K)
-
-        # make sure that the eigenvalues are ok and fix numerical issues
         eigvals = check_nonnegativity_eigenvalues(eigvals)
 
         # flip eigenvectors' sign to enforce deterministic output
@@ -210,7 +223,6 @@ class KernelPCA(DRModule):
                 f"{aff_name} is not. Use the fit_transform method instead."
             )
         K = self.affinity(X, self.X_fit_)
-        # K = center_kernel(K)
         # center à la sklearn: using fit data for rows and all, new data for col
         pred_cols = sum_red(K, 1) / self.K_fit_rows_.shape[1]
         K -= self.K_fit_rows_
@@ -228,7 +240,6 @@ class KernelPCA(DRModule):
             result[:, zero_eigvals] = 0
         return result
 
-    @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray):
         r"""Fit the KernelPCA model and project the input data onto the components.
 

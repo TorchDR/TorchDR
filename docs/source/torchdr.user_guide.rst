@@ -183,7 +183,8 @@ All DR estimators inherit the structure of the :meth:`DRModule` class:
 
    torchdr.base.DRModule
 
-They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
+They are :class:`sklearn.base.BaseEstimator` classes which can be called
+with the ``fit_transform`` method.
 
 .. contents:: Table of Contents
    :depth: 2
