@@ -8,9 +8,7 @@ on the SNARE-seq gene expression dataset with given cell types labels.
 """
 
 # %%
-import torch
 import matplotlib.pyplot as plt
-from sklearn.datasets import make_swiss_roll
 
 from torchdr import (
     AffinityMatcher,
