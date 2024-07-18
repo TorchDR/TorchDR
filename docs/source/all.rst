@@ -138,7 +138,8 @@ Simple Affinities
    StudentAffinity
    ScalarProductAffinity
    NormalizedGaussianAffinity
-
+   NormalizedStudentAffinity
+   
 
 Affinities Normalized by kNN Distances
 """""""""""""""""""""""""""""""""""""""
