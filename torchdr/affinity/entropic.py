@@ -817,11 +817,11 @@ class SinkhornAffinity(LogAffinity):
 
 
 class NormalizedGaussianAffinity(LogAffinity):
-    r"""Computes the Gaussian affinity matrix which can be normalized along a dimension.
+    r"""Compute the Gaussian affinity matrix which can be normalized along a dimension.
 
     The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
-    where : math: `\mathbf{C}` is the pairwise distance matrix and
-    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
+    where :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
@@ -894,17 +894,21 @@ class NormalizedGaussianAffinity(LogAffinity):
 
 
 class NormalizedStudentAffinity(LogAffinity):
-    r"""Computes the Student affinity matrix.
+    r"""Compute the Student affinity matrix which can be normalized along a dimension.
 
-    The formula is given by :math:`(1 + \mathbf{C} / \sigma) ^ {-1}`
-    where : math: `\mathbf{C}` is the pairwise distance matrix and
-    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
+    Its expression is given by:
+
+    .. math::
+        \left(1 + \frac{\mathbf{C}}{\nu}\right)^{-\frac{\nu + 1}{2}}
+
+    where :math:`\nu > 0` is the degrees of freedom parameter.
+    The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
     ----------
-    sigma : float, optional
-        Bandwidth parameter.
+    degrees_of_freedom : int, optional
+        Degrees of freedom for the Student-t distribution.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -921,7 +925,7 @@ class NormalizedStudentAffinity(LogAffinity):
 
     def __init__(
         self,
-        sigma: float = 1.0,
+        degrees_of_freedom: float = 1.0,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -936,7 +940,7 @@ class NormalizedStudentAffinity(LogAffinity):
             keops=keops,
             verbose=verbose,
         )
-        self.sigma = sigma
+        self.degrees_of_freedom = degrees_of_freedom
         self.normalization_dim = normalization_dim
 
     def _compute_log_affinity(self, X: torch.Tensor):
@@ -955,7 +959,11 @@ class NormalizedStudentAffinity(LogAffinity):
         """
         C = self._distance_matrix(X)
 
-        log_affinity_matrix = - torch.log(1 + C/self.sigma)
+        log_affinity_matrix = (
+            -0.5
+            * (self.degrees_of_freedom + 1)
+            * (C / self.degrees_of_freedom + 1).log()
+        )
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
