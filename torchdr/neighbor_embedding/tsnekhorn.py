@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-SNEkhorn algorithm (inverse OT DR)
-"""
+"""SNEkhorn algorithm (inverse OT DR)."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -17,8 +15,7 @@ from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
 class TSNEkhorn(NeighborEmbedding):
-    r"""
-    Implementation of the TSNEkhorn algorithm introduced in [3]_.
+    r"""Implementation of the TSNEkhorn algorithm introduced in [3]_.
 
     It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output

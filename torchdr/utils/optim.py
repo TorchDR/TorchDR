@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Tools for optimization problems
-"""
+"""Tools for optimization problems."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Rémi Flamary <remi.flamary@polytechnique.edu>
@@ -31,8 +29,9 @@ def binary_search(
     verbose=False,
     dtype=DTYPE,
 ):
-    r"""
-    Performs a batched binary search to find the root of an increasing function f.
+    r"""Implement the binary search root finding method.
+
+    Perform a batched binary search to find the root of an increasing function f.
     The domain of f is restricted to positive floats.
 
     Parameters
@@ -51,6 +50,8 @@ def binary_search(
         precision threshold at which the algorithm stops.
     verbose : bool, optional
         if True, prints current bounds.
+    dtype : torch.dtype, optional
+        data type of the input.
 
     Returns
     -------
@@ -98,8 +99,9 @@ def false_position(
     dtype=DTYPE,
     device=DEVICE,
 ):
-    r"""
-    Performs a batched false position method to find the root
+    r"""Implement the false position root finding method.
+
+    Perform a batched false position method to find the root
     of an increasing function f.
     The domain of f is restricted to positive floats.
 
@@ -121,6 +123,8 @@ def false_position(
         if True, prints current bounds.
     dtype : torch.dtype, optional
         data type of the input.
+    device : str, optional
+        device on which the computation is performed.
 
     Returns
     -------
@@ -166,8 +170,7 @@ def false_position(
 
 
 def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True):
-    """Initializes the bounds of the root search."""
-
+    """Initialize the bounds of the root search."""
     if begin is None:
         begin = torch.ones(n, dtype=dtype, device=device)
     else:

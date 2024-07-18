@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Noise-constrastive SNE algorithms
-"""
+"""Noise-constrastive SNE algorithms."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -13,8 +11,7 @@ from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(SampledNeighborEmbedding):
-    r"""
-    Implementation of the InfoTSNE algorithm introduced in [15]_.
+    r"""Implementation of the InfoTSNE algorithm introduced in [15]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
