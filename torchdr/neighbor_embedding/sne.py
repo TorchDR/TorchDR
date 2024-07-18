@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Stochastic Neighbor embedding (SNE) algorithm
-"""
+"""Stochastic Neighbor embedding (SNE) algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,9 +14,7 @@ from torchdr.utils import logsumexp_red
 
 
 class SNE(SparseNeighborEmbedding):
-    r"""
-    Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
-    introduced in [1]_.
+    r"""Implementation of Stochastic Neighbor Embedding (SNE) introduced in [1]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
@@ -48,7 +44,7 @@ class SNE(SparseNeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z.
     init_scaling : float, optional
         Scaling factor for the initialization.

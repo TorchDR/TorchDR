@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices with entropic constraints
-"""
+"""Affinity matrices with entropic constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
@@ -34,9 +32,7 @@ from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 
 @wrap_vectors
 def _log_Pe(C, eps):
-    r"""
-    Returns the log of the unnormalized directed entropic affinity matrix
-    with prescribed kernel bandwidth epsilon.
+    r"""Return the log of the unnormalized directed entropic affinity.
 
     Parameters
     ----------
@@ -57,9 +53,7 @@ def _log_Pe(C, eps):
 
 @wrap_vectors
 def _log_Pse(C, eps, mu, eps_square=False):
-    r"""
-    Returns the log of the symmetric entropic affinity matrix
-    with given (dual) variables epsilon and mu.
+    r"""Return the log of the symmetric entropic affinity matrix.
 
     Parameters
     ----------
@@ -70,6 +64,8 @@ def _log_Pse(C, eps, mu, eps_square=False):
         Dual variable of the entropic constraint.
     mu : torch.Tensor of shape (n) or (n_batch, batch_size)
         Dual variable of the normalization constraint.
+    eps_square : bool, optional
+        Whether to optimize on the square of the dual variables.
 
     Returns
     -------
@@ -85,10 +81,7 @@ def _log_Pse(C, eps, mu, eps_square=False):
 
 @wrap_vectors
 def _log_Pds(log_K, dual):
-    r"""
-    Returns the log of the doubly stochastic normalization of log_K (in log domain)
-    given a scaling vector (dual variable) which can be computed via the
-    Sinkhorn iterations.
+    r"""Return the log of the doubly stochastic normalization of log_K (in log domain).
 
     Parameters
     ----------
@@ -109,8 +102,7 @@ def _log_Pds(log_K, dual):
 
 
 def _bounds_entropic_affinity(C, perplexity):
-    r"""
-    Computes the bounds derived in [4]_ for the entropic affinity root.
+    r"""Compute the bounds derived in [4]_ for the entropic affinity root.
 
     Parameters
     ----------
@@ -171,9 +163,7 @@ def _bounds_entropic_affinity(C, perplexity):
 
 
 def _check_perplexity(perplexity, n, verbose=True):
-    r"""
-    Checks the perplexity parameter and returns a valid value.
-    """
+    r"""Check the perplexity parameter and return a valid value."""
     if n <= 1:
         raise ValueError(
             "[TorchDR] ERROR Affinity: Input has less than one sample : "
@@ -195,9 +185,7 @@ def _check_perplexity(perplexity, n, verbose=True):
 
 
 class EntropicAffinity(SparseLogAffinity):
-    r"""
-    Solves the directed entropic affinity problem introduced in [1]_ and
-    later used in TSNE [2]_.
+    r"""Solve the directed entropic affinity problem introduced in [1]_.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
@@ -314,9 +302,7 @@ class EntropicAffinity(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
-        r"""
-        Solves the problem (EA) in [1]_ to compute the entropic affinity matrix
-        from the input data.
+        r"""Solve the problem (EA) in [1]_ to compute the entropic affinity matrix.
 
         Parameters
         ----------
@@ -382,8 +368,9 @@ class EntropicAffinity(SparseLogAffinity):
 
 
 class SymmetricEntropicAffinity(LogAffinity):
-    r"""
-    Computes the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
+    r"""Compute the symmetric entropic affinity (SEA) introduced in [3]_.
+
+    Compute the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
     affinity (SEA) problem described in [3]_.
 
     The algorithm computes the optimal dual variables
@@ -459,7 +446,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     def __init__(
         self,
         perplexity: float = 30,
-        lr: float = 1e0,
+        lr: float = 1e-1,
         eps_square: bool = True,
         tol: float = 1e-3,
         max_iter: int = 500,
@@ -487,9 +474,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.eps_square = eps_square
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""
-        Solves the problem (SEA) in [3]_ to compute the symmetric entropic affinity
-        matrix from input data X.
+        r"""Solve the problem (SEA) in [3]_.
 
         Parameters
         ----------
@@ -643,10 +628,10 @@ class SymmetricEntropicAffinity(LogAffinity):
 
 
 class SinkhornAffinity(LogAffinity):
-    r"""
-    Computes the symmetric doubly stochastic affinity matrix
-    :math:`\mathbf{P}^{\mathrm{ds}}` with controlled global entropy using the
-    symmetric Sinkhorn algorithm [5]_.
+    r"""Compute the symmetric doubly stochastic affinity matrix.
+
+    The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}
+    with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
@@ -756,8 +741,7 @@ class SinkhornAffinity(LogAffinity):
         self.with_grad = with_grad
 
     def _compute_log_affinity(self, X: torch.Tensor, init_dual: torch.Tensor = None):
-        r"""
-        Computes the entropic doubly stochastic affinity matrix from input data X.
+        r"""Compute the entropic doubly stochastic affinity matrix.
 
         Parameters
         ----------
@@ -833,10 +817,11 @@ class SinkhornAffinity(LogAffinity):
 
 
 class NormalizedGaussianAffinity(LogAffinity):
-    r"""
-    Computes the Gaussian affinity matrix :math:`\exp( - \mathbf{C} / \sigma)`
-    where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    r"""Computes the Gaussian affinity matrix which can be normalized along a dimension.
+
+    The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
@@ -854,7 +839,7 @@ class NormalizedGaussianAffinity(LogAffinity):
     verbose : bool, optional
         Verbosity.
     normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
     """
 
     def __init__(
@@ -878,8 +863,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         self.normalization_dim = normalization_dim
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""
-        Fits the normalized Gaussian affinity model to the provided data.
+        r"""Fit the normalized Gaussian affinity model to the provided data.
 
         Parameters
         ----------
@@ -895,6 +879,83 @@ class NormalizedGaussianAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         log_affinity_matrix = -C / self.sigma
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                log_affinity_matrix, self.normalization_dim
+            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
+
+        if isinstance(self.normalization_dim, int):
+            n_samples_in = X.shape[0]
+            log_affinity_matrix -= math.log(n_samples_in)
+
+        return log_affinity_matrix
+
+
+class NormalizedStudentAffinity(LogAffinity):
+    r"""Computes the Student affinity matrix.
+
+    The formula is given by :math:`(1 + \mathbf{C} / \sigma) ^ {-1}`
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
+    according to the specified normalization dimension.
+
+    Parameters
+    ----------
+    sigma : float, optional
+        Bandwidth parameter.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    """
+
+    def __init__(
+        self,
+        sigma: float = 1.0,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = False,
+        normalization_dim: int | Tuple[int] = (0, 1),
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.sigma = sigma
+        self.normalization_dim = normalization_dim
+
+    def _compute_log_affinity(self, X: torch.Tensor):
+        r"""Fits the normalized Student affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor of shape(n_samples, n_features)
+            Input data.
+
+        Returns
+        -------
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape(n_samples, n_samples)
+            Log of the normalized Student affinity matrix.
+        """
+        C = self._distance_matrix(X)
+
+        log_affinity_matrix = - torch.log(1 + C/self.sigma)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(

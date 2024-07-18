@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Useful wrappers for dealing with backends and devices
-"""
+"""Useful wrappers for dealing with backends and devices."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -15,9 +13,7 @@ from sklearn.utils.validation import check_array
 
 
 def output_contiguous(func):
-    """
-    Convert all output torch tensors to contiguous.
-    """
+    """Convert all output torch tensors to contiguous."""
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -36,8 +32,8 @@ def output_contiguous(func):
 
 @output_contiguous
 def to_torch(x, device="auto", return_backend_device=False):
-    """
-    Convert input to torch tensor and specified device while performing some checks.
+    """Convert input to torch tensor and specified device while performing some checks.
+
     If device="auto", the device is set to the device of the input x.
     """
     gpu_required = (
@@ -83,16 +79,14 @@ def to_torch(x, device="auto", return_backend_device=False):
 
 
 def torch_to_backend(x, backend="torch", device="cpu"):
-    """
-    Convert a torch tensor to specified backend and device.
-    """
+    """Convert a torch tensor to specified backend and device."""
     x = x.to(device=device)
     return x.numpy() if backend == "numpy" else x
 
 
 def keops_unsqueeze(arg):
-    """
-    Apply unsqueeze(-1) to an input vector or batched vector.
+    """Apply unsqueeze(-1) to an input vector or batched vector.
+
     Then converts it to a KeOps lazy tensor.
     """
     if arg.ndim == 1:  # arg is a vector
@@ -106,8 +100,8 @@ def keops_unsqueeze(arg):
 
 
 def wrap_vectors(func):
-    """
-    Unsqueeze(-1) all input tensors except the cost matrix C.
+    """Unsqueeze(-1) all input tensors except the cost matrix C.
+
     If C is a lazy tensor, converts all tensors to KeOps lazy tensors.
     These tensors should be vectors or batched vectors.
     """
@@ -131,9 +125,9 @@ def wrap_vectors(func):
 
 
 def sum_all_axis_except_batch(func):
-    """
-    Sums the output over all axis if the tensor has 2 dimensions.
-    Sums the output over all axis except the batch axis if the tensor has 3 dimensions.
+    """Sum the output over all axis if the tensor has 2 dimensions.
+
+    Sum the output over all axis except the batch axis if the tensor has 3 dimensions.
     """
 
     @functools.wraps(func)
@@ -160,9 +154,9 @@ def sum_all_axis_except_batch(func):
 
 
 def handle_backend(func):
-    """
-    Converts input to torch and device specified by self.
-    Then converts the output to the input backend and device.
+    """Convert input to torch and device specified by self.
+
+    Then convert the output to the input backend and device.
     """
 
     @functools.wraps(func)

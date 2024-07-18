@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Base classes for DR methods
-"""
+"""Base classes for DR methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -14,8 +12,8 @@ from torchdr.utils import to_torch, pykeops
 
 
 class DRModule(TransformerMixin, BaseEstimator, ABC):
-    """
-    Base class for DR methods.
+    """Base class for DR methods.
+
     Each children class should implement the fit method.
 
     Parameters
@@ -53,17 +51,9 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         self.verbose = verbose
         self.random_state = random_state
 
-    def _process_input(self, X):
-        self.data_, self.input_backend_, self.input_device_ = to_torch(
-            X, device=self.device, return_backend_device=True
-        )
-        self.n_features_ = self.data_.shape[1]
-        return self
-
     @abstractmethod
     def fit(self, X, y=None):
-        r"""Fits the DR model to project the input data :math:`\mathbf{X}` onto
-        a low-dimensional space.
+        r"""Fit the dimensionality reduction model.
 
         This method must be overridden by subclasses. This base implementation
         only converts the input data :math:`\mathbf{X}` to a torch tensor with

@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices used in UMAP.
-"""
+"""Affinity matrices used in UMAP."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -24,15 +22,15 @@ from torchdr.utils import (
 
 @wrap_vectors
 def _log_Pumap(C, rho, sigma):
-    r"""
-    Returns the log of the input affinity matrix used in UMAP.
-    """
+    r"""Return the log of the input affinity matrix used in UMAP."""
     return -(C - rho) / sigma
 
 
 # from umap/umap/umap_.py
 def find_ab_params(spread, min_dist):
-    """Fit a, b params for the differentiable curve used in lower
+    """Fit a, b params as in UMAP.
+
+    Fit (a, b) for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
@@ -50,9 +48,7 @@ def find_ab_params(spread, min_dist):
 
 
 def _check_n_neighbors(n_neighbors, n, verbose=True):
-    r"""
-    Checks the n_neighbors parameter and returns a valid value.
-    """
+    r"""Check the n_neighbors parameter and returns a valid value."""
     if n <= 1:
         raise ValueError(
             f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
@@ -72,8 +68,7 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
 
 
 class UMAPAffinityIn(SparseLogAffinity):
-    r"""
-    Computes the input affinity used in UMAP [8]_.
+    r"""Compute the input affinity used in UMAP [8]_.
 
     The algorithm computes via root search the variable
     :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
@@ -150,7 +145,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
-        r"""Computes the input affinity matrix of UMAP from input data X.
+        r"""Compute the input affinity matrix of UMAP from input data X.
 
         Parameters
         ----------
@@ -203,8 +198,7 @@ class UMAPAffinityIn(SparseLogAffinity):
 
 
 class UMAPAffinityOut(UnnormalizedAffinity):
-    r"""
-    Computes the affinity used in embedding space in UMAP [8]_.
+    r"""Compute the affinity used in embedding space in UMAP [8]_.
 
     Its :math:`(i,j)` coefficient is as follows:
 
