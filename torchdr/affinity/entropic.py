@@ -446,7 +446,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     def __init__(
         self,
         perplexity: float = 30,
-        lr: float = 1e0,
+        lr: float = 1e-1,
         eps_square: bool = True,
         tol: float = 1e-3,
         max_iter: int = 500,
@@ -817,11 +817,11 @@ class SinkhornAffinity(LogAffinity):
 
 
 class NormalizedGaussianAffinity(LogAffinity):
-    r"""Compute the Gaussian affinity matrix which can be normalized along a dimension.
+    r"""Computes the Gaussian affinity matrix which can be normalized along a dimension.
 
     The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
-    where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
@@ -839,7 +839,7 @@ class NormalizedGaussianAffinity(LogAffinity):
     verbose : bool, optional
         Verbosity.
     normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
     """
 
     def __init__(
@@ -879,6 +879,83 @@ class NormalizedGaussianAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         log_affinity_matrix = -C / self.sigma
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                log_affinity_matrix, self.normalization_dim
+            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
+
+        if isinstance(self.normalization_dim, int):
+            n_samples_in = X.shape[0]
+            log_affinity_matrix -= math.log(n_samples_in)
+
+        return log_affinity_matrix
+
+
+class NormalizedStudentAffinity(LogAffinity):
+    r"""Computes the Student affinity matrix.
+
+    The formula is given by :math:`(1 + \mathbf{C} / \sigma) ^ {-1}`
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
+    according to the specified normalization dimension.
+
+    Parameters
+    ----------
+    sigma : float, optional
+        Bandwidth parameter.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    """
+
+    def __init__(
+        self,
+        sigma: float = 1.0,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = False,
+        normalization_dim: int | Tuple[int] = (0, 1),
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.sigma = sigma
+        self.normalization_dim = normalization_dim
+
+    def _compute_log_affinity(self, X: torch.Tensor):
+        r"""Fits the normalized Student affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor of shape(n_samples, n_features)
+            Input data.
+
+        Returns
+        -------
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape(n_samples, n_samples)
+            Log of the normalized Student affinity matrix.
+        """
+        C = self._distance_matrix(X)
+
+        log_affinity_matrix = - torch.log(1 + C/self.sigma)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
