@@ -173,8 +173,9 @@ class AffinityMatcher(DRModule):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
-            Input data of shape (n_samples, n_features).
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data.
         y : None
             Ignored.
 
@@ -191,8 +192,9 @@ class AffinityMatcher(DRModule):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
-            Input data of shape (n_samples, n_features).
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data.
         y : None
             Ignored.
 

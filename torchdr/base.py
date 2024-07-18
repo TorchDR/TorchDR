@@ -7,8 +7,10 @@
 
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator, TransformerMixin
+import torch
+import numpy as np
 
-from torchdr.utils import to_torch, pykeops
+from torchdr.utils import to_torch, pykeops, handle_backend
 
 
 class DRModule(TransformerMixin, BaseEstimator, ABC):
@@ -52,7 +54,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         self.random_state = random_state
 
     @abstractmethod
-    def fit(self, X, y=None):
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
         r"""Fit the dimensionality reduction model.
 
         This method must be overridden by subclasses. This base implementation
@@ -61,7 +63,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
 
         Parameters
         ----------
-        X : array-like object of shape (n_samples, n_features)
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             or (n_samples, n_samples) if precomputed is True
             Input data or input affinity matrix if it is precomputed.
         y : None

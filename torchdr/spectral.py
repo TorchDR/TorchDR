@@ -54,7 +54,7 @@ class PCA(DRModule):
             random_state=random_state,
         )
 
-    def fit(self, X: torch.Tensor):
+    def fit(self, X: torch.Tensor | np.ndarray):
         r"""Fit the PCA model.
 
         Parameters
@@ -69,9 +69,10 @@ class PCA(DRModule):
         """
         X = super().fit(X)
         self.mean_ = X.mean(0, keepdim=True)
-        U, _, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
+        U, S, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
+        self.embedding_ = U[:, : self.n_components] @ S[: self.n_components].diag()
         return self
 
     @handle_backend
@@ -91,7 +92,6 @@ class PCA(DRModule):
         return (X - self.mean_) @ self.components_.T
 
 
-# inspired from sklearn.decomposition.KernelPCA
 class KernelPCA(DRModule):
     r"""Kernel Principal Component Analysis module.
 
