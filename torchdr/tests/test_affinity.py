@@ -38,6 +38,7 @@ from torchdr.affinity import (
     ScalarProductAffinity,
     GaussianAffinity,
     NormalizedGaussianAffinity,
+    NormalizedStudentAffinity,
     SelfTuningAffinity,
     MAGICAffinity,
     StudentAffinity,
@@ -95,6 +96,36 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
     list_P = []
     for keops in lst_keops:
         affinity = NormalizedGaussianAffinity(
+            device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
+        )
+        P = affinity(X)
+        list_P.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, keops=keops)
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        if isinstance(dim, int):
+            check_marginal(P * n, one, dim=dim)
+        else:
+            check_total_sum(P, 1)
+
+    # --- check consistency between torch and keops ---
+    if len(lst_keops) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("dim", [0, 1, (0, 1)])
+def test_normalized_student_affinity(dtype, metric, dim):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    list_P = []
+    for keops in lst_keops:
+        affinity = NormalizedStudentAffinity(
             device=DEVICE, keops=keops, metric=metric, normalization_dim=dim
         )
         P = affinity(X)
