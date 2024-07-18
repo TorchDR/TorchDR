@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Base classes for Neighbor Embedding methods
-"""
+"""Base classes for Neighbor Embedding methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -22,8 +20,7 @@ from torchdr.utils import cross_entropy_loss, OPTIMIZERS
 
 
 class NeighborEmbedding(AffinityMatcher):
-    r"""
-    Solves the neighbor embedding problem.
+    r"""Solves the neighbor embedding problem.
 
     It amounts to solving:
 
@@ -219,8 +216,7 @@ class NeighborEmbedding(AffinityMatcher):
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
-    r"""
-    Solves the neighbor embedding problem with a sparse input affinity matrix.
+    r"""Solves the neighbor embedding problem with a sparse input affinity matrix.
 
     It amounts to solving:
 
@@ -366,9 +362,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 
 class SampledNeighborEmbedding(SparseNeighborEmbedding):
-    r"""
-    Solves the neighbor embedding problem with a sparse input affinity matrix and a
-    stochastic estimation of the repulsive term.
+    r"""Solves the neighbor embedding problem with both sparsity and sampling.
 
     It amounts to solving:
 

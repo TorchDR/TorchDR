@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Ground metrics and distances
-"""
+"""Ground metrics and distances."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -21,8 +19,8 @@ def pairwise_distances(
     metric: str = "sqeuclidean",
     keops: bool = False,
 ):
-    r"""
-    Compute pairwise distances matrix between points in two datasets.
+    r"""Compute pairwise distances matrix between points in two datasets.
+
     Returns the pairwise distance matrix as torch tensor or KeOps lazy tensor
     (if keops is True).
 
@@ -62,9 +60,9 @@ def pairwise_distances(
 def symmetric_pairwise_distances(
     X: torch.Tensor, metric: str, keops: bool = False, add_diag: float = None
 ):
-    r"""
-    Compute pairwise distances matrix between points in a dataset.
-    Returns the pairwise distance matrix as torch tensor or KeOps lazy tensor
+    r"""Compute pairwise distances matrix between points in a dataset.
+
+    Return the pairwise distance matrix as torch tensor or KeOps lazy tensor
     (if keops is True). Supports batched input. The batch dimension should be the first.
 
     Parameters
@@ -83,7 +81,6 @@ def symmetric_pairwise_distances(
     C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
     """  # noqa E501
-
     if keops and not pykeops:  # pykeops no installed
         raise ValueError(
             "pykeops is not installed. Please install it to use `keops=true`."
@@ -104,9 +101,9 @@ def symmetric_pairwise_distances(
 def _pairwise_distances_torch(
     X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
 ):
-    r"""
-    Compute pairwise distances matrix between points in two datasets.
-    Returns the pairwise distance matrix as a torch tensor.
+    r"""Compute pairwise distances matrix between points in two datasets.
+
+    Return the pairwise distance matrix as a torch tensor.
 
     Parameters
     ----------
@@ -156,9 +153,9 @@ def _pairwise_distances_torch(
 def _pairwise_distances_keops(
     X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
 ):
-    r"""
-    Compute pairwise distances matrix between points in two datasets.
-    Returns the pairwise distance matrix as KeOps lazy tensor.
+    r"""Compute pairwise distances matrix between points in two datasets.
+
+    Return the pairwise distance matrix as KeOps lazy tensor.
 
     Parameters
     ----------
@@ -202,9 +199,8 @@ def symmetric_pairwise_distances_indices(
     indices: torch.Tensor,
     metric: str = "sqeuclidean",
 ):
-    r"""
-    Compute pairwise distances matrix between points in a dataset for a subset
-    of pairs given by indices.
+    r"""Compute pairwise distances for a subset of pairs given by indices.
+
     The output distance matrix has shape (n, k) and its (i,j) element is the
     distance between X[i] and Y[indices[i, j]].
 
@@ -214,6 +210,8 @@ def symmetric_pairwise_distances_indices(
         Input dataset.
     indices : torch.Tensor of shape (n, k)
         Indices of the pairs for which to compute the distances.
+    metric : str, optional
+        Metric to use for computing distances. The default is "sqeuclidean".
 
     Returns
     -------
