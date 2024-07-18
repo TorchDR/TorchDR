@@ -817,8 +817,7 @@ class SinkhornAffinity(LogAffinity):
 
 
 class NormalizedGaussianAffinity(LogAffinity):
-    r"""
-    Computes the Gaussian affinity matrix which can be normalized along a dimension.
+    r"""Computes the Gaussian affinity matrix which can be normalized along a dimension.
 
     The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
     where : math: `\mathbf{C}` is the pairwise distance matrix and
@@ -895,8 +894,7 @@ class NormalizedGaussianAffinity(LogAffinity):
 
 
 class NormalizedStudentAffinity(LogAffinity):
-    r"""
-    Computes the Student affinity matrix.
+    r"""Computes the Student affinity matrix.
 
     The formula is given by : math: `(1 + \mathbf{C} / \sigma) ^ {-1}`
     where : math: `\mathbf{C}` is the pairwise distance matrix and
@@ -942,8 +940,7 @@ class NormalizedStudentAffinity(LogAffinity):
         self.normalization_dim = normalization_dim
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""
-        Fits the normalized Student affinity model to the provided data.
+        r"""Fits the normalized Student affinity model to the provided data.
 
         Parameters
         ----------
