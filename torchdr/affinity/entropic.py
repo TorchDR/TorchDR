@@ -817,12 +817,12 @@ class SinkhornAffinity(LogAffinity):
 
 
 class NormalizedGaussianAffinity(LogAffinity):
-  r"""
+    r"""
     Computes the Gaussian affinity matrix which can be normalized along a dimension.
 
     The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
-    where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
@@ -843,7 +843,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
     """
 
-   def __init__(
+    def __init__(
         self,
         sigma: float = 1.0,
         metric: str = "sqeuclidean",
@@ -868,13 +868,13 @@ class NormalizedGaussianAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : torch.Tensor of shape (n_samples, n_features)
+        X : torch.Tensor of shape(n_samples, n_features)
             Input data.
 
         Returns
         -------
         log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_samples, n_samples)
+            of shape(n_samples, n_samples)
             Log of the normalized Gaussian affinity matrix.
         """
         C = self._distance_matrix(X)
@@ -898,9 +898,9 @@ class NormalizedStudentAffinity(LogAffinity):
     r"""
     Computes the Student affinity matrix.
 
-    The formula is given by :math:`(1 + \mathbf{C} / \sigma)^{-1}`
-    where :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
+    The formula is given by : math: `(1 + \mathbf{C} / \sigma) ^ {-1}`
+    where : math: `\mathbf{C}` is the pairwise distance matrix and
+    : math: `\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
 
     Parameters
@@ -947,13 +947,13 @@ class NormalizedStudentAffinity(LogAffinity):
 
         Parameters
         ----------
-        X : torch.Tensor of shape (n_samples, n_features)
+        X : torch.Tensor of shape(n_samples, n_features)
             Input data.
 
         Returns
         -------
         log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            of shape (n_samples, n_samples)
+            of shape(n_samples, n_samples)
             Log of the normalized Student affinity matrix.
         """
         C = self._distance_matrix(X)
