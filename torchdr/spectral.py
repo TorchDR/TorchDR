@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Spectral methods for dimensionality reduction
-"""
+"""Spectral methods for dimensionality reduction."""
 
 # Authors: Hugues Van Assel <vanasselhugues@gmail.com>
 #          Mathurin Massias
@@ -9,6 +7,7 @@ Spectral methods for dimensionality reduction
 # License: BSD 3-Clause License
 
 import torch
+import numpy as np
 
 from torchdr.base import DRModule
 from torchdr.utils import (
@@ -27,6 +26,20 @@ from torchdr.affinity import (
 
 
 class PCA(DRModule):
+    r"""Principal Component Analysis module.
+
+    Parameters
+    ----------
+    n_components : int, default=2
+        Number of components to project the input data onto.
+    device : str, default="auto"
+        Device on which the computations are performed.
+    verbose : bool, default=False
+        Whether to print information during the computations.
+    random_state : float, default=0
+        Random seed for reproducibility.
+    """
+
     def __init__(
         self,
         n_components: int = 2,
@@ -42,6 +55,18 @@ class PCA(DRModule):
         )
 
     def fit(self, X: torch.Tensor):
+        r"""Fit the PCA model.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data on which to fit the PCA model.
+
+        Returns
+        -------
+        self : PCA
+            The fitted PCA model.
+        """
         X = super().fit(X)
         self.mean_ = X.mean(0, keepdim=True)
         U, _, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
@@ -50,12 +75,44 @@ class PCA(DRModule):
         return self
 
     @handle_backend
-    def transform(self, X):
+    def transform(self, X: torch.Tensor | np.ndarray):
+        r"""Project the input data onto the PCA components.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data to project onto the PCA components.
+
+        Returns
+        -------
+        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
+            Projected data.
+        """
         return (X - self.mean_) @ self.components_.T
 
 
 # inspired from sklearn.decomposition.KernelPCA
 class KernelPCA(DRModule):
+    r"""Kernel Principal Component Analysis module.
+
+    Parameters
+    ----------
+    affinity : Affinity, default=GaussianAffinity()
+        Affinity object to compute the kernel matrix.
+    n_components : int, default=2
+        Number of components to project the input data onto.
+    device : str, default="auto"
+        Device on which the computations are performed.
+    keops : bool, default=False
+        Whether to use KeOps for computations.
+    verbose : bool, default=False
+        Whether to print information during the computations.
+    random_state : float, default=0
+        Random seed for reproducibility.
+    nodiag : bool, default=False
+        Whether to remove eigenvectors with a zero eigenvalue.
+    """
+
     def __init__(
         self,
         affinity: Affinity = GaussianAffinity(),
@@ -85,7 +142,19 @@ class KernelPCA(DRModule):
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )
 
-    def fit(self, X):
+    def fit(self, X: torch.Tensor | np.ndarray):
+        r"""Fit the KernelPCA model.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data on which to fit the KernelPCA model.
+
+        Returns
+        -------
+        self : KernelPCA
+            The fitted KernelPCA model.
+        """
         X = super().fit(X)
         self.X_fit_ = X.clone()
         K = self.affinity(X)
@@ -118,7 +187,19 @@ class KernelPCA(DRModule):
         return self
 
     @handle_backend
-    def transform(self, X):
+    def transform(self, X: torch.Tensor | np.ndarray):
+        r"""Project the input data onto the KernelPCA components.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data to project onto the KernelPCA components.
+
+        Returns
+        -------
+        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
+            Projected data.
+        """
         if not isinstance(
             self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)
         ):
@@ -148,6 +229,18 @@ class KernelPCA(DRModule):
         return result
 
     @handle_backend
-    def fit_transform(self, X):
+    def fit_transform(self, X: torch.Tensor | np.ndarray):
+        r"""Fit the KernelPCA model and project the input data onto the components.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Data on which to fit the KernelPCA model and project onto the components.
+
+        Returns
+        -------
+        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
+            Projected data.
+        """
         self.fit(X)
         return self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()

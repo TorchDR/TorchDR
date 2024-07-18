@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matcher base classes
-"""
+"""Affinity matcher base classes."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
@@ -37,8 +35,8 @@ LOSS_DICT = {
 
 
 class AffinityMatcher(DRModule):
-    r"""
-    Performs dimensionality reduction by matching two affinity matrices.
+    r"""Perform dimensionality reduction by matching two affinity matrices.
+
     It amounts to solving a problem of the form:
 
     .. math::
@@ -171,8 +169,7 @@ class AffinityMatcher(DRModule):
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
-        """
-        Fits the model to the provided data and returns the transformed data.
+        """Fit the model to the provided data and returns the transformed data.
 
         Parameters
         ----------
@@ -190,8 +187,7 @@ class AffinityMatcher(DRModule):
         return self.embedding_
 
     def fit(self, X: torch.Tensor | np.ndarray, y=None):
-        """
-        Fits the model to the provided data.
+        """Fit the model to the provided data.
 
         Parameters
         ----------

@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices with quadratic constraints
-"""
+"""Affinity matrices with quadratic constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -22,9 +20,7 @@ from torchdr.utils import (
 
 @wrap_vectors
 def _Pds(C, dual, eps):
-    r"""
-    Returns the quadratic doubly stochastic matrix P
-    from the dual variable f and cost matrix C.
+    r"""Return the quadratic doubly stochastic matrix from dual variable and cost.
 
     Parameters
     ----------
@@ -47,8 +43,9 @@ def _Pds(C, dual, eps):
 
 
 class DoublyStochasticQuadraticAffinity(Affinity):
-    r"""
-    Computes the symmetric doubly stochastic affinity matrix with controlled
+    r"""Compute the symmetric doubly stochastic affinity.
+
+    Implement the doubly stochastic normalized matrix with controlled
     global :math:`\ell_2` norm.
 
     The algorithm computes the optimal dual variable
@@ -150,7 +147,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.tolog = tolog
 
     def _compute_affinity(self, X: torch.Tensor):
-        r"""Computes the quadratic doubly stochastic affinity matrix from input data X.
+        r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
 
         Parameters
         ----------
