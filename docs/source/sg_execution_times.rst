@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:09.460** total execution time for 4 files **from all galleries**:
+**00:12.437** total execution time for 4 files **from all galleries**:
 
 .. container::
 
@@ -32,15 +32,15 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_basics_demo_tsne_swiss_roll.py` (``../../examples/basics/demo_tsne_swiss_roll.py``)
-     - 00:05.571
-     - 0.0
    * - :ref:`sphx_glr_auto_examples_basics_demo_ne_methods_affinity_matcher.py` (``../../examples/basics/demo_ne_methods_affinity_matcher.py``)
-     - 00:02.228
+     - 00:05.434
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_basics_demo_tsne_swiss_roll.py` (``../../examples/basics/demo_tsne_swiss_roll.py``)
+     - 00:05.400
      - 0.0
    * - :ref:`sphx_glr_auto_examples_basics_demo_pca_via_affinity_matcher.py` (``../../examples/basics/demo_pca_via_affinity_matcher.py``)
-     - 00:00.856
+     - 00:00.803
      - 0.0
    * - :ref:`sphx_glr_auto_examples_affinities_demo_ea_adaptivity.py` (``../../examples/affinities/demo_ea_adaptivity.py``)
-     - 00:00.805
+     - 00:00.800
      - 0.0
