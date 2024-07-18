@@ -1,6 +1,6 @@
 r"""
-Neighbor Embedding methods on genomics data and equivalent affinity matcher formulation
-=======================================================================================
+Neighbor Embedding on genomics & equivalent affinity matcher formulation
+=========================================================================
 
 We illustrate the basic usage of TorchDR with different Neighbor Embedding methods
 on the SNARE-seq gene expression dataset with given cell types labels.
