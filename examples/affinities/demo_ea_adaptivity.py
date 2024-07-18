@@ -7,6 +7,10 @@ simulated dataset with heteroscedastic noise.
 
 """
 
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
 import torch
 import matplotlib.pyplot as plt
 from matplotlib import cm
