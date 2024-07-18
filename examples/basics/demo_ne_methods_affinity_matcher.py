@@ -7,6 +7,11 @@ on the SNARE-seq gene expression dataset with given cell types labels.
 
 """
 
+# Author: Titouan Vayer <titouan.vayer@inria.fr>
+#         Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
 # %%
 import matplotlib.pyplot as plt
 

@@ -7,6 +7,10 @@ and using the AffinityMatcher class. Both approaches lead to the same solution.
 
 """
 
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_digits
 
