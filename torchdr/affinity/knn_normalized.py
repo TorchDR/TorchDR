@@ -23,8 +23,8 @@ from torchdr.utils import (
 def _log_SelfTuning(C, sigma):
     r"""Return the self-tuning affinity matrix with sample-wise bandwidth.
 
-    The bandwidth isdetermined by the distance from a point to its
-    K-th neirest neighbor in log domain.
+    The bandwidth is determined by the distance from a point
+    to its K-th neirest neighbor in log domain.
 
     Parameters
     ----------
