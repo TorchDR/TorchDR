@@ -10,7 +10,7 @@ from sklearn.base import BaseEstimator
 import torch
 import numpy as np
 
-from torchdr.utils import to_torch, pykeops, handle_backend
+from torchdr.utils import to_torch, pykeops
 
 
 class DRModule(BaseEstimator, ABC):
