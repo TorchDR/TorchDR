@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Evaluation methods for dimensionality reduction."""
-
+"""
+Evaluation methods for dimensionality reduction
+"""
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Cédric Vincent-Cuaz <cedvincentcuaz@gmail.com>
 #
@@ -11,7 +12,13 @@ import numpy as np
 import warnings
 from random import sample, seed
 
-from torchdr.utils import to_torch, pairwise_distances, prod_matrix_vector
+from torchdr.utils import (
+    to_torch,
+    pairwise_distances,
+    prod_matrix_vector,
+    identity_matrix,
+    kmin,
+)
 
 
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
@@ -26,8 +33,8 @@ def silhouette_samples(
     keops: bool = True,
     warn: bool = True,
 ):
-    r"""Compute the silhouette coefficients for each data sample.
-
+    r"""
+    Compute the silhouette coefficients for each sample in :math:`\mathbf{X}`.
     Each coefficient is calculated using the mean intra-cluster
     distance (:math:`a`) and the mean nearest-cluster distance (:math:`b`) of
     the sample, according to the formula :math:`(b - a) / max(a, b)`.
@@ -177,8 +184,9 @@ def silhouette_score(
     random_state: int = None,
     warn: bool = True,
 ):
-    r"""Compute the Silhouette score as the mean of silhouette coefficients.
-
+    r"""
+    Compute the Silhouette Score for all samples in :math:`\mathbf{X}` as the
+    mean of silhouette coefficient of each sample.
     Each coefficient is calculated using the mean intra-cluster
     distance (:math:`a`) and the mean nearest-cluster distance (:math:`b`) of
     the sample, according to the formula :math:`(b - a) / max(a, b)`.
@@ -250,3 +258,113 @@ def silhouette_score(
     silhouette_score = coefficients.mean()
 
     return silhouette_score
+
+
+def trustworthiness(
+    X: torch.Tensor | np.ndarray,
+    Z: torch.Tensor | np.ndarray,
+    n_neighbors: int = 5,
+    metric: str = "euclidean",
+    device: str = None,
+    keops: bool = True,
+    warn: bool = True,
+):
+    r"""Compute the Trustworthiness within [0, 1] indicating to which extent
+    the local structure is maintained in the embedding.
+
+    The Trustworthiness is defined as
+
+    .. math::
+
+        T(k) = 1 - \frac{2}{nk (2n - 3k - 1)} \sum^n_{i=1}
+            \sum_{j \in \mathcal{N}_{i}^{k}} \max(0, (r(i, j) - k))
+
+    where for each sample i, :math:`\mathcal{N}_{i}^{k}` are its k nearest
+    neighbors in the output space, and every sample j is its :math:`r(i, j)`-th
+    nearest neighbor in the input space. In other words, any unexpected nearest
+    neighbors in the output space are penalised in proportion to their rank in
+    the input space.
+
+    Parameters
+    ----------
+    X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features_x)
+        Data in the input space as a pairwise distance matrix
+        or a feature matrix.
+
+    Z : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features_z)
+        Data in the embedding space as a pairwise distance matrix
+        or a feature matrix.
+
+    n_neighbors : int, default=5
+        The number of neighbors that will be considered. Must satisfy
+        `n_neighbors < n_samples / 2` to ensure the score to lie in [0, 1].
+
+    metric : str, optional
+        The distance to use for computing pairwise distances. Must be an
+        element of ["euclidean", "manhattan", "hyperbolic", "precomputed"].
+        The default is 'euclidean'.
+
+    device : str, optional
+        Device to use for computations.
+
+    keops : bool, optional
+        Whether to use KeOps for computations.
+
+    Returns
+    -------
+    trustworthiness : float
+        Trustworthiness of the low-dimensional embedding.
+
+    References
+    ----------
+    .. [1] Jarkko Venna and Samuel Kaski. 2001. Neighborhood
+           Preservation in Nonlinear Projection Methods: An Experimental Study.
+           In Proceedings of the International Conference on Artificial Neural Networks
+           (ICANN '01). Springer-Verlag, Berlin, Heidelberg, 485-491.
+
+    """
+    n_samples_x = X.shape[0]
+
+    if n_neighbors >= n_samples_x / 2:
+        raise ValueError(
+            f"n_neighbors ({n_neighbors}) must be less than n_samples_x / 2"
+            f" ({n_samples_x / 2})"
+        )
+
+    if metric == "precomputed":
+        if X.shape != (n_samples_x, n_samples_x):
+            raise ValueError("X must be a square matrix with metric = 'precomputed'")
+        if Z.shape != (n_samples_x, n_samples_x):
+            raise ValueError("Z must be a square matrix with metric = 'precomputed'")
+        if keops and warn:
+            warnings.warn(
+                "[TorchDR] WARNING : keops not supported with metric = 'precomputed'",
+                stacklevel=2,
+            )
+
+    if device is None:
+        device = X.device
+
+    if metric == "precomputed":
+        CX = X
+        CZ = Z
+    else:
+        CX = pairwise_distances(X, X, metric, keops)
+        CZ = pairwise_distances(Z, Z, metric, keops)
+
+    # we set the diagonal to high values to exclude the points themselves from
+    # their own neighborhood
+    I = identity_matrix(CX.shape[-1], keops, X.device, X.dtype)
+    CX = CX + (2.0 * CX.max()) * I
+    CZ = CZ + (2.0 * CZ.max()) * I
+
+    # sort values in the input space
+    # need to find a way to avoid storing the full matrix as follows
+
+    _, minK_indices_X = kmin(CX, k=n_samples_x, dim=1)
+    # get indices of nearest neighbors in the embedding space
+    _, minK_indices_Z = kmin(CZ, k=n_neighbors, dim=1)
+
+    return None
