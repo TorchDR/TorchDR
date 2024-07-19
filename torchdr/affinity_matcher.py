@@ -203,7 +203,7 @@ class AffinityMatcher(DRModule):
         self : AffinityMatcher
             The fitted AffinityMatcher instance.
         """
-        super().fit(X)
+        X = super().fit(X)
         self.fit_transform(X)
         return self
 
