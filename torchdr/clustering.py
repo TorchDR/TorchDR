@@ -11,7 +11,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import to_torch, pykeops
+from torchdr.utils import to_torch, pykeops, pairwise_distances
 
 
 class ClusteringModule(BaseEstimator, ABC):
@@ -123,6 +123,8 @@ class KMeans(ClusteringModule):
         Whether to print information during the computations.
     random_state : float, default=0
         Random seed for reproducibility.
+    metric : str, default="sqeuclidean"
+        Metric to use for the distance computation.
     """
 
     def __init__(
@@ -135,6 +137,7 @@ class KMeans(ClusteringModule):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
+        metric: str = "sqeuclidean",
     ):
 
         super().__init__(
@@ -148,21 +151,82 @@ class KMeans(ClusteringModule):
         self.n_init = n_init
         self.max_iter = max_iter
         self.tol = tol
+        self.metric = metric
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def fit(self, X: torch.Tensor | np.ndarray, y=None):
         """Fit the k-means model.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             The input data.
+        y : None
+            Ignored.
 
         Returns
         -------
         self : object
             The fitted instance.
         """
+        super().fit(X)
+
+        self._instantiate_generator()
+
+        for _ in range(self.n_init):
+            labels = self._fit_single(X, centroids)
+            inertia = self._compute_inertia(X, centroids, labels)
+
+            if inertia < self.inertia_:
+                self.inertia_ = inertia
+                self.labels_ = labels
+                self.centroids_ = centroids
+
         return self
+
+    def _fit_single(self, X, centroids):
+        """Fit the k-means model with a single initialization.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            The input data.
+        centroids : torch.Tensor
+            The initial centroids.
+
+        Returns
+        -------
+        labels : torch.Tensor
+            The predicted labels.
+        """
+
+        n_samples_in = X.shape[0]
+        centroid_indices = self.generator_.choice(
+            n_samples_in, size=self.n_clusters, replace=False
+        )
+        centroids = X[centroid_indices].clone()
+
+        for _ in range(self.max_iter):
+
+            # E step: assign points to the closest cluster
+            C = pairwise_distances(X, centroids, metric=self.metric, keops=self.keops)
+
+            cl = D_ij.argmin(dim=1).long().view(-1)  # Points -> Nearest cluster
+
+            # M step: update the centroids to the normalized cluster average: ------
+            # Compute the sum of points per cluster:
+            c.zero_()
+            c.scatter_add_(0, cl[:, None].repeat(1, D), x)
+
+            # Divide by the number of points per cluster:
+            Ncl = torch.bincount(cl, minlength=K).type_as(c).view(K, 1)
+            c /= Ncl  # in-place division to compute the average
+
+            if torch.allclose(new_centroids, centroids, atol=self.tol):
+                break
+
+            centroids = new_centroids
+
+        return labels
 
     def _instantiate_generator(self):
         self.generator_ = np.random.default_rng(

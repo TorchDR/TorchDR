@@ -224,7 +224,7 @@ The following classes serve as parent classes for this approach, requiring the u
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.affinity_matcher.AffinityMatcher
+   torchdr.AffinityMatcher
 
 We now present two families of such DR methods: those based on the cross-entropy loss (neighbor embedding methods) and those based on the square loss (similar to MDS methods).
 

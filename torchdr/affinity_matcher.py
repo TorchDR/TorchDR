@@ -47,7 +47,7 @@ class AffinityMatcher(DRModule):
     input affinity matrix and :math:`\mathbf{A_Z}` is the affinity matrix of the
     embedding.
 
-    The embedding optimization is performed using a first-order optimization method, with gradients calculated through PyTorch's automatic differentiation.
+    The embedding optimization is performed using a first-order optimization method, with gradients calculated via PyTorch's automatic differentiation.
 
     Parameters
     ----------
