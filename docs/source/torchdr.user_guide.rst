@@ -183,7 +183,8 @@ All DR estimators inherit the structure of the :meth:`DRModule` class:
 
    torchdr.base.DRModule
 
-They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
+They are :class:`sklearn.base.BaseEstimator` classes which can be called
+with the ``fit_transform`` method.
 
 .. contents:: Table of Contents
    :depth: 2
@@ -223,7 +224,7 @@ The following classes serve as parent classes for this approach, requiring the u
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.affinity_matcher.AffinityMatcher
+   torchdr.AffinityMatcher
 
 We now present two families of such DR methods: those based on the cross-entropy loss (neighbor embedding methods) and those based on the square loss (similar to MDS methods).
 

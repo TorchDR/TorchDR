@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Noise-constrastive SNE algorithms."""
+"""Info Noise-constrastive TSNE algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #

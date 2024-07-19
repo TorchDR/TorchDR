@@ -820,7 +820,7 @@ class SinkhornAffinity(LogAffinity):
 class NormalizedGaussianAffinity(LogAffinity):
     r"""Compute the Gaussian affinity matrix which can be normalized along a dimension.
 
-    The algorthm computes :math:`\exp( - \mathbf{C} / \sigma)`
+    The algorithm computes :math:`\exp( - \mathbf{C} / \sigma)`
     where :math:`\mathbf{C}` is the pairwise distance matrix and
     :math:`\sigma` is the bandwidth parameter. The affinity can be normalized
     according to the specified normalization dimension.
