@@ -224,7 +224,8 @@ class EntropicAffinity(SparseLogAffinity):
 
     .. note:: A symmetric version is also available at
         :class:`~torchdr.SymmetricEntropicAffinity`. It is the affinity matrix
-        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_.
+        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_. In TSNE [2]_,
+        the entropic affinity is simply averaged with its transpose.
 
     Parameters
     ----------
@@ -446,7 +447,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     def __init__(
         self,
         perplexity: float = 30,
-        lr: float = 1e0,
+        lr: float = 1e-1,
         eps_square: bool = True,
         tol: float = 1e-3,
         max_iter: int = 500,
@@ -630,7 +631,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 class SinkhornAffinity(LogAffinity):
     r"""Compute the symmetric doubly stochastic affinity matrix.
 
-    The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}
+    The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}`
     with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
 
     The algorithm computes the optimal dual variable
@@ -839,7 +840,7 @@ class NormalizedGaussianAffinity(LogAffinity):
     verbose : bool, optional
         Verbosity.
     normalization_dim : int or Tuple[int], optional
-        Dimension along which to normalize the affinity matrix.
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
     """
 
     def __init__(
@@ -879,6 +880,91 @@ class NormalizedGaussianAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         log_affinity_matrix = -C / self.sigma
+
+        if self.normalization_dim is not None:
+            self.log_normalization_ = logsumexp_red(
+                log_affinity_matrix, self.normalization_dim
+            )
+            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
+
+        if isinstance(self.normalization_dim, int):
+            n_samples_in = X.shape[0]
+            log_affinity_matrix -= math.log(n_samples_in)
+
+        return log_affinity_matrix
+
+
+class NormalizedStudentAffinity(LogAffinity):
+    r"""Compute the Student affinity matrix which can be normalized along a dimension.
+
+    Its expression is given by:
+
+    .. math::
+        \left(1 + \frac{\mathbf{C}}{\nu}\right)^{-\frac{\nu + 1}{2}}
+
+    where :math:`\nu > 0` is the degrees of freedom parameter.
+    The affinity can be normalized
+    according to the specified normalization dimension.
+
+    Parameters
+    ----------
+    degrees_of_freedom : int, optional
+        Degrees of freedom for the Student-t distribution.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity.
+    normalization_dim : int or Tuple[int], optional
+        Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    """
+
+    def __init__(
+        self,
+        degrees_of_freedom: float = 1.0,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = False,
+        normalization_dim: int | Tuple[int] = (0, 1),
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.degrees_of_freedom = degrees_of_freedom
+        self.normalization_dim = normalization_dim
+
+    def _compute_log_affinity(self, X: torch.Tensor):
+        r"""Fits the normalized Student affinity model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor of shape(n_samples, n_features)
+            Input data.
+
+        Returns
+        -------
+        log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            of shape(n_samples, n_samples)
+            Log of the normalized Student affinity matrix.
+        """
+        C = self._distance_matrix(X)
+
+        log_affinity_matrix = (
+            -0.5
+            * (self.degrees_of_freedom + 1)
+            * (C / self.degrees_of_freedom + 1).log()
+        )
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(

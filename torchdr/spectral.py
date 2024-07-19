@@ -44,7 +44,7 @@ class PCA(DRModule):
         self,
         n_components: int = 2,
         device: str = "auto",
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
     ):
         super().__init__(
@@ -135,7 +135,7 @@ class KernelPCA(DRModule):
         n_components: int = 2,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
         nodiag: bool = False,
     ):
