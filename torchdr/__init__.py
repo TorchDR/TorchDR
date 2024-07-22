@@ -56,7 +56,8 @@ from .eval import (
     silhouette_samples,
     silhouette_score,
     trustworthiness,
-    Kary_preservation_score)
+    Kary_preservation_score,
+)
 
 __all__ = [
     "__title__",
