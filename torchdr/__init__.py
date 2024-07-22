@@ -52,7 +52,11 @@ from .neighbor_embedding import (
 # import utils
 from .utils import pairwise_distances, binary_search, false_position
 
-from .eval import silhouette_samples, silhouette_score
+from .eval import (
+    silhouette_samples,
+    silhouette_score,
+    trustworthiness,
+    Kary_preservation_score)
 
 __all__ = [
     "__title__",
@@ -95,4 +99,6 @@ __all__ = [
     "false_position",
     "silhouette_samples",
     "silhouette_score",
+    "trustworthiness",
+    "Kary_preservation_score",
 ]

@@ -266,8 +266,6 @@ def trustworthiness(
     n_neighbors: int = 5,
     metric: str = "euclidean",
     device: str = None,
-    keops: bool = True,
-    warn: bool = True,
 ):
     r"""Compute the Trustworthiness within [0, 1] indicating to which extent
     the local structure is maintained in the embedding.
@@ -284,6 +282,8 @@ def trustworthiness(
     nearest neighbor in the input space. In other words, any unexpected nearest
     neighbors in the output space are penalised in proportion to their rank in
     the input space.
+    
+    .. note:: This function cannot benefit from Keops.
 
     Parameters
     ----------
@@ -291,26 +291,19 @@ def trustworthiness(
         `metric="precomputed" else (n_samples_x, n_features_x)
         Data in the input space as a pairwise distance matrix
         or a feature matrix.
-
     Z : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
         `metric="precomputed" else (n_samples_x, n_features_z)
         Data in the embedding space as a pairwise distance matrix
         or a feature matrix.
-
     n_neighbors : int, default=5
         The number of neighbors that will be considered. Must satisfy
         `n_neighbors < n_samples / 2` to ensure the score to lie in [0, 1].
-
     metric : str, optional
         The distance to use for computing pairwise distances. Must be an
         element of ["euclidean", "manhattan", "hyperbolic", "precomputed"].
         The default is 'euclidean'.
-
     device : str, optional
         Device to use for computations.
-
-    keops : bool, optional
-        Whether to use KeOps for computations.
 
     Returns
     -------
@@ -319,11 +312,10 @@ def trustworthiness(
 
     References
     ----------
-    .. [1] Jarkko Venna and Samuel Kaski. 2001. Neighborhood
-           Preservation in Nonlinear Projection Methods: An Experimental Study.
-           In Proceedings of the International Conference on Artificial Neural Networks
-           (ICANN '01). Springer-Verlag, Berlin, Heidelberg, 485-491.
-
+    .. [25] J.Venna and S.Kaski. Neighborhood Preservation in Nonlinear
+        Projection Methods: An Experimental Study. In Proceedings of the
+        International Conference on Artificial Neural Networks (ICANN 2001).
+        
     """
     n_samples_x = X.shape[0]
 
@@ -338,12 +330,121 @@ def trustworthiness(
             raise ValueError("X must be a square matrix with metric = 'precomputed'")
         if Z.shape != (n_samples_x, n_samples_x):
             raise ValueError("Z must be a square matrix with metric = 'precomputed'")
-        if keops and warn:
-            warnings.warn(
-                "[TorchDR] WARNING : keops not supported with metric = 'precomputed'",
-                stacklevel=2,
-            )
+        
+    if device is None:
+        device = X.device
 
+    if metric == "precomputed":
+        CX = X
+        CZ = Z
+    else:
+        CX = pairwise_distances(X, X, metric, keops=False)
+        CZ = pairwise_distances(Z, Z, metric, keops=False)
+
+    # we set the diagonal to high values to exclude the points themselves from
+    # their own neighborhood
+    I = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
+    CX = CX + (2.0 * CX.max()) * I
+    CZ = CZ + (2.0 * CZ.max()) * I
+    
+    # sort values in the input space
+    # need to find a way to avoid storing the full matrix as follows
+    sorted_indices_X = torch.argsort(CX, dim=1)
+    # get indices of nearest neighbors in the embedding space
+    _, minK_indices_Z = kmin(CZ, k=n_neighbors, dim=1)
+    
+    # We build an inverted index of neighbors in the input space: For sample i,
+    # we define `inverted_index[i]` as the inverted index of sorted distances:
+    # inverted_index[i][ind_X[i]] = np.arange(1, n_sample + 1)
+    inverted_indices_X = torch.zeros((n_samples_x, n_samples_x), dtype=torch.int32)
+    ordered_indices_X = torch.arange(n_samples_x)
+    inverted_indices_X[ordered_indices_X[:, None], sorted_indices_X] = ordered_indices_X + 1
+    ranks = (
+        inverted_indices_X[ordered_indices_X[:, None], minK_indices_Z] - n_neighbors
+    )
+    score = torch.sum(ranks[ranks > 0])
+    score = 1.0 - score * (
+        2.0 / (n_samples_x * n_neighbors * (
+            2.0 * n_samples_x - 3.0 * n_neighbors - 1.0))
+    )
+    return score
+
+
+def Kary_preservation_score(
+    X: torch.Tensor | np.ndarray,
+    Z: torch.Tensor | np.ndarray,
+    K: int = 5,
+    adjusted : bool = False,
+    metric: str = "euclidean",
+    device: str = None,
+    keops: bool = True,
+):
+    r"""Compute the average agreement rate within [0, 1] between K-ary
+    neighbourhoods in the input space `X` and the output space `Z`.
+    
+    The K-ary neighbourhoods in one space e.g `X` coincides with the set defined,
+    for each sample i, as :math:`n^{X, K}_i = \{ j| 1 \leq r^{X}_{i, j} \leq K \}`
+    where for any j, :math:`r^{X}_{i, j}` is the number of samples in a ball
+    centered in `x_i` of radius `C^X(x_i, x_j)`. The average agreement between
+    both spaces then reads as 
+    
+    .. math::
+
+        S = \frac{1}{NK} \sum^N_{i=1} |n^{X, K}_i \cap n^{Z, K}_i|
+            
+    It can be further adjusted for chance considering the following score:
+        
+    .. math::
+
+        S_{adjusted} = \frac{(N-1)S - K}{N - 1 - K}
+        
+    Parameters
+    ----------
+    X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features_x)
+        Data in the input space as a pairwise distance matrix
+        or a feature matrix.
+    Z : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
+        `metric="precomputed" else (n_samples_x, n_features_z)
+        Data in the embedding space as a pairwise distance matrix
+        or a feature matrix.
+    K : int, default=5
+        Maximum number of neighbors that will be considered. Must satisfy
+        `n_neighbors < n_samples`.
+    adjusted : bool, default is False.
+        Whether to adjust the score for chance.
+    metric : str, optional
+        The distance to use for computing pairwise distances. Must be an
+        element of ["euclidean", "manhattan", "hyperbolic", "precomputed"].
+        The default is 'euclidean'.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+
+    Returns
+    -------
+    score : float
+        Average agreement rate between K-ary neighborhoods.
+
+    References
+    ----------
+    .. [26] J.Lee, M.Verleysen, Quality assessment of dimensionality reduction:
+        rank-based criteria, Neurocomputing (2009).
+    """
+    n_samples_x = X.shape[0]
+
+    if K < n_samples_x:
+        raise ValueError(
+            f"K ({K}) must be less than n_samples_x ({n_samples_x})"
+        )
+
+    if metric == "precomputed":
+        if X.shape != (n_samples_x, n_samples_x):
+            raise ValueError("X must be a square matrix with metric = 'precomputed'")
+        if Z.shape != (n_samples_x, n_samples_x):
+            raise ValueError("Z must be a square matrix with metric = 'precomputed'")
+        
     if device is None:
         device = X.device
 
@@ -356,15 +457,49 @@ def trustworthiness(
 
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
-    I = identity_matrix(CX.shape[-1], keops, X.device, X.dtype)
+    I = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
     CX = CX + (2.0 * CX.max()) * I
     CZ = CZ + (2.0 * CZ.max()) * I
-
-    # sort values in the input space
-    # need to find a way to avoid storing the full matrix as follows
-
-    _, minK_indices_X = kmin(CX, k=n_samples_x, dim=1)
+    
+    # get indices of nearest neighbors in the input space
+    minK_values_X, minK_indices_X = kmin(CX, k=K, dim=1)
     # get indices of nearest neighbors in the embedding space
-    _, minK_indices_Z = kmin(CZ, k=n_neighbors, dim=1)
-
-    return None
+    minK_values_Z, minK_indices_Z = kmin(CZ, k=K, dim=1)
+    
+    # to handle equality cases w.r.t distances we have to iteratively reduce
+    # radii of balls if the number of neighbors exceed K
+    radii_idx_X = (K - 1) * torch.ones(
+        CX.shape[0], device=device, dtype=torch.int32)
+    ranks_above_K = True
+    while ranks_above_K:
+        neighborhoods_X = (CX <= minK_values_X[:, radii_idx_X])
+        sizes_X = neighborhoods_X.sum(dim=1)
+        too_large_neighborhoods = torch.where(sizes_X > K)[0]
+        if too_large_neighborhoods.shape[0] == 0:
+            ranks_above_K = False
+        else:
+            radii_idx_X[too_large_neighborhoods] -= 1
+    
+    radii_idx_Z = (K - 1) * torch.ones(
+        CZ.shape[0], device=device, dtype=torch.int32)
+    ranks_above_K = True
+    while ranks_above_K:
+        neighborhoods_Z = (CZ <= minK_values_Z[:, radii_idx_Z])
+        sizes_Z = neighborhoods_Z.sum(dim=1)
+        too_large_neighborhoods = torch.where(sizes_Z > K)[0]
+        if too_large_neighborhoods.shape[0] == 0:
+            ranks_above_K = False
+        else:
+            radii_idx_Z[too_large_neighborhoods] -= 1
+    
+    # compute the intersection between sets
+    intersection_counts = [
+        torch.isin(neighborhoods_X[i], neighborhoods_Z[i]).sum().item()
+        for i in range(n_samples_x)]
+    
+    score = sum(intersection_counts) / (K * n_samples_x)
+    
+    if adjusted:
+        score = ((n_samples_x - 1.) * score - K) / (n_samples_x - 1 - K)
+        
+    return score
