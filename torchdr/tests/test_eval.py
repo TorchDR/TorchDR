@@ -23,7 +23,6 @@ from torchdr.eval import (
     silhouette_samples,
     silhouette_score,
     trustworthiness,
-    Kary_preservation_score,
 )
 
 from torchdr.utils import pykeops, pairwise_distances
