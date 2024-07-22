@@ -23,9 +23,10 @@ from torchdr.eval import (
     silhouette_samples,
     silhouette_score,
     trustworthiness,
+    Kary_preservation_score,
 )
 
-from torchdr.utils import pykeops, pairwise_distances
+from torchdr.utils import pykeops, pairwise_distances, to_torch
 from torchdr.tests.utils import toy_dataset
 
 lst_types = ["float32", "float64"]
@@ -199,3 +200,51 @@ def test_trustworthiness_consistency_sklearn(dtype, metric):
     assert (
         score_torchdr - score_sklearn
     ) ** 2 < 1e-5, "Trustworthiness from torchdr and sklearn should be close."
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan", "whatever"])
+def test_Kary_preservation_score_euclidean(dtype, keops, metric):
+    # perfect trustworthiness
+    # n = 30
+    # X = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    # Z = X.clone()
+    # K = 5
+
+    n = 10
+    X, _ = toy_dataset(n, dtype)
+    # Z = PCA(n_components=1, random_state=0).fit_transform(X)
+    X = to_torch(X)
+    Z = X.clone()
+    K = 2
+
+    if metric in admissible_LIST_METRICS:
+        CX = pairwise_distances(X, X, metric, keops=False)
+        CZ = pairwise_distances(Z, Z, metric, keops=False)
+
+        score = Kary_preservation_score(X, Z, K, False, metric, DEVICE, keops)
+
+        adjusted_score = Kary_preservation_score(X, Z, K, True, metric, DEVICE, keops)
+
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(
+                CX[:, :-2], CZ, K, False, "precomputed", DEVICE, keops
+            )
+
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(
+                CZ, CX[:, :-2], K, False, "precomputed", DEVICE, keops
+            )
+
+        score_precomputed = Kary_preservation_score(
+            CX, CZ, K, False, "precomputed", DEVICE, keops
+        )
+
+        assert score == adjusted_score == score_precomputed == 1.0
+
+    else:
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(X, Z, K, False, metric, DEVICE, keops)

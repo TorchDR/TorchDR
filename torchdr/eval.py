@@ -18,6 +18,7 @@ from torchdr.utils import (
     prod_matrix_vector,
     identity_matrix,
     kmin,
+    wrap_vectors,
 )
 
 
@@ -437,7 +438,7 @@ def Kary_preservation_score(
     """
     n_samples_x = X.shape[0]
 
-    if K < n_samples_x:
+    if K >= n_samples_x:
         raise ValueError(f"K ({K}) must be less than n_samples_x ({n_samples_x})")
 
     if metric == "precomputed":
@@ -456,48 +457,67 @@ def Kary_preservation_score(
         CX = pairwise_distances(X, X, metric, keops)
         CZ = pairwise_distances(Z, Z, metric, keops)
 
+    @wrap_vectors
+    def get_neighborhoods(C, V):
+        return C <= V
+
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
-    I = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
+    I = identity_matrix(n_samples_x, keops, X.device, X.dtype)
     CX = CX + (2.0 * CX.max()) * I
     CZ = CZ + (2.0 * CZ.max()) * I
 
     # get indices of nearest neighbors in the input space
     minK_values_X, minK_indices_X = kmin(CX, k=K, dim=1)
+    print("minK_values_X:", minK_values_X, minK_values_X.shape)
     # get indices of nearest neighbors in the embedding space
     minK_values_Z, minK_indices_Z = kmin(CZ, k=K, dim=1)
 
     # to handle equality cases w.r.t distances we have to iteratively reduce
     # radii of balls if the number of neighbors exceed K
-    radii_idx_X = (K - 1) * torch.ones(CX.shape[0], device=device, dtype=torch.int32)
+    radii_idx_X = (K - 1) * torch.ones(n_samples_x, device=device, dtype=torch.int32)
+    rng = torch.arange(n_samples_x, device=device, dtype=torch.int32)
+    print("radii_idx_X:", radii_idx_X.shape)
     ranks_above_K = True
+    print("CX:", CX)
     while ranks_above_K:
-        neighborhoods_X = CX <= minK_values_X[:, radii_idx_X]
-        sizes_X = neighborhoods_X.sum(dim=1)
+
+        # neighborhoods_X = (CX <= minK_values_X[:, radii_idx_X])
+        local_values = minK_values_X[rng, radii_idx_X]
+        print("local_values.shape:", local_values.shape)
+        # neighborhoods_X = get_neighborhoods(CX, minK_values_X[:, radii_idx_X])
+        neighborhoods_X = get_neighborhoods(CX, local_values)
+        print("neighborhoods_X:", neighborhoods_X, neighborhoods_X.shape)
+        # outputs neighborhoods_X shape: (n, n) (n, n) ... I don't get it.
+        sizes_X = neighborhoods_X.sum(dim=-1)
+        print("sizes_X:", sizes_X)
+
         too_large_neighborhoods = torch.where(sizes_X > K)[0]
+        print("too_large_neighborhoods (X):", too_large_neighborhoods)
         if too_large_neighborhoods.shape[0] == 0:
             ranks_above_K = False
         else:
             radii_idx_X[too_large_neighborhoods] -= 1
 
-    radii_idx_Z = (K - 1) * torch.ones(CZ.shape[0], device=device, dtype=torch.int32)
+    radii_idx_Z = (K - 1) * torch.ones(n_samples_x, device=device, dtype=torch.int32)
     ranks_above_K = True
     while ranks_above_K:
-        neighborhoods_Z = CZ <= minK_values_Z[:, radii_idx_Z]
-        sizes_Z = neighborhoods_Z.sum(dim=1)
+        # neighborhoods_Z = (CZ <= minK_values_Z[:, radii_idx_Z])
+        local_values = minK_values_Z[rng, radii_idx_Z]
+        neighborhoods_Z = get_neighborhoods(CZ, local_values)
+
+        sizes_Z = neighborhoods_Z.sum(dim=-1)
+        print("sizes_Z:", sizes_Z)
         too_large_neighborhoods = torch.where(sizes_Z > K)[0]
+        print("too_large_neighborhoods (Z):", too_large_neighborhoods)
         if too_large_neighborhoods.shape[0] == 0:
             ranks_above_K = False
         else:
             radii_idx_Z[too_large_neighborhoods] -= 1
 
     # compute the intersection between sets
-    intersection_counts = [
-        torch.isin(neighborhoods_X[i], neighborhoods_Z[i]).sum().item()
-        for i in range(n_samples_x)
-    ]
-
-    score = sum(intersection_counts) / (K * n_samples_x)
+    intersection_count = (neighborhoods_X * neighborhoods_Z).sum()
+    score = intersection_count / (K * n_samples_x)
 
     if adjusted:
         score = ((n_samples_x - 1.0) * score - K) / (n_samples_x - 1 - K)
