@@ -12,10 +12,20 @@ import numpy as np
 import pytest
 import warnings
 from sklearn.metrics import silhouette_score as sk_silhouette_score
+from sklearn.manifold import trustworthiness as sk_trustworthiness
+
+from sklearn.decomposition import PCA
 
 from torch.testing import assert_close
 
-from torchdr.eval import silhouette_samples, silhouette_score, admissible_LIST_METRICS
+from torchdr.eval import (
+    admissible_LIST_METRICS,
+    silhouette_samples,
+    silhouette_score,
+    trustworthiness,
+    Kary_preservation_score,
+)
+
 from torchdr.utils import pykeops, pairwise_distances
 from torchdr.tests.utils import toy_dataset
 
@@ -117,8 +127,8 @@ def test_silhouette_score_precomputed(dtype, keops):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("keops", lst_keops)
 @pytest.mark.parametrize("metric", ["euclidean", "manhattan"])
-def test_consistency_sklearn(dtype, keops, metric):
-    n = 100
+def test_silhouette_consistency_sklearn(dtype, keops, metric):
+    n = 50
     X, y = toy_dataset(n, dtype)
 
     score_torchdr = silhouette_score(X, y, None, metric, DEVICE, keops)
@@ -138,3 +148,55 @@ def test_consistency_sklearn(dtype, keops, metric):
     ) ** 2 < 1e-5, (
         "Silhouette scores from torchdr and sklearn should be close on noised labels."
     )
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan", "whatever"])
+def test_trustworthiness_euclidean(dtype, metric):
+    # perfect trustworthiness
+    n = 30
+    X = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    Z = X.clone()
+    n_neighbors = 5
+
+    if metric in admissible_LIST_METRICS:
+        CX = pairwise_distances(X, X, metric, keops=False)
+        CZ = pairwise_distances(Z, Z, metric, keops=False)
+
+        score = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = trustworthiness(CX[:, :-2], CZ, n_neighbors, "precomputed", DEVICE)
+
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = trustworthiness(CZ, CX[:, :-2], n_neighbors, "precomputed", DEVICE)
+
+        score_precomputed = trustworthiness(CX, CZ, n_neighbors, "precomputed")
+
+        assert score == 1.0
+        assert score == score_precomputed
+
+    else:
+        with pytest.raises(ValueError):
+            _ = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+
+    # catch errors
+    n_neighbors = n / 2 + 1
+
+    with pytest.raises(ValueError):
+        _ = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan"])
+def test_trustworthiness_consistency_sklearn(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+    Z = PCA(n_components=1, random_state=0).fit_transform(X)
+
+    score_torchdr = trustworthiness(X, Z, n_neighbors=5, metric=metric, device=DEVICE)
+    score_sklearn = sk_trustworthiness(X, Z, n_neighbors=5, metric=metric)
+    assert (
+        score_torchdr - score_sklearn
+    ) ** 2 < 1e-5, "Trustworthiness from torchdr and sklearn should be close."

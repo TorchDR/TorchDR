@@ -325,16 +325,18 @@ def trustworthiness(
             f" ({n_samples_x / 2})"
         )
 
+    if device is None:
+        device = X.device
+
+    X = to_torch(X)
+    Z = to_torch(Z)
+
     if metric == "precomputed":
         if X.shape != (n_samples_x, n_samples_x):
             raise ValueError("X must be a square matrix with metric = 'precomputed'")
         if Z.shape != (n_samples_x, n_samples_x):
             raise ValueError("Z must be a square matrix with metric = 'precomputed'")
 
-    if device is None:
-        device = X.device
-
-    if metric == "precomputed":
         CX = X
         CZ = Z
     else:
@@ -349,7 +351,7 @@ def trustworthiness(
 
     # sort values in the input space
     # need to find a way to avoid storing the full matrix as follows
-    sorted_indices_X = torch.argsort(CX, dim=1)
+    sorted_indices_X = torch.argsort(CX, dim=1).to(torch.int32)
     # get indices of nearest neighbors in the embedding space
     _, minK_indices_Z = kmin(CZ, k=n_neighbors, dim=1)
 
@@ -357,7 +359,7 @@ def trustworthiness(
     # we define `inverted_index[i]` as the inverted index of sorted distances:
     # inverted_index[i][ind_X[i]] = np.arange(1, n_sample + 1)
     inverted_indices_X = torch.zeros((n_samples_x, n_samples_x), dtype=torch.int32)
-    ordered_indices_X = torch.arange(n_samples_x)
+    ordered_indices_X = torch.arange(n_samples_x, dtype=torch.int32)
     inverted_indices_X[ordered_indices_X[:, None], sorted_indices_X] = (
         ordered_indices_X + 1
     )
@@ -448,8 +450,8 @@ def Kary_preservation_score(
         device = X.device
 
     if metric == "precomputed":
-        CX = X
-        CZ = Z
+        CX = X.clone()
+        CZ = Z.clone()
     else:
         CX = pairwise_distances(X, X, metric, keops)
         CZ = pairwise_distances(Z, Z, metric, keops)
