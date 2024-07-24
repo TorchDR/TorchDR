@@ -167,7 +167,6 @@ def test_trustworthiness_euclidean(dtype, metric):
         # compare to precomputed scores
         with pytest.raises(ValueError):
             _ = trustworthiness(CX[:, :-2], CZ, n_neighbors, "precomputed", DEVICE)
-
         # compare to precomputed scores
         with pytest.raises(ValueError):
             _ = trustworthiness(CZ, CX[:, :-2], n_neighbors, "precomputed", DEVICE)
@@ -206,15 +205,8 @@ def test_trustworthiness_consistency_sklearn(dtype, metric):
 @pytest.mark.parametrize("keops", lst_keops)
 @pytest.mark.parametrize("metric", ["euclidean", "manhattan", "whatever"])
 def test_Kary_preservation_score_euclidean(dtype, keops, metric):
-    # perfect trustworthiness
-    # n = 30
-    # X = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
-    # Z = X.clone()
-    # K = 5
-
     n = 10
     X, _ = toy_dataset(n, dtype)
-    # Z = PCA(n_components=1, random_state=0).fit_transform(X)
     X = to_torch(X)
     Z = X.clone()
     K = 2

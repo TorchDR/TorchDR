@@ -346,14 +346,14 @@ def trustworthiness(
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
     I = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
-    CX = CX + (2.0 * CX.max()) * I
-    CZ = CZ + (2.0 * CZ.max()) * I
+    CX_ = CX + (2.0 * CX.max()) * I
+    CZ_ = CZ + (2.0 * CZ.max()) * I
 
     # sort values in the input space
     # need to find a way to avoid storing the full matrix as follows
-    sorted_indices_X = torch.argsort(CX, dim=1).to(torch.int32)
+    sorted_indices_X = torch.argsort(CX_, dim=1).to(torch.int32)
     # get indices of nearest neighbors in the embedding space
-    _, minK_indices_Z = kmin(CZ, k=n_neighbors, dim=1)
+    _, minK_indices_Z = kmin(CZ_, k=n_neighbors, dim=1)
 
     # We build an inverted index of neighbors in the input space: For sample i,
     # we define `inverted_index[i]` as the inverted index of sorted distances:
@@ -450,8 +450,8 @@ def Kary_preservation_score(
         device = X.device
 
     if metric == "precomputed":
-        CX = X.clone()
-        CZ = Z.clone()
+        CX = X
+        CZ = Z
         keops = False
     else:
         CX = pairwise_distances(X, X, metric, keops)
@@ -460,15 +460,13 @@ def Kary_preservation_score(
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
     I = identity_matrix(n_samples_x, keops, X.device, X.dtype)
-    CX = CX + (2.0 * CX.max()) * I
-    CZ = CZ + (2.0 * CZ.max()) * I
+    CX_ = CX + (2.0 * CX.max()) * I
+    CZ_ = CZ + (2.0 * CZ.max()) * I
 
     # get indices of nearest neighbors in the input space
-    minK_values_X, minK_indices_X = kmin(CX, k=K, dim=1)
-    print("minK_indices_X:", minK_indices_X, minK_indices_X.shape)
+    minK_values_X, minK_indices_X = kmin(CX_, k=K, dim=1)
     # get indices of nearest neighbors in the embedding space
-    minK_values_Z, minK_indices_Z = kmin(CZ, k=K, dim=1)
-    print("minK_indices_X:", minK_indices_Z, minK_indices_Z.shape)
+    minK_values_Z, minK_indices_Z = kmin(CZ_, k=K, dim=1)
 
     # compute the intersection between sets
     intersection_count = sum(
