@@ -223,17 +223,24 @@ def test_Kary_preservation_score_euclidean(dtype, keops, metric):
         CX = pairwise_distances(X, X, metric, keops=False)
         CZ = pairwise_distances(Z, Z, metric, keops=False)
 
+        # compute initial score
         score = Kary_preservation_score(X, Z, K, False, metric, DEVICE, keops)
 
-        adjusted_score = Kary_preservation_score(X, Z, K, True, metric, DEVICE, keops)
+        # - check abnormal number of neighbors
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(X, Z, n, False, metric, DEVICE, keops)
+
+        # - check consistency with adjusted score while X = Z
+        adjusted_score = Kary_preservation_score(X, Z, K, True, metric, None, keops)
 
         # compare to precomputed scores
+        # - check abnormal dimensions for pairwise similarity matrices
         with pytest.raises(ValueError):
             _ = Kary_preservation_score(
                 CX[:, :-2], CZ, K, False, "precomputed", DEVICE, keops
             )
 
-        # compare to precomputed scores
+        # - check abnormal dimensions for pairwise similarity matrices
         with pytest.raises(ValueError):
             _ = Kary_preservation_score(
                 CZ, CX[:, :-2], K, False, "precomputed", DEVICE, keops
