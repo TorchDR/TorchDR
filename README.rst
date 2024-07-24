@@ -166,6 +166,10 @@ References
 
 .. [24] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
 
+.. [25] J.Venna and S.Kaski (2001). `Neighborhood Preservation in Nonlinear Projection Methods: An Experimental Study <https://link.springer.com/chapter/10.1007/3-540-44668-0_68>`_. In Proceedings of the International Conference on Artificial Neural Networks.
+
+.. [26] J.Lee, M.Verleysen (2009). `Quality assessment of dimensionality reduction: rank-based criteria <https://www.sciencedirect.com/science/article/abs/pii/S0925231209000101>`_, Neurocomputing.
+
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/
 .. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue

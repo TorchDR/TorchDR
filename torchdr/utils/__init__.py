@@ -59,6 +59,7 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
+    identity_matrix,
 )
 
 __all__ = [
@@ -104,4 +105,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "identity_matrix",
 ]
