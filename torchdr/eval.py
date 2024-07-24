@@ -18,8 +18,6 @@ from torchdr.utils import (
     prod_matrix_vector,
     identity_matrix,
     kmin,
-    wrap_vectors,
-    batch_transpose,
 )
 
 
