@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Noise-constrastive SNE algorithms
-"""
+"""Noise-constrastive SNE algorithms."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -13,7 +11,19 @@ from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(SampledNeighborEmbedding):
-    """
+    r"""Implementation of the InfoTSNE algorithm introduced in [15]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j \in N(i)} Q_{ij} \Big)
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -23,7 +33,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float or 'auto, optional
+    lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
     optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
         Which pytorch optimizer to use, by default 'auto'.
@@ -31,14 +41,14 @@ class InfoTSNE(SampledNeighborEmbedding):
         Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
+        Number of maximum iterations for the descent algorithm, by default 2000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -46,11 +56,12 @@ class InfoTSNE(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 12.0 for early exaggeration.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 12.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -86,20 +97,20 @@ class InfoTSNE(SampledNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 12.0,
+        early_exaggeration: float = 12.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 5,
+        n_negatives: int = 50,
     ):
 
         self.metric_in = metric_in
@@ -142,7 +153,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,

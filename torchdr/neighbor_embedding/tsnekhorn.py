@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-SNEkhorn algorithm (inverse OT DR)
-"""
+"""SNEkhorn algorithm (inverse OT DR)."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -17,8 +15,27 @@ from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
 class TSNEkhorn(NeighborEmbedding):
-    """
-    Implementation of the TSNEkhorn algorithm introduced in [3]_.
+    r"""Implementation of the TSNEkhorn algorithm introduced in [3]_.
+
+    It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{ij} Q_{ij} \:.
+
+    The above loss is the gap objective for inverse symmetric optimal transport
+    described in this
+    `blog <https://huguesva.github.io/blog/2024/inverseOT_mongegap/>`_.
+
+    .. note::
+        The :class:`~torchdr.SymmetricEntropicAffinity` requires a careful choice of
+        learning rate (parameter :attr:`lr_affinity_in`). If it is too unstable, one
+        can resort to using :class:`~torchdr.EntropicAffinity` instead by setting
+        :attr:`symmetric_affinity` to ``False``.
 
     Parameters
     ----------
@@ -29,7 +46,7 @@ class TSNEkhorn(NeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float, optional
-        Learning rate for the algorithm, by default 1.0.
+        Learning rate for the algorithm, by default 1e0.
     optimizer : {'SGD', 'Adam', 'NAdam'}, optional
         Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
@@ -38,14 +55,14 @@ class TSNEkhorn(NeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler, by default None.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
+        Number of maximum iterations for the descent algorithm, by default 2000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -53,11 +70,12 @@ class TSNEkhorn(NeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 10.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -81,7 +99,7 @@ class TSNEkhorn(NeighborEmbedding):
         the gap objective. Default is False.
     symmetric_affinity : bool, optional
         Whether to use symmetric entropic affinity. If False, uses
-        entropic affinity. Default is False.
+        entropic affinity. Default is True.
 
     References
     ----------
@@ -104,23 +122,23 @@ class TSNEkhorn(NeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        early_exaggeration: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
-        lr_affinity_in: float = 1e0,
+        lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
         max_iter_affinity_in: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         unrolling: bool = False,
-        symmetric_affinity: bool = False,
+        symmetric_affinity: bool = True,
     ):
 
         self.metric_in = metric_in
@@ -184,13 +202,13 @@ class TSNEkhorn(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
     def _loss(self):
-        if not hasattr(self, "dual_sinkhorn"):
+        if not hasattr(self, "dual_sinkhorn_"):
             self.dual_sinkhorn_ = None
 
         log_Q = self.affinity_out(
@@ -206,7 +224,7 @@ class TSNEkhorn(NeighborEmbedding):
             repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
 
         loss = (
-            self.coeff_attraction_ * attractive_term
+            self.early_exaggeration_ * attractive_term
             + self.coeff_repulsion * repulsive_term
         )
         return loss

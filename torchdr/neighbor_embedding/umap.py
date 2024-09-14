@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-UMAP algorithm
-"""
+"""UMAP algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,9 +14,19 @@ from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    """
-    Implementation of the UMAP algorithm introduced in [8]_ and further studied
-    in [12]_.
+    r"""Implementation of UMAP introduced in [8]_ and further studied in [12]_.
+
+    It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+
+    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -44,14 +52,14 @@ class UMAP(SampledNeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler, by default None.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm.
+        Number of maximum iterations for the descent algorithm. by default 2000.
     tolog : bool, optional
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
@@ -59,11 +67,12 @@ class UMAP(SampledNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 1.0.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 1.0.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -88,7 +97,6 @@ class UMAP(SampledNeighborEmbedding):
     .. [12] Sebastian Damrich, Fred Hamprecht (2021).
         On UMAP's True Loss Function.
         Advances in Neural Information Processing Systems 34 (NeurIPS).
-
     """  # noqa: E501
 
     def __init__(
@@ -107,13 +115,13 @@ class UMAP(SampledNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 1.0,
+        early_exaggeration: float = 1.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,
@@ -171,7 +179,7 @@ class UMAP(SampledNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,

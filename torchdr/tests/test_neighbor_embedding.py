@@ -10,18 +10,17 @@ Tests for neighbor embedding methods.
 import torch
 import numpy as np
 import pytest
-from sklearn.datasets import make_moons
 from sklearn.metrics import silhouette_score
 
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
-    SNEkhorn,
     TSNEkhorn,
     LargeVis,
     InfoTSNE,
     UMAP,
 )
+from torchdr.tests.utils import toy_dataset
 from torchdr.utils import check_shape, pykeops
 
 if pykeops:
@@ -35,11 +34,6 @@ SEA_params = {"lr_affinity_in": 1e-1, "max_iter_affinity_in": 1000}
 DEVICE = "cpu"
 
 
-def toy_dataset(n=100, dtype="float32"):
-    X, y = make_moons(n_samples=n, noise=0.05, random_state=0)
-    return X.astype(dtype), y
-
-
 param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
 
 
@@ -48,8 +42,6 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
     [
         (SNE, {}),
         (TSNE, {}),
-        (SNEkhorn, SEA_params | {"unrolling": True}),
-        (SNEkhorn, SEA_params | {"unrolling": False}),
         (TSNEkhorn, SEA_params | {"unrolling": True}),
         (TSNEkhorn, SEA_params | {"unrolling": False}),
         (LargeVis, {}),

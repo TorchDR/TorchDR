@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Stochastic Neighbor embedding (SNE) algorithm
-"""
+"""Stochastic Neighbor embedding (SNE) algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -16,9 +14,17 @@ from torchdr.utils import logsumexp_red
 
 
 class SNE(SparseNeighborEmbedding):
-    """
-    Implementation of the Stochastic Neighbor Embedding (SNE) algorithm
-    introduced in [1]_.
+    r"""Implementation of Stochastic Neighbor Embedding (SNE) introduced in [1]_.
+
+    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
+    affinity :math:`\mathbf{Q}`.
+
+    The loss function is defined as:
+
+    .. math::
+
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j} Q_{ij} \Big) \:.
 
     Parameters
     ----------
@@ -38,7 +44,7 @@ class SNE(SparseNeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z.
     init_scaling : float, optional
         Scaling factor for the initialization.
@@ -53,11 +59,12 @@ class SNE(SparseNeighborEmbedding):
     keops : bool, optional
         Whether to use KeOps, by default False.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
+    early_exaggeration : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 10.0 for early exaggeration.
     coeff_repulsion : float, optional
         Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
@@ -91,13 +98,13 @@ class SNE(SparseNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
-        coeff_attraction: float = 10.0,
+        early_exaggeration: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
@@ -145,7 +152,7 @@ class SNE(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            coeff_attraction=coeff_attraction,
+            early_exaggeration=early_exaggeration,
             coeff_repulsion=coeff_repulsion,
             early_exaggeration_iter=early_exaggeration_iter,
         )

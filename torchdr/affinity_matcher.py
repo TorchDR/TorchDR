@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matcher base classes
-"""
+"""Affinity matcher base classes."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
@@ -37,15 +35,19 @@ LOSS_DICT = {
 
 
 class AffinityMatcher(DRModule):
-    r"""
-    Performs dimensionality reduction by matching two affinity matrices.
-    It amounts to solving the following optimization problem:
+    r"""Perform dimensionality reduction by matching two affinity matrices.
+
+    It amounts to solving a problem of the form:
 
     .. math::
 
-        \min_{\mathbf{Z}} \: \sum_{ij} L( [\mathbf{A_X}]_{ij}, [\mathbf{A_Z}]_{ij}) \:.
+        \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z})
 
-    Optimization of the embedding is perfomed using torch autodiff.
+    where :math:`\mathcal{L}` is a loss function, :math:`\mathbf{A_X}` is the
+    input affinity matrix and :math:`\mathbf{A_Z}` is the affinity matrix of the
+    embedding.
+
+    The embedding optimization is performed using a first-order optimization method, with gradients calculated through PyTorch's automatic differentiation.
 
     Parameters
     ----------
@@ -61,7 +63,7 @@ class AffinityMatcher(DRModule):
         Optimizer to use for the optimization. Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
-    lr : float or str, optional
+    lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
     scheduler : str, optional
         Learning rate scheduler. Default is "constant".
@@ -82,7 +84,7 @@ class AffinityMatcher(DRModule):
     keops : bool, optional
         Whether to use KeOps for computations. Default is False.
     verbose : bool, optional
-        Verbosity of the optimization process. Default is True.
+        Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
     """  # noqa: E501
@@ -107,7 +109,7 @@ class AffinityMatcher(DRModule):
         tolog: bool = False,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
     ):
         super().__init__(
@@ -144,7 +146,9 @@ class AffinityMatcher(DRModule):
 
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
-            raise ValueError("[TorchDR] affinity_out must be an Affinity instance.")
+            raise ValueError(
+                "[TorchDR] ERROR : affinity_out must be an Affinity instance."
+            )
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
@@ -165,8 +169,7 @@ class AffinityMatcher(DRModule):
 
     @handle_backend
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
-        """
-        Fits the model to the provided data and returns the transformed data.
+        """Fit the model to the provided data and returns the transformed data.
 
         Parameters
         ----------
@@ -184,8 +187,7 @@ class AffinityMatcher(DRModule):
         return self.embedding_
 
     def fit(self, X: torch.Tensor | np.ndarray, y=None):
-        """
-        Fits the model to the provided data.
+        """Fit the model to the provided data.
 
         Parameters
         ----------
@@ -250,7 +252,7 @@ class AffinityMatcher(DRModule):
 
             check_NaNs(
                 self.embedding_,
-                msg="[TorchDR] AffinityMatcher : NaNs in the embeddings "
+                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
                 f"at iter {k}.",
             )
 
@@ -318,14 +320,15 @@ class AffinityMatcher(DRModule):
             )
 
         elif self.scheduler == "linear":
-            linear_decay = lambda epoch: (1 - epoch / self.max_iter)
+            # if early_exaggeration_iter is set, decrease to 0
+            # in the early_exaggeration phase
+            if self.coeff_attraction_ > 1:
+                n_iter = min(self.early_exaggeration_iter, self.max_iter)
+            else:
+                n_iter = self.max_iter - self.early_exaggeration_iter
+            linear_decay = lambda epoch: (1 - epoch / n_iter)
             self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer_, lr_lambda=linear_decay
-            )
-
-        elif self.scheduler == "exponential":  # param gamma
-            self.scheduler_ = torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizer_, **(self.scheduler_kwargs or {})
             )
 
         else:

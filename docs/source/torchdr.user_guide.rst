@@ -17,8 +17,8 @@ User Guide
 Overview
 --------
 
-DR General Formulation
-^^^^^^^^^^^^^^^^^^^^^^
+General Formulation of Dimensionality Reduction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
 
@@ -29,16 +29,16 @@ DR aims to construct a low-dimensional representation (or embedding) :math:`\mat
 where :math:`\mathcal{L}` is typically the :math:`\ell_2` or cross-entropy loss.
 Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A_X}, \mathbf{A_Z})`.
 
-``TorchDR`` is structured around the above formulation :math:`\text{(DR)}`.
-Defining a DR algorithm solely requires providing an ``Affinity`` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
+TorchDR is structured around the above formulation :math:`\text{(DR)}`.
+Defining a DR algorithm solely requires providing an :class:`Affinity <Affinity>` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
 
-All modules follow the ``scikit-learn`` [21]_ API and can be used in `sklearn pipelines <https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html>`_.
+All modules follow the ``sklearn`` [21]_ API and can be used in `sklearn pipelines <https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html>`_.
 
 
 Torch GPU support and automatic differentiation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``TorchDR`` is built on top of ``PyTorch`` [20]_, offering GPU support and automatic differentiation. This foundation enables efficient computations and straightforward implementation of new DR methods.
+TorchDR is built on top of ``torch`` [20]_, offering GPU support and automatic differentiation. This foundation enables efficient computations and straightforward implementation of new DR methods.
 
 To utilize GPU support, set :attr:`device="cuda"` when initializing any module. For CPU computations, set :attr:`device="cpu"`.
 
@@ -47,12 +47,12 @@ To utilize GPU support, set :attr:`device="cuda"` when initializing any module. 
     DR particularly benefits from GPU acceleration as most computations, including affinity calculations and the DR objective, involve matrix reductions that are highly parallelizable.
     
 
-Avoiding memory overflows with ``KeOps`` symbolic (lazy) tensors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Avoiding memory overflows with KeOps symbolic (lazy) tensors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
 
-To prevent memory overflows, ``TorchDR`` relies on ``KeOps`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
+To prevent memory overflows, TorchDR relies on ``pykeops`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
 
 .. image:: figures/symbolic_matrix.svg
    :width: 800
@@ -67,7 +67,7 @@ Affinities
 ----------
 
 Affinities are the essential building blocks of dimensionality reduction methods.
-``TorchDR`` provides a wide range of affinities, including basic ones such as :class:`GaussianAffinity <torchdr.GaussianAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
+TorchDR provides a wide range of affinities, including basic ones such as :class:`GaussianAffinity <torchdr.GaussianAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
 
 Base structure
 ^^^^^^^^^^^^^^
@@ -91,7 +91,7 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.LogAffinity
 
 
-All affinities have a :meth:`fit` and :meth:`fit_transform` method that can be used to compute the affinity matrix from a given data matrix. The affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
+Affinities are objects that can directly be called. The outputed affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
 Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
 
@@ -100,13 +100,13 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
     >>> n = 100
     >>> data = torch.randn(n, 2)
     >>> affinity = torchdr.GaussianAffinity()
-    >>> affinity_matrix = affinity.fit_transform(data)
+    >>> affinity_matrix = affinity(data)
     >>> print(affinity_matrix.shape)
     (100, 100)
 
 
-Affinities based on entropic projections
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Spotlight on affinities based on entropic projections
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
 
@@ -122,18 +122,22 @@ The following table details the aspects controlled by various formulations of en
    :header-rows: 1
 
    * - **Affinity (associated DR method)**
-     - **Symmetry**
      - **Marginal**
+     - **Symmetry**
      - **Entropy**
-   * - :class:`EntropicAffinity <torchdr.EntropicAffinity>` (:class:`SNE <SNE>`) [1]_
-     - ❌
-     - ✅
-     - ✅
-   * - :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` (DOSNES) [5]_ [9]_
+   * - :class:`NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
      - ✅
      - ❌
-   * - :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` (:class:`SNEkhorn <SNEkhorn>`) [3]_
+   * - :class:`SinkhornAffinity <SinkhornAffinity>` [5]_ [9]_
+     - ✅
+     - ✅
+     - ❌
+   * - :class:`EntropicAffinity <EntropicAffinity>` [1]_
+     - ✅
+     - ❌
+     - ✅
+   * - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>` [3]_
      - ✅
      - ✅
      - ✅
@@ -143,7 +147,11 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 
 .. note::
     The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
-    However the l2 symmetrization of :class:`EntropicAffinity <torchdr.EntropicAffinity>` is more efficient to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
+    However the :math:`\ell_2` symmetrization : 
+    :math:`\overline{\mathbf{P}^{\mathrm{e}}} = \frac{1}{2}(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top)`, 
+    performed in TSNE, where :math:`\mathbf{P}^{\mathrm{e}}` is the 
+    :class:`EntropicAffinity <torchdr.EntropicAffinity>` matrix, is more efficient 
+    to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
 
 
 .. minigallery:: torchdr.EntropicAffinity
@@ -153,7 +161,7 @@ More details on these affinities can be found in the `SNEkhorn paper <https://pr
 Other various affinities
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-``TorchDR`` features other affinities that can be used in various contexts.
+TorchDR features other affinities that can be used in various contexts.
 
 For instance, the UMAP [8]_ algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space. :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
 
@@ -161,8 +169,10 @@ Another example is the doubly stochastic normalization of a base affinity under 
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
-DR Modules
-----------
+Dimensionality Reduction Modules
+--------------------------------
+
+TorchDR provides a wide range of dimensionality reduction (DR) methods, including spectral methods and neighbor embedding methods.
 
 All DR estimators inherit the structure of the :meth:`DRModule` class:
 
@@ -221,7 +231,7 @@ We now present two families of such DR methods: those based on the cross-entropy
 Neighbor Embedding
 """""""""""""""""""
 
-``TorchDR`` aims to implement most popular **neighbor embedding (NE)** algorithms.
+TorchDR aims to implement most popular **neighbor embedding (NE)** algorithms.
 In this section we briefly go through the main NE algorithms and their variants.
 
 For consistency with the literature, we will denote the input affinity matrix by :math:`\mathbf{P}` and the output affinity matrix by :math:`\mathbf{Q}`. These affinities can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
@@ -236,9 +246,9 @@ NE objectives share a common structure: they aim to **minimize** the **weighted 
 
     \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in ``TorchDR``.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in TorchDR.
 
-Many NE methods can be represented within this framework. The following table summarizes the ones implemented in ``TorchDR``, detailing their respective repulsive loss function, as well as their input and output affinities.
+Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
 
 .. list-table:: 
    :widths: auto
@@ -259,10 +269,10 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-   * - :class:`SNEkhorn <SNEkhorn>` / :class:`TSNEkhorn <TSNEkhorn>` [3]_
+   * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
      - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
-     - :class:`SinkhornAffinity(base_kernel="gaussian") <SinkhornAffinity>` / :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
+     - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
      - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`
@@ -279,11 +289,14 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
+In the above table, :math:`N(i)` denotes the set of negative samples 
+for point :math:`i`.
+
 
 MDS-like Methods
 """""""""""""""""
 
-They relie on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+They rely on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
 
 .. math::
 

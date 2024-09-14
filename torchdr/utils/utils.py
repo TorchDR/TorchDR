@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Useful functions for defining objectives and constraints
-"""
+"""Useful functions for defining objectives and constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -13,9 +11,9 @@ from .wrappers import wrap_vectors
 
 
 def entropy(P, log=True, dim=1):
-    r"""
-    Computes the entropy of P along axis dim.
-    Supports log domain input.
+    r"""Compute the entropy of P along axis dim.
+
+    Support log domain input.
     """
     if log:
         return -(P.exp() * (P - 1)).sum(dim).squeeze()
@@ -24,9 +22,8 @@ def entropy(P, log=True, dim=1):
 
 
 def kmin(A, k=1, dim=0):
-    r"""
-    Returns the k smallest elements of a tensor or lazy tensor along axis dim,
-    along with corresponding indices.
+    r"""Return the k smallest elements and corresponding indices along axis dim.
+
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
@@ -50,9 +47,8 @@ def kmin(A, k=1, dim=0):
 
 
 def kmax(A, k=1, dim=0):
-    r"""
-    Returns the k largest elements of a tensor or lazy tensor along axis dim,
-    along with corresponding indices.
+    r"""Return the k largest elements and corresponding indices along axis dim.
+
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
@@ -77,10 +73,9 @@ def kmax(A, k=1, dim=0):
 
 # inspired from svd_flip from sklearn.utils.extmath
 def svd_flip(u, v):
-    r"""
-    Sign correction to ensure deterministic output from SVD.
+    r"""Sign correction to ensure deterministic output from SVD.
 
-    Adjusts the columns of u and the rows of v such that the loadings in the
+    Adjust the columns of u and the rows of v such that the loadings in the
     columns in u that are largest in absolute value are always positive.
     """
     # columns of u, rows of v
@@ -93,10 +88,10 @@ def svd_flip(u, v):
 
 
 def sum_red(P, dim):
-    r"""
-    Sums a 2d tensor along axis dim.
-    If input is a torch tensor, returns a tensor with the same shape.
-    If input is a lazy tensor, returns a lazy tensor that can be summed or
+    r"""Sum a 2d tensor along axis dim.
+
+    If input is a torch tensor, return a tensor with the same shape.
+    If input is a lazy tensor, return a lazy tensor that can be summed or
     multiplied with P.
     """
     ndim_input = len(P.shape)
@@ -130,10 +125,10 @@ def sum_red(P, dim):
 
 
 def logsumexp_red(log_P, dim):
-    r"""
-    Logsumexp of a 2d tensor along axis dim.
-    If input is a torch tensor, returns a tensor with the same shape.
-    If input is a lazy tensor, returns a lazy tensor that can be summed
+    r"""Logsumexp of a 2d tensor along axis dim.
+
+    If input is a torch tensor, return a tensor with the same shape.
+    If input is a lazy tensor, return a lazy tensor that can be summed
     or multiplied with P.
     """
     ndim_input = len(log_P.shape)
@@ -169,10 +164,10 @@ def logsumexp_red(log_P, dim):
 
 
 def normalize_matrix(P, dim=1, log=False):
-    r"""
-    Normalizes a matrix along axis dim.
-    If log, consider P in log domain and returns the normalized matrix in log domain.
-    Handles both torch tensors and lazy tensors.
+    r"""Normalize a matrix along axis dim.
+
+    If log, consider P in log domain and return the normalized matrix in log domain.
+    Handle both torch tensors and lazy tensors.
     """
     if dim is None:
         return P
@@ -183,29 +178,46 @@ def normalize_matrix(P, dim=1, log=False):
         return P / sum_red(P, dim)
 
 
-def center_kernel(K):
+def center_kernel(K, return_all=False):
     r"""Center a kernel matrix."""
-    n = K.shape[0]
-    row_mean = sum_red(K, dim=1) / n
+    n, d = K.shape
+    row_mean = sum_red(K, dim=1) / d
     col_mean = sum_red(K, dim=0) / n
     mean = col_mean.mean()
-    K -= row_mean + col_mean - mean
+    K = K - row_mean - col_mean + mean
+    if return_all:
+        return K, row_mean, col_mean, mean
     return K
 
 
 @wrap_vectors
-def sum_matrix_vector(M, v):
-    r"""
-    Returns the sum of a matrix and a vector. M can be tensor or lazy tensor.
-    Equivalent to M + v[:, None].
+def sum_matrix_vector(M, v, transpose=False):
+    r"""Return the sum of a matrix and a vector.
+
+    M can be tensor or lazy tensor.
+    Equivalent to `M + v[:, None]` if `transpose=False` else `M + v[None, :]`.
     """
+    if transpose:
+        v = batch_transpose(v)
     return M + v
 
 
+@wrap_vectors
+def prod_matrix_vector(M, v, transpose=False):
+    r"""Return the product of a matrix and a vector.
+
+    M can be tensor or lazy tensor.
+    Equivalent to `M * v[:, None]` if `transpose=False` else `M * v[None, :]`.
+    """
+    if transpose:
+        v = batch_transpose(v)
+    return M * v
+
+
 def identity_matrix(n, keops, device, dtype):
-    r"""
-    Returns the identity matrix of size n with corresponding device and dtype.
-    Outputs a lazy tensor if keops is True.
+    r"""Return the identity matrix of size n with corresponding device and dtype.
+
+    Output a lazy tensor if keops is True.
     """
     if keops:
         i = torch.arange(n).to(device=device, dtype=dtype)
@@ -218,8 +230,8 @@ def identity_matrix(n, keops, device, dtype):
 
 
 def batch_transpose(arg):
-    r"""
-    Transposes a tensor or lazy tensor that can have a batch dimension.
+    r"""Transpose a tensor or lazy tensor that can have a batch dimension.
+
     The batch dimension is the first, thus only the last two axis are transposed.
     """
     if is_lazy_tensor(arg):

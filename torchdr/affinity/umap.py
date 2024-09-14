@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices used in UMAP.
-"""
+"""Affinity matrices used in UMAP."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -24,15 +22,15 @@ from torchdr.utils import (
 
 @wrap_vectors
 def _log_Pumap(C, rho, sigma):
-    r"""
-    Returns the log of the input affinity matrix used in UMAP.
-    """
+    r"""Return the log of the input affinity matrix used in UMAP."""
     return -(C - rho) / sigma
 
 
 # from umap/umap/umap_.py
 def find_ab_params(spread, min_dist):
-    """Fit a, b params for the differentiable curve used in lower
+    """Fit a, b params as in UMAP.
+
+    Fit (a, b) for the differentiable curve used in lower
     dimensional fuzzy simplicial complex construction. We want the
     smooth curve (from a pre-defined family with simple gradient) that
     best matches an offset exponential decay.
@@ -50,9 +48,7 @@ def find_ab_params(spread, min_dist):
 
 
 def _check_n_neighbors(n_neighbors, n, verbose=True):
-    r"""
-    Checks the n_neighbors parameter and returns a valid value.
-    """
+    r"""Check the n_neighbors parameter and returns a valid value."""
     if n <= 1:
         raise ValueError(
             f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
@@ -72,6 +68,45 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
 
 
 class UMAPAffinityIn(SparseLogAffinity):
+    r"""Compute the input affinity used in UMAP [8]_.
+
+    The algorithm computes via root search the variable
+    :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
+
+    .. math::
+        \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors}) \quad \text{where} \quad \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i)
+
+    and :math:`\rho_i = \min_j C_{ij}`.
+
+    Parameters
+    ----------
+    n_neighbors : float, optional
+        Number of effective nearest neighbors to consider. Similar to the perplexity.
+    tol : float, optional
+        Precision threshold for the root search.
+    max_iter : int, optional
+        Maximum number of iterations for the root search.
+    sparsity : bool or 'auto', optional
+        Whether to use sparsity mode.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+
+    References
+    ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
+
+    """  # noqa: E501
+
     def __init__(
         self,
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
@@ -82,7 +117,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.tol = tol
@@ -110,7 +145,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
-        r"""Computes the input affinity matrix of UMAP from input data X.
+        r"""Compute the input affinity matrix of UMAP from input data X.
 
         Parameters
         ----------
@@ -123,7 +158,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             The fitted instance.
         """
         if self.verbose:
-            print("[TorchDR] Affinity : Computing the input affinity matrix of UMAP.")
+            print("[TorchDR] Affinity : computing the input affinity matrix of UMAP.")
 
         C = self._distance_matrix(X)
 
@@ -132,7 +167,7 @@ class UMAPAffinityIn(SparseLogAffinity):
 
         if self._sparsity:
             print(
-                "[TorchDR] Affinity : Sparsity mode enabled, computing "
+                "[TorchDR] Affinity : sparsity mode enabled, computing "
                 "nearest neighbors."
             )
             # when using sparsity, we construct a reduced distance matrix
@@ -163,6 +198,46 @@ class UMAPAffinityIn(SparseLogAffinity):
 
 
 class UMAPAffinityOut(UnnormalizedAffinity):
+    r"""Compute the affinity used in embedding space in UMAP [8]_.
+
+    Its :math:`(i,j)` coefficient is as follows:
+
+    .. math::
+        1 / \left(1 + a C_{ij}^{b} \right)
+
+    where parameters a and b are fitted to the spread and min_dist parameters.
+
+    Parameters
+    ----------
+    min_dist : float, optional
+        min_dist parameter from UMAP. Provides the minimum distance apart that
+        points are allowed to be.
+    spread : float, optional
+        spread parameter from UMAP.
+    a : float, optional
+        factor of the cost matrix.
+    b : float, optional
+        exponent of the cost matrix.
+    degrees_of_freedom : int, optional
+        Degrees of freedom for the Student-t distribution.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+
+    References
+    ----------
+    .. [8] Leland McInnes, John Healy, James Melville (2018).
+        UMAP: Uniform manifold approximation and projection for dimension reduction.
+        arXiv preprint arXiv:1802.03426.
+    """
+
     def __init__(
         self,
         min_dist: float = 0.1,
@@ -173,7 +248,7 @@ class UMAPAffinityOut(UnnormalizedAffinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,

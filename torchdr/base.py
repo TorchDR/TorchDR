@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Base classes for DR methods
-"""
+"""Base classes for DR methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -14,9 +12,22 @@ from torchdr.utils import to_torch, pykeops
 
 
 class DRModule(TransformerMixin, BaseEstimator, ABC):
-    """
-    Base class for DR methods.
+    """Base class for DR methods.
+
     Each children class should implement the fit method.
+
+    Parameters
+    ----------
+    n_components : int, default=2
+        Number of components to project the input data onto.
+    device : str, default="auto"
+        Device on which the computations are performed.
+    keops : bool, default=False
+        Whether to use KeOps for computations.
+    verbose : bool, default=False
+        Whether to print information during the computations.
+    random_state : float, default=0
+        Random seed for reproducibility.
     """
 
     def __init__(
@@ -24,7 +35,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         n_components: int = 2,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
         random_state: float = 0,
     ):
 
@@ -40,16 +51,13 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
         self.verbose = verbose
         self.random_state = random_state
 
-    def _process_input(self, X):
-        self.data_, self.input_backend_, self.input_device_ = to_torch(
-            X, device=self.device, return_backend_device=True
-        )
-        self.n_features_ = self.data_.shape[1]
-        return self
-
     @abstractmethod
     def fit(self, X, y=None):
-        """Projects input data X onto a low-dimensional space.
+        r"""Fit the dimensionality reduction model.
+
+        This method must be overridden by subclasses. This base implementation
+        only converts the input data :math:`\mathbf{X}` to a torch tensor with
+        the right device.
 
         Parameters
         ----------
@@ -65,5 +73,7 @@ class DRModule(TransformerMixin, BaseEstimator, ABC):
             Fitted Estimator.
         """
         if self.verbose:
-            print("[TorchDR] Fitting DR model ...")
-        return self
+            print(f"[TorchDR] Fitting DR model {self.__class__.__name__} ...")
+
+        X = to_torch(X, device=self.device)
+        return X

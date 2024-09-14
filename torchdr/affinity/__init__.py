@@ -18,13 +18,14 @@ from .unnormalized import (
     StudentAffinity,
 )
 
-from .knn_normalized import SelfTuningAffinity
+from .knn_normalized import SelfTuningAffinity, MAGICAffinity
 
 from .entropic import (
     EntropicAffinity,
     SymmetricEntropicAffinity,
     SinkhornAffinity,
     NormalizedGaussianAffinity,
+    NormalizedStudentAffinity,
 )
 
 from .quadratic import DoublyStochasticQuadraticAffinity
@@ -40,7 +41,9 @@ __all__ = [
     "ScalarProductAffinity",
     "GaussianAffinity",
     "NormalizedGaussianAffinity",
+    "NormalizedStudentAffinity",
     "SelfTuningAffinity",
+    "MAGICAffinity",
     "StudentAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",

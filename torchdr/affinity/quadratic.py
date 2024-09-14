@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Affinity matrices with quadratic constraints
-"""
+"""Affinity matrices with quadratic constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -22,20 +20,44 @@ from torchdr.utils import (
 
 @wrap_vectors
 def _Pds(C, dual, eps):
-    r"""
-    Returns the quadratic doubly stochastic matrix P
-    from the dual variable f and cost matrix C.
+    r"""Return the quadratic doubly stochastic matrix from dual variable and cost.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Pairwise distance matrix.
+    dual : torch.Tensor of shape (n) or (n_batch, batch_size)
+        Dual variable of the normalization constraint.
+    eps : float
+        Dual variable of the quadratic constraint.
+
+    Returns
+    -------
+    P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        or shape (n_batch, batch_size, batch_size)
+        Quadratic doubly stochastic affinity matrix.
     """
     dual_t = batch_transpose(dual)
     return (dual + dual_t - C).clamp(0, float("inf")) / eps
 
 
 class DoublyStochasticQuadraticAffinity(Affinity):
-    r"""
-    Computes the symmetric doubly stochastic affinity matrix with controlled
+    r"""Compute the symmetric doubly stochastic affinity.
+
+    Implement the doubly stochastic normalized matrix with controlled
     global :math:`\ell_2` norm.
-    Consists in solving the following symmetric quadratic optimal transport problem
-    [10]_:
+
+    The algorithm computes the optimal dual variable
+    :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
+
+    .. math::
+        \mathbf{P}^{\star} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\star}_{ij} = \left[f^\star_i + f^\star_j - C_{ij} / \varepsilon \right]_{+} \:.
+
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent.
+
+    **Convex problem.** Consists in solving the following symmetric quadratic
+    optimal transport problem [10]_:
 
     .. math::
         \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C},
@@ -48,14 +70,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     - :math:`\varepsilon`: quadratic regularization parameter.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    The algorithm computes the optimal dual variable
-    :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
-
-    .. math::
-        \mathbf{P}^{\star} \mathbf{1} = \mathbf{1} \quad \text{where} \quad \forall (i,j), \: P^{\star}_{ij} = \left[f^\star_i + f^\star_j - C_{ij} / \varepsilon \right]_{+} \:.
-
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent.
-
     **Bregman projection.** Another way to write this problem is to consider the
     :math:`\ell_2` projection of :math:`- \mathbf{C} / \varepsilon` onto the set of
     doubly stochastic matrices :math:`\mathcal{DS}`, as follows:
@@ -67,7 +81,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     ----------
     eps : float, optional
         Regularization parameter.
-    init_dual : tensor of shape (n_samples), optional
+    init_dual : torch.Tensor of shape (n_samples), optional
         Initialization for the dual variable (default None).
     tol : float, optional
         Precision threshold at which the algorithm stops.
@@ -90,7 +104,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     keops : bool, optional
         Whether to use KeOps for computation.
     verbose : bool, optional
-        Verbosity.
+        Verbosity. Default is False.
 
     References
     ----------
@@ -114,7 +128,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         zero_diag: bool = True,
         device: str = "auto",
         keops: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -133,7 +147,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.tolog = tolog
 
     def _compute_affinity(self, X: torch.Tensor):
-        r"""Computes the quadratic doubly stochastic affinity matrix from input data X.
+        r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
 
         Parameters
         ----------
@@ -147,7 +161,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         """
         if self.verbose:
             print(
-                "[TorchDR] Affinity : Computing the Doubly Stochastic Quadratic "
+                "[TorchDR] Affinity : computing the Doubly Stochastic Quadratic "
                 "Affinity matrix."
             )
 
