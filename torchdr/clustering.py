@@ -130,6 +130,7 @@ class KMeans(ClusteringModule):
     def __init__(
         self,
         n_clusters: int = 8,
+        init="random",
         n_init: int = 10,
         max_iter: int = 300,
         tol: float = 1e-4,
@@ -148,6 +149,7 @@ class KMeans(ClusteringModule):
             random_state=random_state,
         )
 
+        self.init = "random"
         self.n_init = n_init
         self.max_iter = max_iter
         self.tol = tol
@@ -180,7 +182,7 @@ class KMeans(ClusteringModule):
             if inertia < self.inertia_:
                 self.inertia_ = inertia
                 self.labels_ = centroid_membership
-                self.centroids_ = centroids
+                self.cluster_centers_ = centroids
 
         return self
 
@@ -229,3 +231,23 @@ class KMeans(ClusteringModule):
             seed=self.random_state
         )  # we use numpy because torch.Generator is not picklable
         return self.generator_
+
+    def predict(self, X: torch.Tensor | np.ndarray):
+        """Predict the closest cluster each sample in X belongs to.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            The input data.
+
+        Returns
+        -------
+        labels : torch.Tensor or np.ndarray of shape (n_samples,)
+            Cluster labels.
+        """
+        X = to_torch(X, device=self.device)
+        C = pairwise_distances(
+            X, self.cluster_centers_, metric=self.metric, keops=self.keops
+        )
+        _, labels = kmin(C, k=1, dim=1)
+        return labels.view(-1).to(torch.int64)
