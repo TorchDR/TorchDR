@@ -208,7 +208,7 @@ class TSNEkhorn(NeighborEmbedding):
         )
 
     def _loss(self):
-        if not hasattr(self, "dual_sinkhorn"):
+        if not hasattr(self, "dual_sinkhorn_"):
             self.dual_sinkhorn_ = None
 
         log_Q = self.affinity_out(
