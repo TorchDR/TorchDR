@@ -224,7 +224,8 @@ class EntropicAffinity(SparseLogAffinity):
 
     .. note:: A symmetric version is also available at
         :class:`~torchdr.SymmetricEntropicAffinity`. It is the affinity matrix
-        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_.
+        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_. In TSNE [2]_,
+        the entropic affinity is simply averaged with its transpose.
 
     Parameters
     ----------
@@ -630,7 +631,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 class SinkhornAffinity(LogAffinity):
     r"""Compute the symmetric doubly stochastic affinity matrix.
 
-    The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}
+    The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}`
     with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
 
     The algorithm computes the optimal dual variable
