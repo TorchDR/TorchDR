@@ -34,6 +34,7 @@ from .affinity import (
 # import DR methods
 from .base import DRModule
 from .spectral import PCA, KernelPCA
+from .clustering import KMeans
 from .affinity_matcher import (
     AffinityMatcher,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "UMAPAffinityIn",
     "UMAPAffinityOut",
     "DRModule",
+    "KMeans",
     "AffinityMatcher",
     "BatchedAffinityMatcher",
     "PCA",

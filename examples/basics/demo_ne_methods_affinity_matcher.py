@@ -2,8 +2,8 @@ r"""
 Neighbor Embedding on genomics & equivalent affinity matcher formulation
 =========================================================================
 
-We illustrate the basic usage of TorchDR with different Neighbor Embedding methods
-on the SNARE-seq gene expression dataset with given cell types labels.
+We illustrate the basic usage of TorchDR with different neighbor embedding methods
+on the SNARE-seq gene expression dataset with given cell type labels.
 
 """
 
@@ -45,7 +45,7 @@ url_x = "https://rsinghlab.github.io/SCOT/data/snare_rna.txt"
 X = load_numpy_from_url(url_x)
 
 url_y = "https://rsinghlab.github.io/SCOT/data/SNAREseq_types.txt"
-t = load_numpy_from_url(url_y)
+Y = load_numpy_from_url(url_y)
 
 # %%
 # Run neighbor embedding methods
@@ -83,7 +83,7 @@ fig = plt.figure(figsize=(12, 4))
 for i, (method_name, method) in enumerate(all_methods.items()):
     ax = fig.add_subplot(1, 3, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
-    ax.scatter(emb[:, 0], emb[:, 1], c=t, s=10)
+    ax.scatter(emb[:, 0], emb[:, 1], c=Y, s=10)
     ax.set_title("{0}".format(method_name), fontsize=24)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -118,7 +118,7 @@ two_sne_dict = {"SNE": sne, "SNE (with affinity matcher)": sne_affinity_matcher}
 for i, (method_name, method) in enumerate(two_sne_dict.items()):
     ax = fig.add_subplot(1, 2, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
-    ax.scatter(emb[:, 0], emb[:, 1], c=t, s=10)
+    ax.scatter(emb[:, 0], emb[:, 1], c=Y, s=10)
     ax.set_title("{0}".format(method_name), fontsize=15)
     ax.set_xticks([])
     ax.set_yticks([])
