@@ -80,7 +80,8 @@ def test_kmeans_sklearn_comparison(sample_data):
     sklearn_kmeans.fit(sample_data)
     sklearn_labels = sklearn_kmeans.labels_
 
-    # Since labels can be permuted, we need to check if they are equal up to a permutation
+    # Since labels can be permuted, we need to check
+    # if they are equal up to a permutation
     assert np.array_equal(torch_labels, sklearn_labels) or np.array_equal(
         torch_labels, 1 - sklearn_labels
     ), "Labels do not match sklearn KMeans"
