@@ -487,40 +487,16 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         )
 
     def _sample_negatives(self):
+        n_neighbors = self.NN_indices_.shape[-1]
         if not hasattr(self, "n_negatives_"):
-            if self.n_negatives > self.n_samples_in_:
+            if self.n_negatives > self.n_samples_in_ - n_neighbors:
                 if self.verbose:
                     warnings.warn(
-                        "[TorchDR] WARNING : n_negatives must be smaller than the "
-                        f"number of samples. Here n_negatives={self.n_negatives} "
-                        f"and n_samples_in={self.n_samples_in_}. Setting "
-                        "n_negatives to n_samples_in."
+                        "[TorchDR] WARNING: n_negatives is too large. "
+                        "Setting n_negatives to the difference between the number of "
+                        "samples and the number of neighbors."
                     )
-                self.n_negatives_ = self.n_samples_in_
-            else:
-                self.n_negatives_ = self.n_negatives
-
-        # For each point, uniformly sample n_negatives_ points
-        # from the set of all other points.
-        indices = self.generator_.integers(
-            1, self.n_samples_in_, (self.n_samples_in_, self.n_negatives_)
-        )
-        indices = torch.from_numpy(indices)
-        indices += (torch.arange(0, self.n_samples_in_))[:, None]
-        indices = torch.remainder(indices, self.n_samples_in_)
-        return indices
-
-    def _sample_negatives(self):
-        if not hasattr(self, "n_negatives_"):
-            if self.n_negatives > self.n_samples_in_:
-                if self.verbose:
-                    warnings.warn(
-                        "[TorchDR] WARNING: n_negatives must be smaller than the "
-                        f"number of samples. Here n_negatives={self.n_negatives} "
-                        f"and n_samples_in={self.n_samples_in_}. Setting "
-                        "n_negatives to n_samples_in."
-                    )
-                self.n_negatives_ = self.n_samples_in_
+                self.n_negatives_ = self.n_samples_in_ - n_neighbors
             else:
                 self.n_negatives_ = self.n_negatives
 
@@ -533,15 +509,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
 
         valid_indices = torch.masked_select(all_indices, mask).view(
             self.n_samples_in_, -1
-        )
-        n_valid_indices = valid_indices.shape[1]
-        if n_valid_indices <= 0:
-            raise ValueError(
-                "[TorchDR] ERROR: No valid indices to sample from. "
-                "Decrease n_neighbors or increase the number of input samples."
-            )
+        )        
         sampled_indices = self.generator_.integers(
-            0, n_valid_indices, (self.n_samples_in_, self.n_negatives_)
+            0, valid_indices.shape[1], (self.n_samples_in_, self.n_negatives_)
         )
         negative_indices = valid_indices.gather(1, torch.from_numpy(sampled_indices))
 
