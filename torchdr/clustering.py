@@ -17,12 +17,12 @@ from torchdr.utils import to_torch, pykeops, pairwise_distances, kmin
 class ClusteringModule(BaseEstimator, ABC):
     """Base class for clustering methods.
 
-    Each children class should implement the fit method.
+    Each child class should implement the fit method.
 
     Parameters
     ----------
-    n_components : int, default=2
-        Number of components to project the input data onto.
+    n_clusters : int, default=2
+        Number of clusters to form.
     device : str, default="auto"
         Device on which the computations are performed.
     keops : bool, default=False
@@ -44,8 +44,8 @@ class ClusteringModule(BaseEstimator, ABC):
 
         if keops and not pykeops:
             raise ValueError(
-                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
-                "`keops=true`."
+                "[TorchDR] ERROR: pykeops is not installed. Please install it to use "
+                "`keops=True`."
             )
 
         self.n_clusters = n_clusters
@@ -65,8 +65,7 @@ class ClusteringModule(BaseEstimator, ABC):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data or input affinity matrix if it is precomputed.
+            Input data.
         y : None
             Ignored.
 
@@ -87,14 +86,13 @@ class ClusteringModule(BaseEstimator, ABC):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data or input affinity matrix if it is precomputed.
+            Input data.
         y : None
             Ignored.
 
         Returns
         -------
-        labels : torch.Tensor or np.ndarray of shape (n_samples,)
+        labels : torch.Tensor of shape (n_samples,)
             Cluster labels.
         """
         self.fit(X)
@@ -106,10 +104,16 @@ class KMeans(ClusteringModule):
 
     Parameters
     ----------
-    n_clusters : int, default=2
+    n_clusters : int, default=8
         Number of clusters to form.
+    init : {'random', 'k-means++'}, default='random'
+        Method for initialization.
+        - 'random': choose `n_clusters` observations (rows) at random from data
+          for the initial centroids.
+        - 'k-means++': selects initial cluster centers for k-means clustering
+          in a smart way to speed up convergence.
     n_init : int, default=10
-        Number of time the k-means algorithm will be run with different
+        Number of times the k-means algorithm will be run with different
         centroid seeds.
     max_iter : int, default=300
         Maximum number of iterations of the k-means algorithm for a single run.
@@ -149,10 +153,16 @@ class KMeans(ClusteringModule):
             random_state=random_state,
         )
 
-        self.init = "random"
+        self.init = init
         self.n_init = n_init
         self.max_iter = max_iter
         self.tol = tol
+
+        if metric not in ["sqeuclidean", "euclidean"]:
+            raise ValueError(
+                f"[TorchDR] Metric '{metric}' not supported for KMeans. "
+                "Expected 'sqeuclidean' or 'euclidean'."
+            )
         self.metric = metric
 
     def fit(self, X: torch.Tensor | np.ndarray, y=None):
@@ -187,16 +197,19 @@ class KMeans(ClusteringModule):
         return self
 
     def _compute_inertia(self, X, centroids, centroid_membership):
-        C = pairwise_distances(X, centroids, metric=self.metric, keops=self.keops)
-        inertia = torch.sum(C[torch.arange(C.size(0)), centroid_membership])
+        assigned_centroids = centroids[centroid_membership]
+        # the following works with pykeops LazyTensors
+        if self.metric == "sqeuclidean":
+            distances = (X - assigned_centroids).pow(2).sum(dim=1)
+        elif self.metric == "euclidean":
+            distances = (X - assigned_centroids).pow(2).sum(dim=1).sqrt()
+        inertia = distances.sum()
         return inertia
 
     def _fit_single(self, X):
         n_samples_in, n_features_in = X.shape
-        centroid_indices = self.generator_.choice(
-            n_samples_in, size=self.n_clusters, replace=False
-        )
-        centroids = X[centroid_indices].clone()
+
+        centroids = self._init_centroids(X)
 
         for it in range(self.max_iter):
 
@@ -226,6 +239,64 @@ class KMeans(ClusteringModule):
 
         return centroids, centroid_membership
 
+    def _init_centroids(self, X):
+        n_samples, n_features = X.shape
+
+        if self.init == "random":
+            centroid_indices = self.generator_.choice(
+                n_samples, size=self.n_clusters, replace=False
+            )
+            centroids = X[centroid_indices].clone()
+        elif self.init == "k-means++":
+            centroids = self._kmeans_plusplus(X)
+        else:
+            raise ValueError(
+                f"Unknown init method '{self.init}'. Expected 'random' or 'k-means++'."
+            )
+        return centroids
+
+    def _kmeans_plusplus(self, X):
+        n_samples, n_features = X.shape
+        centers = torch.empty(
+            (self.n_clusters, n_features), device=X.device, dtype=X.dtype
+        )
+
+        # Randomly choose the first centroid
+        center_id = self.generator_.integers(n_samples)
+        centers[0] = X[center_id]
+
+        # Initialize list of closest distances
+        closest_dist_sq = pairwise_distances(
+            X, centers[0:1], metric=self.metric, keops=self.keops
+        ).squeeze()
+
+        for c in range(1, self.n_clusters):
+            # Choose the next centroid
+            # Compute probabilities proportional to squared distances
+            probs = closest_dist_sq / torch.sum(closest_dist_sq)
+            # To avoid numerical errors, ensure probabilities are non-negative
+            probs = torch.clamp(probs, min=0)
+            # Convert to numpy for the generator
+            probs_np = probs.cpu().numpy()
+            probs_np /= probs_np.sum()  # Normalize probabilities
+            # Sample the next centroid index
+            center_id = self.generator_.choice(n_samples, p=probs_np)
+            centers[c] = X[center_id]
+
+            # Update the closest distances
+            distances = pairwise_distances(
+                X, centers[c : c + 1], metric=self.metric, keops=self.keops
+            ).squeeze()
+
+            if self.metric == "euclidean":
+                distances = distances**2
+            elif self.metric == "sqeuclidean":
+                pass  # distances are already squared
+
+            closest_dist_sq = torch.minimum(closest_dist_sq, distances)
+
+        return centers
+
     def _instantiate_generator(self):
         self.generator_ = np.random.default_rng(
             seed=self.random_state
@@ -242,7 +313,7 @@ class KMeans(ClusteringModule):
 
         Returns
         -------
-        labels : torch.Tensor or np.ndarray of shape (n_samples,)
+        labels : torch.Tensor of shape (n_samples,)
             Cluster labels.
         """
         X = to_torch(X, device=self.device)
