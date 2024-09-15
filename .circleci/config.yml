@@ -119,6 +119,7 @@ jobs:
                 touch .nojekyll;
                 git add -A;
                 git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
+                git pull origin main;
                 git push origin main;
               else
                 echo "No deployment (build: ${CIRCLE_BRANCH}).";
@@ -157,6 +158,7 @@ jobs:
               touch .nojekyll;
               git add -A;
               git commit -m "CircleCI update of dev docs (${CIRCLE_BUILD_NUM}).";
+              git pull origin main;
               git push origin main;
 
 

@@ -41,13 +41,14 @@ X = torch.cat([X1, X2, X3], 0)
 
 
 def plot_affinity_graph(G):
+    m = G.max().item()
     for i in range(3 * n_cluster):
         for j in range(i):
             plt.plot(
                 [X[i, 0], X[j, 0]],
                 [X[i, 1], X[j, 1]],
                 color="black",
-                alpha=G[i, j].item(),
+                alpha=G[i, j].item() / m,
             )
 
 
