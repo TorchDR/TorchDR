@@ -10,7 +10,6 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr.clustering import KMeans
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
@@ -38,7 +37,6 @@ def test_keops_not_installed():
         (InfoTSNE, {}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
         (LargeVis, {}),
-        (KMeans, {}),
     ],
 )
 def test_check_estimator(estimator, kwargs):
