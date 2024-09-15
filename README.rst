@@ -94,19 +94,12 @@ Dimensionality Reduction Algorithms
 
 **Spectral.** TorchDR provides **spectral embeddings** [11]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as
-
-* *SNE* [1]_
-* *t-SNE* [2]_ 
-* *t-SNEkhorn* [3]_
-* *UMAP* [8]_
-* *LargeVis* [13]_
-* *InfoTSNE* [15]_
+**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
 
-* Silhouette score [24]_.
+TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
 
 
 Installation
