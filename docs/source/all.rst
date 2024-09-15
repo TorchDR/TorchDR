@@ -17,7 +17,7 @@ Dimensionality Reduction ``sklearn`` Compatible Estimators
 TorchDR provides a set of classes that are compatible with the ``sklearn`` API.
 For example, running :class:`TSNE <TSNE>` can be done in the exact same way as running 
 :class:`sklearn.manifold.TSNE <sklearn.manifold.TSNE>` with the same parameters.
-Note that the ``torchdr`` classes work seamlessly with both Numpy and PyTorch tensors.
+Note that the TorchDR classes work seamlessly with both Numpy and PyTorch tensors.
 
 For all methods, TorchDR provides the ability to use GPU acceleration using 
 ``device='cuda'`` as well as LazyTensor objects that allows to fit large scale models 
@@ -47,12 +47,8 @@ eigendecomposition of the affinity matrix.
 Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
 
-TorchDR supports the most popular neighbor embedding methods that are directly
-compatible with the ``sklearn`` API.
+TorchDR supports the following neighbor embedding methods.
 
-
-Classical Neighbor Embedding Methods
-"""""""""""""""""""""""""""""""""""""
    
 .. autosummary::
    :toctree: gen_modules/
@@ -61,23 +57,14 @@ Classical Neighbor Embedding Methods
    SNE
    TSNE
    TSNEkhorn
-
-
-Noise Contrastive Neighbor Embedding Methods
-"""""""""""""""""""""""""""""""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
    InfoTSNE
    LargeVis
    UMAP
 
 
 
-Advanced Dimensionality Reduction with ``torchdr``
---------------------------------------------------
+Advanced Dimensionality Reduction with TorchDR
+-----------------------------------------------
 
 TorchDR provides a set of generic classes that can be used to implement new
 dimensionality reduction methods. These classes provide a modular and extensible framework that allows you to focus on the core components of your method.
@@ -205,8 +192,6 @@ References
 .. [2] Laurens van der Maaten, Geoffrey Hinton (2008). `Visualizing Data using t-SNE <https://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf?fbcl>`_. The Journal of Machine Learning Research 9.11 (JMLR).
 
 .. [3] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023). `SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 36 (NeurIPS).
-
-.. [5] Richard Sinkhorn, Paul Knopp (1967). `Concerning nonnegative matrices and doubly stochastic matrices <https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf>`_. Pacific Journal of Mathematics, 21(2), 343-348.
 
 .. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
