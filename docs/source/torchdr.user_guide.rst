@@ -108,13 +108,13 @@ Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`
 Spotlight on affinities based on entropic projections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix, which is a crucial aspect of SNE-related methods [1]_.
+A widely used family of affinities focuses on **controlling the entropy** of the affinity matrix. It is notably a crucial component of Neighbor-Embedding methods (see :ref:`neighbor-embedding-section`).
 
-The first step is to ensure that each point has a unit mass, allowing the affinity matrix to be viewed as a **Markov transition matrix**. An **adaptive bandwidth** parameter then determines how the mass from each point spreads to its neighbors. The bandwidth is based on the :attr:`perplexity` hyperparameter which controls the **number of effective neighbors** for each point.
+These affinities are normalized such that each row sums to one, allowing the affinity matrix to be viewed as a **Markov transition matrix**. An **adaptive bandwidth** parameter then determines how the mass from each point spreads to its neighbors. The bandwidth is based on the :attr:`perplexity` hyperparameter which controls the **number of effective neighbors** for each point.
 
-The resulting affinities can be seen as a **soft approximation of a k nearest neighbor graph** where the :attr:`perplexity` plays the role of k. It allows capturing more subtleties than binary weights. Ultimately, the :attr:`perplexity` is an interpretable hyperparameter that determines which scale of dependencies is represented in the affinity.
+The resulting affinities can be viewed as a **soft approximation of a k-nearest neighbor graph**, where :attr:`perplexity` takes the role of k. This allows for capturing more nuances than binary weights, as closer neighbors receive a higher weight compared to those farther away. Ultimately, :attr:`perplexity` is an interpretable hyperparameter that governs the scale of dependencies represented in the affinity.
 
-The following table details the aspects controlled by various formulations of entropic affinities. **Marginal** refers to the row-wise control of mass. **Entropy** relates to the row-wise control of entropy dictated by the :attr:`perplexity` hyperparameter.
+The following table outlines the aspects controlled by different formulations of entropic affinities. **Marginal** indicates whether each row of the affinity matrix has a controlled sum. **Symmetry** indicates whether the affinity matrix is symmetric. **Entropy** indicates whether each row of the affinity matrix has controlled entropy, dictated by the :attr:`perplexity` hyperparameter.
 
 
 .. list-table:: 
@@ -145,15 +145,6 @@ The following table details the aspects controlled by various formulations of en
 More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
 
 
-.. note::
-    The above table shows that :class:`SymmetricEntropicAffinity <torchdr.SymmetricEntropicAffinity>` is the proper symmetric version of :class:`EntropicAffinity <torchdr.EntropicAffinity>`.
-    However the :math:`\ell_2` symmetrization : 
-    :math:`\overline{\mathbf{P}^{\mathrm{e}}} = \frac{1}{2}(\mathbf{P}^{\mathrm{e}} + (\mathbf{P}^{\mathrm{e}})^\top)`, 
-    performed in TSNE, where :math:`\mathbf{P}^{\mathrm{e}}` is the 
-    :class:`EntropicAffinity <torchdr.EntropicAffinity>` matrix, is more efficient 
-    to compute and does not require choosing a learning rate. Hence it can be a useful approximation in practice.
-
-
 .. minigallery:: torchdr.EntropicAffinity
     :add-heading: Examples using ``EntropicAffinity``:
 
@@ -181,7 +172,7 @@ All DR estimators inherit the structure of the :meth:`DRModule` class:
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.base.DRModule
+   torchdr.DRModule
 
 They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
 
@@ -223,18 +214,17 @@ The following classes serve as parent classes for this approach, requiring the u
    :template: myclass_template.rst
    :nosignatures:
 
-   torchdr.affinity_matcher.AffinityMatcher
+   torchdr.AffinityMatcher
 
 We now present two families of such DR methods: those based on the cross-entropy loss (neighbor embedding methods) and those based on the square loss (similar to MDS methods).
 
+.. _neighbor-embedding-section:
 
 Neighbor Embedding
 """""""""""""""""""
 
 TorchDR aims to implement most popular **neighbor embedding (NE)** algorithms.
-In this section we briefly go through the main NE algorithms and their variants.
-
-For consistency with the literature, we will denote the input affinity matrix by :math:`\mathbf{P}` and the output affinity matrix by :math:`\mathbf{Q}`. These affinities can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
+In this section we briefly go through the main NE algorithms and their variants. In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*. 
 
 
 Overview of NE via Attraction and Repulsion
@@ -244,9 +234,9 @@ NE objectives share a common structure: they aim to **minimize** the **weighted 
 
 .. math::
 
-    \min_{\mathbf{Z}} \: - \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
+    \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{A_X}]_{ij} \log [\mathbf{A_Z}]_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{A_Z}) \:.
 
-In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in TorchDR.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{A_Z})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in TorchDR.
 
 Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
 
@@ -256,36 +246,36 @@ Many NE methods can be represented within this framework. The following table su
 
    * - **Method**
      - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
-     - **Affinity input** :math:`\mathbf{P}`
-     - **Affinity output** :math:`\mathbf{Q}`
+     - **Affinity input** :math:`\mathbf{A_X}`
+     - **Affinity output** :math:`\mathbf{A_Z}`
 
    * - :class:`SNE <SNE>` [1]_
-     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
+     - :math:`\sum_{i} \log(\sum_j [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GaussianAffinity <GaussianAffinity>`
 
    * - :class:`TSNE <TSNE>` [2]_
-     - :math:`\log(\sum_{ij} Q_{ij})`
+     - :math:`\log(\sum_{ij} [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
-     - :math:`\sum_{ij} Q_{ij}`
+     - :math:`\sum_{ij} [\mathbf{A_Z}]_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>` [15]_
-     - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`
+     - :math:`\sum_i \log(\sum_{j \in N(i)} [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`UMAP <UMAP>` [8]_
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
+     - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
      - :class:`UMAPAffinityIn <UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
    * - :class:`LargeVis <LargeVis>` [13]_
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
+     - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
@@ -296,11 +286,11 @@ for point :math:`i`.
 MDS-like Methods
 """""""""""""""""
 
-They rely on the square loss between (squared) distance matrices :math:`\mathbf{D_X}` and :math:`\mathbf{D_Z}`.
+They rely on the square loss between the pairwise affinity matrices.
 
 .. math::
 
-    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{D_X}]_{ij} - [\mathbf{D_Z}]_{ij} )^{2}
+    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - [\mathbf{A_Z}]_{ij} )^{2}
 
 
 References

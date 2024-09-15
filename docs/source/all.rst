@@ -17,7 +17,7 @@ Dimensionality Reduction ``sklearn`` Compatible Estimators
 TorchDR provides a set of classes that are compatible with the ``sklearn`` API.
 For example, running :class:`TSNE <TSNE>` can be done in the exact same way as running 
 :class:`sklearn.manifold.TSNE <sklearn.manifold.TSNE>` with the same parameters.
-Note that the ``torchdr`` classes work seamlessly with both Numpy and PyTorch tensors.
+Note that the TorchDR classes work seamlessly with both Numpy and PyTorch tensors.
 
 For all methods, TorchDR provides the ability to use GPU acceleration using 
 ``device='cuda'`` as well as LazyTensor objects that allows to fit large scale models 
@@ -47,12 +47,8 @@ eigendecomposition of the affinity matrix.
 Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
 
-TorchDR supports the most popular neighbor embedding methods that are directly
-compatible with the ``sklearn`` API.
+TorchDR supports the following neighbor embedding methods.
 
-
-Classical Neighbor Embedding Methods
-"""""""""""""""""""""""""""""""""""""
    
 .. autosummary::
    :toctree: gen_modules/
@@ -61,23 +57,14 @@ Classical Neighbor Embedding Methods
    SNE
    TSNE
    TSNEkhorn
-
-
-Noise Contrastive Neighbor Embedding Methods
-"""""""""""""""""""""""""""""""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
    InfoTSNE
    LargeVis
    UMAP
 
 
 
-Advanced Dimensionality Reduction with ``torchdr``
---------------------------------------------------
+Advanced Dimensionality Reduction with TorchDR
+-----------------------------------------------
 
 TorchDR provides a set of generic classes that can be used to implement new
 dimensionality reduction methods. These classes provide a modular and extensible framework that allows you to focus on the core components of your method.
