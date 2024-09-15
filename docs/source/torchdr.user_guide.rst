@@ -163,9 +163,8 @@ It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStoc
 Dimensionality Reduction Modules
 --------------------------------
 
-TorchDR provides a wide range of dimensionality reduction (DR) methods, including spectral methods and neighbor embedding methods.
+TorchDR provides a wide range of dimensionality reduction (DR) methods. All DR estimators inherit the structure of the :meth:`DRModule` class:
 
-All DR estimators inherit the structure of the :meth:`DRModule` class:
 
 .. autosummary::
    :toctree: stubs
@@ -176,9 +175,22 @@ All DR estimators inherit the structure of the :meth:`DRModule` class:
 
 They are :class:`sklearn.base.BaseEstimator` and :class:`sklearn.base.TransformerMixin` classes which can be called with the ``fit_transform`` method.
 
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
+Outside of :ref:`spectral-section`, a closed-form solution to the DR problem is typically not available. The problem can then be solved using `gradient-based optimizers <https://pytorch.org/docs/stable/optim.html>`_.
+
+The following classes serve as parent classes for this approach, requiring the user to provide affinity objects for the input and output spaces, referred to as :attr:`affinity_in` and :attr:`affinity_out`.
+
+.. autosummary::
+   :toctree: stubs
+   :template: myclass_template.rst
+   :nosignatures:
+
+   torchdr.AffinityMatcher
+
+
+In what follows we briefly present two families of DR algorithms: neighbor embedding methods and spectral methods.
+
+.. _spectral-section:
+
 
 Spectral methods
 ^^^^^^^^^^^^^^^^
@@ -202,33 +214,14 @@ where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the cente
     PCA (available at :class:`torchdr.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
 
 
-Affinity matching methods
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Outside of spectral methods, a closed-form solution to the DR problem is typically not available. The problem can then be solved using `gradient-based optimizers <https://pytorch.org/docs/stable/optim.html>`_.
-
-The following classes serve as parent classes for this approach, requiring the user to provide affinity objects for the input and output spaces, referred to as :attr:`affinity_in` and :attr:`affinity_out`.
-
-.. autosummary::
-   :toctree: stubs
-   :template: myclass_template.rst
-   :nosignatures:
-
-   torchdr.AffinityMatcher
-
-We now present two families of such DR methods: those based on the cross-entropy loss (neighbor embedding methods) and those based on the square loss (similar to MDS methods).
-
 .. _neighbor-embedding-section:
 
+
 Neighbor Embedding
-"""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^
 
 TorchDR aims to implement most popular **neighbor embedding (NE)** algorithms.
-In this section we briefly go through the main NE algorithms and their variants. In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*. 
-
-
-Overview of NE via Attraction and Repulsion
-''''''''''''''''''''''''''''''''''''''''''''
+In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*. 
 
 NE objectives share a common structure: they aim to **minimize** the **weighted sum** of an **attractive term** and a **repulsive term**. Interestingly, the **attractive term** is often the **cross-entropy** between the input and output affinities. Additionally, the **repulsive term** is typically a **function of the output affinities only**. Thus, the NE problem can be formulated as the following minimization problem:
 
@@ -280,17 +273,8 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`StudentAffinity <StudentAffinity>`
 
 In the above table, :math:`N(i)` denotes the set of negative samples 
-for point :math:`i`.
+for point :math:`i`. They are usually sampled uniformly at random from the dataset.
 
-
-MDS-like Methods
-"""""""""""""""""
-
-They rely on the square loss between the pairwise affinity matrices.
-
-.. math::
-
-    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - [\mathbf{A_Z}]_{ij} )^{2}
 
 
 References
