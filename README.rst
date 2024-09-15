@@ -15,7 +15,7 @@ Documentation: `<https://torchdr.github.io/dev/>`_.
 
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
+DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
 Benefits of TorchDR include:
 
@@ -76,8 +76,8 @@ Here is an example of single cell embeddings using TorchDR, where the embeddings
 The code for this figure is `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
 
 
-Implemented Methods (so far)
-----------------------------
+Implemented Features (to date)
+------------------------------
 
 Affinities
 ~~~~~~~~~~
@@ -96,6 +96,11 @@ Dimensionality Reduction Algorithms
 
 **Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
 
+Evaluation Metric
+~~~~~~~~~~~~~~~~~~
+
+TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
+
 
 Installation
 ------------
@@ -105,7 +110,6 @@ The library is not yet available on PyPI. You can install it from the source cod
 .. code-block:: bash
 
     pip install git+https://github.com/torchdr/torchdr
-
 
 
 Finding Help
