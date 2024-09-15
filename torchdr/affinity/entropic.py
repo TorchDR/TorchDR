@@ -507,7 +507,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.mu_ = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         if self.optimizer == "LBFGS":
-
             self.eps_.requires_grad = True
             self.mu_.requires_grad = True
 
@@ -553,7 +552,6 @@ class SymmetricEntropicAffinity(LogAffinity):
             )
 
         else:  # other optimizers including SGD and Adam
-
             optimizer = OPTIMIZERS[self.optimizer]([self.eps_, self.mu_], lr=self.lr)
 
             if self.tolog:
@@ -786,7 +784,6 @@ class SinkhornAffinity(LogAffinity):
         with context_manager:
             # Sinkhorn iterations
             for k in range(self.max_iter):
-
                 # well conditioned symmetric Sinkhorn iteration (Feydy et al. 2019)
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
                 self.dual_ = 0.5 * (self.dual_ + reduction)

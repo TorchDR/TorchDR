@@ -224,7 +224,7 @@ class AffinityMatcher(DRModule):
             self.PX_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.indices_ = self.affinity_in(X, return_indices=True)
+                self.PX_, self.NN_indices_ = self.affinity_in(X, return_indices=True)
             else:
                 self.PX_ = self.affinity_in(X)
 
@@ -276,9 +276,9 @@ class AffinityMatcher(DRModule):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
 
-        if getattr(self, "indices_", None) is not None:
+        if getattr(self, "NN_indices_", None) is not None:
             Q = self.affinity_out(
-                self.embedding_, indices=self.indices_, **self.kwargs_affinity_out
+                self.embedding_, indices=self.NN_indices_, **self.kwargs_affinity_out
             )
         else:
             Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)

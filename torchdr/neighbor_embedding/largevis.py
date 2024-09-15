@@ -118,7 +118,6 @@ class LargeVis(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         n_negatives: int = 5,
     ):
-
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
@@ -173,6 +172,6 @@ class LargeVis(SampledNeighborEmbedding):
         return -(1 - Q).log() / self.n_samples_in_
 
     def _attractive_loss(self):
-        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.PX_, Q)

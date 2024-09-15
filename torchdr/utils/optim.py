@@ -65,7 +65,6 @@ def binary_search(
 
     pbar = tqdm(range(max_iter), disable=not verbose)
     for _ in pbar:
-
         if torch.max(torch.abs(fm)) < tol:
             break
 
@@ -144,7 +143,6 @@ def false_position(
 
     pbar = tqdm(range(max_iter), disable=not verbose)
     for _ in pbar:
-
         if torch.max(torch.abs(fm)) < tol:
             break
 

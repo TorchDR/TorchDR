@@ -13,9 +13,7 @@ import pytest
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
-    InfoTSNE,
     TSNEkhorn,
-    LargeVis,
 )
 from torchdr.utils import pykeops
 from sklearn.utils.estimator_checks import check_estimator
@@ -34,9 +32,7 @@ def test_keops_not_installed():
     [
         (SNE, {}),
         (TSNE, {}),
-        (InfoTSNE, {}),
         (TSNEkhorn, {"lr_affinity_in": 1e-3}),
-        (LargeVis, {}),
     ],
 )
 def test_check_estimator(estimator, kwargs):

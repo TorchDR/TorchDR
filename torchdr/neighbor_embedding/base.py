@@ -109,7 +109,6 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_iter: int = None,
         **kwargs,
     ):
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -342,10 +341,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         if isinstance(self.affinity_out, UnnormalizedLogAffinity):
-            log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
+            log_Q = self.affinity_out(
+                self.embedding_, log=True, indices=self.NN_indices_
+            )
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
-            Q = self.affinity_out(self.embedding_, indices=self.indices_)
+            Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
             return cross_entropy_loss(self.PX_, Q)
 
     def _repulsive_loss(self):
@@ -459,7 +460,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_iter: int = None,
         n_negatives: int = 5,
     ):
-
         self.n_negatives = n_negatives
 
         super().__init__(
@@ -509,3 +509,40 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         indices += (torch.arange(0, self.n_samples_in_))[:, None]
         indices = torch.remainder(indices, self.n_samples_in_)
         return indices
+
+    def _sample_negatives(self):
+        if not hasattr(self, "n_negatives_"):
+            if self.n_negatives > self.n_samples_in_:
+                if self.verbose:
+                    warnings.warn(
+                        "[TorchDR] WARNING: n_negatives must be smaller than the "
+                        f"number of samples. Here n_negatives={self.n_negatives} "
+                        f"and n_samples_in={self.n_samples_in_}. Setting "
+                        "n_negatives to n_samples_in."
+                    )
+                self.n_negatives_ = self.n_samples_in_
+            else:
+                self.n_negatives_ = self.n_negatives
+
+        all_indices = torch.arange(self.n_samples_in_).expand(self.n_samples_in_, -1)
+
+        # Mask out the nearest neighbors (self.NN_indices_) and the diagonal (self)
+        mask = torch.ones_like(all_indices, dtype=torch.bool)
+        mask[torch.arange(self.n_samples_in_).unsqueeze(1), self.NN_indices_] = False
+        mask[torch.arange(self.n_samples_in_), torch.arange(self.n_samples_in_)] = False
+
+        valid_indices = torch.masked_select(all_indices, mask).view(
+            self.n_samples_in_, -1
+        )
+        n_valid_indices = valid_indices.shape[1]
+        if n_valid_indices <= 0:
+            raise ValueError(
+                "[TorchDR] ERROR: No valid indices to sample from. "
+                "Decrease n_neighbors or increase the number of input samples."
+            )
+        sampled_indices = self.generator_.integers(
+            0, n_valid_indices, (self.n_samples_in_, self.n_negatives_)
+        )
+        negative_indices = valid_indices.gather(1, torch.from_numpy(sampled_indices))
+
+        return negative_indices
