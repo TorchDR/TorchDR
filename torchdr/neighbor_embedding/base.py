@@ -487,32 +487,41 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         )
 
     def _sample_negatives(self):
-        n_neighbors = self.NN_indices_.shape[-1]
+        # Possible negatives of a point are all points except NNs and the point itself
+        n_possible_negatives = self.n_samples_in_ - 1  # Exclude the self-index
+        if self.NN_indices_ is not None:
+            n_possible_negatives -= self.NN_indices_.shape[-1]  # Exclude the NNs
+
         if not hasattr(self, "n_negatives_"):
-            if self.n_negatives > self.n_samples_in_ - n_neighbors:
+            if self.n_negatives > n_possible_negatives:
                 if self.verbose:
                     warnings.warn(
                         "[TorchDR] WARNING: n_negatives is too large. "
                         "Setting n_negatives to the difference between the number of "
                         "samples and the number of neighbors."
                     )
-                self.n_negatives_ = self.n_samples_in_ - n_neighbors
+                self.n_negatives_ = n_possible_negatives
             else:
                 self.n_negatives_ = self.n_negatives
 
-        all_indices = torch.arange(self.n_samples_in_).expand(self.n_samples_in_, -1)
-
-        # Mask out the nearest neighbors (self.NN_indices_) and the diagonal (self)
-        mask = torch.ones_like(all_indices, dtype=torch.bool)
-        mask[torch.arange(self.n_samples_in_).unsqueeze(1), self.NN_indices_] = False
-        mask[torch.arange(self.n_samples_in_), torch.arange(self.n_samples_in_)] = False
-
-        valid_indices = torch.masked_select(all_indices, mask).view(
-            self.n_samples_in_, -1
-        )        
-        sampled_indices = self.generator_.integers(
-            0, valid_indices.shape[1], (self.n_samples_in_, self.n_negatives_)
+        indices = self.generator_.integers(
+            1, n_possible_negatives, (self.n_samples_in_, self.n_negatives_)
         )
-        negative_indices = valid_indices.gather(1, torch.from_numpy(sampled_indices))
+        indices = torch.from_numpy(indices)
 
-        return negative_indices
+        exclude_indices = torch.arange(self.n_samples_in_).unsqueeze(1)  # Self indices
+        if self.NN_indices_ is not None:
+            exclude_indices = torch.cat(
+                (
+                    exclude_indices,
+                    self.NN_indices_,
+                ),  # Concatenate self and NNs
+                dim=1,
+            )
+
+        # Adjusts sampled indices to take into account excluded indices
+        exclude_indices.sort(axis=1)
+        adjustments = torch.searchsorted(exclude_indices, indices, right=True)
+        indices += adjustments
+
+        return indices
