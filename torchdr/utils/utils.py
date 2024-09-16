@@ -7,7 +7,25 @@
 
 import torch
 from .keops import LazyTensor, is_lazy_tensor
-from .wrappers import wrap_vectors
+from .wrappers import wrap_vectors, sum_output
+
+
+@sum_output
+def cross_entropy_loss(P, Q, log=False):
+    r"""Compute the cross-entropy between P and Q.
+
+    Supports log domain input for Q.
+    """
+    if log:
+        return -P * Q
+    else:
+        return -P * Q.log()
+
+
+@sum_output
+def square_loss(P, Q):
+    r"""Compute the square loss between P and Q."""
+    return (P - Q) ** 2
 
 
 def entropy(P, log=True, dim=1):

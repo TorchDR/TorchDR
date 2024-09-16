@@ -10,7 +10,7 @@ from torchdr.affinity import (
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
-from torchdr.utils import sum_all_axis_except_batch, cross_entropy_loss
+from torchdr.utils import sum_output, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
@@ -184,7 +184,7 @@ class UMAP(SampledNeighborEmbedding):
             n_negatives=n_negatives,
         )
 
-    @sum_all_axis_except_batch
+    @sum_output
     def _repulsive_loss(self):
         indices = self._sample_negatives(discard_NNs=False)
         Q = self.affinity_out(self.embedding_, indices=indices)

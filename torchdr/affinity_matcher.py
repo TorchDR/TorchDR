@@ -310,7 +310,9 @@ class AffinityMatcher(DRModule):
         else:
             self.lr_ = self.lr
 
-    def _set_scheduler(self):
+    def _set_scheduler(self, n_iter=None):
+        n_iter = n_iter or self.max_iter
+
         if not hasattr(self, "optimizer_"):
             raise ValueError(
                 "[TorchDR] ERROR : optimizer not set. "
@@ -320,6 +322,22 @@ class AffinityMatcher(DRModule):
         if self.scheduler == "constant":
             self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
                 self.optimizer_, factor=1, total_iters=0
+            )
+
+        elif self.scheduler == "linear":
+            linear_decay = lambda epoch: (1 - epoch / n_iter)
+            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer_, lr_lambda=linear_decay
+            )
+
+        elif self.scheduler == "cosine":
+            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer_, T_max=n_iter
+            )
+
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
             )
 
         return self.scheduler_

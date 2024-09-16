@@ -123,7 +123,7 @@ def wrap_vectors(func):
     return wrapper
 
 
-def sum_all_axis_except_batch(func):
+def sum_output(func):
     """Sum the output over all axis if the tensor has 2 dimensions.
 
     Sum the output over all axis except the batch axis if the tensor has 3 dimensions.

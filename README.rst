@@ -196,6 +196,7 @@ References
 
 .. [24] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
 
+
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/
 .. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue
