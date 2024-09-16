@@ -1,3 +1,5 @@
+import os
+
 from matplotlib import pyplot as plt
 from sklearn.datasets import fetch_openml
 
@@ -21,13 +23,11 @@ infotsne = InfoTSNE(keops=True, device="cuda", verbose=True)
 z_infotsne = infotsne.fit_transform(x)
 
 # --- Compute LargeVis embedding ---
-largevis = LargeVis(
-    keops=True, device="cuda", verbose=True, scheduler="linear", max_iter=10000
-)
+largevis = LargeVis(keops=True, device="cuda", verbose=True, max_iter=10000)
 z_largevis = largevis.fit_transform(x)
 
 # --- Compute UMAP embedding ---
-umap = UMAP(keops=True, device="cuda", verbose=True)
+umap = UMAP(keops=True, device="cuda", verbose=True, max_iter=10000)
 z_umap = umap.fit_transform(x)
 
 
@@ -60,6 +60,8 @@ legend_labels = [f"{i}" for i in range(10)]
 fig.legend(handles, legend_labels, loc="lower center", ncol=10, fontsize=15)
 plt.subplots_adjust(bottom=0.15, wspace=0.1)
 
-fig.savefig("mnist_readme.png", format="png", bbox_inches="tight")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+save_path = os.path.join(script_dir, "../../docs/source/figures/mnist_readme.png")
+fig.savefig(save_path, format="png", bbox_inches="tight")
 
 plt.show()
