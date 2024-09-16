@@ -216,40 +216,11 @@ class NeighborEmbedding(AffinityMatcher):
         return self.optimizer_
 
     def _set_scheduler(self):
-        if not hasattr(self, "optimizer_"):
-            raise ValueError(
-                "[TorchDR] ERROR : optimizer not set. "
-                "Please call _set_optimizer before _set_scheduler."
-            )
-
-        # compute the number of iterations (taking into account early_exaggeration)
         if self.early_exaggeration_ > 1:
             n_iter = min(self.early_exaggeration_iter, self.max_iter)
         else:
             n_iter = self.max_iter - self.early_exaggeration_iter
-
-        if self.scheduler == "constant":
-            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
-                self.optimizer_, factor=1, total_iters=0
-            )
-
-        elif self.scheduler == "linear":
-            linear_decay = lambda epoch: (1 - epoch / n_iter)
-            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer_, lr_lambda=linear_decay
-            )
-
-        elif self.scheduler == "cosine":
-            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer_, T_max=n_iter
-            )
-
-        else:
-            raise ValueError(
-                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
-            )
-
-        return self.scheduler_
+        super()._set_scheduler(n_iter)
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):

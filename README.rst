@@ -16,6 +16,7 @@ Documentation: `<https://torchdr.github.io/dev/>`_.
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
 DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
+DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
 Benefits of TorchDR include:
 
@@ -100,6 +101,11 @@ Evaluation Metric
 
 TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
 
+Evaluation Metric
+~~~~~~~~~~~~~~~~~~
+
+TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
+
 
 Installation
 ------------
@@ -125,7 +131,7 @@ If you use TorchDR in your research, please cite the following reference:
 
 .. code-block:: apalike
 
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
+    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
 
 or in Bibtex format :
 
@@ -189,6 +195,7 @@ References
 .. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A. J., ... & Pe’er, D. (2018). `Recovering Gene Interactions from Single-Cell Data Using Data Diffusion <https://www.cell.com/action/showPdf?pii=S0092-8674%2818%2930724-4>`_. Cell, 174(3).
 
 .. [24] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
+
 
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
     :target: https://pytorch.org/get-started/locally/

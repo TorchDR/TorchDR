@@ -7,8 +7,6 @@
 
 from .optim import binary_search, false_position, OPTIMIZERS
 
-from .losses import cross_entropy_loss, square_loss
-
 from .keops import (
     pykeops,
     LazyTensor,
@@ -21,7 +19,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     handle_backend,
-    sum_all_axis_except_batch,
+    sum_output,
 )
 
 from .geometry import (
@@ -59,6 +57,8 @@ from .utils import (
     sum_red,
     logsumexp_red,
     batch_transpose,
+    cross_entropy_loss,
+    square_loss,
 )
 
 __all__ = [
@@ -77,7 +77,7 @@ __all__ = [
     "sum_matrix_vector",
     "prod_matrix_vector",
     "sum_red",
-    "sum_all_axis_except_batch",
+    "sum_output",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
