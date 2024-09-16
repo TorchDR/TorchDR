@@ -126,7 +126,7 @@ If you use TorchDR in your research, please cite the following reference:
 
 .. code-block:: apalike
 
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
+    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
 
 or in Bibtex format :
 
