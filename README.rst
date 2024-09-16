@@ -16,7 +16,6 @@ Documentation: `<https://torchdr.github.io/dev/>`_.
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
 DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
-DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
 Benefits of TorchDR include:
 
@@ -27,9 +26,9 @@ Benefits of TorchDR include:
    * - **Modularity**
      - All of it is written in **python** in a **highly modular** way, making it easy to create or transform components.
    * - **Speed**
-     - Supports **GPU acceleration**, **sparsity** and **batching** strategies with **contrastive learning** techniques.
+     - Supports **GPU acceleration**, leverages **sparsity** and **batching** strategies with **contrastive learning** techniques.
    * - **Memory efficiency**
-     - Relies on ``pykeops`` [19]_ symbolic tensors to **avoid memory overflows**.
+     - Relies on **sparsity** and/or ``pykeops`` [19]_ symbolic tensors to **avoid memory overflows**.
    * - **Compatibility**
      - Implemented methods are fully **compatible** with the ``sklearn`` [21]_ API and ``torch`` [20]_ ecosystem.
 
@@ -101,11 +100,6 @@ Evaluation Metric
 
 TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
 
-Evaluation Metric
-~~~~~~~~~~~~~~~~~~
-
-TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
-
 
 Installation
 ------------
@@ -131,7 +125,7 @@ If you use TorchDR in your research, please cite the following reference:
 
 .. code-block:: apalike
 
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
+    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T.,Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
 
 or in Bibtex format :
 
