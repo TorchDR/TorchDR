@@ -79,7 +79,6 @@ def check_similarity_torch_keops(P, P_keops, K=None, test_indices=True, tol=1e-5
             )
         except AssertionError:
             for i in range(Largest_keops_values.shape[0]):
-
                 Largest_values_unique, counts = torch.unique(
                     Largest_values[i, :], sorted=False, return_counts=True
                 )

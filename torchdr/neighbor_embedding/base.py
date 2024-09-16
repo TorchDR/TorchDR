@@ -6,7 +6,6 @@
 # License: BSD 3-Clause License
 
 import torch
-import numpy as np
 import warnings
 
 from torchdr.affinity import (
@@ -109,7 +108,6 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_iter: int = None,
         **kwargs,
     ):
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -194,7 +192,7 @@ class NeighborEmbedding(AffinityMatcher):
                         "rate, the optimizer should be 'SGD'."
                     )
             # from the sklearn TSNE implementation
-            self.lr_ = np.maximum(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
+            self.lr_ = max(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
         else:
             self.lr_ = self.lr
 
@@ -202,10 +200,13 @@ class NeighborEmbedding(AffinityMatcher):
         optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
         # from the sklearn TSNE implementation
         if self.optimizer_kwargs == "auto":
-            if self.early_exaggeration_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
+            if self.optimizer == "SGD":
+                if self.early_exaggeration_ > 1:
+                    optimizer_kwargs = {"momentum": 0.5}
+                else:
+                    optimizer_kwargs = {"momentum": 0.8}
             else:
-                optimizer_kwargs = {"momentum": 0.8}
+                optimizer_kwargs = {}
         else:
             optimizer_kwargs = self.optimizer_kwargs
 
@@ -213,6 +214,42 @@ class NeighborEmbedding(AffinityMatcher):
             self.params_, lr=self.lr_, **(optimizer_kwargs or {})
         )
         return self.optimizer_
+
+    def _set_scheduler(self):
+        if not hasattr(self, "optimizer_"):
+            raise ValueError(
+                "[TorchDR] ERROR : optimizer not set. "
+                "Please call _set_optimizer before _set_scheduler."
+            )
+
+        # compute the number of iterations (taking into account early_exaggeration)
+        if self.early_exaggeration_ > 1:
+            n_iter = min(self.early_exaggeration_iter, self.max_iter)
+        else:
+            n_iter = self.max_iter - self.early_exaggeration_iter
+
+        if self.scheduler == "constant":
+            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
+                self.optimizer_, factor=1, total_iters=0
+            )
+
+        elif self.scheduler == "linear":
+            linear_decay = lambda epoch: (1 - epoch / n_iter)
+            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer_, lr_lambda=linear_decay
+            )
+
+        elif self.scheduler == "cosine":
+            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer_, T_max=n_iter
+            )
+
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
+            )
+
+        return self.scheduler_
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
@@ -342,10 +379,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         if isinstance(self.affinity_out, UnnormalizedLogAffinity):
-            log_Q = self.affinity_out(self.embedding_, log=True, indices=self.indices_)
+            log_Q = self.affinity_out(
+                self.embedding_, log=True, indices=self.NN_indices_
+            )
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
-            Q = self.affinity_out(self.embedding_, indices=self.indices_)
+            Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
             return cross_entropy_loss(self.PX_, Q)
 
     def _repulsive_loss(self):
@@ -459,7 +498,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_iter: int = None,
         n_negatives: int = 5,
     ):
-
         self.n_negatives = n_negatives
 
         super().__init__(
@@ -486,26 +524,46 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _sample_negatives(self):
+    def _sample_negatives(self, discard_NNs=True):
+        # Negatives are all other points except NNs (if discard_NNs) and point itself
+        n_possible_negatives = self.n_samples_in_ - 1  # Exclude the self-index
+        discard_NNs_ = discard_NNs and self.NN_indices_ is not None
+        if discard_NNs_:
+            n_possible_negatives -= self.NN_indices_.shape[-1]  # Exclude the NNs
+
         if not hasattr(self, "n_negatives_"):
-            if self.n_negatives > self.n_samples_in_:
+            if self.n_negatives > n_possible_negatives:
                 if self.verbose:
                     warnings.warn(
-                        "[TorchDR] WARNING : n_negatives must be smaller than the "
-                        f"number of samples. Here n_negatives={self.n_negatives} "
-                        f"and n_samples_in={self.n_samples_in_}. Setting "
-                        "n_negatives to n_samples_in."
+                        "[TorchDR] WARNING: n_negatives is too large. "
+                        "Setting n_negatives to the difference between the number of "
+                        "samples and the number of neighbors."
                     )
-                self.n_negatives_ = self.n_samples_in_
+                self.n_negatives_ = n_possible_negatives
             else:
                 self.n_negatives_ = self.n_negatives
 
-        # For each point, uniformly sample n_negatives_ points
-        # from the set of all other points.
         indices = self.generator_.integers(
-            1, self.n_samples_in_, (self.n_samples_in_, self.n_negatives_)
+            1, n_possible_negatives, (self.n_samples_in_, self.n_negatives_)
         )
-        indices = torch.from_numpy(indices)
-        indices += (torch.arange(0, self.n_samples_in_))[:, None]
-        indices = torch.remainder(indices, self.n_samples_in_)
+        device = getattr(self.NN_indices_, "device", "cpu")
+        indices = torch.from_numpy(indices).to(device=device)
+
+        exclude_indices = (
+            torch.arange(self.n_samples_in_).unsqueeze(1).to(device=device)
+        )  # Self indices
+        if discard_NNs_:
+            exclude_indices = torch.cat(
+                (
+                    exclude_indices,
+                    self.NN_indices_,
+                ),  # Concatenate self and NNs
+                dim=1,
+            )
+
+        # Adjusts sampled indices to take into account excluded indices
+        exclude_indices.sort(axis=1)
+        adjustments = torch.searchsorted(exclude_indices, indices, right=True)
+        indices += adjustments
+
         return indices

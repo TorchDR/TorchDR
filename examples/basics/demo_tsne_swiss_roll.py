@@ -65,7 +65,6 @@ plt.title("TSNE embedding of the Swiss Roll dataset")
 perplexity_values = [2, 5, 10, 20]
 X_embedded = []
 for perplexity in perplexity_values:
-
     if len(X_embedded) == 0:
         init = "pca"
     else:

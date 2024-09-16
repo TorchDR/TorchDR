@@ -6,18 +6,18 @@ authors = [
     {name = " TorchDR contributors"}
 ]
 license = {text = "BSD (3-Clause)"}
-readme = {file = "README.md", content-type = "text/markdown"}
+readme = {file = "README.rst", content-type = "text/x-rst"}
 dependencies = [
-    "numpy>=1.20",
+    "numpy",
     "scikit-learn",
     "torch",
     "tqdm",
+    "pykeops"
 ]
 dynamic = ["version"]
 
 [tool.setuptools]
 packages = ["torchdr"]
-
 
 [tool.setuptools.dynamic]
 version = {attr = "torchdr.__about__.__version__"}
@@ -32,14 +32,6 @@ test = [
     "codecov"
 ]
 
-keops = [
-    "pykeops",
-]
-
-all =  [
-    "pykeops",
-]
-
 doc = [
     "sphinx",
     "sphinx_gallery",
@@ -48,4 +40,5 @@ doc = [
     "numpydoc",
     "memory_profiler",
     "myst-parser",
+    "pandas",
 ]

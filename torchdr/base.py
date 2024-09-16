@@ -40,7 +40,6 @@ class DRModule(BaseEstimator, ABC):
         verbose: bool = False,
         random_state: float = 0,
     ):
-
         if keops and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
