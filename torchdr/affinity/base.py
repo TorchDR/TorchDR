@@ -46,7 +46,6 @@ class Affinity(ABC):
         keops: bool = False,
         verbose: bool = False,
     ):
-
         if keops and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR : pykeops is not installed. Please install it to use "

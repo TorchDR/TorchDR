@@ -41,7 +41,6 @@ class ClusteringModule(BaseEstimator, ABC):
         verbose: bool = False,
         random_state: float = 0,
     ):
-
         if keops and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR: pykeops is not installed. Please install it to use "
@@ -144,7 +143,6 @@ class KMeans(ClusteringModule):
         random_state: float = 0,
         metric: str = "sqeuclidean",
     ):
-
         super().__init__(
             n_clusters=n_clusters,
             device=device,
@@ -212,7 +210,6 @@ class KMeans(ClusteringModule):
         centroids = self._init_centroids(X)
 
         for it in range(self.max_iter):
-
             # E step: assign points to the closest cluster
             C = pairwise_distances(X, centroids, metric=self.metric, keops=self.keops)
             _, centroid_membership = kmin(C, k=1, dim=1)
@@ -274,9 +271,7 @@ class KMeans(ClusteringModule):
             # Choose the next centroid
             # Compute probabilities proportional to squared distances
             probs = closest_dist_sq / torch.sum(closest_dist_sq)
-            # To avoid numerical errors, ensure probabilities are non-negative
             probs = torch.clamp(probs, min=0)
-            # Convert to numpy for the generator
             probs_np = probs.cpu().numpy()
             probs_np /= probs_np.sum()  # Normalize probabilities
             # Sample the next centroid index

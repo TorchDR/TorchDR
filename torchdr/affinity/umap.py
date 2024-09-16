@@ -54,12 +54,12 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
             f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
         )
 
-    if n_neighbors >= n or n_neighbors <= 1:
+    if n_neighbors >= n - 1 or n_neighbors <= 1:
         new_value = n // 2
         if verbose:
             warnings.warn(
                 "[TorchDR] WARNING : The n_neighbors parameter must be greater than "
-                f"1 and smaller than the number of samples (here n = {n}). "
+                f"1 and smaller than the number of samples - 1 (here {n-1}). "
                 f"Got n_neighbors = {n_neighbors}. Setting n_neighbors to {new_value}."
             )
         return new_value

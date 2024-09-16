@@ -112,7 +112,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         n_negatives: int = 50,
     ):
-
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity

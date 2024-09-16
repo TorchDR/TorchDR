@@ -130,7 +130,6 @@ class UMAP(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         n_negatives: int = 5,
     ):
-
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
         self.spread = spread
@@ -187,12 +186,12 @@ class UMAP(SampledNeighborEmbedding):
 
     @sum_all_axis_except_batch
     def _repulsive_loss(self):
-        indices = self._sample_negatives()
+        indices = self._sample_negatives(discard_NNs=False)
         Q = self.affinity_out(self.embedding_, indices=indices)
         Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return -(1 - Q).log()
 
     def _attractive_loss(self):
-        Q = self.affinity_out(self.embedding_, indices=self.indices_)
+        Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
         Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return cross_entropy_loss(self.PX_, Q)

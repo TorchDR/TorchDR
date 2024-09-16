@@ -43,7 +43,6 @@ def to_torch(x, device="auto", return_backend_device=False):
     new_device = torch.device("cuda:0" if gpu_required else "cpu")
 
     if isinstance(x, torch.Tensor):
-
         if torch.is_complex(x):
             raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
         if not torch.isfinite(x).all():

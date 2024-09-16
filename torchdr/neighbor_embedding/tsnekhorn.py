@@ -140,7 +140,6 @@ class TSNEkhorn(NeighborEmbedding):
         unrolling: bool = False,
         symmetric_affinity: bool = True,
     ):
-
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
