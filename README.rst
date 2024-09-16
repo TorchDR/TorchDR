@@ -101,11 +101,6 @@ Evaluation Metric
 
 TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
 
-Evaluation Metric
-~~~~~~~~~~~~~~~~~~
-
-TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
-
 
 Installation
 ------------

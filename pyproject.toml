@@ -40,4 +40,5 @@ doc = [
     "numpydoc",
     "memory_profiler",
     "myst-parser",
+    "pandas",
 ]
