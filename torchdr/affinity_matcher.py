@@ -244,7 +244,7 @@ class AffinityMatcher(DRModule):
             if grad_norm < self.tol:
                 if self.verbose:
                     pbar.set_description(
-                        f"Convergence reached at iter {k} with grad norm: "
+                        f"[TorchDR] Convergence reached at iter {k} with grad norm: "
                         f"{grad_norm:.2e}."
                     )
                 break
@@ -260,7 +260,8 @@ class AffinityMatcher(DRModule):
 
             if self.verbose:
                 pbar.set_description(
-                    f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e} "
+                    f"[TorchDR] DR Loss : {loss.item():.2e} | "
+                    f"Grad norm : {grad_norm:.2e} "
                 )
 
             self._additional_updates(k)
@@ -321,23 +322,6 @@ class AffinityMatcher(DRModule):
                 self.optimizer_, factor=1, total_iters=0
             )
 
-        elif self.scheduler == "linear":
-            # if early_exaggeration_iter is set, decrease to 0
-            # in the early_exaggeration phase
-            if self.coeff_attraction_ > 1:
-                n_iter = min(self.early_exaggeration_iter, self.max_iter)
-            else:
-                n_iter = self.max_iter - self.early_exaggeration_iter
-            linear_decay = lambda epoch: (1 - epoch / n_iter)
-            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer_, lr_lambda=linear_decay
-            )
-
-        else:
-            raise ValueError(
-                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
-            )
-
         return self.scheduler_
 
     def _instantiate_generator(self):
@@ -352,7 +336,7 @@ class AffinityMatcher(DRModule):
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init, device=self.device)
 
-        elif self.init == "normal":
+        elif self.init == "normal" or self.init == "random":
             embedding_ = torch.tensor(
                 self.generator_.standard_normal(size=(n, self.n_components)),
                 device=X.device if self.device == "auto" else self.device,
