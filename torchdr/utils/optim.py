@@ -78,6 +78,7 @@ def binary_search(
             mean_f = fm.abs().mean().item()
             std_f = fm.abs().std().item()
             pbar.set_description(
+                "Root search : "
                 f"|f| mean : {float(mean_f): .2e}, "
                 f"|f| std : {float(std_f): .2e}, "
                 f"begin mean : {float(begin.mean().item()): .2e}, "
@@ -158,6 +159,7 @@ def false_position(
             mean_f = fm.abs().mean().item()
             std_f = fm.abs().std().item()
             pbar.set_description(
+                "Root search : "
                 f"|f| mean : {float(mean_f): .2e}, "
                 f"|f| std : {float(std_f): .2e}, "
                 f"begin mean : {float(begin.mean().item()): .2e}, "
@@ -209,7 +211,10 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
         out_end = f(end) < 0
         eval_counter += 1
 
-    if eval_counter and verbose:
-        print(f"[TorchDR] {eval_counter} evaluations to set bounds of the root search.")
+    if eval_counter > 1 and verbose:
+        print(
+            f"[TorchDR] {eval_counter} evaluation(s) to set the bounds "
+            "of the root search."
+        )
 
     return begin, end

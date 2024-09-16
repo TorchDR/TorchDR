@@ -6,7 +6,6 @@
 # License: BSD 3-Clause License
 
 import torch
-import numpy as np
 import warnings
 
 from torchdr.affinity import (
@@ -193,7 +192,7 @@ class NeighborEmbedding(AffinityMatcher):
                         "rate, the optimizer should be 'SGD'."
                     )
             # from the sklearn TSNE implementation
-            self.lr_ = np.maximum(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
+            self.lr_ = max(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
         else:
             self.lr_ = self.lr
 
@@ -513,7 +512,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         if self.NN_indices_ is not None:
             exclude_indices = torch.cat(
                 (
-                    exclude_indices,
+                    exclude_indices.to(self.NN_indices_.device),
                     self.NN_indices_,
                 ),  # Concatenate self and NNs
                 dim=1,

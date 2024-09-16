@@ -339,7 +339,7 @@ class EntropicAffinity(SparseLogAffinity):
             else:
                 if self.verbose:
                     print(
-                        f"[TorchDR] Affinity : sparsity mode enabled, computing {k}"
+                        f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
                         "nearest neighbors."
                     )
                 C_, indices = kmin(C, k=k, dim=1)
