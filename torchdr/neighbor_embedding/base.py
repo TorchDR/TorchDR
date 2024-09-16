@@ -527,7 +527,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     def _sample_negatives(self, discard_NNs=True):
         # Negatives are all other points except NNs (if discard_NNs) and point itself
         n_possible_negatives = self.n_samples_in_ - 1  # Exclude the self-index
-        if self.NN_indices_ is not None and discard_NNs:
+        discard_NNs_ = discard_NNs and self.NN_indices_ is not None
+        if discard_NNs_:
             n_possible_negatives -= self.NN_indices_.shape[-1]  # Exclude the NNs
 
         if not hasattr(self, "n_negatives_"):
@@ -551,7 +552,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         exclude_indices = (
             torch.arange(self.n_samples_in_).unsqueeze(1).to(device=device)
         )  # Self indices
-        if self.NN_indices_ is not None and discard_NNs:
+        if discard_NNs_:
             exclude_indices = torch.cat(
                 (
                     exclude_indices,
