@@ -21,7 +21,9 @@ infotsne = InfoTSNE(keops=True, device="cuda", verbose=True)
 z_infotsne = infotsne.fit_transform(x)
 
 # --- Compute LargeVis embedding ---
-largevis = LargeVis(keops=True, device="cuda", verbose=True)
+largevis = LargeVis(
+    keops=True, device="cuda", verbose=True, scheduler="linear", max_iter=10000
+)
 z_largevis = largevis.fit_transform(x)
 
 # --- Compute UMAP embedding ---

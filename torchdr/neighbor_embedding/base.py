@@ -200,10 +200,13 @@ class NeighborEmbedding(AffinityMatcher):
         optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
         # from the sklearn TSNE implementation
         if self.optimizer_kwargs == "auto":
-            if self.early_exaggeration_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
+            if self.optimizer == "SGD":
+                if self.early_exaggeration_ > 1:
+                    optimizer_kwargs = {"momentum": 0.5}
+                else:
+                    optimizer_kwargs = {"momentum": 0.8}
             else:
-                optimizer_kwargs = {"momentum": 0.8}
+                optimizer_kwargs = {}
         else:
             optimizer_kwargs = self.optimizer_kwargs
 
@@ -211,6 +214,42 @@ class NeighborEmbedding(AffinityMatcher):
             self.params_, lr=self.lr_, **(optimizer_kwargs or {})
         )
         return self.optimizer_
+
+    def _set_scheduler(self):
+        if not hasattr(self, "optimizer_"):
+            raise ValueError(
+                "[TorchDR] ERROR : optimizer not set. "
+                "Please call _set_optimizer before _set_scheduler."
+            )
+
+        # compute the number of iterations (taking into account early_exaggeration)
+        if self.early_exaggeration_ > 1:
+            n_iter = min(self.early_exaggeration_iter, self.max_iter)
+        else:
+            n_iter = self.max_iter - self.early_exaggeration_iter
+
+        if self.scheduler == "constant":
+            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
+                self.optimizer_, factor=1, total_iters=0
+            )
+
+        elif self.scheduler == "linear":
+            linear_decay = lambda epoch: (1 - epoch / n_iter)
+            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer_, lr_lambda=linear_decay
+            )
+
+        elif self.scheduler == "cosine":
+            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer_, T_max=n_iter
+            )
+
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
+            )
+
+        return self.scheduler_
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
@@ -506,13 +545,16 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         indices = self.generator_.integers(
             1, n_possible_negatives, (self.n_samples_in_, self.n_negatives_)
         )
-        indices = torch.from_numpy(indices)
+        device = getattr(self.NN_indices_, "device", "cpu")
+        indices = torch.from_numpy(indices).to(device=device)
 
-        exclude_indices = torch.arange(self.n_samples_in_).unsqueeze(1)  # Self indices
+        exclude_indices = (
+            torch.arange(self.n_samples_in_).unsqueeze(1).to(device=device)
+        )  # Self indices
         if self.NN_indices_ is not None:
             exclude_indices = torch.cat(
                 (
-                    exclude_indices.to(self.NN_indices_.device),
+                    exclude_indices,
                     self.NN_indices_,
                 ),  # Concatenate self and NNs
                 dim=1,
@@ -522,5 +564,11 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         exclude_indices.sort(axis=1)
         adjustments = torch.searchsorted(exclude_indices, indices, right=True)
         indices += adjustments
+
+        # print("exclude indices")
+        # print(exclude_indices)
+
+        # print("indices")
+        # print(indices)
 
         return indices
