@@ -6,13 +6,12 @@ authors = [
     {name = " TorchDR contributors"}
 ]
 license = {text = "BSD (3-Clause)"}
-readme = {file = "README.rst", content-type = "text/x-rst"}
+readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
-    "numpy",
+    "numpy>=1.20",
     "scikit-learn",
     "torch",
     "tqdm",
-    "pykeops"
 ]
 dynamic = ["version"]
 
@@ -30,6 +29,14 @@ test = [
     "numpydoc",
     "pytest-cov",
     "codecov"
+]
+
+keops = [
+    "pykeops",
+]
+
+all =  [
+    "pykeops",
 ]
 
 doc = [
