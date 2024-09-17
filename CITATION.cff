@@ -28,6 +28,10 @@ authors:
     family-names: Massias
     email: mathurin.massias@ens-lyon.fr
     affiliation: ENS Lyon
+  - given-names: Titouan
+    family-names: Vayer
+    email: titouan.vayer@ens-lyon.fr
+    affiliation: ENS Lyon
   - given-names: Cédric
     family-names: Vincent-Cuaz
     email: cedric.vincent-cuaz@inria.fr

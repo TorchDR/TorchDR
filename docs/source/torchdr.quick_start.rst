@@ -17,7 +17,7 @@ To install TorchDR, run in the terminal:
 
 .. code-block:: shell
 
-   pip install git+https://github.com/torchdr/torchdr
+   pip install torchdr
 
 
 When to use TorchDR

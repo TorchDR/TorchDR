@@ -10,13 +10,13 @@ from sklearn.base import BaseEstimator
 import torch
 import numpy as np
 
-from torchdr.utils import to_torch, pykeops
+from torchdr.utils import pykeops
 
 
 class DRModule(BaseEstimator, ABC):
     """Base class for DR methods.
 
-    Each children class should implement the fit method.
+    Each children class should implement the fit_transform method.
 
     Parameters
     ----------
@@ -49,36 +49,12 @@ class DRModule(BaseEstimator, ABC):
         self.n_components = n_components
         self.device = device
         self.keops = keops
-        self.verbose = verbose
         self.random_state = random_state
+        self.verbose = verbose
+        if self.verbose:
+            print(f"[TorchDR] Initializing DR model {self.__class__.__name__} ")
 
     @abstractmethod
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
-        r"""Fit the dimensionality reduction model.
-
-        This method must be overridden by subclasses. This base implementation
-        only converts the input data :math:`\mathbf{X}` to a torch tensor with
-        the right device.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data or input affinity matrix if it is precomputed.
-        y : None
-            Ignored.
-
-        Returns
-        -------
-        X_torch : torch.Tensor
-            Input data as torch tensor
-        """
-        if self.verbose:
-            print(f"[TorchDR] Fitting DR model {self.__class__.__name__} ...")
-
-        X_torch = to_torch(X, device=self.device)
-        return X_torch
-
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
         """Fit the dimensionality reduction model and transform the input data.
 

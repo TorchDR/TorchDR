@@ -11,6 +11,7 @@ import numpy as np
 
 from torchdr.base import DRModule
 from torchdr.utils import (
+    to_torch,
     sum_red,
     svd_flip,
     handle_backend,
@@ -67,7 +68,7 @@ class PCA(DRModule):
         self : PCA
             The fitted PCA model.
         """
-        X = super().fit(X)
+        X = to_torch(X, device=self.device)
         self.mean_ = X.mean(0, keepdim=True)
         U, S, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
@@ -171,7 +172,7 @@ class KernelPCA(DRModule):
         self : KernelPCA
             The fitted KernelPCA model.
         """
-        X = super().fit(X)
+        X = to_torch(X, device=self.device)
         self.X_fit_ = X.clone()
         K = self.affinity(X)
         K, _, col_mean, mean = center_kernel(K, return_all=True)
