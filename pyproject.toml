@@ -8,11 +8,38 @@ authors = [
 license = {text = "BSD (3-Clause)"}
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
-    "numpy>=1.20",
+    "numpy",
     "scikit-learn",
     "torch",
     "tqdm",
 ]
+
+keywords = [
+    "dimensionality reduction",
+    "machine learning", 
+    "data analysis", 
+    "pytorch", 
+    "scikit-learn", 
+    "GPU"
+]
+
+classifiers=[
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Topic :: Software Development",
+  "Topic :: Scientific/Engineering",
+  "Development Status :: 3 - Alpha",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
 dynamic = ["version"]
 
 [tool.setuptools]
@@ -20,6 +47,11 @@ packages = ["torchdr"]
 
 [tool.setuptools.dynamic]
 version = {attr = "torchdr.__about__.__version__"}
+
+[project.urls]
+homepage = "https://torchdr.github.io/"
+documentation = "https://torchdr.github.io/"
+repository = "https://github.com/TorchDR/TorchDR"
 
 [project.optional-dependencies]
 test = [
