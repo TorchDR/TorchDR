@@ -74,7 +74,7 @@ class ClusteringModule(BaseEstimator, ABC):
             Input data as a torch tensor.
         """
         if self.verbose:
-            print(f"[TorchDR] Fitting clustering model {self.__class__.__name__} ...")
+            print(f"[TorchDR] Fitting clustering model {self.__class__.__name__} ")
 
         X_torch = to_torch(X, device=self.device)
         return X_torch
@@ -105,7 +105,7 @@ class KMeans(ClusteringModule):
     ----------
     n_clusters : int, default=8
         Number of clusters to form.
-    init : {'random', 'k-means++'}, default='random'
+    init : {'random', 'k-means++'}, default='k-means++'
         Method for initialization.
         - 'random': choose `n_clusters` observations (rows) at random from data
           for the initial centroids.
@@ -133,7 +133,7 @@ class KMeans(ClusteringModule):
     def __init__(
         self,
         n_clusters: int = 8,
-        init="random",
+        init="k-means++",
         n_init: int = 10,
         max_iter: int = 300,
         tol: float = 1e-4,
@@ -264,7 +264,7 @@ class KMeans(ClusteringModule):
 
         # Initialize list of closest distances
         closest_dist_sq = pairwise_distances(
-            X, centers[0:1], metric=self.metric, keops=self.keops
+            X, centers[0:1], metric=self.metric, keops=False
         ).squeeze()
 
         for c in range(1, self.n_clusters):
@@ -280,7 +280,7 @@ class KMeans(ClusteringModule):
 
             # Update the closest distances
             distances = pairwise_distances(
-                X, centers[c : c + 1], metric=self.metric, keops=self.keops
+                X, centers[c : c + 1], metric=self.metric, keops=False
             ).squeeze()
 
             if self.metric == "euclidean":
@@ -313,7 +313,7 @@ class KMeans(ClusteringModule):
         """
         X = to_torch(X, device=self.device)
         C = pairwise_distances(
-            X, self.cluster_centers_, metric=self.metric, keops=self.keops
+            X, self.cluster_centers_, metric=self.metric, keops=False
         )
         _, labels = kmin(C, k=1, dim=1)
         return labels.view(-1).to(torch.int64)
