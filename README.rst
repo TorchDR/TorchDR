@@ -10,7 +10,7 @@ Torch Dimensionality Reduction
 
 Github repository: `<https://github.com/torchdr/torchdr/>`_.
 
-Documentation: `<https://torchdr.github.io/dev/>`_.
+Documentation: `<https://torchdr.github.io/>`_.
 
 
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
@@ -104,7 +104,13 @@ TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score
 Installation
 ------------
 
-The library is not yet available on PyPI. You can install it from the source code.
+You can install the toolbox through PyPI with:
+
+.. code-block:: bash
+
+    pip install torchdr
+
+To get the latest version, you can install it from the source code as follows:
 
 .. code-block:: bash
 
