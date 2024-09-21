@@ -49,7 +49,7 @@ def pairwise_distances(
             "pykeops is not installed. Please install it to use `keops=true`."
         )
 
-    if keops:  # recommended for large datasets
+    if keops:
         C = _pairwise_distances_keops(X, Y, metric)
     else:
         C = _pairwise_distances_torch(X, Y, metric)

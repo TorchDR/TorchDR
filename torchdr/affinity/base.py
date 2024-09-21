@@ -17,6 +17,7 @@ from torchdr.utils import (
     to_torch,
     LazyTensorType,
     pykeops,
+    handle_keops,
 )
 
 
@@ -97,6 +98,7 @@ class Affinity(ABC):
             "[TorchDR] ERROR : `_compute_affinity` method is not implemented."
         )
 
+    @handle_keops
     def _distance_matrix(self, X: torch.Tensor):
         r"""Compute the pairwise distance matrix from the input data.
 
@@ -116,10 +118,7 @@ class Affinity(ABC):
             is returned. Otherwise, a torch.Tensor is returned.
         """
         return symmetric_pairwise_distances(
-            X=X,
-            metric=self.metric,
-            keops=self.keops,
-            add_diag=self.add_diag,
+            X=X, metric=self.metric, keops=self.keops_, add_diag=self.add_diag
         )
 
 
@@ -412,6 +411,7 @@ class UnnormalizedAffinity(Affinity):
             "[TorchDR] ERROR : `_affinity_formula` method is not implemented."
         )
 
+    @handle_keops
     def _distance_matrix(
         self,
         X: torch.Tensor | np.ndarray,
@@ -455,11 +455,13 @@ class UnnormalizedAffinity(Affinity):
             )
 
         elif Y is not None:
-            return pairwise_distances(X, Y, metric=self.metric, keops=self.keops)
+            return pairwise_distances(X, Y, metric=self.metric, keops=self.keops_)
 
         else:
+            print("Affinity name", self.__class__.__name__)
+            print("KEOPS === ", self.keops_)
             return symmetric_pairwise_distances(
-                X, metric=self.metric, keops=self.keops, add_diag=self.add_diag
+                X, metric=self.metric, keops=self.keops_, add_diag=self.add_diag
             )
 
 

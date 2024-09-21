@@ -20,6 +20,7 @@ from .wrappers import (
     torch_to_backend,
     handle_backend,
     sum_output,
+    handle_keops,
 )
 
 from .geometry import (
@@ -104,4 +105,5 @@ __all__ = [
     "torch_to_backend",
     "handle_backend",
     "batch_transpose",
+    "handle_keops",
 ]

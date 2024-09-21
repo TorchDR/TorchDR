@@ -8,7 +8,7 @@
 import functools
 import torch
 import numpy as np
-from .keops import LazyTensor, is_lazy_tensor
+from .keops import LazyTensor, is_lazy_tensor, pykeops
 from sklearn.utils.validation import check_array
 
 
@@ -165,5 +165,27 @@ def handle_backend(func):
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
+
+    return wrapper
+
+
+def handle_keops(func):
+    def wrapper(self, *args, **kwargs):
+        if not hasattr(self, "keops_"):
+            self.keops_ = self.keops
+            if not self.keops_:
+                try:
+                    return func(self, *args, **kwargs)
+
+                except torch.cuda.OutOfMemoryError:
+                    print("[TorchDR] Out of memory encountered, setting keops to True.")
+                    if not pykeops:
+                        raise ValueError(
+                            "[TorchDR] pykeops is not installed. Please install it by "
+                            "running `pip install pykeops` to use `keops=True`."
+                        )
+                    self.keops_ = True
+
+        return func(self, *args, **kwargs)
 
     return wrapper
