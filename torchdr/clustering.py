@@ -50,16 +50,14 @@ class ClusteringModule(BaseEstimator, ABC):
         self.n_clusters = n_clusters
         self.device = device
         self.keops = keops
-        self.verbose = verbose
         self.random_state = random_state
+        self.verbose = verbose
+        if self.verbose:
+            print(f"[TorchDR] Initializing clustering model {self.__class__.__name__} ")
 
     @abstractmethod
     def fit(self, X: torch.Tensor | np.ndarray, y=None):
-        r"""Fit the clustering model.
-
-        This method must be overridden by subclasses. This base implementation
-        only converts the input data :math:`\mathbf{X}` to a torch tensor with
-        the right device.
+        """Fit the clustering model.
 
         Parameters
         ----------
@@ -70,14 +68,10 @@ class ClusteringModule(BaseEstimator, ABC):
 
         Returns
         -------
-        X_torch : torch.Tensor
-            Input data as a torch tensor.
+        self : object
+            The fitted instance.
         """
-        if self.verbose:
-            print(f"[TorchDR] Fitting clustering model {self.__class__.__name__} ")
-
-        X_torch = to_torch(X, device=self.device)
-        return X_torch
+        raise NotImplementedError
 
     def fit_predict(self, X: torch.Tensor | np.ndarray, y=None):
         """Fit the clustering model and output the predicted labels.
@@ -178,7 +172,7 @@ class KMeans(ClusteringModule):
         self : object
             The fitted instance.
         """
-        X = super().fit(X)
+        X = to_torch(X, device=self.device)
 
         self._instantiate_generator()
         self.inertia_ = float("inf")
