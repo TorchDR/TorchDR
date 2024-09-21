@@ -1,12 +1,10 @@
 
-0.2
----
-
+- Code of conduct `PR #127 <https://github.com/TorchDR/TorchDR/pull/127>`_.
 - Pull request template `PR #125 <https://github.com/TorchDR/TorchDR/pull/125>`_.
 
 
-0.1 (2024-09-17)
-----------------
+Version 0.1 (2024-09-17)
+------------------------
 
 - Multiple basic affinities, including scalar product, Gaussian, and Student kernels.
 - Affinities based on k-NN normalizations such as Self-tuning affinities and MAGIC.
