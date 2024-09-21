@@ -1,9 +1,16 @@
-First pre-release : 0.1
------------------------
 
-*17 Sep 2024*
+0.2
+---
 
-It provides the following features:
+What's new
+
+- Pull request template `PR #125 <https://github.com/TorchDR/TorchDR/pull/125>`_.
+
+
+0.1 (2024-09-17)
+----------------
+
+What's new
 
 - Multiple basic affinities, including scalar product, Gaussian, and Student kernels.
 - Affinities based on k-NN normalizations such as Self-tuning affinities and MAGIC.
