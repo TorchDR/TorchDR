@@ -181,21 +181,6 @@ def logsumexp_red(log_P, dim):
         )
 
 
-def normalize_matrix(P, dim=1, log=False):
-    r"""Normalize a matrix along axis dim.
-
-    If log, consider P in log domain and return the normalized matrix in log domain.
-    Handle both torch tensors and lazy tensors.
-    """
-    if dim is None:
-        return P
-
-    if log:
-        return P - logsumexp_red(P, dim)
-    else:
-        return P / sum_red(P, dim)
-
-
 def center_kernel(K, return_all=False):
     r"""Center a kernel matrix."""
     n, d = K.shape
