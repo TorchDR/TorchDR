@@ -196,8 +196,9 @@ def handle_keops(func):
                     )
                     if not pykeops:
                         raise ValueError(
-                            "[TorchDR] pykeops is not installed. Please install it by "
-                            "running `pip install pykeops` to use `keops=True`."
+                            "[TorchDR] ERROR : pykeops is not installed. "
+                            "To use `keops=True`, please run `pip install pykeops` "
+                            "or `pip install torchdr[all]`. "
                         )
                     self.keops_ = True
 
