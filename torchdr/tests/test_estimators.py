@@ -10,6 +10,7 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
+from torchdr import DRModule
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
@@ -43,3 +44,28 @@ def test_check_estimator(estimator, kwargs):
     check_estimator(
         estimator(verbose=False, device=DEVICE, keops=False, max_iter=1, **kwargs)
     )
+
+
+@pytest.mark.skipif(pykeops, reason="pykeops is available")
+def test_init_keops_error(monkeypatch):
+    with pytest.raises(ValueError, match="pykeops is not installed"):
+        DRModule(keops=True)
+
+
+def test_init_verbose(capfd):
+    class TestDRModule(DRModule):
+        def fit_transform(self, X, y=None):
+            pass
+
+    TestDRModule(verbose=True)
+    captured = capfd.readouterr()
+    assert "Initializing" in captured.out
+
+
+def test_fit_transform_not_implemented():
+    class TestDRModule(DRModule):
+        def fit_transform(self, X, y=None):
+            super().fit_transform(X, y)
+
+    with pytest.raises(NotImplementedError):
+        TestDRModule().fit_transform(None)
