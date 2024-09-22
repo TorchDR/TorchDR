@@ -65,7 +65,7 @@ def test_init_verbose(capfd):
 def test_fit_transform_not_implemented():
     class TestDRModule(DRModule):
         def fit_transform(self, X, y=None):
-            super().fit_transform(X, y)
+            raise NotImplementedError("fit_transform is not implemented.")
 
     with pytest.raises(NotImplementedError):
         TestDRModule().fit_transform(None)
