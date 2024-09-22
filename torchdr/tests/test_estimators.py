@@ -10,7 +10,6 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr.spectral import PCA
 from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, TSNEkhorn, LargeVis
 from torchdr.utils import pykeops
 from sklearn.utils.estimator_checks import check_estimator
@@ -43,10 +42,10 @@ def test_check_estimator(estimator, kwargs):
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_init_keops_error(monkeypatch):
     with pytest.raises(ValueError, match="pykeops is not installed"):
-        PCA(keops=True)
+        TSNE(keops=True)
 
 
 def test_init_verbose(capfd):
-    PCA(verbose=True)
+    TSNE(verbose=True)
     captured = capfd.readouterr()
     assert "Initializing" in captured.out
