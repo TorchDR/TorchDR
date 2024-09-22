@@ -170,6 +170,14 @@ def handle_backend(func):
 
 
 def handle_keops(func):
+    """Sets the keops_ attribute to True if an OutOfMemoryError is encountered.
+
+    If keops is set to True, keops_ is also set to True and nothing is done.
+    Otherwise, the function is called and if an OutOfMemoryError is encountered,
+    keops_ is set to True and the function is called again.
+    """
+
+    @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if not hasattr(self, "keops_"):
             self.keops_ = self.keops
