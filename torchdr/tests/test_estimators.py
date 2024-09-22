@@ -10,14 +10,8 @@ Tests estimators for scikit-learn compatibility.
 
 import pytest
 
-from torchdr import DRModule
-from torchdr.neighbor_embedding import (
-    SNE,
-    TSNE,
-    InfoTSNE,
-    TSNEkhorn,
-    LargeVis,
-)
+from torchdr.spectral import PCA
+from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, TSNEkhorn, LargeVis
 from torchdr.utils import pykeops
 from sklearn.utils.estimator_checks import check_estimator
 
@@ -49,23 +43,10 @@ def test_check_estimator(estimator, kwargs):
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_init_keops_error(monkeypatch):
     with pytest.raises(ValueError, match="pykeops is not installed"):
-        DRModule(keops=True)
+        PCA(keops=True)
 
 
 def test_init_verbose(capfd):
-    class TestDRModule(DRModule):
-        def fit_transform(self, X, y=None):
-            pass
-
-    TestDRModule(verbose=True)
+    PCA(verbose=True)
     captured = capfd.readouterr()
     assert "Initializing" in captured.out
-
-
-def test_fit_transform_not_implemented():
-    class TestDRModule(DRModule):
-        def fit_transform(self, X, y=None):
-            raise NotImplementedError("fit_transform is not implemented.")
-
-    with pytest.raises(NotImplementedError):
-        TestDRModule().fit_transform(None)
