@@ -242,7 +242,7 @@ class AffinityMatcher(DRModule):
             grad_norm = self.embedding_.grad.norm(2).item()
             if grad_norm < self.tol:
                 if self.verbose:
-                    pbar.set_description(
+                    print(
                         f"[TorchDR] Convergence reached at iter {k} with grad norm: "
                         f"{grad_norm:.2e}."
                     )
