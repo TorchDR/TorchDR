@@ -170,7 +170,7 @@ def handle_backend(func):
 
 
 def handle_keops(func):
-    """Sets the keops_ attribute to True if an OutOfMemoryError is encountered.
+    """Set the keops_ attribute to True if an OutOfMemoryError is encountered.
 
     If keops is set to True, keops_ is also set to True and nothing is done.
     Otherwise, the function is called and if an OutOfMemoryError is encountered,
@@ -179,7 +179,6 @@ def handle_keops(func):
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-
         # if indices are provided, we do not use KeOps
         if kwargs.get("indices", None) is not None:
             return func(self, *args, **kwargs)
@@ -192,7 +191,8 @@ def handle_keops(func):
 
                 except torch.cuda.OutOfMemoryError:
                     print(
-                        f"[TorchDR] Out of memory encountered, setting keops to True for {self.__class__.__name__} object."
+                        "[TorchDR] Out of memory encountered, setting keops to True "
+                        f"for {self.__class__.__name__} object."
                     )
                     if not pykeops:
                         raise ValueError(
