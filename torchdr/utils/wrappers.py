@@ -8,8 +8,8 @@
 import functools
 import torch
 import numpy as np
-from .keops import LazyTensor, is_lazy_tensor
 from sklearn.utils.validation import check_array
+from .keops import LazyTensor, is_lazy_tensor, pykeops
 
 
 def output_contiguous(func):
@@ -165,5 +165,43 @@ def handle_backend(func):
         )
         output = func(self, X_, *args, **kwargs).detach()
         return torch_to_backend(output, backend=input_backend, device=input_device)
+
+    return wrapper
+
+
+def handle_keops(func):
+    """Set the keops_ attribute to True if an OutOfMemoryError is encountered.
+
+    If keops is set to True, keops_ is also set to True and nothing is done.
+    Otherwise, the function is called and if an OutOfMemoryError is encountered,
+    keops_ is set to True and the function is called again.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # if indices are provided, we do not use KeOps
+        if kwargs.get("indices", None) is not None:
+            return func(self, *args, **kwargs)
+
+        if not hasattr(self, "keops_"):
+            self.keops_ = self.keops
+            if not self.keops_:
+                try:
+                    return func(self, *args, **kwargs)
+
+                except torch.cuda.OutOfMemoryError:
+                    print(
+                        "[TorchDR] Out of memory encountered, setting keops to True "
+                        f"for {self.__class__.__name__} object."
+                    )
+                    if not pykeops:
+                        raise ValueError(
+                            "[TorchDR] ERROR : pykeops is not installed. "
+                            "To use `keops=True`, please run `pip install pykeops` "
+                            "or `pip install torchdr[all]`. "
+                        )
+                    self.keops_ = True
+
+        return func(self, *args, **kwargs)
 
     return wrapper

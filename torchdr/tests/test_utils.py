@@ -24,9 +24,13 @@ from torchdr.utils import (
     check_shape,
     check_similarity,
     pykeops,
+    handle_keops,
 )
 
 lst_types = [torch.double, torch.float]
+
+
+# ====== test root finding methods ======
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -79,6 +83,9 @@ def test_false_position(dtype):
         f, 2, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=True, dtype=dtype
     )
     assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
+
+
+# ====== test pairwise distance matrices ======
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -167,13 +174,52 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     check_similarity(C_indices, C_full_indices)
 
 
-def test_center_kernel():
+# ====== test center_kernel ======
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_center_kernel(dtype):
     torch.manual_seed(0)
-    X = torch.randn(20, 30)
+    X = torch.randn(20, 30, dtype=dtype)
     K = X @ X.T
     K_c = center_kernel(K)
     n = K.shape[0]
-    ones_n = torch.ones(n)
-    H = torch.eye(n) - torch.outer(ones_n, ones_n) / n
-
+    ones_n = torch.ones(n, dtype=dtype)
+    H = torch.eye(n, dtype=dtype) - torch.outer(ones_n, ones_n) / n
     torch.testing.assert_close(K_c, H @ K @ H)
+
+
+# ====== test handle_keops ======
+
+
+class MockClass:
+    def __init__(self, keops=False):
+        self.keops = keops
+
+    @handle_keops
+    def some_method(self, *args, **kwargs):
+        return "Function executed"
+
+
+@pytest.fixture
+def mock_obj():
+    return MockClass()
+
+
+def test_no_indices_keops_false(mock_obj):
+    result = mock_obj.some_method()
+    assert result == "Function executed"
+    assert getattr(mock_obj, "keops_") is False  # Ensure keops_ remains False
+
+
+def test_no_indices_keops_true(mock_obj):
+    mock_obj.keops = True
+    result = mock_obj.some_method()
+    assert result == "Function executed"
+    assert getattr(mock_obj, "keops_") is True  # Ensure keops_ remains True
+
+
+def test_indices_provided(mock_obj):
+    result = mock_obj.some_method(indices=[1, 2, 3])
+    assert result == "Function executed"
+    assert getattr(mock_obj, "keops_", None) is None  # Ensure keops_ isn't set
