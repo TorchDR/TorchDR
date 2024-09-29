@@ -190,10 +190,11 @@ def handle_keops(func):
                     return func(self, *args, **kwargs)
 
                 except torch.cuda.OutOfMemoryError:
-                    print(
-                        "[TorchDR] Out of memory encountered, setting keops to True "
-                        f"for {self.__class__.__name__} object."
-                    )
+                    if self.verbose:
+                        print(
+                            "[TorchDR] Out of memory encountered, setting keops to "
+                            f"True for {self.__class__.__name__} object."
+                        )
                     if not pykeops:
                         raise ValueError(
                             "[TorchDR] ERROR : pykeops is not installed. "

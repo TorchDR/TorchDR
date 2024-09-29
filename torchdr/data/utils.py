@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""Utility functions for data loading and downloading."""
+
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
+import os
+import io
 import gzip
 import pickle
 import requests
@@ -50,11 +59,11 @@ def load_from_url(url, chunk_size=8192):
         return data
 
     except requests.exceptions.RequestException as e:
-        print(f"[TorchDR] Error downloading the file: {e}")
+        print(f"[TorchDR] Error downloading the file: {e}.")
         return None
 
     except (pickle.UnpicklingError, gzip.BadGzipFile) as e:
-        print(f"[TorchDR] Error unpickling or decompressing the data: {e}")
+        print(f"[TorchDR] Error unpickling or decompressing the data: {e}.")
         return None
 
 
@@ -96,17 +105,17 @@ def download_from_url(url, save_path, chunk_size=8192):
         return save_path
 
     except requests.exceptions.RequestException as e:
-        print(f"[TorchDR] Error downloading the file: {e}")
+        print(f"[TorchDR] Error downloading the file: {e}.")
         return None
 
 
 def load_from_local_path(save_path):
-    """Load and unpickle data from a gzip-compressed file.
+    """Load and unpickle data from a file (either gzip-compressed or uncompressed).
 
     Parameters
     ----------
     save_path : str
-        The local path of the gzip-compressed and pickled file to be loaded.
+        The local path of the file to be loaded.
 
     Returns
     -------
@@ -118,15 +127,22 @@ def load_from_local_path(save_path):
     pickle.UnpicklingError
         If the data cannot be unpickled due to corruption or format issues.
     gzip.BadGzipFile
-        If the file is not a valid gzip file or is corrupted.
+        If the gzip file is corrupted or invalid.
     """
     try:
-        # Open the file, decompress it, and load the pickled data
-        with gzip.open(save_path, "rb") as f:
-            data = pickle.load(f)
+        with open(save_path, "rb") as f:
+            file_signature = f.read(2)
+
+        # Gzip files start with the magic number: 1f 8b
+        if file_signature == b"\x1f\x8b":
+            with gzip.open(save_path, "rb") as f:
+                data = pickle.load(f)
+        else:
+            with open(save_path, "rb") as f:
+                data = pickle.load(f)
 
         return data
 
-    except (pickle.UnpicklingError, gzip.BadGzipFile) as e:
-        print(f"[TorchDR] Error unpickling or decompressing the file: {e}")
+    except (pickle.UnpicklingError, gzip.BadGzipFile, OSError) as e:
+        print(f"[TorchDR] Error unpickling or decompressing the file: {e}.")
         return None

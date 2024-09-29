@@ -27,7 +27,7 @@ largevis = LargeVis(keops=True, device="cuda", verbose=True, max_iter=10000)
 z_largevis = largevis.fit_transform(x)
 
 # --- Compute UMAP embedding ---
-umap = UMAP(keops=True, device="cuda", verbose=True, max_iter=10000)
+umap = UMAP(keops=True, device="cuda", verbose=True)
 z_umap = umap.fit_transform(x)
 
 
