@@ -495,7 +495,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
-    def _sample_negatives(self, discard_NNs=True):
+    def _sample_negatives(self, discard_NNs=False):
         # Negatives are all other points except NNs (if discard_NNs) and point itself
         n_possible_negatives = self.n_samples_in_ - 1  # Exclude the self-index
         discard_NNs_ = discard_NNs and self.NN_indices_ is not None
