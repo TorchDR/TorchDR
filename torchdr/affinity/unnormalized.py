@@ -142,7 +142,7 @@ class ScalarProductAffinity(UnnormalizedAffinity):
         return -C
 
 
-class NegSquareEuclideanAffinity(UnnormalizedAffinity):
+class NegEuclideanAffinity(UnnormalizedAffinity):
     r"""Compute the negative squared Euclidean affinity matrix.
 
     Its expression is given by :math:`-\| \mathbf{X} - \mathbf{Y} \|^2`
@@ -165,7 +165,7 @@ class NegSquareEuclideanAffinity(UnnormalizedAffinity):
         verbose: bool = False,
     ):
         super().__init__(
-            metric="sqeuclidean",
+            metric="euclidean",
             device=device,
             keops=keops,
             verbose=verbose,

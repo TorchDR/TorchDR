@@ -16,8 +16,9 @@ from torchdr.utils import (
     batch_transpose,
     logsumexp_red,
     sum_red,
+    symmetric_pairwise_distances,
+    LazyTensorType
 )
-
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
@@ -235,3 +236,50 @@ class MAGICAffinity(Affinity):
         affinity_matrix = affinity_matrix / self.normalization_
 
         return affinity_matrix
+
+
+class NegPotentialAffinity(MAGICAffinity):
+    # FIXME: (GH) use \alpha-decay kernel
+    def __init__(
+        self,
+        K: int = 7,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            K=K,
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+
+    @staticmethod
+    def potential_dist(affinity: LazyTensorType, eps: float = 1e-5, keops:bool = False) -> LazyTensorType:
+        r"""Compute the potential distance matrix from the affinity matrix.
+
+        Parameters
+        ----------
+        affinity : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+            Affinity matrix.
+        eps : float, optional
+            Small value to avoid numerical issues.
+        keops : bool, optional
+            Whether to use KeOps for computations
+
+        Returns
+        -------
+        potential_dist : torch.Tensor or pykeops.torch.LazyTensor
+        """
+        log_affinity = -(affinity + eps).log()
+        potential_dist = symmetric_pairwise_distances(log_affinity, metric="euclidean", keops=keops)
+        return potential_dist
+    
+    def _compute_affinity(self, X: torch.Tensor):
+        affinity = super()._compute_affinity(X)
+        dist = self.potential_dist(affinity)
+        return -1.0 * dist
