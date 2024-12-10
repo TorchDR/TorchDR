@@ -26,10 +26,11 @@ from torchdr.affinity import (
 )
 from torchdr.spectral import PCA
 from torchdr.base import DRModule
-from torchdr.utils import square_loss, cross_entropy_loss
+from torchdr.utils import square_loss, cross_entropy_loss, l2_loss
 
 LOSS_DICT = {
     "square_loss": square_loss,
+    "l2_loss": l2_loss,
     "cross_entropy_loss": cross_entropy_loss,
 }
 
@@ -370,6 +371,5 @@ class AffinityMatcher(DRModule):
                 f"[TorchDR] ERROR : init {self.init} not supported in "
                 f"{self.__class__.__name__}."
             )
-
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()

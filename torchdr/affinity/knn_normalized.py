@@ -17,8 +17,9 @@ from torchdr.utils import (
     logsumexp_red,
     sum_red,
     symmetric_pairwise_distances,
-    LazyTensorType
+    LazyTensorType,
 )
+from torchdr.utils.utils import identity_matrix
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
@@ -238,25 +239,24 @@ class MAGICAffinity(Affinity):
         return affinity_matrix
 
 
-class NegPotentialAffinity(MAGICAffinity):
+class NegPotentialAffinity(Affinity):
     # FIXME: (GH) use \alpha-decay kernel
     def __init__(
         self,
-        K: int = 7,
         metric: str = "sqeuclidean",
-        zero_diag: bool = True,
         device: str = None,
         keops: bool = True,
         verbose: bool = False,
+        sigma: float = 2.0,
     ):
         super().__init__(
-            K=K,
             metric=metric,
-            zero_diag=zero_diag,
             device=device,
             keops=keops,
             verbose=verbose,
+            zero_diag=False,
         )
+        self.sigma = sigma
 
     @staticmethod
     def potential_dist(affinity: LazyTensorType, eps: float = 1e-5, keops:bool = False) -> LazyTensorType:
@@ -280,6 +280,17 @@ class NegPotentialAffinity(MAGICAffinity):
         return potential_dist
     
     def _compute_affinity(self, X: torch.Tensor):
-        affinity = super()._compute_affinity(X)
-        dist = self.potential_dist(affinity)
+        C = self._distance_matrix(X)
+        affinity = (C/self.sigma).exp()
+        deg = sum_red(affinity, 1)
+        inv_deg = deg.pow(-1)
+        diffusion = affinity * inv_deg       
+        dist = self.potential_dist(diffusion)
+        # symetrize
+        # FIXME (GH): try to avoid this.
+        # also need to zero the diagonal
+        dist = (dist + batch_transpose(dist)) / 2
+        # zero the diagonal
+        identity = identity_matrix(dist.shape[-1], self.keops, X.device, X.dtype)
+        dist = dist - identity * dist.diag()
         return -1.0 * dist

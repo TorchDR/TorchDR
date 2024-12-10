@@ -169,6 +169,7 @@ class NegEuclideanAffinity(UnnormalizedAffinity):
             device=device,
             keops=keops,
             verbose=verbose,
+            zero_diag=False,
         )
 
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
