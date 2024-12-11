@@ -81,7 +81,7 @@ TorchDR features a **wide range of affinities** which can then be used as a buil
 * Usual affinities such that scalar product, Gaussian and Student kernels.
 * Affinities based on k-NN normalizations such Self-tuning affinities [Z04]_ and MAGIC [V18]_.
 * Doubly stochastic affinities with entropic [S67]_ [C13]_ [F19]_ [L21]_ and quadratic [Z23]_ projections.
-* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [3]_.
+* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [V23]_.
 
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
