@@ -183,11 +183,11 @@ References
 
 .. [R87] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
 
-.. |Documentation| image:: https://img.shields.io/badge/Documentation-red.svg
+.. |Documentation| image:: https://img.shields.io/badge/Documentation-blue.svg
    :target: https://torchdr.github.io/
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white
    :target: https://pytorch.org/get-started/locally/
-.. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-red
+.. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue.svg
    :target: https://www.python.org/downloads/release/python-3100/
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
@@ -196,7 +196,7 @@ References
    :target: https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main
 .. |codecov| image:: https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/torchdr/torchdr
-.. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-red.svg
+.. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
    :target: https://opensource.org/licenses/BSD-3-Clause
-.. |Version| image:: https://img.shields.io/badge/version-0.1-red.svg
+.. |Version| image:: https://img.shields.io/badge/version-0.1-blue.svg
    :target: https://github.com/TorchDR/TorchDR/releases/tag/0.1
