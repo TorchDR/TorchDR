@@ -28,9 +28,9 @@ Benefits of TorchDR include:
    * - **Speed**
      - Supports **GPU acceleration**, leverages **sparsity** and **batching** strategies with **contrastive learning** techniques.
    * - **Memory efficiency**
-     - Relies on **sparsity** and/or ``pykeops`` [19]_ symbolic tensors to **avoid memory overflows**.
+     - Relies on **sparsity** and/or ``pykeops`` [C21]_ symbolic tensors to **avoid memory overflows**.
    * - **Compatibility**
-     - Implemented methods are fully **compatible** with the ``sklearn`` [21]_ API and ``torch`` [20]_ ecosystem.
+     - Implemented methods are fully **compatible** with the ``sklearn`` [P11]_ API and ``torch`` [P19]_ ecosystem.
 
 
 Getting Started
@@ -84,21 +84,21 @@ Affinities
 TorchDR features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gaussian and Student kernels.
-* Affinities based on k-NN normalizations such Self-tuning affinities [22]_ and MAGIC [23]_.
-* Doubly stochastic affinities with entropic [5]_ [6]_ [7]_ [16]_ and quadratic [10]_ projections.
-* Adaptive affinities with entropy control [1]_ [4]_ and its symmetric version [3]_.
+* Affinities based on k-NN normalizations such Self-tuning affinities [Z04]_ and MAGIC [V18]_.
+* Doubly stochastic affinities with entropic [S67]_ [C13]_ [F19]_ [L21]_ and quadratic [Z23]_ projections.
+* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [3]_.
 
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Spectral.** TorchDR provides **spectral embeddings** [11]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** TorchDR provides **spectral embeddings** [H04]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [1]_, *t-SNE* [2]_, *t-SNEkhorn* [3]_, *UMAP* [8]_, *LargeVis* [13]_ and *InfoTSNE* [15]_.
+**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
 
-TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [24]_.
+TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [R87]_.
 
 
 Installation
