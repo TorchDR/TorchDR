@@ -14,7 +14,7 @@ from torchdr.utils import sum_output, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    r"""Implementation of UMAP introduced in [8]_ and further studied in [12]_.
+    r"""Implementation of UMAP introduced in [M18]_ and further studied in [D21]_.
 
     It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
@@ -90,11 +90,11 @@ class UMAP(SampledNeighborEmbedding):
 
     References
     ----------
-    .. [8] Leland McInnes, John Healy, James Melville (2018).
+    .. [M18] Leland McInnes, John Healy, James Melville (2018).
         UMAP: Uniform manifold approximation and projection for dimension reduction.
         arXiv preprint arXiv:1802.03426.
 
-    .. [12] Sebastian Damrich, Fred Hamprecht (2021).
+    .. [D21] Sebastian Damrich, Fred Hamprecht (2021).
         On UMAP's True Loss Function.
         Advances in Neural Information Processing Systems 34 (NeurIPS).
     """  # noqa: E501

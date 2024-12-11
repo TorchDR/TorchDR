@@ -14,7 +14,7 @@ from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
-    r"""Implementation of t-Stochastic Neighbor Embedding (t-SNE) introduced in [2]_.
+    r"""Implementation of t-Stochastic Neighbor Embedding (t-SNE) introduced in [V08]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
@@ -81,7 +81,7 @@ class TSNE(SparseNeighborEmbedding):
     References
     ----------
 
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+    .. [V08]  Laurens van der Maaten, Geoffrey Hinton (2008).
             Visualizing Data using t-SNE.
             The Journal of Machine Learning Research 9.11 (JMLR).
 
