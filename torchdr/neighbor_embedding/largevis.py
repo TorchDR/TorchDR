@@ -84,7 +84,6 @@ class LargeVis(SampledNeighborEmbedding):
 
     References
     ----------
-
     .. [T16] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
             Visualizing Large-Scale and High-Dimensional Data.
             In Proceedings of the 25th international conference on world wide web.

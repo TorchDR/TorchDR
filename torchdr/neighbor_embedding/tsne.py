@@ -80,7 +80,6 @@ class TSNE(SparseNeighborEmbedding):
 
     References
     ----------
-
     .. [V08]  Laurens van der Maaten, Geoffrey Hinton (2008).
             Visualizing Data using t-SNE.
             The Journal of Machine Learning Research 9.11 (JMLR).

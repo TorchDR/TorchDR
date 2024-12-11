@@ -103,7 +103,6 @@ class TSNEkhorn(NeighborEmbedding):
 
     References
     ----------
-
     .. [V23] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
         Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty.
         Advances in neural information processing systems 36 (NeurIPS).

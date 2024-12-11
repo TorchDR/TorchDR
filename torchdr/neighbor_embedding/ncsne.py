@@ -11,7 +11,7 @@ from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(SampledNeighborEmbedding):
-    r"""Implementation of the InfoTSNE algorithm introduced in [D21]_.
+    r"""Implementation of the InfoTSNE algorithm introduced in [D23]_.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
@@ -79,8 +79,7 @@ class InfoTSNE(SampledNeighborEmbedding):
 
     References
     ----------
-
-    .. [D21] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023)
+    .. [D23] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023)
             From t-SNE to UMAP with contrastive learning.
             International Conference on Learning Representations (ICLR).
 
