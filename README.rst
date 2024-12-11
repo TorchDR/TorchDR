@@ -185,7 +185,7 @@ References
 
 .. |Documentation| image:: https://img.shields.io/badge/Documentation-red.svg
    :target: https://torchdr.github.io/
-.. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
+.. |Pytorch| image:: https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white
    :target: https://pytorch.org/get-started/locally/
 .. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-red
    :target: https://www.python.org/downloads/release/python-3100/
