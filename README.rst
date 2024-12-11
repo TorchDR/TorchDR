@@ -6,7 +6,7 @@ Torch Dimensionality Reduction
    :alt: torchdr logo
    :align: center
 
-|Documentation| |Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
+|Documentation| |Pytorch| |Python 3.10+| |Black| |Test Status| |CircleCI| |codecov| |License|
 
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
@@ -88,7 +88,7 @@ Dimensionality Reduction Algorithms
 
 **Spectral.** TorchDR provides **spectral embeddings** [H04]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_[D21]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
+**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_ [D21]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
