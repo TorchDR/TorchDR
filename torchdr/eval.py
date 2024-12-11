@@ -63,7 +63,7 @@ def silhouette_samples(
 
     References
     ----------
-    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
+    .. [R87] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
             interpretation and validation of cluster analysis. Journal of
             computational and applied mathematics, 20, 53-65.
 
@@ -220,7 +220,7 @@ def silhouette_score(
 
     References
     ----------
-    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
+    .. [R87] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
             interpretation and validation of cluster analysis. Journal of
             computational and applied mathematics, 20, 53-65.
     """
