@@ -57,7 +57,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     :math:`\mathbf{f}^\star` is computed by performing dual ascent.
 
     **Convex problem.** Consists in solving the following symmetric quadratic
-    optimal transport problem [10]_:
+    optimal transport problem [Z23]_:
 
     .. math::
         \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C},
@@ -108,7 +108,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
 
     References
     ----------
-    .. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger
+    .. [Z23] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger
         (2023). `Manifold Learning with Sparse Regularised Optimal Transport
         <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
 

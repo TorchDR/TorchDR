@@ -102,7 +102,7 @@ def _log_Pds(log_K, dual):
 
 
 def _bounds_entropic_affinity(C, perplexity):
-    r"""Compute the bounds derived in [4]_ for the entropic affinity root.
+    r"""Compute the bounds derived in [V13]_ for the entropic affinity root.
 
     Parameters
     ----------
@@ -121,7 +121,7 @@ def _bounds_entropic_affinity(C, perplexity):
 
     References
     ----------
-    .. [4]  Max Vladymyrov, Miguel A. Carreira-Perpinan (2013).
+    .. [V13]  Max Vladymyrov, Miguel A. Carreira-Perpinan (2013).
             Entropic Affinities: Properties and Efficient Numerical Computation.
             International Conference on Machine Learning (ICML).
     """
@@ -185,7 +185,7 @@ def _check_perplexity(perplexity, n, verbose=True):
 
 
 class EntropicAffinity(SparseLogAffinity):
-    r"""Solve the directed entropic affinity problem introduced in [1]_.
+    r"""Solve the directed entropic affinity problem introduced in [H02]_.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
@@ -203,7 +203,7 @@ class EntropicAffinity(SparseLogAffinity):
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
     **Convex problem.** Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}`
-    in [3]_, solving the convex optimization problem
+    in [V23]_, solving the convex optimization problem
 
     .. math::
         \mathbf{P}^{\mathrm{e}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
@@ -224,7 +224,7 @@ class EntropicAffinity(SparseLogAffinity):
 
     .. note:: A symmetric version is also available at
         :class:`~torchdr.SymmetricEntropicAffinity`. It is the affinity matrix
-        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [3]_. In TSNE [2]_,
+        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [V23]_. In TSNE [V08]_,
         the entropic affinity is simply averaged with its transpose.
 
     Parameters
@@ -252,15 +252,15 @@ class EntropicAffinity(SparseLogAffinity):
 
     References
     ----------
-    .. [1]  Geoffrey Hinton, Sam Roweis (2002).
+    .. [H02]  Geoffrey Hinton, Sam Roweis (2002).
             Stochastic Neighbor Embedding.
             Advances in neural information processing systems 15 (NeurIPS).
 
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
+    .. [V08]  Laurens van der Maaten, Geoffrey Hinton (2008).
             Visualizing Data using t-SNE.
             The Journal of Machine Learning Research 9.11 (JMLR).
 
-    .. [3]  Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023).
+    .. [V23]  Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023).
             SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
             Advances in Neural Information Processing Systems 36 (NeurIPS).
     """  # noqa: E501
@@ -303,7 +303,7 @@ class EntropicAffinity(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
-        r"""Solve the problem (EA) in [1]_ to compute the entropic affinity matrix.
+        r"""Solve the problem (EA) in [H02]_ to compute the entropic affinity matrix.
 
         Parameters
         ----------
@@ -376,7 +376,7 @@ class EntropicAffinity(SparseLogAffinity):
 
 
 class SymmetricEntropicAffinity(LogAffinity):
-    r"""Compute the symmetric entropic affinity (SEA) introduced in [3]_.
+    r"""Compute the symmetric entropic affinity (SEA) introduced in [V23]_.
 
     Compute the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
     affinity (SEA) problem described in [3]_.
@@ -447,7 +447,7 @@ class SymmetricEntropicAffinity(LogAffinity):
 
     References
     ----------
-    .. [3] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
+    .. [V23] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
         Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
     """  # noqa: E501
 
@@ -482,7 +482,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.eps_square = eps_square
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""Solve the problem (SEA) in [3]_.
+        r"""Solve the problem (SEA) in [V23]_.
 
         Parameters
         ----------
@@ -637,7 +637,7 @@ class SinkhornAffinity(LogAffinity):
     r"""Compute the symmetric doubly stochastic affinity matrix.
 
     The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}`
-    with controlled global entropy using the symmetric Sinkhorn algorithm [5]_.
+    with controlled global entropy using the symmetric Sinkhorn algorithm [S67]_.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
@@ -651,9 +651,9 @@ class SinkhornAffinity(LogAffinity):
     - :math:`\varepsilon`: entropic regularization parameter.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (eq. 25 in [7]_).
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (eq. 25 in [F19]_).
 
-    **Convex problem.** Consists in solving the following symmetric entropic optimal transport problem [6]_:
+    **Convex problem.** Consists in solving the following symmetric entropic optimal transport problem [C13]_:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
@@ -703,15 +703,15 @@ class SinkhornAffinity(LogAffinity):
 
     References
     ----------
-    .. [5]  Richard Sinkhorn, Paul Knopp (1967).
+    .. [S67]  Richard Sinkhorn, Paul Knopp (1967).
             Concerning nonnegative matrices and doubly stochastic matrices.
             Pacific Journal of Mathematics, 21(2), 343-348.
 
-    .. [6]  Marco Cuturi (2013).
+    .. [C13]  Marco Cuturi (2013).
             Sinkhorn Distances: Lightspeed Computation of Optimal Transport.
             Advances in Neural Information Processing Systems 26 (NeurIPS).
 
-    .. [7]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
+    .. [F19]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
             Alain Trouvé, Gabriel Peyré (2019).
             Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
             International Conference on Artificial Intelligence and Statistics
