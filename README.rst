@@ -6,12 +6,7 @@ Torch Dimensionality Reduction
    :alt: torchdr logo
    :align: center
 
-|Pytorch| |Python 3.10+| |Black| |Test Status| |codecov| |License|
-
-Github repository: `<https://github.com/torchdr/torchdr/>`_.
-
-Documentation: `<https://torchdr.github.io/>`_.
-
+|Documentation| |Version| |License| |Python 3.10+| |Pytorch| |Black| |Test Status| |CircleCI| |codecov| 
 
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
@@ -86,14 +81,14 @@ TorchDR features a **wide range of affinities** which can then be used as a buil
 * Usual affinities such that scalar product, Gaussian and Student kernels.
 * Affinities based on k-NN normalizations such Self-tuning affinities [Z04]_ and MAGIC [V18]_.
 * Doubly stochastic affinities with entropic [S67]_ [C13]_ [F19]_ [L21]_ and quadratic [Z23]_ projections.
-* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [3]_.
+* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [V23]_.
 
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Spectral.** TorchDR provides **spectral embeddings** [H04]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
+**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_ [D21]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
@@ -164,8 +159,6 @@ References
 
 .. [M18] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
 
-.. [L19] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
-
 .. [Z23] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
 
 .. [H04] Ham, J., Lee, D. D., Mika, S., & Schölkopf, B. (2004). `A Kernel View of the Dimensionality Reduction of Manifolds <https://icml.cc/Conferences/2004/proceedings/papers/296.pdf>`_. In Proceedings of the twenty-first international conference on Machine learning (ICML).
@@ -174,13 +167,9 @@ References
 
 .. [T16] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
 
-.. [A20] Artemenkov, A., & Panov, M. (2020). `NCVis: Noise Contrastive Approach for Scalable Visualization <https://dl.acm.org/doi/pdf/10.1145/3366423.3380061?casa_token=J-quI6odZDMAAAAA:dEKrwbHIaiPX1xZQe2NA2q3-PahWc4PUP6WDtQVRocIa501T_LGgPixl03lVJF3j5SjutiBzhj9cpg>`_. In Proceedings of The Web Conference.
-
 .. [D23] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with Contrastive Learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
 
 .. [L21] Landa, B., Coifman, R. R., & Kluger, Y. (2021). `Doubly Stochastic Normalization of the Gaussian Kernel is Robust to Heteroskedastic Noise <https://epubs.siam.org/doi/abs/10.1137/20M1342124?journalCode=sjmdaq>`_. SIAM journal on mathematics of data science, 3(1), 388-413.
-
-.. [V22] Hugues Van Assel, Thibault Espinasse, Julien Chiquet, & Franck Picard (2022). `A Probabilistic Graph Coupling View of Dimension Reduction <https://proceedings.neurips.cc/paper_files/paper/2022/file/45994782a61bb51cad5c2bae36834265-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 35 (NeurIPS).
 
 .. [C21] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research, 22 (JMLR).
 
@@ -194,15 +183,20 @@ References
 
 .. [R87] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
 
-
-.. |Pytorch| image:: https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white
-    :target: https://pytorch.org/get-started/locally/
-.. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue
+.. |Documentation| image:: https://img.shields.io/badge/Documentation-blue.svg
+   :target: https://torchdr.github.io/
+.. |Pytorch| image:: https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white
+   :target: https://pytorch.org/get-started/locally/
+.. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue.svg
    :target: https://www.python.org/downloads/release/python-3100/
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/psf/black
+   :target: https://github.com/psf/black
 .. |Test Status| image:: https://github.com/torchdr/torchdr/actions/workflows/testing.yml/badge.svg
+.. |CircleCI| image:: https://dl.circleci.com/status-badge/img/gh/TorchDR/TorchDR/tree/main.svg?style=svg
+   :target: https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main
 .. |codecov| image:: https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/torchdr/torchdr
 .. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
-    :target: https://opensource.org/licenses/BSD-3-Clause
+   :target: https://opensource.org/licenses/BSD-3-Clause
+.. |Version| image:: https://img.shields.io/badge/version-0.1-blue.svg
+   :target: https://github.com/TorchDR/TorchDR/releases/tag/0.1
