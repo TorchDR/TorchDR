@@ -6,7 +6,7 @@ Torch Dimensionality Reduction
    :alt: torchdr logo
    :align: center
 
-|Documentation| |License| |Python 3.10+| |Pytorch| |Black| |Test Status| |CircleCI| |codecov| 
+|Documentation| |Version| |License| |Python 3.10+| |Pytorch| |Black| |Test Status| |CircleCI| |codecov| 
 
 TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
@@ -198,3 +198,5 @@ References
    :target: https://codecov.io/gh/torchdr/torchdr
 .. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-red.svg
    :target: https://opensource.org/licenses/BSD-3-Clause
+.. |Version| image:: https://img.shields.io/badge/version-0.1-red.svg
+   :target: https://github.com/torchdr/torchdr/releases/tag/v0.1
