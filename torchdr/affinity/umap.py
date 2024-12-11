@@ -140,7 +140,7 @@ class UMAPAffinityIn(SparseLogAffinity):
                 warnings.warn(
                     "[TorchDR] WARNING Affinity: n_neighbors is large "
                     f"({self.n_neighbors}) thus we turn off sparsity for "
-                    "the EntropicAffinity. "
+                    "the UMAPAffinityIn. "
                 )
             return False
 
