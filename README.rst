@@ -199,4 +199,4 @@ References
 .. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-red.svg
    :target: https://opensource.org/licenses/BSD-3-Clause
 .. |Version| image:: https://img.shields.io/badge/version-0.1-red.svg
-   :target: https://github.com/torchdr/torchdr/releases/tag/v0.1
+   :target: https://github.com/TorchDR/TorchDR/releases/tag/0.1
