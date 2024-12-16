@@ -64,6 +64,29 @@ def _log_MAGIC(C, sigma):
     return -C / sigma
 
 
+@wrap_vectors
+def _log_AlphaDecay(C, sigma, alpha):
+    r"""Return the alpha-decay affinity matrix with sample-wise bandwidth.
+    
+    The bandwidth is determined by the distance from a point
+    to its K-th neirest neighbor in log domain.
+
+    Parameters
+    ----------
+    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
+        Pairwise distance matrix.
+    sigma : torch.Tensor of shape (n,)
+        Sample-wise bandwidth parameter.
+    alpha : float, optional
+        Exponent for the alpha-decay kernel.
+    
+    Returns
+    -------
+    log_P : torch.Tensor or pykeops.torch.LazyTensor
+    """
+    return - (C / sigma).pow(alpha)
+
+
 class SelfTuningAffinity(LogAffinity):
     r"""Compute the self-tuning affinity introduced in [22]_.
 
@@ -238,6 +261,66 @@ class MAGICAffinity(Affinity):
 
         return affinity_matrix
 
+class AlphaDecayAffinity(Affinity):
+    r"""Compute the alpha-decay affinity.
+
+    The affinity has a sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+
+    .. math::
+        P_{ij} \leftarrow \exp \left( - \left( \frac{C_{ij}}{\sigma_i} \right)^\alpha \right)
+
+    In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
+    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
+    :math:`\mathbf{x}_i`.
+
+    Parameters
+    ----------
+    K : int, optional
+        K-th neirest neighbor .
+    alpha : float, optional
+        Exponent for the alpha-decay kernel.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    keops : bool, optional
+        Whether to use KeOps for computations.
+    verbose : bool, optional
+        Verbosity. Default is False.
+    """
+    def __init__(
+        self,
+        K: int = 7,
+        alpha: float = 2.0,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = None,
+        keops: bool = True,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            keops=keops,
+            verbose=verbose,
+        )
+        self.K = K
+        self.alpha = alpha
+    
+    def _compute_affinity(self, X: torch.Tensor):
+        C = self._distance_matrix(X)
+        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        self.sigma_ = minK_values[:, -1]
+        affinity_matrix = _log_AlphaDecay(C, self.sigma_, self.alpha).exp()
+        affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
+
+        self.normalization_ = sum_red(affinity_matrix, 1)
+        affinity_matrix = affinity_matrix / self.normalization_
+
+        return affinity_matrix
 
 class NegPotentialAffinity(Affinity):
     # FIXME: (GH) use \alpha-decay kernel
