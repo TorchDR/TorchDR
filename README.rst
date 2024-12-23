@@ -8,11 +8,11 @@ Torch Dimensionality Reduction
 
 |Documentation| |Version| |License| |Python 3.10+| |Pytorch| |Black| |Test Status| |CircleCI| |codecov| 
 
-TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
+``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
 
-DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
+DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. ``TorchDR`` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
-Benefits of TorchDR include:
+Benefits of ``TorchDR`` include:
 
 .. list-table:: 
    :widths: auto
@@ -31,7 +31,7 @@ Benefits of TorchDR include:
 Getting Started
 ---------------
 
-TorchDR offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the ``fit_transform`` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
+``TorchDR`` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the ``fit_transform`` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
 .. code-block:: python
 
@@ -43,7 +43,7 @@ TorchDR offers a **user-friendly API similar to scikit-learn** where dimensional
     x_ = PCA(n_components=50).fit_transform(x)
     z = TSNE(perplexity=30).fit_transform(x_)
 
-TorchDR enables **GPU acceleration without memory limitations** thanks to the KeOps library. This can be easily enabled as follows:
+``TorchDR`` enables **GPU acceleration without memory limitations** thanks to the KeOps library. This can be easily enabled as follows:
 
 .. code-block:: python
 
@@ -60,7 +60,7 @@ Here is a comparison of various neighbor embedding methods on the MNIST digits d
 The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`_.
 
 **Single cell example.**
-Here is an example of single cell embeddings using TorchDR, where the embeddings are colored by cell type and the number of cells is indicated in each title.
+Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.
 
 .. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
    :width: 700px
@@ -76,7 +76,7 @@ Implemented Features (to date)
 Affinities
 ~~~~~~~~~~
 
-TorchDR features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
+``TorchDR`` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gaussian and Student kernels.
 * Affinities based on k-NN normalizations such as *Self-Tuning Affinities* and *MAGIC*.
@@ -86,14 +86,14 @@ TorchDR features a **wide range of affinities** which can then be used as a buil
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Spectral.** TorchDR provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE*, *t-SNE*, *t-SNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
+**Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE*, *t-SNE*, *t-SNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
 
-TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score*.
+``TorchDR`` provides efficient GPU-compatible evaluation metrics : *Silhouette score*.
 
 
 Installation
@@ -122,7 +122,7 @@ If you have any questions or suggestions, feel free to open an issue on the
 Citation
 --------
 
-If you use TorchDR in your research, please cite the following reference:
+If you use ``TorchDR`` in your research, please cite the following reference:
 
 .. code-block:: apalike
 
