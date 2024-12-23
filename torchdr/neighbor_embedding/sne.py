@@ -14,7 +14,7 @@ from torchdr.utils import logsumexp_red
 
 
 class SNE(SparseNeighborEmbedding):
-    r"""Implementation of Stochastic Neighbor Embedding (SNE) introduced in [1]_.
+    r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
@@ -77,13 +77,6 @@ class SNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output computation, by default 'sqeuclidean'.
-
-    References
-    ----------
-    .. [1]  Geoffrey Hinton, Sam Roweis (2002).
-            Stochastic Neighbor Embedding.
-            Advances in neural information processing systems 15 (NeurIPS).
-
     """  # noqa: E501
 
     def __init__(

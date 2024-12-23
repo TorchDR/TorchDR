@@ -14,7 +14,7 @@ from torchdr.utils import sum_output, cross_entropy_loss
 
 
 class LargeVis(SampledNeighborEmbedding):
-    r"""Implementation of the LargeVis algorithm introduced in [13]_.
+    r"""LargeVis algorithm introduced in :cite:`tang2016visualizing`.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
@@ -81,14 +81,6 @@ class LargeVis(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
-
-    References
-    ----------
-
-    .. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016).
-            Visualizing Large-Scale and High-Dimensional Data.
-            In Proceedings of the 25th international conference on world wide web.
-
     """  # noqa: E501
 
     def __init__(

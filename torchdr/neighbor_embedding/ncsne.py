@@ -11,7 +11,7 @@ from torchdr.utils import logsumexp_red
 
 
 class InfoTSNE(SampledNeighborEmbedding):
-    r"""Implementation of the InfoTSNE algorithm introduced in [15]_.
+    r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
@@ -76,14 +76,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 5.
-
-    References
-    ----------
-
-    .. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023)
-            From t-SNE to UMAP with contrastive learning.
-            International Conference on Learning Representations (ICLR).
-
     """  # noqa: E501
 
     def __init__(

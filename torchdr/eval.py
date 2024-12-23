@@ -35,6 +35,8 @@ def silhouette_samples(
     overlapping clusters. Negative values generally indicate that a sample has
     been assigned to the wrong cluster, as a different cluster is more similar.
 
+    See :cite:`rousseeuw1987silhouettes` for more information.
+
     Parameters
     ----------
     X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
@@ -60,13 +62,6 @@ def silhouette_samples(
     -------
     coefficients : torch.Tensor or np.ndarray of shape (n_samples_x,)
         Silhouette coefficients for each sample.
-
-    References
-    ----------
-    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
-            interpretation and validation of cluster analysis. Journal of
-            computational and applied mathematics, 20, 53-65.
-
     """
     if metric not in admissible_LIST_METRICS:
         raise ValueError(f"metric = {metric} must be in {admissible_LIST_METRICS}")
@@ -186,6 +181,8 @@ def silhouette_score(
     overlapping clusters. Negative values generally indicate that a sample has
     been assigned to the wrong cluster, as a different cluster is more similar.
 
+    See :cite:`rousseeuw1987silhouettes` for more information.
+
     Parameters
     ----------
     X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
@@ -217,12 +214,6 @@ def silhouette_score(
     -------
     silhouette_score : float
         mean silhouette coefficients for all samples.
-
-    References
-    ----------
-    .. [24] Rousseeuw, P. J. (1987). Silhouettes: a graphical aid to the
-            interpretation and validation of cluster analysis. Journal of
-            computational and applied mathematics, 20, 53-65.
     """
     if sample_size is None:
         coefficients = silhouette_samples(
