@@ -134,7 +134,7 @@ def _pairwise_distances_torch(
         Y_norm = (Y**2).sum(-1)
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
         C = torch.clip(
-            C, min=0.0
+            C, min=1e-8 # 0.0 triggers backprop error, set it to a small value for numerical stability.
         ).sqrt()  # negative values can appear because of float precision
     elif metric == "manhattan":
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(-1)
