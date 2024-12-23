@@ -3,7 +3,7 @@ from torchdr.affinity.knn_normalized import NegPotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 class PHATE(AffinityMatcher):
-    def __init__(self, n_components: int = 2, eps: float = 1e-5, keops: bool = False, device:str="cpu", **kwargs):
+    def __init__(self, n_neighbors:int = 10, n_components: int = 2, t:int = 5, eps: float = 1e-5, keops: bool = False, device:str="cpu", **kwargs):
         r"""Implementation of PHATE introduced in [?]_.
 
         PHATE is a diffusion map-based method that uses a potential distance
@@ -24,7 +24,7 @@ class PHATE(AffinityMatcher):
         keops : bool, optional
             Whether to use KeOps for computations
         """
-        affinity_in = NegPotentialAffinity(keops=keops, device=device)
+        affinity_in = NegPotentialAffinity(keops=keops, device=device, t=t, eps=eps, K=n_neighbors)    
         affinity_out = NegEuclideanAffinity(keops=keops, device=device)
         loss_fn = "l2_loss"
         init_scaling = 1.0
