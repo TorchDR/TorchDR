@@ -23,9 +23,9 @@ Benefits of TorchDR include:
    * - **Speed**
      - Supports **GPU acceleration**, leverages **sparsity** and **batching** strategies with **contrastive learning** techniques.
    * - **Memory efficiency**
-     - Relies on **sparsity** and/or ``pykeops`` [C21]_ symbolic tensors to **avoid memory overflows**.
+     - Relies on **sparsity** and/or ``pykeops`` symbolic tensors to **avoid memory overflows**.
    * - **Compatibility**
-     - Implemented methods are fully **compatible** with the ``sklearn`` [P11]_ API and ``torch`` [P19]_ ecosystem.
+     - Implemented methods are fully **compatible** with the ``sklearn`` API and ``torch`` ecosystem.
 
 
 Getting Started
@@ -79,21 +79,21 @@ Affinities
 TorchDR features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 * Usual affinities such that scalar product, Gaussian and Student kernels.
-* Affinities based on k-NN normalizations such Self-tuning affinities [Z04]_ and MAGIC [V18]_.
-* Doubly stochastic affinities with entropic [S67]_ [C13]_ [F19]_ [L21]_ and quadratic [Z23]_ projections.
-* Adaptive affinities with entropy control [H02]_ [V13]_ and its symmetric version [V23]_.
+* Affinities based on k-NN normalizations such as *Self-Tuning Affinities* and *MAGIC*.
+* Doubly stochastic affinities with entropic and quadratic projections.
+* Adaptive affinities with entropy control (*Entropic Affinities*) and their symmetric version.
 
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Spectral.** TorchDR provides **spectral embeddings** [H04]_ calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** TorchDR provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
 
-**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE* [H02]_, *t-SNE* [V08]_, *t-SNEkhorn* [V23]_, *UMAP* [M18]_ [D21]_, *LargeVis* [T16]_ and *InfoTSNE* [D23]_.
+**Neighbor Embedding.** TorchDR includes various **neighbor embedding methods** such as *SNE*, *t-SNE*, *t-SNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
 
-TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score* [R87]_.
+TorchDR provides efficient GPU-compatible evaluation metrics : *Silhouette score*.
 
 
 Installation
@@ -139,49 +139,6 @@ or in Bibtex format :
       year = {2024}
     }
 
-
-References
-----------
-
-.. [H02] Geoffrey Hinton, Sam Roweis (2002). `Stochastic Neighbor Embedding <https://proceedings.neurips.cc/paper_files/paper/2002/file/6150ccc6069bea6b5716254057a194ef-Paper.pdf>`_. Advances in Neural Information Processing Systems 15 (NeurIPS).
-
-.. [V08] Laurens van der Maaten, Geoffrey Hinton (2008). `Visualizing Data using t-SNE <https://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf?fbcl>`_. The Journal of Machine Learning Research 9.11 (JMLR).
-
-.. [V23] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023). `SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 36 (NeurIPS).
-
-.. [V13] Max Vladymyrov, Miguel A. Carreira-Perpinan (2013). `Entropic Affinities: Properties and Efficient Numerical Computation <https://proceedings.mlr.press/v28/vladymyrov13.pdf>`_. International Conference on Machine Learning (ICML).
-
-.. [S67] Richard Sinkhorn, Paul Knopp (1967). `Concerning Nonnegative Matrices and Doubly Stochastic Matrices <https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf>`_. Pacific Journal of Mathematics, 21(2), 343-348.
-
-.. [C13] Marco Cuturi (2013). `Sinkhorn Distances: Lightspeed Computation of Optimal Transport <https://proceedings.neurips.cc/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf>`_. Advances in Neural Information Processing Systems 26 (NeurIPS).
-
-.. [F19] Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari, Alain Trouvé, Gabriel Peyré (2019). `Interpolating between Optimal Transport and MMD using Sinkhorn Divergences <https://proceedings.mlr.press/v89/feydy19a/feydy19a.pdf>`_. International Conference on Artificial Intelligence and Statistics (AISTATS).
-
-.. [M18] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
-
-.. [Z23] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
-
-.. [H04] Ham, J., Lee, D. D., Mika, S., & Schölkopf, B. (2004). `A Kernel View of the Dimensionality Reduction of Manifolds <https://icml.cc/Conferences/2004/proceedings/papers/296.pdf>`_. In Proceedings of the twenty-first international conference on Machine learning (ICML).
-
-.. [D21] Sebastian Damrich, Fred Hamprecht (2021). `On UMAP's True Loss Function <https://proceedings.neurips.cc/paper/2021/file/2de5d16682c3c35007e4e92982f1a2ba-Paper.pdf>`_. Advances in Neural Information Processing Systems 34 (NeurIPS).
-
-.. [T16] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
-
-.. [D23] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with Contrastive Learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
-
-.. [L21] Landa, B., Coifman, R. R., & Kluger, Y. (2021). `Doubly Stochastic Normalization of the Gaussian Kernel is Robust to Heteroskedastic Noise <https://epubs.siam.org/doi/abs/10.1137/20M1342124?journalCode=sjmdaq>`_. SIAM journal on mathematics of data science, 3(1), 388-413.
-
-.. [C21] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research, 22 (JMLR).
-
-.. [P19] Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., ... & Chintala, S. (2019). `Pytorch: An imperative style, high-performance deep learning library <https://proceedings.neurips.cc/paper_files/paper/2019/file/bdbca288fee7f92f2bfa9f7012727740-Paper.pdf>`_. Advances in neural information processing systems 32 (NeurIPS).
-
-.. [P11] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). `Scikit-learn: Machine learning in Python <https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf?ref=https:/>`_. Journal of machine Learning research, 12 (JMLR).
-
-.. [Z04] Max Zelnik-Manor, L., & Perona, P. (2004). `Self-Tuning Spectral Clustering <https://proceedings.neurips.cc/paper_files/paper/2004/file/40173ea48d9567f1f393b20c855bb40b-Paper.pdf>`_. Advances in Neural Information Processing Systems 17 (NeurIPS).
-
-.. [V18] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A. J., ... & Pe’er, D. (2018). `Recovering Gene Interactions from Single-Cell Data Using Data Diffusion <https://www.cell.com/action/showPdf?pii=S0092-8674%2818%2930724-4>`_. Cell, 174(3).
-
-.. [R87] Rousseeuw, P. J. (1987). `Silhouettes: a graphical aid to the interpretation and validation of cluster analysis <https://www.sciencedirect.com/science/article/pii/0377042787901257>`_. Journal of computational and applied mathematics, 20, 53-65.
 
 .. |Documentation| image:: https://img.shields.io/badge/Documentation-blue.svg
    :target: https://torchdr.github.io/
