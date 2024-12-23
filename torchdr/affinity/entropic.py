@@ -283,7 +283,7 @@ class EntropicAffinity(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
-        r"""Solve the problem (EA) in :cite:`hinton2002stochastic` to compute the entropic affinity matrix.
+        r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
 
         Parameters
         ----------
