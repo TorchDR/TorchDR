@@ -36,4 +36,4 @@ def test_phate(device, keops):
 
 
 if __name__ == "__main__":
-    test_phate("cpu", False, 1)
+    pytest.main([__file__])

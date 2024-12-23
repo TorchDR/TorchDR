@@ -312,7 +312,7 @@ class AlphaDecayAffinity(Affinity):
     
     def _compute_affinity(self, X: torch.Tensor):
         C = self._distance_matrix(X)
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         affinity_matrix = _log_AlphaDecay(C, self.sigma_, self.alpha).exp()
         affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
@@ -331,6 +331,10 @@ class NegPotentialAffinity(Affinity):
         keops: bool = True,
         verbose: bool = False,
         sigma: float = 2.0,
+        anisotropy: float = 0.0,
+        K: int = 7,
+        alpha: float = 2.0,
+        t: int = 5,
     ):
         super().__init__(
             metric=metric,
@@ -339,7 +343,10 @@ class NegPotentialAffinity(Affinity):
             verbose=verbose,
             zero_diag=False,
         )
+        self.base_affinity = AlphaDecayAffinity(K=K, alpha=alpha, metric=metric, device=device, keops=keops, verbose=verbose)
         self.sigma = sigma
+        self.anisotropy = anisotropy
+        self.t = t
 
     @staticmethod
     def potential_dist(affinity: LazyTensorType, eps: float = 1e-5, keops:bool = False) -> LazyTensorType:
@@ -363,17 +370,42 @@ class NegPotentialAffinity(Affinity):
         return potential_dist
     
     def _compute_affinity(self, X: torch.Tensor):
-        C = self._distance_matrix(X)
-        affinity = (C/self.sigma).exp()
-        deg = sum_red(affinity, 1)
-        inv_deg = deg.pow(-1)
-        diffusion = affinity * inv_deg       
+        affinity = self.base_affinity(X)
+        affinity = apply_anisotropy(affinity, self.anisotropy)
+        diffusion = diffusion_from_affinity(affinity)    
+        diffusion = matrix_power(diffusion, self.t, self.keops)
         dist = self.potential_dist(diffusion)
         # symetrize
-        # FIXME (GH): try to avoid this.
-        # also need to zero the diagonal
         dist = (dist + batch_transpose(dist)) / 2
         # zero the diagonal
         identity = identity_matrix(dist.shape[-1], self.keops, X.device, X.dtype)
         dist = dist - identity * dist.diag()
         return -1.0 * dist
+    
+def diffusion_from_affinity(affinity: LazyTensorType):
+    deg = sum_red(affinity, 1)
+    inv_deg = deg.pow(-1)
+    diffusion = affinity * inv_deg
+    return diffusion
+
+def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
+    assert anisotropy >= 0.0 and anisotropy <= 1.0 # (GH) confirm <= 1.0.
+    if anisotropy == 0.0:
+        return affinity
+    deg = sum_red(affinity, 1)
+    # double normalization kij / (di dj) ** anisotropy
+    outer = deg[:, :, None] * deg[:, None, :]
+    # normalize
+    inv_outer = outer.pow(-anisotropy)
+    affinity = affinity * inv_outer
+    return affinity
+
+def matrix_power(matrix: LazyTensorType, power: float, keops:bool):
+    if keops:
+        # (GH) find better way
+        # to compute matrix power in KeOps.
+        for _ in range(power):
+            matrix = matrix @ matrix
+    else:
+        matrix = torch.linalg.matrix_power(matrix, power)
+    return matrix

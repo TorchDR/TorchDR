@@ -1,4 +1,3 @@
-from torchdr.affinity.knn_normalized import MAGICAffinity
 from torchdr.affinity.unnormalized import NegEuclideanAffinity
 from torchdr.affinity.knn_normalized import NegPotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
