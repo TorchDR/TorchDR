@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from sklearn.datasets import fetch_openml
 
 from torchdr import PCA, TSNE, UMAP, LargeVis, InfoTSNE
+from torchdr.diffusion_embedding.phate import PHATE
 
 # --- Load the MNIST dataset ---
 mnist = fetch_openml("mnist_784", cache=True, as_frame=False)
@@ -30,9 +31,13 @@ z_largevis = largevis.fit_transform(x)
 umap = UMAP(keops=True, device="cuda", verbose=True, max_iter=10000)
 z_umap = umap.fit_transform(x)
 
+# --- Compute PHATE embedding ---
+phate = PHATE(keops=False, device="cuda", verbose=True, max_iter=10000)
+z_phate = phate.fit_transform(x)
+
 
 # --- Plot the embeddings ---
-fig, axes = plt.subplots(1, 4, figsize=(24, 6))
+fig, axes = plt.subplots(1, 5, figsize=(24, 6))
 fontsize = 25
 
 scatter = axes[0].scatter(z_tsne[:, 0], z_tsne[:, 1], c=y, cmap="tab10", s=1, alpha=0.5)
@@ -54,6 +59,11 @@ axes[3].scatter(z_umap[:, 0], z_umap[:, 1], c=y, cmap="tab10", s=1, alpha=0.5)
 axes[3].set_title("UMAP", fontsize=fontsize)
 axes[3].set_xticks([-5, 5])
 axes[3].set_yticks([-5, 5])
+
+axes[4].scatter(z_phate[:, 0], z_phate[:, 1], c=y, cmap="tab10", s=1, alpha=0.5)
+axes[4].set_title("PHATE", fontsize=fontsize)
+axes[4].set_xticks([-5, 5])
+axes[4].set_yticks([-5, 5])
 
 handles, labels = scatter.legend_elements(prop="colors", size=15)
 legend_labels = [f"{i}" for i in range(10)]
