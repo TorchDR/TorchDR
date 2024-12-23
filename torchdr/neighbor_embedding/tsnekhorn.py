@@ -15,7 +15,7 @@ from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
 class TSNEkhorn(NeighborEmbedding):
-    r"""Implementation of the TSNEkhorn algorithm introduced in [V23]_.
+    r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
     It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output
@@ -100,13 +100,6 @@ class TSNEkhorn(NeighborEmbedding):
     symmetric_affinity : bool, optional
         Whether to use symmetric entropic affinity. If False, uses
         entropic affinity. Default is True.
-
-    References
-    ----------
-    .. [V23] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
-        Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty.
-        Advances in neural information processing systems 36 (NeurIPS).
-
     """  # noqa: E501
 
     def __init__(

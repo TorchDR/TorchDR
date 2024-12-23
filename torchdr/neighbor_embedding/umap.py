@@ -14,7 +14,7 @@ from torchdr.utils import sum_output, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    r"""Implementation of UMAP introduced in [M18]_ and further studied in [D21]_.
+    r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
     It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output

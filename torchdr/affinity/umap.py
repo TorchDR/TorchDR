@@ -68,7 +68,7 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
 
 
 class UMAPAffinityIn(SparseLogAffinity):
-    r"""Compute the input affinity used in UMAP [M18]_.
+    r"""Compute the input affinity used in UMAP :cite:`mcinnes2018umap`.
 
     The algorithm computes via root search the variable
     :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
@@ -98,13 +98,6 @@ class UMAPAffinityIn(SparseLogAffinity):
         Whether to use KeOps for computations.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [M18] Leland McInnes, John Healy, James Melville (2018).
-        UMAP: Uniform manifold approximation and projection for dimension reduction.
-        arXiv preprint arXiv:1802.03426.
-
     """  # noqa: E501
 
     def __init__(
@@ -199,7 +192,7 @@ class UMAPAffinityIn(SparseLogAffinity):
 
 
 class UMAPAffinityOut(UnnormalizedAffinity):
-    r"""Compute the affinity used in embedding space in UMAP [M18]_.
+    r"""Compute the affinity used in embedding space in UMAP :cite:`mcinnes2018umap`.
 
     Its :math:`(i,j)` coefficient is as follows:
 
@@ -231,12 +224,6 @@ class UMAPAffinityOut(UnnormalizedAffinity):
         Whether to use KeOps for computations.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [M18] Leland McInnes, John Healy, James Melville (2018).
-        UMAP: Uniform manifold approximation and projection for dimension reduction.
-        arXiv preprint arXiv:1802.03426.
     """
 
     def __init__(
