@@ -1,4 +1,5 @@
 
+- Clean citation style via sphinxcontrib-bibtex `PR #143 <https://github.com/TorchDR/TorchDR/pull/143>`_.
 - Functionality to switch to keops backend if it is installed and an out-of-memory error is raised `PR #130 <https://github.com/TorchDR/TorchDR/pull/130>`_.
 - Code of conduct `PR #127 <https://github.com/TorchDR/TorchDR/pull/127>`_.
 - Pull request template `PR #125 <https://github.com/TorchDR/TorchDR/pull/125>`_.

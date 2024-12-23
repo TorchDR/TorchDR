@@ -13,7 +13,7 @@ license = {text = "BSD (3-Clause)"}
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
     "numpy",
-    "scikit-learn",
+    "scikit-learn<1.5",
     "torch",
     "tqdm",
 ]
@@ -79,6 +79,7 @@ doc = [
     "sphinx",
     "sphinx_gallery",
     "sphinx_rtd_theme",
+    "sphinxcontrib-bibtex",
     "matplotlib",
     "numpydoc",
     "memory_profiler",
