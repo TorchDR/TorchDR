@@ -14,7 +14,7 @@ from torchdr.utils import sum_output, cross_entropy_loss
 
 
 class UMAP(SampledNeighborEmbedding):
-    r"""Implementation of UMAP introduced in [M18]_ and further studied in [D21]_.
+    r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
     It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
@@ -86,7 +86,7 @@ class UMAP(SampledNeighborEmbedding):
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
-        Number of negative samples for the noise-contrastive loss, by default 5.
+        Number of negative samples for the noise-contrastive loss, by default 10.
 
     References
     ----------
@@ -128,7 +128,7 @@ class UMAP(SampledNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 5,
+        n_negatives: int = 10,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist

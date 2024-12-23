@@ -102,7 +102,7 @@ def _log_Pds(log_K, dual):
 
 
 def _bounds_entropic_affinity(C, perplexity):
-    r"""Compute the bounds derived in [V13]_ for the entropic affinity root.
+    r"""Compute the entropic affinity bounds derived in :cite:`vladymyrov2013entropic`.
 
     Parameters
     ----------
@@ -118,12 +118,6 @@ def _bounds_entropic_affinity(C, perplexity):
         Lower bound of the root.
     end : tensor of shape (n_samples)
         Upper bound of the root.
-
-    References
-    ----------
-    .. [V13]  Max Vladymyrov, Miguel A. Carreira-Perpinan (2013).
-            Entropic Affinities: Properties and Efficient Numerical Computation.
-            International Conference on Machine Learning (ICML).
     """
     # we use the same notations as in [4] for clarity purposes
     N = C.shape[0]
@@ -185,7 +179,7 @@ def _check_perplexity(perplexity, n, verbose=True):
 
 
 class EntropicAffinity(SparseLogAffinity):
-    r"""Solve the directed entropic affinity problem introduced in [H02]_.
+    r"""Solve the directed entropic affinity problem introduced in :cite:`hinton2002stochastic`.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
@@ -203,7 +197,7 @@ class EntropicAffinity(SparseLogAffinity):
     since rows of :math:`\mathbf{P}^{\mathrm{e}}` are independent subproblems.
 
     **Convex problem.** Corresponds to the matrix :math:`\mathbf{P}^{\mathrm{e}}`
-    in [V23]_, solving the convex optimization problem
+    in :cite:`van2024snekhorn`, solving the convex optimization problem
 
     .. math::
         \mathbf{P}^{\mathrm{e}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathbb{R}_+^{n \times n}} \: &\langle \mathbf{C}, \mathbf{P} \rangle \\
@@ -224,7 +218,7 @@ class EntropicAffinity(SparseLogAffinity):
 
     .. note:: A symmetric version is also available at
         :class:`~torchdr.SymmetricEntropicAffinity`. It is the affinity matrix
-        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` [V23]_. In TSNE [V08]_,
+        used in :class:`~SNEkhorn`/ :class:`~TSNEkhorn` :cite:`van2024snekhorn`. In TSNE :cite:`van2008visualizing`,
         the entropic affinity is simply averaged with its transpose.
 
     Parameters
@@ -249,20 +243,6 @@ class EntropicAffinity(SparseLogAffinity):
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [H02]  Geoffrey Hinton, Sam Roweis (2002).
-            Stochastic Neighbor Embedding.
-            Advances in neural information processing systems 15 (NeurIPS).
-
-    .. [V08]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
-
-    .. [V23]  Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023).
-            SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities.
-            Advances in Neural Information Processing Systems 36 (NeurIPS).
     """  # noqa: E501
 
     def __init__(
@@ -303,7 +283,7 @@ class EntropicAffinity(SparseLogAffinity):
             return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
-        r"""Solve the problem (EA) in [H02]_ to compute the entropic affinity matrix.
+        r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
 
         Parameters
         ----------
@@ -376,10 +356,10 @@ class EntropicAffinity(SparseLogAffinity):
 
 
 class SymmetricEntropicAffinity(LogAffinity):
-    r"""Compute the symmetric entropic affinity (SEA) introduced in [V23]_.
+    r"""Compute the symmetric entropic affinity (SEA) introduced in :cite:`van2024snekhorn`.
 
     Compute the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
-    affinity (SEA) problem described in [3]_.
+    affinity (SEA) problem described in :cite:`van2024snekhorn`.
 
     The algorithm computes the optimal dual variables
     :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and
@@ -444,11 +424,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to use KeOps for computation.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [V23] SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities,
-        Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty, NeurIPS 2023.
     """  # noqa: E501
 
     def __init__(
@@ -482,7 +457,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.eps_square = eps_square
 
     def _compute_log_affinity(self, X: torch.Tensor):
-        r"""Solve the problem (SEA) in [V23]_.
+        r"""Solve the problem (SEA) in :cite:`van2024snekhorn`.
 
         Parameters
         ----------
@@ -637,7 +612,7 @@ class SinkhornAffinity(LogAffinity):
     r"""Compute the symmetric doubly stochastic affinity matrix.
 
     The algorithm computes the doubly stochastic matrix :math:`\mathbf{P}^{\mathrm{ds}}`
-    with controlled global entropy using the symmetric Sinkhorn algorithm [S67]_.
+    with controlled global entropy using the symmetric Sinkhorn algorithm :cite:`sinkhorn1967concerning`.
 
     The algorithm computes the optimal dual variable
     :math:`\mathbf{f}^\star \in \mathbb{R}^n` such that
@@ -651,9 +626,9 @@ class SinkhornAffinity(LogAffinity):
     - :math:`\varepsilon`: entropic regularization parameter.
     - :math:`\mathbf{1} := (1,...,1)^\top`: all-ones vector.
 
-    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (eq. 25 in [F19]_).
+    :math:`\mathbf{f}^\star` is computed by performing dual ascent via the Sinkhorn fixed-point iteration (eq. 25 in :cite:`feydy2019interpolating`).
 
-    **Convex problem.** Consists in solving the following symmetric entropic optimal transport problem [C13]_:
+    **Convex problem.** Consists in solving the following symmetric entropic optimal transport problem :cite:`cuturi2013sinkhorn`:
 
     .. math::
         \mathbf{P}^{\mathrm{ds}} \in \mathop{\arg\min}_{\mathbf{P} \in \mathcal{DS}} \: \langle \mathbf{C}, \mathbf{P} \rangle + \varepsilon \mathrm{H}(\mathbf{P})
@@ -700,22 +675,6 @@ class SinkhornAffinity(LogAffinity):
     with_grad : bool, optional (default=False)
         If True, the Sinkhorn iterations are done with gradient tracking.
         If False, torch.no_grad() is used for the iterations.
-
-    References
-    ----------
-    .. [S67]  Richard Sinkhorn, Paul Knopp (1967).
-            Concerning nonnegative matrices and doubly stochastic matrices.
-            Pacific Journal of Mathematics, 21(2), 343-348.
-
-    .. [C13]  Marco Cuturi (2013).
-            Sinkhorn Distances: Lightspeed Computation of Optimal Transport.
-            Advances in Neural Information Processing Systems 26 (NeurIPS).
-
-    .. [F19]  Jean Feydy, Thibault Séjourné, François-Xavier Vialard, Shun-ichi Amari,
-            Alain Trouvé, Gabriel Peyré (2019).
-            Interpolating between Optimal Transport and MMD using Sinkhorn Divergences.
-            International Conference on Artificial Intelligence and Statistics
-            (AISTATS).
     """  # noqa: E501
 
     def __init__(

@@ -12,3 +12,4 @@
     auto_examples/index
     torchdr.releases
     torchdr.contributing
+    torchdr.bibliography
