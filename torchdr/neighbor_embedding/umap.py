@@ -86,7 +86,7 @@ class UMAP(SampledNeighborEmbedding):
     metric_out : {'euclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
-        Number of negative samples for the noise-contrastive loss, by default 5.
+        Number of negative samples for the noise-contrastive loss, by default 10.
 
     References
     ----------
@@ -128,7 +128,7 @@ class UMAP(SampledNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 5,
+        n_negatives: int = 10,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
