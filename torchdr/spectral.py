@@ -277,7 +277,7 @@ class IncrementalPCA(DRModule):
     and to transform new data based on the principal components learned during the fitting process.
 
     It is partially useful when the dataset to be decomposed is too large to fit in memory.
-    Adapted from https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/decomposition/_incremental_pca.py
+    Adapted from `Scikit-learn Incremental PCA <https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/decomposition/_incremental_pca.py>`_.
 
     Parameters
     ----------
