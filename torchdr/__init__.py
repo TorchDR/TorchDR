@@ -33,8 +33,7 @@ from .affinity import (
 
 # import DR methods
 from .base import DRModule
-from .spectral import PCA, KernelPCA
-from .incremental_pca import IncrementalPCA
+from .spectral import PCA, KernelPCA, IncrementalPCA
 from .clustering import KMeans
 from .affinity_matcher import (
     AffinityMatcher,
