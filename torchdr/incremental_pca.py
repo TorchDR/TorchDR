@@ -97,7 +97,8 @@ class IncrementalPCA:
             )
         elif self.n_components_ > n_samples:
             raise ValueError(
-                f"n_components={self.n_components_} must be less or equal to the batch number of samples {n_samples}"
+                f"n_components={self.n_components_} must be less or equal "
+                "to the batch number of samples {n_samples}."
             )
 
         if X.dtype not in valid_dtypes:
@@ -240,7 +241,7 @@ class IncrementalPCA:
             )
 
         U, S, Vt = self._svd_fn(X)
-        U, Vt = self.svd_flip(U, Vt, u_based_decision=False)
+        U, Vt = svd_flip(U, Vt, u_based_decision=False)
         explained_variance = S**2 / (n_total_samples - 1)
         explained_variance_ratio = S**2 / torch.sum(col_var * n_total_samples)
 

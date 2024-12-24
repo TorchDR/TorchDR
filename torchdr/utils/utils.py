@@ -104,7 +104,7 @@ def svd_flip(u, v):
     return u, v
 
 
-def svd_flip(u, v, u_based_decision=True) -> Tuple[torch.Tensor, torch.Tensor]:
+def svd_flip(u, v, u_based_decision=True):
     r"""
     Sign correction to ensure deterministic output from SVD.
 
