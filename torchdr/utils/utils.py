@@ -28,6 +28,10 @@ def square_loss(P, Q):
     return (P - Q) ** 2
 
 
+def l2_loss(P, Q):
+    return (square_loss(P, Q)).sqrt()
+
+
 def entropy(P, log=True, dim=1):
     r"""Compute the entropy of P along axis dim.
 

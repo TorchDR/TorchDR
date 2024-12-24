@@ -140,3 +140,37 @@ class ScalarProductAffinity(UnnormalizedAffinity):
 
     def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
         return -C
+
+
+class NegEuclideanAffinity(UnnormalizedAffinity):
+    r"""Compute the negative squared Euclidean affinity matrix.
+
+    Its expression is given by :math:`-\| \mathbf{X} - \mathbf{Y} \|^2`
+    where :math:`\mathbf{X}` and :math:`\mathbf{Y}` are the input data.
+
+    Parameters
+    ----------
+    device : str, optional
+        Device to use for computations. Default is "cuda".
+    keops : bool, optional
+        Whether to use KeOps for computations. Default is True.
+    verbose : bool, optional
+        Verbosity. Default is False.
+    """
+
+    def __init__(
+        self,
+        device: str = "auto",
+        keops: bool = False,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            metric="euclidean",
+            device=device,
+            keops=keops,
+            verbose=verbose,
+            zero_diag=False,
+        )
+
+    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
+        return -C

@@ -59,6 +59,7 @@ from .utils import (
     batch_transpose,
     cross_entropy_loss,
     square_loss,
+    l2_loss,
 )
 
 __all__ = [
@@ -104,4 +105,5 @@ __all__ = [
     "handle_backend",
     "batch_transpose",
     "handle_keops",
+    "l2_loss",
 ]
