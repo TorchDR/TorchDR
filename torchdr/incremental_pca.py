@@ -5,15 +5,15 @@ from typing import Optional, Tuple
 
 
 class IncrementalPCA:
-    """
-    Incremental Principal Components Analysis (IPCA) leveraging PyTorch for GPU acceleration.
-
-    Adapted from https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/decomposition/_incremental_pca.py
+    """Incremental Principal Components Analysis (IPCA) leveraging PyTorch for GPU acceleration.
 
     This class provides methods to fit the model on data incrementally in batches,
     and to transform new data based on the principal components learned during the fitting process.
 
-    Parameters:
+    It is partially useful when the dataset to be decomposed is too large to fit in memory.
+    Adapted from https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/decomposition/_incremental_pca.py
+
+    Parameters
     ----------
     n_components : int, optional
         Number of components to keep. If `None`, it's set to the minimum of the
@@ -56,7 +56,8 @@ class IncrementalPCA:
             if lowrank_q is None:
                 assert (
                     n_components is not None
-                ), "n_components must be specified when using lowrank mode with lowrank_q=None."
+                ), "n_components must be specified when using lowrank mode "
+                "with lowrank_q=None."
                 lowrank_q = n_components * 2
             assert (
                 lowrank_q >= n_components
@@ -74,19 +75,6 @@ class IncrementalPCA:
             )
 
     def _validate_data(self, X) -> torch.Tensor:
-        """
-        Validates and converts the input data `X` to the appropriate tensor format.
-
-        Parameters:
-        ----------
-        X : torch.Tensor
-            Input data.
-
-        Returns:
-        -------
-        torch.Tensor:
-            Converted to appropriate format.
-        """
         valid_dtypes = [torch.float32, torch.float64]
 
         if not isinstance(X, torch.Tensor):
@@ -99,8 +87,9 @@ class IncrementalPCA:
             pass
         elif self.n_components_ > n_features:
             raise ValueError(
-                f"n_components={self.n_components_} invalid for n_features={n_features}, "
-                "need more rows than columns for IncrementalPCA processing."
+                f"n_components={self.n_components_} invalid for "
+                "n_features={n_features}, need more rows than columns "
+                "for IncrementalPCA processing."
             )
         elif self.n_components_ > n_samples:
             raise ValueError(
@@ -116,25 +105,6 @@ class IncrementalPCA:
     def _incremental_mean_and_var(
         X, last_mean, last_variance, last_sample_count
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Computes the incremental mean and variance for the data `X`.
-
-        Parameters:
-        ----------
-        X : torch.Tensor
-            The batch input data tensor with shape (n_samples, n_features).
-        last_mean : torch.Tensor
-            The previous mean tensor with shape (n_features,).
-        last_variance : torch.Tensor
-            The previous variance tensor with shape (n_features,).
-        last_sample_count : torch.Tensor
-            The count tensor of samples processed before the current batch.
-
-        Returns:
-        -------
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            Updated mean, variance tensors, and total sample count.
-        """
         if X.shape[0] == 0:
             return last_mean, last_variance, last_sample_count
 
@@ -182,26 +152,6 @@ class IncrementalPCA:
 
     @staticmethod
     def _svd_flip(u, v, u_based_decision=True) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Adjusts the signs of the singular vectors from the SVD decomposition for deterministic output.
-
-        This method ensures that the output remains consistent across different runs.
-
-        Parameters:
-        ----------
-        u : torch.Tensor
-            Left singular vectors tensor.
-        v : torch.Tensor
-            Right singular vectors tensor.
-        u_based_decision : bool, optional
-            If True, uses the left singular vectors to determine the sign flipping.
-            Defaults to True.
-
-        Returns:
-        -------
-        Tuple[torch.Tensor, torch.Tensor]:
-            Adjusted left and right singular vectors tensors.
-        """
         if u_based_decision:
             max_abs_cols = torch.argmax(torch.abs(u), dim=0)
             signs = torch.sign(u[max_abs_cols, range(u.shape[1])])
@@ -213,8 +163,7 @@ class IncrementalPCA:
         return u, v
 
     def fit(self, X, check_input=True):
-        """
-        Fits the model with data `X` using minibatches of size `batch_size`.
+        """Fit the model with data `X` using minibatches of size `batch_size`.
 
         Parameters:
         ----------
@@ -242,8 +191,7 @@ class IncrementalPCA:
         return self
 
     def partial_fit(self, X, check_input=True):
-        """
-        Incrementally fits the model with batch data `X`.
+        """Fit incrementally the model with batch data `X`.
 
         Parameters:
         ----------
@@ -265,8 +213,8 @@ class IncrementalPCA:
 
         # Initialize attributes to avoid errors during the first call to partial_fit
         if first_pass:
-            self.mean_ = None  # Will be initialized properly in _incremental_mean_and_var based on data dimensions
-            self.var_ = None  # Will be initialized properly in _incremental_mean_and_var based on data dimensions
+            self.mean_ = None
+            self.var_ = None
             self.n_samples_seen_ = torch.tensor([0], device=X.device)
             self.n_features_ = n_features
             if not self.n_components_:
@@ -318,8 +266,7 @@ class IncrementalPCA:
         return self
 
     def transform(self, X) -> torch.Tensor:
-        """
-        Applies dimensionality reduction to `X`.
+        """Apply dimensionality reduction to `X`.
 
         The input data `X` is projected on the first principal components
         previously extracted from a training set.
@@ -339,7 +286,7 @@ class IncrementalPCA:
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):
-        """Generator to create slices containing `batch_size` elements from 0 to `n`.
+        """Generate slices containing `batch_size` elements from 0 to `n`.
 
         The last slice may contain less than `batch_size` elements, when
         `batch_size` does not divide `n`.
