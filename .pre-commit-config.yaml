@@ -17,14 +17,6 @@ repos:
       - id: check-case-conflict
       - id: check-added-large-files
 
-  # python code formatting
-  - repo: https://github.com/psf/black
-    rev: 23.1.0
-    hooks:
-      - id: black
-        require_serial: true
-        args: [--line-length, "79", "--exclude", "docs/"]
-
   # python import sorting
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
@@ -32,6 +24,14 @@ repos:
       - id: isort
         require_serial: true
         args: ["--profile", "black", "--filter-files"]
+
+  # python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.1.0
+    hooks:
+      - id: black
+        require_serial: true
+        args: ["--exclude", "docs/"]
 
   # python upgrading syntax to newer version
   - repo: https://github.com/asottile/pyupgrade
@@ -67,7 +67,7 @@ repos:
         args:
           [
             "--extend-ignore",
-            "E203,E402,E501,F401,F841,RST2,RST301",
+            "E203,E402,E501,F401,F841,RST2,RST301,RST304",
             "--exclude",
             "logs/*,data/*",
           ]
@@ -99,8 +99,6 @@ repos:
           - mdformat-gfm
           - mdformat-tables
           - mdformat_frontmatter
-          # - mdformat-toc
-          # - mdformat-black
 
   # word spelling linter
   - repo: https://github.com/codespell-project/codespell
@@ -116,4 +114,10 @@ repos:
     hooks:
       - id: pydocstyle
         exclude: examples/
-        args: ["--ignore", "D100,D102,D104,D107,D203,D213,D413,D412"]
+        args: ["--ignore", "D100,D102,D104,D107,D203,D213,D413,D412,D202"]
+  - repo: https://github.com/adamchainz/blacken-docs
+    rev: 1.19.1 # replace with latest tag on GitHub
+    hooks:
+      - id: blacken-docs
+        additional_dependencies:
+          - black==22.12.0

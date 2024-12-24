@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Useful wrappers for dealing with backends and devices."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,9 +5,11 @@
 # License: BSD 3-Clause License
 
 import functools
-import torch
+
 import numpy as np
+import torch
 from sklearn.utils.validation import check_array
+
 from .keops import LazyTensor, is_lazy_tensor, pykeops
 
 
@@ -175,7 +176,7 @@ def handle_keops(func):
     If keops is set to True, keops_ is also set to True and nothing is done.
     Otherwise, the function is called and if an OutOfMemoryError is encountered,
     keops_ is set to True and the function is called again.
-    """
+    """  # noqa: RST306
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Affinity matcher base classes."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,27 +5,29 @@
 #
 # License: BSD 3-Clause License
 
-import torch
-import numpy as np
-from tqdm import tqdm
 import warnings
 
-from torchdr.utils import (
-    OPTIMIZERS,
-    check_nonnegativity,
-    check_NaNs,
-    handle_backend,
-    to_torch,
-)
+import numpy as np
+import torch
+from tqdm import tqdm
+
 from torchdr.affinity import (
     Affinity,
     LogAffinity,
     SparseLogAffinity,
     UnnormalizedAffinity,
 )
-from torchdr.spectral import PCA
 from torchdr.base import DRModule
-from torchdr.utils import square_loss, cross_entropy_loss
+from torchdr.spectral import PCA
+from torchdr.utils import (
+    OPTIMIZERS,
+    check_NaNs,
+    check_nonnegativity,
+    cross_entropy_loss,
+    handle_backend,
+    square_loss,
+    to_torch,
+)
 
 LOSS_DICT = {
     "square_loss": square_loss,
@@ -183,7 +184,7 @@ class AffinityMatcher(DRModule):
         -------
         embedding_ : torch.Tensor
             The embedding of the input data.
-        """
+        """  # noqa: RST306
         self._fit(X)
         return self.embedding_
 
