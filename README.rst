@@ -86,7 +86,7 @@ Affinities
 Dimensionality Reduction Algorithms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian.
+**Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian (PCA, KernelPCA, IncrementalPCA).
 
 **Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE*, *t-SNE*, *t-SNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
 

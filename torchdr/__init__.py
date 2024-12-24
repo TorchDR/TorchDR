@@ -47,7 +47,7 @@ from .neighbor_embedding import (
     SparseNeighborEmbedding,
     TSNEkhorn,
 )
-from .spectral import PCA, KernelPCA
+from .spectral import PCA, IncrementalPCA, KernelPCA
 
 # import utils
 from .utils import binary_search, false_position, pairwise_distances
@@ -80,6 +80,7 @@ __all__ = [
     "BatchedAffinityMatcher",
     "PCA",
     "KernelPCA",
+    "IncrementalPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
     "SampledNeighborEmbedding",
