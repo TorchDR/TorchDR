@@ -60,7 +60,7 @@ repos:
 
   # python check (PEP8), programming errors and code complexity
   - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
+    rev: 7.1.1
     hooks:
       - id: flake8
         require_serial: true
@@ -87,18 +87,6 @@ repos:
     hooks:
       - id: shellcheck
         require_serial: true
-
-  # md formatting
-  - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.16
-    hooks:
-      - id: mdformat
-        require_serial: true
-        args: ["--number"]
-        additional_dependencies:
-          - mdformat-gfm
-          - mdformat-tables
-          - mdformat_frontmatter
 
   # word spelling linter
   - repo: https://github.com/codespell-project/codespell
