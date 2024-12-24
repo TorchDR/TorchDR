@@ -42,6 +42,11 @@ class PCA(DRModule):
         Whether to print information during the computations.
     random_state : float, default=0
         Random seed for reproducibility.
+    svd_driver : str, optional
+        Name of the cuSOLVER method to be used for torch.linalg.svd.
+        This keyword argument only works on CUDA inputs.
+        Available options are: None, gesvd, gesvdj and gesvda.
+        Defaults to None.
     """
 
     def __init__(
@@ -50,6 +55,7 @@ class PCA(DRModule):
         device: str = "auto",
         verbose: bool = False,
         random_state: float = 0,
+        svd_driver: Optional[str] = None,
     ):
         super().__init__(
             n_components=n_components,
@@ -57,6 +63,7 @@ class PCA(DRModule):
             verbose=verbose,
             random_state=random_state,
         )
+        self.svd_driver = svd_driver
 
     def fit(self, X: torch.Tensor | np.ndarray):
         r"""Fit the PCA model.
@@ -73,7 +80,9 @@ class PCA(DRModule):
         """
         X = to_torch(X, device=self.device)
         self.mean_ = X.mean(0, keepdim=True)
-        U, S, V = torch.linalg.svd(X - self.mean_, full_matrices=False)
+        U, S, V = torch.linalg.svd(
+            X - self.mean_, full_matrices=False, driver=self.svd_driver
+        )
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
         self.embedding_ = U[:, : self.n_components] @ S[: self.n_components].diag()
@@ -282,9 +291,10 @@ class IncrementalPCA(DRModule):
         If `None`, it's inferred from the data and set to `5 * n_features`.
         Defaults to None.
     svd_driver : str, optional
-        Name of the cuSOLVER method to be used for torch.linalg.svd. This keyword
-        argument only works on CUDA inputs. Available options are: None, gesvd, gesvdj,
-        and gesvda. Defaults to None.
+        Name of the cuSOLVER method to be used for torch.linalg.svd.
+        This keyword argument only works on CUDA inputs.
+        Available options are: None, gesvd, gesvdj and gesvda.
+        Defaults to None.
     lowrank : bool, optional
         Whether to use torch.svd_lowrank instead of torch.linalg.svd which can be faster.
         Defaults to False.

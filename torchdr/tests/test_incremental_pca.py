@@ -5,10 +5,15 @@
 #
 # License: BSD 3-Clause License
 
+import pytest
+from sklearn import datasets
+from sklearn.datasets import load_digits
+from sklearn.decomposition import IncrementalPCA as SkIncrementalPCA
+from sklearn.model_selection import train_test_split
+from numpy.testing import assert_allclose
+
 import torch
 from torch.testing import assert_close
-from sklearn import datasets
-import pytest
 
 from torchdr import IncrementalPCA
 
@@ -165,3 +170,35 @@ def test_incremental_pca_lowrank():
     ipcalr.fit(X)
 
     assert_close(ipca.components_, ipcalr.components_, rtol=1e-7, atol=1e-7)
+
+
+@pytest.mark.parametrize("n_components", [10, 20, None])
+def test_incremental_pca_on_digits(n_components):
+    """
+    Test that our custom IncrementalPCA produces similar results to sklearn's
+    IncrementalPCA on the digits dataset, both in partial_fit and fit/transform usage.
+    """
+
+    X, y = load_digits(return_X_y=True)
+    X_train, X_test, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    ipca = IncrementalPCA(
+        n_components=n_components,
+        batch_size=None,
+    )
+    sklearn_ipca = SkIncrementalPCA(
+        n_components=n_components,
+        batch_size=None,
+    )
+
+    ipca.fit(X_train)
+    sklearn_ipca.fit(X_train)
+
+    X_train_fit = ipca.transform(X_train)
+    X_train_sklearn_fit = sklearn_ipca.transform(X_train)
+
+    X_test_fit = ipca.transform(X_test)
+    X_test_sklearn_fit = sklearn_ipca.transform(X_test)
+
+    assert_allclose(X_train_sklearn_fit, X_train_fit, rtol=1e-5, atol=1e-5)
+    assert_allclose(X_test_sklearn_fit, X_test_fit, rtol=1e-5, atol=1e-5)
