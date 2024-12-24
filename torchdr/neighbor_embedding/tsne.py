@@ -14,7 +14,7 @@ from torchdr.utils import logsumexp_red
 
 
 class TSNE(SparseNeighborEmbedding):
-    r"""Implementation of t-Stochastic Neighbor Embedding (t-SNE) introduced in [2]_.
+    r"""t-Stochastic Neighbor Embedding (t-SNE) introduced in :cite:`van2008visualizing`.
 
     It involves selecting a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
@@ -77,14 +77,6 @@ class TSNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
-
-    References
-    ----------
-
-    .. [2]  Laurens van der Maaten, Geoffrey Hinton (2008).
-            Visualizing Data using t-SNE.
-            The Journal of Machine Learning Research 9.11 (JMLR).
-
     """  # noqa: E501
 
     def __init__(

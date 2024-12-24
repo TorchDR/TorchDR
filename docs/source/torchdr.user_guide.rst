@@ -32,13 +32,13 @@ Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A
 TorchDR is structured around the above formulation :math:`\text{(DR)}`.
 Defining a DR algorithm solely requires providing an :class:`Affinity <Affinity>` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
 
-All modules follow the ``sklearn`` [21]_ API and can be used in `sklearn pipelines <https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html>`_.
+All modules follow the ``sklearn`` :cite:`pedregosa2011scikit` API and can be used in `sklearn pipelines <https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html>`_.
 
 
 Torch GPU support and automatic differentiation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TorchDR is built on top of ``torch`` [20]_, offering GPU support and automatic differentiation. This foundation enables efficient computations and straightforward implementation of new DR methods.
+TorchDR is built on top of ``torch`` :cite:`paszke2019pytorch`, offering GPU support and automatic differentiation. This foundation enables efficient computations and straightforward implementation of new DR methods.
 
 To utilize GPU support, set :attr:`device="cuda"` when initializing any module. For CPU computations, set :attr:`device="cpu"`.
 
@@ -52,7 +52,7 @@ Avoiding memory overflows with KeOps symbolic (lazy) tensors
 
 Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
 
-To prevent memory overflows, TorchDR relies on ``pykeops`` [19]_ lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
+To prevent memory overflows, TorchDR relies on ``pykeops`` :cite:`charlier2021kernel` lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
 
 .. image:: figures/symbolic_matrix.svg
    :width: 800
@@ -129,20 +129,20 @@ The following table outlines the aspects controlled by different formulations of
      - ✅
      - ✅
      - ❌
-   * - :class:`SinkhornAffinity <SinkhornAffinity>` [5]_ [9]_
+   * - :class:`SinkhornAffinity <SinkhornAffinity>`
      - ✅
      - ✅
      - ❌
-   * - :class:`EntropicAffinity <EntropicAffinity>` [1]_
+   * - :class:`EntropicAffinity <EntropicAffinity>`
      - ✅
      - ❌
      - ✅
-   * - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>` [3]_
+   * - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - ✅
      - ✅
      - ✅
 
-More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
+More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_ :cite:`van2024snekhorn`.
 
 
 .. minigallery:: torchdr.EntropicAffinity
@@ -154,9 +154,9 @@ Other various affinities
 
 TorchDR features other affinities that can be used in various contexts.
 
-For instance, the UMAP [8]_ algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space. :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
+For instance, the UMAP :cite:`mcinnes2018umap` algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space. :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
 
-Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR [10]_. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
+Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR :cite:`zhang2023manifold`. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
 
 
@@ -201,7 +201,7 @@ Spectral methods correspond to choosing the scalar product affinity :math:`[\mat
 
     \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
-When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis [11]_ and an optimal solution is given by 
+When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis :cite:`ham2004kernel` and an optimal solution is given by 
 
 .. math::
 
@@ -242,66 +242,35 @@ Many NE methods can be represented within this framework. The following table su
      - **Affinity input** :math:`\mathbf{A_X}`
      - **Affinity output** :math:`\mathbf{A_Z}`
 
-   * - :class:`SNE <SNE>` [1]_
+   * - :class:`SNE <SNE>`
      - :math:`\sum_{i} \log(\sum_j [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GaussianAffinity <GaussianAffinity>`
 
-   * - :class:`TSNE <TSNE>` [2]_
+   * - :class:`TSNE <TSNE>`
      - :math:`\log(\sum_{ij} [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-   * - :class:`TSNEkhorn <TSNEkhorn>` [3]_
+   * - :class:`TSNEkhorn <TSNEkhorn>`
      - :math:`\sum_{ij} [\mathbf{A_Z}]_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
-   * - :class:`InfoTSNE <InfoTSNE>` [15]_
+   * - :class:`InfoTSNE <InfoTSNE>`
      - :math:`\sum_i \log(\sum_{j \in N(i)} [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-   * - :class:`UMAP <UMAP>` [8]_
+   * - :class:`UMAP <UMAP>`
      - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
      - :class:`UMAPAffinityIn <UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
-   * - :class:`LargeVis <LargeVis>` [13]_
+   * - :class:`LargeVis <LargeVis>`
      - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
 In the above table, :math:`N(i)` denotes the set of negative samples 
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.
-
-
-
-References
-----------
-
-.. [1] Geoffrey Hinton, Sam Roweis (2002). `Stochastic Neighbor Embedding <https://proceedings.neurips.cc/paper_files/paper/2002/file/6150ccc6069bea6b5716254057a194ef-Paper.pdf>`_. Advances in Neural Information Processing Systems 15 (NeurIPS).
-
-.. [2] Laurens van der Maaten, Geoffrey Hinton (2008). `Visualizing Data using t-SNE <https://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf?fbcl>`_. The Journal of Machine Learning Research 9.11 (JMLR).
-
-.. [3] Hugues Van Assel, Titouan Vayer, Rémi Flamary, Nicolas Courty (2023). `SNEkhorn: Dimension Reduction with Symmetric Entropic Affinities <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_. Advances in Neural Information Processing Systems 36 (NeurIPS).
-
-.. [5] Richard Sinkhorn, Paul Knopp (1967). `Concerning nonnegative matrices and doubly stochastic matrices <https://msp.org/pjm/1967/21-2/pjm-v21-n2-p14-p.pdf>`_. Pacific Journal of Mathematics, 21(2), 343-348.
-
-.. [8] Leland McInnes, John Healy, James Melville (2018). `UMAP: Uniform manifold approximation and projection for dimension reduction <https://arxiv.org/abs/1802.03426>`_. arXiv preprint arXiv:1802.03426.
-
-.. [9] Yao Lu, Jukka Corander, Zhirong Yang (2019). `Doubly Stochastic Neighbor Embedding on Spheres <https://www.sciencedirect.com/science/article/pii/S0167865518305099>`_. Pattern Recognition Letters 128 : 100-106.
-
-.. [10] Stephen Zhang, Gilles Mordant, Tetsuya Matsumoto, Geoffrey Schiebinger (2023). `Manifold Learning with Sparse Regularised Optimal Transport <https://arxiv.org/abs/2307.09816>`_. arXiv preprint.
-
-.. [11] Ham, J., Lee, D. D., Mika, S., & Schölkopf, B. (2004). `A kernel view of the dimensionality reduction of manifolds <https://icml.cc/Conferences/2004/proceedings/papers/296.pdf>`_. In Proceedings of the twenty-first international conference on Machine learning (ICML).
-
-.. [13] Tang, J., Liu, J., Zhang, M., & Mei, Q. (2016). `Visualizing Large-Scale and High-Dimensional Data <https://dl.acm.org/doi/pdf/10.1145/2872427.2883041?casa_token=9ybi1tW9opcAAAAA:yVfVBu47DYa5_cpmJnQZm4PPWaTdVJgRu2pIMqm3nvNrZV5wEsM9pde03fCWixTX0_AlT-E7D3QRZw>`_. In Proceedings of the 25th international conference on world wide web.
-
-.. [15] Sebastian Damrich, Jan Niklas Böhm, Fred Hamprecht, Dmitry Kobak (2023). `From t-SNE to UMAP with contrastive learning <https://openreview.net/pdf?id=B8a1FcY0vi>`_. International Conference on Learning Representations (ICLR).
-
-.. [19] Charlier, B., Feydy, J., Glaunes, J. A., Collin, F. D., & Durif, G. (2021). `Kernel Operations on the GPU, with Autodiff, without Memory Overflows <https://www.jmlr.org/papers/volume22/20-275/20-275.pdf>`_. Journal of Machine Learning Research (JMLR).
-
-.. [20] Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., ... & Chintala, S. (2019). `Pytorch: An imperative style, high-performance deep learning library <https://proceedings.neurips.cc/paper_files/paper/2019/file/bdbca288fee7f92f2bfa9f7012727740-Paper.pdf>`_. Advances in neural information processing systems 32 (NeurIPS).
-
-.. [21] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). `Scikit-learn: Machine learning in Python <https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf?ref=https:/>`_. Journal of machine Learning research, 12 (JMLR).

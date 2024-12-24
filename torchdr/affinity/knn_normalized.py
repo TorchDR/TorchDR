@@ -63,7 +63,7 @@ def _log_MAGIC(C, sigma):
 
 
 class SelfTuningAffinity(LogAffinity):
-    r"""Compute the self-tuning affinity introduced in [22]_.
+    r"""Self-tuning affinity introduced in :cite:`zelnik2004self`.
 
     The affinity has a sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
 
@@ -90,12 +90,6 @@ class SelfTuningAffinity(LogAffinity):
         Whether to use KeOps for computations.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [22] Max Zelnik-Manor, L., & Perona, P. (2004).
-            Self-tuning spectral clustering.
-            Advances in neural information processing systems (NeurIPS).
     """
 
     def __init__(
@@ -147,7 +141,7 @@ class SelfTuningAffinity(LogAffinity):
 
 
 class MAGICAffinity(Affinity):
-    r"""Compute the MAGIC affinity introduced in [23]_.
+    r"""Compute the MAGIC affinity introduced in :cite:`van2018recovering`.
 
     The construction is as follows. First, it computes a Gaussian
     kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
@@ -184,13 +178,6 @@ class MAGICAffinity(Affinity):
         Whether to use KeOps for computations.
     verbose : bool, optional
         Verbosity. Default is False.
-
-    References
-    ----------
-    .. [23] Van Dijk, D., Sharma, R., Nainys, J., Yim, K., Kathail, P., Carr, A.
-            J., ... & Pe’er, D. (2018).
-            Recovering Gene Interactions from Single-Cell Data Using Data Diffusion
-            Cell, 174(3).
     """
 
     def __init__(
