@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for incremental PCA."""
 
 # Author: @sirluk
@@ -6,17 +5,15 @@
 # License: BSD 3-Clause License
 
 import pytest
+import torch
+from numpy.testing import assert_allclose
 from sklearn import datasets
 from sklearn.datasets import load_digits
 from sklearn.decomposition import IncrementalPCA as SkIncrementalPCA
 from sklearn.model_selection import train_test_split
-from numpy.testing import assert_allclose
-
-import torch
 from torch.testing import assert_close
 
 from torchdr import IncrementalPCA
-
 
 torch.manual_seed(1999)
 
