@@ -142,7 +142,7 @@ The following table outlines the aspects controlled by different formulations of
      - ✅
      - ✅
 
-More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_.
+More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_ :cite:`van2024snekhorn`.
 
 
 .. minigallery:: torchdr.EntropicAffinity
