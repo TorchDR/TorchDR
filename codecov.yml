@@ -1,7 +1,6 @@
 # Docs ref: https://docs.codecov.io/docs/codecovyml-reference
 # Validation check: $ curl --data-binary @codecov.yml https://codecov.io/validate
 
-
 codecov:
   bot: "codecov-io"
   strict_yaml_branch: "yaml-config"
@@ -16,14 +15,14 @@ coverage:
   status:
     project:
       default:
-        base: auto    # target to compare against 
-        target: auto  # target "X%" coverage to hit on project
+        base: auto # target to compare against
+        target: auto # target "X%" coverage to hit on project
         threshold: 0.5% # allow this much decrease from base
         if_ci_failed: error
     patch:
       default:
-        base: auto      # target to compare against
-        target: 50%     # target "X%" coverage to hit on patch
+        base: auto # target to compare against
+        target: 50% # target "X%" coverage to hit on patch
         # threshold: 50%  # allow this much decrease on patch
     changes: false
 
@@ -39,4 +38,4 @@ parsers:
 comment:
   layout: header, diff, sunburst, uncovered
   behavior: default
-  require_changes: false  # if true: only post the comment if coverage changes
+  require_changes: false # if true: only post the comment if coverage changes

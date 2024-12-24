@@ -11,14 +11,11 @@ simulated dataset with heteroscedastic noise.
 #
 # License: BSD 3-Clause License
 
-import torch
 import matplotlib.pyplot as plt
+import torch
 from matplotlib import cm
 
-from torchdr import (
-    NormalizedGaussianAffinity,
-    EntropicAffinity,
-)
+from torchdr import EntropicAffinity, NormalizedGaussianAffinity
 
 # %%
 # We generate three Gaussian clusters of points with different standard deviations
@@ -95,7 +92,7 @@ plt.show()
 #
 # To remedy this issue, we can use an **entropic affinity**. The entropic affinity
 # employs an **adaptive bandwidth** that depends on the local density of points.
-# By controling the entropy of each row of the affinity matrix, it ensures that
+# By controlling the entropy of each row of the affinity matrix, it ensures that
 # **each point has the same number of effective neighbors** (given by
 # the ``perplexity`` parameter) regardless of the local density around it.
 #

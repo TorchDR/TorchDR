@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for neighbor embedding methods.
 """
@@ -7,19 +6,12 @@ Tests for neighbor embedding methods.
 #
 # License: BSD 3-Clause License
 
-import torch
 import numpy as np
 import pytest
+import torch
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import (
-    SNE,
-    TSNE,
-    TSNEkhorn,
-    LargeVis,
-    InfoTSNE,
-    UMAP,
-)
+from torchdr.neighbor_embedding import SNE, TSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
 from torchdr.tests.utils import toy_dataset
 from torchdr.utils import check_shape, pykeops
 

@@ -1,21 +1,21 @@
-# -*- coding: utf-8 -*-
 """Base classes for Neighbor Embedding methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import torch
 import warnings
+
+import torch
 
 from torchdr.affinity import (
     Affinity,
+    SparseLogAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
-    SparseLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import cross_entropy_loss, OPTIMIZERS
+from torchdr.utils import OPTIMIZERS, cross_entropy_loss
 
 
 class NeighborEmbedding(AffinityMatcher):

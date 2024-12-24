@@ -1,64 +1,53 @@
-# -*- coding: utf-8 -*-
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
 
-from .optim import binary_search, false_position, OPTIMIZERS
-
-from .keops import (
-    pykeops,
-    LazyTensor,
-    LazyTensorType,
-    is_lazy_tensor,
-)
-
-from .wrappers import (
-    wrap_vectors,
-    to_torch,
-    torch_to_backend,
-    handle_backend,
-    sum_output,
-    handle_keops,
-)
-
 from .geometry import (
+    LIST_METRICS,
     pairwise_distances,
     symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
-    LIST_METRICS,
 )
-
+from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
+from .optim import OPTIMIZERS, binary_search, false_position
+from .utils import (
+    batch_transpose,
+    center_kernel,
+    cross_entropy_loss,
+    entropy,
+    kmax,
+    kmin,
+    logsumexp_red,
+    prod_matrix_vector,
+    square_loss,
+    sum_matrix_vector,
+    sum_red,
+    svd_flip,
+)
 from .validation import (
-    check_NaNs,
-    check_marginal,
-    relative_similarity,
-    check_similarity,
-    check_symmetry,
-    check_similarity_torch_keops,
     check_entropy,
     check_entropy_lower_bound,
-    check_type,
-    check_shape,
+    check_marginal,
+    check_NaNs,
     check_nonnegativity,
     check_nonnegativity_eigenvalues,
+    check_shape,
+    check_similarity,
+    check_similarity_torch_keops,
+    check_symmetry,
     check_total_sum,
+    check_type,
+    relative_similarity,
 )
-
-from .utils import (
-    entropy,
-    kmin,
-    kmax,
-    svd_flip,
-    center_kernel,
-    sum_matrix_vector,
-    prod_matrix_vector,
-    sum_red,
-    logsumexp_red,
-    batch_transpose,
-    cross_entropy_loss,
-    square_loss,
+from .wrappers import (
+    handle_backend,
+    handle_keops,
+    sum_output,
+    to_torch,
+    torch_to_backend,
+    wrap_vectors,
 )
 
 __all__ = [

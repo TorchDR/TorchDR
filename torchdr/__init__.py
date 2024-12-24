@@ -4,56 +4,53 @@
 # License: BSD 3-Clause License
 
 from .__about__ import (
-    __title__,
-    __summary__,
-    __version__,
-    __url__,
     __author__,
     __license__,
+    __summary__,
+    __title__,
+    __url__,
+    __version__,
 )
 
 # import affinities
 from .affinity import (
     Affinity,
-    LogAffinity,
+    DoublyStochasticQuadraticAffinity,
+    EntropicAffinity,
     GaussianAffinity,
+    LogAffinity,
+    MAGICAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
-    SelfTuningAffinity,
-    MAGICAffinity,
-    StudentAffinity,
     ScalarProductAffinity,
-    EntropicAffinity,
-    SymmetricEntropicAffinity,
+    SelfTuningAffinity,
     SinkhornAffinity,
-    DoublyStochasticQuadraticAffinity,
+    StudentAffinity,
+    SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
+from .affinity_matcher import AffinityMatcher
 
 # import DR methods
 from .base import DRModule
-from .spectral import PCA, KernelPCA, IncrementalPCA
 from .clustering import KMeans
-from .affinity_matcher import (
-    AffinityMatcher,
-)
+from .eval import silhouette_samples, silhouette_score
 from .neighbor_embedding import (
-    NeighborEmbedding,
-    SparseNeighborEmbedding,
-    SampledNeighborEmbedding,
     SNE,
     TSNE,
-    InfoTSNE,
-    TSNEkhorn,
-    LargeVis,
     UMAP,
+    InfoTSNE,
+    LargeVis,
+    NeighborEmbedding,
+    SampledNeighborEmbedding,
+    SparseNeighborEmbedding,
+    TSNEkhorn,
 )
+from .spectral import PCA, IncrementalPCA, KernelPCA
 
 # import utils
-from .utils import pairwise_distances, binary_search, false_position
-
-from .eval import silhouette_samples, silhouette_score
+from .utils import binary_search, false_position, pairwise_distances
 
 __all__ = [
     "__title__",

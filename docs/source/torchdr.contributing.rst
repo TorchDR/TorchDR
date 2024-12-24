@@ -4,8 +4,8 @@ How to Contribute
 Thank you for considering contributing to ``TorchDR``.
 This library is a community-driven project and welcomes contributions of all forms.
 
-We will acknowledge all contributors in the documentation and in the source code. 
-Significant contributions will also be taken into account when deciding 
+We will acknowledge all contributors in the documentation and in the source code.
+Significant contributions will also be taken into account when deciding
 on the authorship of future publications.
 
 The preferred way to contribute to ``TorchDR`` is to fork the `main
@@ -32,8 +32,8 @@ A `[WIP]` PR can serve multiple purposes:
 3- Seek collaborators to assist with development.
 
 
-If you are not familiar with the GitHub contribution workflow, you can also open 
-an issue on the `issue tracker <https://github.com/torchdr/torchdr/issues>`_. 
+If you are not familiar with the GitHub contribution workflow, you can also open
+an issue on the `issue tracker <https://github.com/torchdr/torchdr/issues>`_.
 We will then try to address the issue as soon as possible.
 
 

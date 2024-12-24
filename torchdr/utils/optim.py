@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tools for optimization problems."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>

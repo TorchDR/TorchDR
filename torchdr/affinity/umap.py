@@ -1,23 +1,20 @@
-# -*- coding: utf-8 -*-
 """Affinity matrices used in UMAP."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import torch
-from ..utils import LazyTensorType
 import math
-import numpy as np
-from scipy.optimize import curve_fit
 import warnings
 
-from torchdr.affinity.base import UnnormalizedAffinity, SparseLogAffinity
-from torchdr.utils import (
-    false_position,
-    kmin,
-    wrap_vectors,
-)
+import numpy as np
+import torch
+from scipy.optimize import curve_fit
+
+from torchdr.affinity.base import SparseLogAffinity, UnnormalizedAffinity
+from torchdr.utils import false_position, kmin, wrap_vectors
+
+from ..utils import LazyTensorType
 
 
 @wrap_vectors

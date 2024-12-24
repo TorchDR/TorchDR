@@ -12,20 +12,20 @@ on the SNARE-seq gene expression dataset with given cell type labels.
 #
 # License: BSD 3-Clause License
 
+import urllib.request
+
 # %%
 import matplotlib.pyplot as plt
+import numpy as np
 
 from torchdr import (
-    AffinityMatcher,
     SNE,
-    UMAP,
     TSNE,
+    UMAP,
+    AffinityMatcher,
     EntropicAffinity,
     NormalizedGaussianAffinity,
 )
-import numpy as np
-import urllib.request
-
 
 # %%
 # Load the SNARE-seq dataset (gene expression) with cell type labels
@@ -71,7 +71,7 @@ all_methods = {
 }
 
 for method_name, method in all_methods.items():
-    print("--- Computing {} ---".format(method_name))
+    print(f"--- Computing {method_name} ---")
     method.fit(X)
 
 # %%
@@ -84,7 +84,7 @@ for i, (method_name, method) in enumerate(all_methods.items()):
     ax = fig.add_subplot(1, 3, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
     ax.scatter(emb[:, 0], emb[:, 1], c=Y, s=10)
-    ax.set_title("{0}".format(method_name), fontsize=24)
+    ax.set_title(f"{method_name}", fontsize=24)
     ax.set_xticks([])
     ax.set_yticks([])
 plt.tight_layout()
@@ -119,7 +119,7 @@ for i, (method_name, method) in enumerate(two_sne_dict.items()):
     ax = fig.add_subplot(1, 2, i + 1)
     emb = method.embedding_.detach().numpy()  # get the embedding
     ax.scatter(emb[:, 0], emb[:, 1], c=Y, s=10)
-    ax.set_title("{0}".format(method_name), fontsize=15)
+    ax.set_title(f"{method_name}", fontsize=15)
     ax.set_xticks([])
     ax.set_yticks([])
 plt.tight_layout()

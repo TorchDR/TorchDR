@@ -20,10 +20,10 @@ dependencies = [
 
 keywords = [
     "dimensionality reduction",
-    "machine learning", 
-    "data analysis", 
-    "pytorch", 
-    "scikit-learn", 
+    "machine learning",
+    "data analysis",
+    "pytorch",
+    "scikit-learn",
     "GPU"
 ]
 
@@ -69,6 +69,17 @@ test = [
 
 keops = [
     "pykeops",
+]
+
+dev = [
+    "pytest",
+    "flake8",
+    "coverage",
+    "numpydoc",
+    "pytest-cov",
+    "codecov",
+    "pykeops",
+    "pre-commit",
 ]
 
 all =  [

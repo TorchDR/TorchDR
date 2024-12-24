@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Base classes for DR methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,9 +5,10 @@
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
-from sklearn.base import BaseEstimator
-import torch
+
 import numpy as np
+import torch
+from sklearn.base import BaseEstimator
 
 from torchdr.utils import pykeops
 

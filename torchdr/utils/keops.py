@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Robust handling of pykeops as optional dependency."""
 
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>

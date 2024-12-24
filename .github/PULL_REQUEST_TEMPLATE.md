@@ -1,22 +1,23 @@
 ## Types of changes
+
 <!--- What types of changes does your code introduce? Put an `x` in all the boxes that apply: -->
 
-
-
 ## Motivation and context / Related issue
+
 <!--- Why is this change required? What problem does it solve? -->
+
 <!--- Please link to an existing issue here if one exists. -->
+
 <!--- (we recommend to have an existing issue for each pull request) -->
 
-
-
 ## How has this been tested (if it applies)
+
 <!--- Please describe here how your modifications have been tested. -->
 
-
-
 ## PR checklist
+
 <!-- - Go over all the following points, and put an `x` in all the boxes that apply. -->
+
 <!--- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->
 
 - [ ] I have read the [**How to Contribute**](https://torchdr.github.io/torchdr.contributing.html) document.

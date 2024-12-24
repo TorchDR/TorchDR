@@ -4,7 +4,7 @@
     :maxdepth: 2
     :hidden:
     :caption: Contents:
-    
+
     self
     torchdr.quick_start
     torchdr.user_guide

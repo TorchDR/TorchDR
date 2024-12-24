@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Affinity matrices with entropic constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -7,27 +6,28 @@
 #
 # License: BSD 3-Clause License
 
-import torch
-import numpy as np
-from tqdm import tqdm
-import warnings
 import contextlib
 import math
+import warnings
 from typing import Tuple
 
+import numpy as np
+import torch
+from tqdm import tqdm
+
+from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from torchdr.utils import (
+    OPTIMIZERS,
+    batch_transpose,
+    check_NaNs,
     entropy,
     false_position,
-    wrap_vectors,
-    sum_matrix_vector,
-    kmin,
     kmax,
-    check_NaNs,
+    kmin,
     logsumexp_red,
-    batch_transpose,
-    OPTIMIZERS,
+    sum_matrix_vector,
+    wrap_vectors,
 )
-from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 
 
 @wrap_vectors
