@@ -89,18 +89,56 @@ def kmax(A, k=1, dim=0):
         return values, indices.int()
 
 
-# inspired from svd_flip from sklearn.utils.extmath
+# inspired by svd_flip from sklearn.utils.extmath
 def svd_flip(u, v):
     r"""Sign correction to ensure deterministic output from SVD.
 
     Adjust the columns of u and the rows of v such that the loadings in the
     columns in u that are largest in absolute value are always positive.
     """
-    # columns of u, rows of v
     max_abs_cols = torch.argmax(torch.abs(u), 0)
     i = torch.arange(u.shape[1]).to(u.device)
     signs = torch.sign(u[max_abs_cols, i])
     u *= signs
+    v *= signs.view(-1, 1)
+    return u, v
+
+
+def svd_flip(u, v, u_based_decision=True) -> Tuple[torch.Tensor, torch.Tensor]:
+    r"""
+    Sign correction to ensure deterministic output from SVD.
+
+    Adjust the columns of ``u`` and the rows of ``v`` such that the loadings
+    that are largest in absolute value in either ``u`` or ``v`` are always
+    made positive, depending on the ``u_based_decision`` parameter.
+
+    Parameters
+    ----------
+    u : torch.Tensor
+        Left singular vectors of shape ``(n_samples, n_components)``
+        (or a shape compatible with your SVD usage).
+    v : torch.Tensor
+        Right singular vectors of shape ``(n_components, n_features)``
+        (or a shape compatible with your SVD usage).
+    u_based_decision : bool, optional (default=True)
+        - If ``True``, the signs are determined by examining the largest
+          absolute values in each column of ``u``.
+        - If ``False``, the signs are determined by examining the largest
+          absolute values in each row of ``v``.
+
+    Returns
+    -------
+    Tuple[torch.Tensor, torch.Tensor]
+        - **u_flipped**: The sign-corrected version of ``u``.
+        - **v_flipped**: The sign-corrected version of ``v``.
+    """
+    if u_based_decision:
+        max_abs_cols = torch.argmax(torch.abs(u), dim=0)
+        signs = torch.sign(u[max_abs_cols, range(u.shape[1])])
+    else:
+        max_abs_rows = torch.argmax(torch.abs(v), dim=1)
+        signs = torch.sign(v[range(v.shape[0]), max_abs_rows])
+    u *= signs[: u.shape[1]].view(1, -1)
     v *= signs.view(-1, 1)
     return u, v
 

@@ -3,6 +3,8 @@ from functools import partial
 
 from typing import Optional, Tuple
 
+from torchdr.utils import svd_flip
+
 
 class IncrementalPCA:
     """Incremental Principal Components Analysis (IPCA) leveraging PyTorch for GPU acceleration.
@@ -21,7 +23,9 @@ class IncrementalPCA:
     copy : bool
         If False, input data will be overwritten. Defaults to True.
     batch_size : int, optional
-        The number of samples to use for each batch. Only needed if self.fit is called. If `None`, it's inferred from the data and set to `5 * n_features`. Defaults to None.
+        The number of samples to use for each batch. Only needed if self.fit is called.
+        If `None`, it's inferred from the data and set to `5 * n_features`.
+        Defaults to None.
     svd_driver : str, optional
         Name of the cuSOLVER method to be used for torch.linalg.svd. This keyword
         argument only works on CUDA inputs. Available options are: None, gesvd, gesvdj,
@@ -150,18 +154,6 @@ class IncrementalPCA:
 
         return updated_mean, updated_variance, updated_sample_count
 
-    @staticmethod
-    def _svd_flip(u, v, u_based_decision=True) -> Tuple[torch.Tensor, torch.Tensor]:
-        if u_based_decision:
-            max_abs_cols = torch.argmax(torch.abs(u), dim=0)
-            signs = torch.sign(u[max_abs_cols, range(u.shape[1])])
-        else:
-            max_abs_rows = torch.argmax(torch.abs(v), dim=1)
-            signs = torch.sign(v[range(v.shape[0]), max_abs_rows])
-        u *= signs[: u.shape[1]].view(1, -1)
-        v *= signs.view(-1, 1)
-        return u, v
-
     def fit(self, X, check_input=True):
         """Fit the model with data `X` using minibatches of size `batch_size`.
 
@@ -248,7 +240,7 @@ class IncrementalPCA:
             )
 
         U, S, Vt = self._svd_fn(X)
-        U, Vt = self._svd_flip(U, Vt, u_based_decision=False)
+        U, Vt = self.svd_flip(U, Vt, u_based_decision=False)
         explained_variance = S**2 / (n_total_samples - 1)
         explained_variance_ratio = S**2 / torch.sum(col_var * n_total_samples)
 
