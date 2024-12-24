@@ -30,8 +30,8 @@ def square_loss(P, Q):
 
 def entropy(P, log=True, dim=1):
     r"""Compute the entropy of P along axis dim.
-
-    Support log domain input.
+    x
+        Support log domain input.
     """
     if log:
         return -(P.exp() * (P - 1)).sum(dim).squeeze()
@@ -87,21 +87,6 @@ def kmax(A, k=1, dim=0):
     else:
         values, indices = A.topk(k=k, dim=dim, largest=True)
         return values, indices.int()
-
-
-# inspired by svd_flip from sklearn.utils.extmath
-def svd_flip(u, v):
-    r"""Sign correction to ensure deterministic output from SVD.
-
-    Adjust the columns of u and the rows of v such that the loadings in the
-    columns in u that are largest in absolute value are always positive.
-    """
-    max_abs_cols = torch.argmax(torch.abs(u), 0)
-    i = torch.arange(u.shape[1]).to(u.device)
-    signs = torch.sign(u[max_abs_cols, i])
-    u *= signs
-    v *= signs.view(-1, 1)
-    return u, v
 
 
 def svd_flip(u, v, u_based_decision=True):
