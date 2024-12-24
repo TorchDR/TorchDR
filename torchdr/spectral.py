@@ -555,7 +555,7 @@ class IncrementalPCA(DRModule):
         return X @ self.components_.T
 
     def fit_transform(self, X: torch.Tensor | np.ndarray):
-        r"""Fit the Incremental PCA model and project the input data onto the components.
+        r"""Fit the model with data `X` and apply the dimensionality reduction.
 
         Parameters
         ----------
