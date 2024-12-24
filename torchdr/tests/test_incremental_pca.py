@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""Tests for incremental PCA."""
+
+# Author: @sirluk
+#
+# License: BSD 3-Clause License
+
 import torch
 from torch.testing import assert_close
 from sklearn import datasets
@@ -32,7 +39,8 @@ def test_incremental_pca():
     assert_close(
         ipca.explained_variance_ratio_.sum().item(),
         explained_variance_ratio[:n_components].sum().item(),
-        rtol=1e-3, atol=1e-3
+        rtol=1e-3,
+        atol=1e-3,
     )
 
 
@@ -142,7 +150,7 @@ def test_incremental_pca_partial_fit():
     # Test that fit and partial_fit get equivalent results.
     n, p = 50, 3
     X = torch.randn(n, p)  # spherical data
-    X[:, 1] *= 0.00001  # make middle component relatively small 
+    X[:, 1] *= 0.00001  # make middle component relatively small
     X += torch.tensor([5, 4, 3])  # make a large mean
 
     # same check that we can find the original data from the transformed
@@ -162,11 +170,13 @@ def test_incremental_pca_lowrank():
     n_components = 2
     X = torch.tensor(iris.data, dtype=torch.float32)
     batch_size = X.shape[0] // 3
-    
+
     ipca = IncrementalPCA(n_components=n_components, batch_size=batch_size)
     ipca.fit(X)
 
-    ipcalr = IncrementalPCA(n_components=n_components, batch_size=batch_size, lowrank=True)
+    ipcalr = IncrementalPCA(
+        n_components=n_components, batch_size=batch_size, lowrank=True
+    )
     ipcalr.fit(X)
 
     assert_close(ipca.components_, ipcalr.components_, rtol=1e-7, atol=1e-7)
