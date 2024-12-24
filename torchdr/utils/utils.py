@@ -14,7 +14,7 @@ from .wrappers import wrap_vectors, sum_output
 def cross_entropy_loss(P, Q, log=False):
     r"""Compute the cross-entropy between P and Q.
 
-    Supports log domain input for Q.
+    Support log domain input for Q.
     """
     if log:
         return -P * Q
@@ -30,8 +30,8 @@ def square_loss(P, Q):
 
 def entropy(P, log=True, dim=1):
     r"""Compute the entropy of P along axis dim.
-    x
-        Support log domain input.
+
+    Support log domain input.
     """
     if log:
         return -(P.exp() * (P - 1)).sum(dim).squeeze()
