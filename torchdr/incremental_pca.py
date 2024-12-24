@@ -158,14 +158,14 @@ class IncrementalPCA:
     def fit(self, X, check_input=True):
         """Fit the model with data `X` using minibatches of size `batch_size`.
 
-        Parameters:
+        Parameters
         ----------
         X : torch.Tensor
             The input data tensor with shape (n_samples, n_features).
         check_input : bool, optional
             If True, validates the input. Defaults to True.
 
-        Returns:
+        Returns
         -------
         IncrementalPCA:
             The fitted IPCA model.
@@ -186,14 +186,14 @@ class IncrementalPCA:
     def partial_fit(self, X, check_input=True):
         """Fit incrementally the model with batch data `X`.
 
-        Parameters:
+        Parameters
         ----------
         X : torch.Tensor
             The batch input data tensor with shape (n_samples, n_features).
         check_input : bool, optional
             If True, validates the input. Defaults to True.
 
-        Returns:
+        Returns
         -------
         IncrementalPCA:
             The updated IPCA model after processing the batch.
@@ -264,12 +264,12 @@ class IncrementalPCA:
         The input data `X` is projected on the first principal components
         previously extracted from a training set.
 
-        Parameters:
+        Parameters
         ----------
         X : torch.Tensor
             New data tensor with shape (n_samples, n_features) to be transformed.
 
-        Returns:
+        Returns
         -------
         torch.Tensor:
             Transformed data tensor with shape (n_samples, n_components).
@@ -284,7 +284,7 @@ class IncrementalPCA:
         The last slice may contain less than `batch_size` elements, when
         `batch_size` does not divide `n`.
 
-        Parameters:
+        Parameters
         ----------
         n : int
             Size of the sequence.
@@ -293,8 +293,8 @@ class IncrementalPCA:
         min_batch_size : int, optional
             Minimum number of elements in each batch. Defaults to 0.
 
-        Yields:
-        -------
+        Yields
+        ------
         slice:
             A slice of `batch_size` elements.
         """

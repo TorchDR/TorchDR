@@ -90,8 +90,7 @@ def kmax(A, k=1, dim=0):
 
 
 def svd_flip(u, v, u_based_decision=True):
-    r"""
-    Sign correction to ensure deterministic output from SVD.
+    r"""Sign correction to ensure deterministic output from SVD.
 
     Adjust the columns of ``u`` and the rows of ``v`` such that the loadings
     that are largest in absolute value in either ``u`` or ``v`` are always
