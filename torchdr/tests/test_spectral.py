@@ -66,7 +66,3 @@ def test_KernelPCA_no_transform():
 def test_KernelPCA_keops():
     with pytest.raises(NotImplementedError):
         KernelPCA(keops=True)
-
-
-if __name__ == "__main__":
-    pass
