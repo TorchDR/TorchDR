@@ -184,11 +184,11 @@ def test_incremental_pca_on_digits(n_components):
 
     ipca = IncrementalPCA(
         n_components=n_components,
-        batch_size=None,
+        batch_size=64,
     )
     sklearn_ipca = SkIncrementalPCA(
         n_components=n_components,
-        batch_size=None,
+        batch_size=64,
     )
 
     ipca.fit(X_train)

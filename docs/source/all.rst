@@ -42,6 +42,7 @@ eigendecomposition of the affinity matrix.
    
    PCA
    KernelPCA
+   IncrementalPCA
 
 
 Neighbor Embedding
