@@ -1,15 +1,11 @@
-# -*- coding: utf-8 -*-
 """t-distributed Stochastic Neighbor embedding (TSNE) algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
+from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.affinity import (
-    EntropicAffinity,
-    StudentAffinity,
-)
 from torchdr.utils import logsumexp_red
 
 

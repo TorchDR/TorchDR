@@ -12,7 +12,7 @@ Version 0.1 (2024-09-17)
 - Affinities based on k-NN normalizations such as Self-tuning affinities and MAGIC.
 - Doubly stochastic affinities with entropic and quadratic projections.
 - Adaptive affinities with entropy control (*entropic affinity*) and its symmetric version.
-- Input and output affinities of UMAP. 
+- Input and output affinities of UMAP.
 - A template object *AffinityMatcher* to solve DR with gradient descent and any input and output affinities.
 - Neighbor embedding methods like SNE, t-SNE, t-SNEkhorn, UMAP, LargeVis, and InfoTSNE.
 - Template objects for neighbor embedding methods.

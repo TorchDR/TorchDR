@@ -1,11 +1,12 @@
-import requests
 import gzip
 import pickle
 from io import BytesIO
-from sklearn.preprocessing import LabelEncoder
-import matplotlib.pyplot as plt
 
-from torchdr import LargeVis, TSNE
+import matplotlib.pyplot as plt
+import requests
+from sklearn.preprocessing import LabelEncoder
+
+from torchdr import TSNE, LargeVis
 
 
 def download_and_load_dataset(url):

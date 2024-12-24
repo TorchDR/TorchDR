@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Affinity matrices with normalizations using nearest neighbor distances."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,17 +5,12 @@
 #
 # License: BSD 3-Clause License
 
-import torch
 from typing import Tuple
 
+import torch
+
 from torchdr.affinity.base import Affinity, LogAffinity
-from torchdr.utils import (
-    kmin,
-    wrap_vectors,
-    batch_transpose,
-    logsumexp_red,
-    sum_red,
-)
+from torchdr.utils import batch_transpose, kmin, logsumexp_red, sum_red, wrap_vectors
 
 
 @wrap_vectors

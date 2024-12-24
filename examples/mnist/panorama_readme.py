@@ -3,7 +3,7 @@ import os
 from matplotlib import pyplot as plt
 from sklearn.datasets import fetch_openml
 
-from torchdr import PCA, TSNE, UMAP, LargeVis, InfoTSNE
+from torchdr import PCA, TSNE, UMAP, InfoTSNE, LargeVis
 
 # --- Load the MNIST dataset ---
 mnist = fetch_openml("mnist_784", cache=True, as_frame=False)

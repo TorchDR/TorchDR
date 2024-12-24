@@ -1,21 +1,16 @@
-# -*- coding: utf-8 -*-
 """Affinity matrices with quadratic constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import torch
-from tqdm import tqdm
 import warnings
 
+import torch
+from tqdm import tqdm
+
 from torchdr.affinity import Affinity
-from torchdr.utils import (
-    OPTIMIZERS,
-    wrap_vectors,
-    check_NaNs,
-    batch_transpose,
-)
+from torchdr.utils import OPTIMIZERS, batch_transpose, check_NaNs, wrap_vectors
 
 
 @wrap_vectors

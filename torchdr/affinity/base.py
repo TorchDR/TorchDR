@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Base classes for affinity matrices."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -7,17 +6,17 @@
 
 from abc import ABC
 
+import numpy as np
 import torch
 
-import numpy as np
 from torchdr.utils import (
+    LazyTensorType,
+    handle_keops,
+    pairwise_distances,
+    pykeops,
     symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
-    pairwise_distances,
     to_torch,
-    LazyTensorType,
-    pykeops,
-    handle_keops,
 )
 
 

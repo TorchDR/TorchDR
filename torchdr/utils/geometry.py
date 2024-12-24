@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Ground metrics and distances."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,9 +5,10 @@
 # License: BSD 3-Clause License
 
 import torch
-from .keops import LazyTensor, pykeops
 
 from torchdr.utils.utils import identity_matrix
+
+from .keops import LazyTensor, pykeops
 
 LIST_METRICS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
 

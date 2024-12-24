@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
@@ -11,26 +10,17 @@ from .base import (
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
 )
-
-from .unnormalized import (
-    ScalarProductAffinity,
-    GaussianAffinity,
-    StudentAffinity,
-)
-
-from .knn_normalized import SelfTuningAffinity, MAGICAffinity
-
 from .entropic import (
     EntropicAffinity,
-    SymmetricEntropicAffinity,
-    SinkhornAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
+    SinkhornAffinity,
+    SymmetricEntropicAffinity,
 )
-
+from .knn_normalized import MAGICAffinity, SelfTuningAffinity
 from .quadratic import DoublyStochasticQuadraticAffinity
-
 from .umap import UMAPAffinityIn, UMAPAffinityOut
+from .unnormalized import GaussianAffinity, ScalarProductAffinity, StudentAffinity
 
 __all__ = [
     "Affinity",

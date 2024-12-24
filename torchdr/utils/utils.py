@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Useful functions for defining objectives and constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,8 +5,9 @@
 # License: BSD 3-Clause License
 
 import torch
+
 from .keops import LazyTensor, is_lazy_tensor
-from .wrappers import wrap_vectors, sum_output
+from .wrappers import sum_output, wrap_vectors
 
 
 @sum_output

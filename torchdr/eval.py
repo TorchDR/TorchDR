@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Evaluation methods for dimensionality reduction."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,13 +5,13 @@
 #
 # License: BSD 3-Clause License
 
-import torch
-import numpy as np
 import warnings
 from random import sample, seed
 
-from torchdr.utils import to_torch, pairwise_distances, prod_matrix_vector
+import numpy as np
+import torch
 
+from torchdr.utils import pairwise_distances, prod_matrix_vector, to_torch
 
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
 

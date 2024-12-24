@@ -39,7 +39,7 @@ fig.add_axes(ax)
 ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=t, s=50, alpha=0.8)
 ax.set_title("Swiss Roll in Ambient Space")
 ax.view_init(azim=-66, elev=12)
-_ = ax.text2D(0.8, 0.05, s="n_samples={}".format(n_samples), transform=ax.transAxes)
+_ = ax.text2D(0.8, 0.05, s=f"n_samples={n_samples}", transform=ax.transAxes)
 
 # %%
 # Compute the TSNE embedding
@@ -77,7 +77,7 @@ plt.figure(figsize=(12, 4))
 for i, perplexity in enumerate(perplexity_values):
     plt.subplot(1, 4, i + 1)
     plt.scatter(X_embedded[i][:, 0], X_embedded[i][:, 1], c=t, s=50, alpha=0.8)
-    plt.title("Perplexity = {}".format(perplexity))
+    plt.title(f"Perplexity = {perplexity}")
 
 # %%
 # We can observe that the perplexity parameter significantly influences the embedding.

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests estimators for scikit-learn compatibility.
 """
@@ -9,10 +8,10 @@ Tests estimators for scikit-learn compatibility.
 # License: BSD 3-Clause License
 
 import pytest
-
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, TSNEkhorn, LargeVis
-from torchdr.utils import pykeops
 from sklearn.utils.estimator_checks import check_estimator
+
+from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, LargeVis, TSNEkhorn
+from torchdr.utils import pykeops
 
 DEVICE = "cpu"
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Spectral methods for dimensionality reduction."""
 
 # Authors: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -6,23 +5,23 @@
 #
 # License: BSD 3-Clause License
 
-import torch
 import numpy as np
+import torch
 
-from torchdr.base import DRModule
-from torchdr.utils import (
-    to_torch,
-    sum_red,
-    svd_flip,
-    handle_backend,
-    center_kernel,
-    check_nonnegativity_eigenvalues,
-)
 from torchdr.affinity import (
     Affinity,
     GaussianAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
+)
+from torchdr.base import DRModule
+from torchdr.utils import (
+    center_kernel,
+    check_nonnegativity_eigenvalues,
+    handle_backend,
+    sum_red,
+    svd_flip,
+    to_torch,
 )
 
 
