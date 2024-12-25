@@ -1,30 +1,27 @@
-# -*- coding: utf-8 -*-
 """Tests for functions in utils module."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import torch
 import pytest
-
+import torch
 from torch.testing import assert_close
 
-
 from torchdr.utils import (
-    center_kernel,
-    pairwise_distances,
-    symmetric_pairwise_distances,
-    symmetric_pairwise_distances_indices,
-    binary_search,
-    false_position,
     LIST_METRICS,
-    check_similarity_torch_keops,
-    check_symmetry,
+    binary_search,
+    center_kernel,
     check_shape,
     check_similarity,
-    pykeops,
+    check_similarity_torch_keops,
+    check_symmetry,
+    false_position,
     handle_keops,
+    pairwise_distances,
+    pykeops,
+    symmetric_pairwise_distances,
+    symmetric_pairwise_distances_indices,
 )
 
 lst_types = [torch.double, torch.float]

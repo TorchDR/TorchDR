@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Useful functions for testing, compatible with KeOps."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -7,7 +6,8 @@
 
 import torch
 from torch.testing import assert_close
-from .keops import pykeops, is_lazy_tensor
+
+from .keops import is_lazy_tensor, pykeops
 from .utils import entropy
 
 

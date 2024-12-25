@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 """SNEkhorn algorithm (inverse OT DR)."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.affinity import (
-    SymmetricEntropicAffinity,
     EntropicAffinity,
     SinkhornAffinity,
+    SymmetricEntropicAffinity,
 )
-from torchdr.utils import logsumexp_red, cross_entropy_loss
+from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.utils import cross_entropy_loss, logsumexp_red
 
 
 class TSNEkhorn(NeighborEmbedding):

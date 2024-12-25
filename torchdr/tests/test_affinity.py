@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for affinity matrices.
 """
@@ -7,10 +6,11 @@ Tests for affinity matrices.
 #
 # License: BSD 3-Clause License
 
+import math
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-import math
 
 from torchdr.utils import pykeops
 
@@ -22,35 +22,35 @@ else:
     lst_keops = [False]
 
 
-from torchdr.utils import (
-    check_similarity_torch_keops,
-    check_symmetry,
-    check_marginal,
-    check_entropy,
-    check_type,
-    check_shape,
-    check_nonnegativity,
-    check_total_sum,
-    entropy,
-    to_torch,
-)
 from torchdr.affinity import (
-    ScalarProductAffinity,
+    DoublyStochasticQuadraticAffinity,
+    EntropicAffinity,
     GaussianAffinity,
+    MAGICAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
+    ScalarProductAffinity,
     SelfTuningAffinity,
-    MAGICAffinity,
-    StudentAffinity,
-    EntropicAffinity,
-    SymmetricEntropicAffinity,
     SinkhornAffinity,
-    DoublyStochasticQuadraticAffinity,
+    StudentAffinity,
+    SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
+from torchdr.utils import (
+    check_entropy,
+    check_marginal,
+    check_nonnegativity,
+    check_shape,
+    check_similarity_torch_keops,
+    check_symmetry,
+    check_total_sum,
+    check_type,
+    entropy,
+    to_torch,
+)
 
 lst_types = ["float32", "float64"]
 

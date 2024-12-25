@@ -40,7 +40,7 @@
    ..
       .. minigallery:: {{fullname}}.{{item}}
          :add-heading:
-   
+
 
 
    {%- endfor %}

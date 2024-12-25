@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 """Classes for clustering methods."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import torch
-import numpy as np
-
 from abc import ABC, abstractmethod
+
+import numpy as np
+import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import to_torch, pykeops, pairwise_distances, kmin
+from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch
 
 
 class ClusteringModule(BaseEstimator, ABC):

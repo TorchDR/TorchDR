@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Common simple affinities."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -7,8 +6,8 @@
 
 import torch
 
-from torchdr.utils import LazyTensorType
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
+from torchdr.utils import LazyTensorType
 
 
 class GaussianAffinity(UnnormalizedLogAffinity):

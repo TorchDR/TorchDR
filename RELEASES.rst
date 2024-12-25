@@ -1,4 +1,5 @@
 
+- Pre-commit hooks added for code quality and consistency checks `PR #147 <https://github.com/TorchDR/TorchDR/pull/147>`_.
 - Incremental PCA `PR #137 <https://github.com/TorchDR/TorchDR/pull/137>`_.
 - Clean citation style via sphinxcontrib-bibtex `PR #143 <https://github.com/TorchDR/TorchDR/pull/143>`_.
 - Functionality to switch to keops backend if it is installed and an out-of-memory error is raised `PR #130 <https://github.com/TorchDR/TorchDR/pull/130>`_.
@@ -13,7 +14,7 @@ Version 0.1 (2024-09-17)
 - Affinities based on k-NN normalizations such as Self-tuning affinities and MAGIC.
 - Doubly stochastic affinities with entropic and quadratic projections.
 - Adaptive affinities with entropy control (*entropic affinity*) and its symmetric version.
-- Input and output affinities of UMAP. 
+- Input and output affinities of UMAP.
 - A template object *AffinityMatcher* to solve DR with gradient descent and any input and output affinities.
 - Neighbor embedding methods like SNE, t-SNE, t-SNEkhorn, UMAP, LargeVis, and InfoTSNE.
 - Template objects for neighbor embedding methods.

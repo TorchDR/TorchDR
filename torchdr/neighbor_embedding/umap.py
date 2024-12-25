@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
 """UMAP algorithm."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
+from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.affinity import (
-    UMAPAffinityIn,
-    UMAPAffinityOut,
-)
-from torchdr.utils import sum_output, cross_entropy_loss
+from torchdr.utils import cross_entropy_loss, sum_output
 
 
 class UMAP(SampledNeighborEmbedding):

@@ -45,7 +45,7 @@ To utilize GPU support, set :attr:`device="cuda"` when initializing any module. 
 .. note::
 
     DR particularly benefits from GPU acceleration as most computations, including affinity calculations and the DR objective, involve matrix reductions that are highly parallelizable.
-    
+
 
 Avoiding memory overflows with KeOps symbolic (lazy) tensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -91,7 +91,7 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
    torchdr.LogAffinity
 
 
-Affinities are objects that can directly be called. The outputed affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
+Affinities are objects that can directly be called. The outputted affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
 Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
 
@@ -117,7 +117,7 @@ The resulting affinities can be viewed as a **soft approximation of a k-nearest 
 The following table outlines the aspects controlled by different formulations of entropic affinities. **Marginal** indicates whether each row of the affinity matrix has a controlled sum. **Symmetry** indicates whether the affinity matrix is symmetric. **Entropy** indicates whether each row of the affinity matrix has controlled entropy, dictated by the :attr:`perplexity` hyperparameter.
 
 
-.. list-table:: 
+.. list-table::
    :widths: auto
    :header-rows: 1
 
@@ -201,7 +201,7 @@ Spectral methods correspond to choosing the scalar product affinity :math:`[\mat
 
     \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
-When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis :cite:`ham2004kernel` and an optimal solution is given by 
+When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis :cite:`ham2004kernel` and an optimal solution is given by
 
 .. math::
 
@@ -221,7 +221,7 @@ Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^^
 
 TorchDR aims to implement most popular **neighbor embedding (NE)** algorithms.
-In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*. 
+In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
 
 NE objectives share a common structure: they aim to **minimize** the **weighted sum** of an **attractive term** and a **repulsive term**. Interestingly, the **attractive term** is often the **cross-entropy** between the input and output affinities. Additionally, the **repulsive term** is typically a **function of the output affinities only**. Thus, the NE problem can be formulated as the following minimization problem:
 
@@ -233,7 +233,7 @@ In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{A_Z})` represents the re
 
 Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
 
-.. list-table:: 
+.. list-table::
    :widths: auto
    :header-rows: 1
 
@@ -272,5 +272,5 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-In the above table, :math:`N(i)` denotes the set of negative samples 
+In the above table, :math:`N(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.

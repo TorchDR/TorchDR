@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests clustering estimators.
 """
@@ -7,9 +6,9 @@ Tests clustering estimators.
 #
 # License: BSD 3-Clause License
 
+import numpy as np
 import pytest
 import torch
-import numpy as np
 from sklearn.cluster import KMeans as SklearnKMeans
 
 from torchdr.clustering import KMeans as TorchKMeans

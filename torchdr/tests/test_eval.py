@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functions in eval module.
 """
@@ -7,17 +6,17 @@ Tests for functions in eval module.
 #
 # License: BSD 3-Clause License
 
-import torch
+import warnings
+
 import numpy as np
 import pytest
-import warnings
+import torch
 from sklearn.metrics import silhouette_score as sk_silhouette_score
-
 from torch.testing import assert_close
 
-from torchdr.eval import silhouette_samples, silhouette_score, admissible_LIST_METRICS
-from torchdr.utils import pykeops, pairwise_distances
+from torchdr.eval import admissible_LIST_METRICS, silhouette_samples, silhouette_score
 from torchdr.tests.utils import toy_dataset
+from torchdr.utils import pairwise_distances, pykeops
 
 lst_types = ["float32", "float64"]
 if pykeops:
