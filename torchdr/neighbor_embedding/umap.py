@@ -90,9 +90,6 @@ class UMAP(SampledNeighborEmbedding):
         UMAP: Uniform manifold approximation and projection for dimension reduction.
         arXiv preprint arXiv:1802.03426.
 
-    .. [D21] Sebastian Damrich, Fred Hamprecht (2021).
-        On UMAP's True Loss Function.
-        Advances in Neural Information Processing Systems 34 (NeurIPS).
     """  # noqa: E501
 
     def __init__(
