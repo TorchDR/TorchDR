@@ -81,7 +81,7 @@ bibtex_default_style = "alpha"
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 html_static_path = []
 html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"

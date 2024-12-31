@@ -89,7 +89,7 @@ all =  [
 doc = [
     "sphinx",
     "sphinx_gallery",
-    "sphinx_rtd_theme",
+    "pydata_sphinx_theme",
     "sphinxcontrib-bibtex",
     "matplotlib",
     "numpydoc",
