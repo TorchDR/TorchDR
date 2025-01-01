@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "TorchDR"
 copyright = "2024, TorchDR team"
 author = "Hugues Van Assel"
-release = "0.0.0-alpha"
+release = "0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -87,20 +87,31 @@ html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"
 html_theme_options = {
     # "analytics_id": "",  # Provided by Google in your dashboard G-
+    "header_links_before_dropdown": 4,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/TorchDR/TorchDR",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/torchdr/",
+            "icon": "fa-custom fa-pypi",
+            "type": "fontawesome",
+        },
+    ],
     "analytics_anonymize_ip": False,
-    "logo_only": True,
-    "display_version": True,
-    "prev_next_buttons_location": "bottom",
-    "style_external_links": False,
-    "vcs_pageview_mode": "",
-    "style_nav_header_background": "white",
     # Toc options
     "collapse_navigation": True,
-    "sticky_navigation": True,
     "navigation_depth": 4,
-    "includehidden": True,
-    "titles_only": False,
 }
+
+html_static_path = ["js"]
+html_js_files = [
+    "pypi-icon.js",
+]
 
 # Separator substitution : Writing |sep| in the rst file will display a horizontal line.
 rst_prolog = """
