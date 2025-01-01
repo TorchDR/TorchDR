@@ -83,16 +83,6 @@ class UMAP(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 10.
-
-    References
-    ----------
-    .. [M18] Leland McInnes, John Healy, James Melville (2018).
-        UMAP: Uniform manifold approximation and projection for dimension reduction.
-        arXiv preprint arXiv:1802.03426.
-
-    .. [D21] Sebastian Damrich, Fred Hamprecht (2021).
-        On UMAP's True Loss Function.
-        Advances in Neural Information Processing Systems 34 (NeurIPS).
     """  # noqa: E501
 
     def __init__(
