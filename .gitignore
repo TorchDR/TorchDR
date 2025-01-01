@@ -139,7 +139,6 @@ docs/source/sg_execution_times.rst
 .vscode
 
 # Data
-data/
 *.csv
 *.h5
 *.npy
