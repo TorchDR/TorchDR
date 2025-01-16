@@ -92,8 +92,8 @@ def symmetric_pairwise_distances(
         C = _pairwise_distances_torch(X, metric=metric)
 
     if add_diag is not None:  # add mass on the diagonal
-        I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
-        C += add_diag * I
+        Id = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
+        C += add_diag * Id
 
     return C
 

@@ -134,9 +134,9 @@ def false_position(
     f_begin, f_end = f(begin), f(end)
     m = begin - ((begin - end) / (f(begin) - f(end))) * f(begin)
     fm = f(m)
-    assert (
-        m.shape == begin.shape == end.shape
-    ), "dimension changed after evaluating the function which root should be computed."
+    assert m.shape == begin.shape == end.shape, (
+        "dimension changed after evaluating the function which root should be computed."
+    )
 
     pbar = tqdm(range(max_iter), disable=not verbose)
     for _ in pbar:
@@ -167,9 +167,9 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
     if begin is None:
         begin = torch.ones(n, dtype=dtype, device=device)
     else:
-        assert isinstance(
-            begin, (int, float, torch.Tensor)
-        ), "begin must be a float, an int or a tensor."
+        assert isinstance(begin, (int, float, torch.Tensor)), (
+            "begin must be a float, an int or a tensor."
+        )
         if isinstance(begin, torch.Tensor):
             assert begin.shape == (n,), "begin must have the same shape as the output."
             begin = begin.to(dtype=dtype, device=device)
@@ -178,9 +178,9 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
     if end is None:
         end = torch.ones(n, dtype=dtype, device=device)
     else:
-        assert isinstance(
-            end, (int, float, torch.Tensor)
-        ), "end must be a float, an int or a tensor."
+        assert isinstance(end, (int, float, torch.Tensor)), (
+            "end must be a float, an int or a tensor."
+        )
         if isinstance(end, torch.Tensor):
             assert end.shape == (n,), "end must have the same shape as the output."
             end = end.to(dtype=dtype, device=device)

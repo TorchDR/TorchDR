@@ -164,7 +164,7 @@ class NeighborEmbedding(AffinityMatcher):
                         warnings.warn(
                             "[TorchDR] WARNING : Number of samples is smaller than "
                             f"{param_name} ({n} <= {param_value}), setting "
-                            f"{param_name} to {n//2} (which corresponds to n//2)."
+                            f"{param_name} to {n // 2} (which corresponds to n//2)."
                         )
                     new_value = n // 2
                     setattr(self, param_name + "_", new_value)

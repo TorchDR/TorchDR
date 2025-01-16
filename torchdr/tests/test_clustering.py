@@ -101,9 +101,9 @@ def test_kmeans_predict(sample_data, dtype):
     assert predictions.shape[0] == X.shape[0]
 
     # Predictions should match labels from fit
-    assert torch.equal(
-        predictions, kmeans.labels_
-    ), "Predictions do not match labels from fit"
+    assert torch.equal(predictions, kmeans.labels_), (
+        "Predictions do not match labels from fit"
+    )
 
 
 def test_kmeans_invalid_init():

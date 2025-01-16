@@ -73,7 +73,6 @@ keops = [
 
 dev = [
     "pytest",
-    "flake8",
     "coverage",
     "numpydoc",
     "pytest-cov",

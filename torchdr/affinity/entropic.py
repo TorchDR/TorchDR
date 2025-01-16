@@ -589,8 +589,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                     ):
                         if self.verbose:
                             print(
-                                "[TorchDR] Affinity : convergence reached "
-                                f"at iter {k}."
+                                f"[TorchDR] Affinity : convergence reached at iter {k}."
                             )
                         break
 

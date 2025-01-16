@@ -53,9 +53,10 @@ def kmin(A, k=1, dim=0):
         return A, torch.arange(A.shape[dim]).int()
 
     if is_lazy_tensor(A):
-        dim_red = lambda P: (
-            P.T if dim == 0 else P
-        )  # reduces the same axis as torch.topk
+
+        def dim_red(P):
+            return P.T if dim == 0 else P  # reduces the same axis as torch.topk
+
         values, indices = A.Kmin_argKmin(K=k, dim=dim)
         return dim_red(values), dim_red(indices).int()
 
@@ -78,9 +79,10 @@ def kmax(A, k=1, dim=0):
         return A, torch.arange(A.shape[dim]).int()
 
     if is_lazy_tensor(A):
-        dim_red = lambda P: (
-            P.T if dim == 0 else P
-        )  # reduces the same axis as torch.topk
+
+        def dim_red(P):
+            return P.T if dim == 0 else P  # reduces the same axis as torch.topk
+
         values, indices = (-A).Kmin_argKmin(K=k, dim=dim)
         return -dim_red(values), dim_red(indices).int()
 

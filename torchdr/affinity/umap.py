@@ -56,7 +56,7 @@ def _check_n_neighbors(n_neighbors, n, verbose=True):
         if verbose:
             warnings.warn(
                 "[TorchDR] WARNING : The n_neighbors parameter must be greater than "
-                f"1 and smaller than the number of samples - 1 (here {n-1}). "
+                f"1 and smaller than the number of samples - 1 (here {n - 1}). "
                 f"Got n_neighbors = {n_neighbors}. Setting n_neighbors to {new_value}."
             )
         return new_value

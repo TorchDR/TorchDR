@@ -333,14 +333,14 @@ class IncrementalPCA(DRModule):
 
         if lowrank:
             if lowrank_q is None:
-                assert (
-                    n_components is not None
-                ), "n_components must be specified when using lowrank mode "
+                assert n_components is not None, (
+                    "n_components must be specified when using lowrank mode "
+                )
                 "with lowrank_q=None."
                 lowrank_q = n_components * 2
-            assert (
-                lowrank_q >= n_components
-            ), "lowrank_q must be greater than or equal to n_components."
+            assert lowrank_q >= n_components, (
+                "lowrank_q must be greater than or equal to n_components."
+            )
 
             def svd_fn(X):
                 U, S, V = torch.svd_lowrank(X, q=lowrank_q, niter=lowrank_niter)
@@ -389,12 +389,12 @@ class IncrementalPCA(DRModule):
             return last_mean, last_variance, last_sample_count
 
         if last_sample_count > 0:
-            assert (
-                last_mean is not None
-            ), "last_mean should not be None if last_sample_count > 0."
-            assert (
-                last_variance is not None
-            ), "last_variance should not be None if last_sample_count > 0."
+            assert last_mean is not None, (
+                "last_mean should not be None if last_sample_count > 0."
+            )
+            assert last_variance is not None, (
+                "last_variance should not be None if last_sample_count > 0."
+            )
 
         new_sample_count = torch.tensor([X.shape[0]], device=X.device)
         updated_sample_count = last_sample_count + new_sample_count

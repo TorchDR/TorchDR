@@ -325,7 +325,10 @@ class AffinityMatcher(DRModule):
             )
 
         elif self.scheduler == "linear":
-            linear_decay = lambda epoch: (1 - epoch / n_iter)
+
+            def linear_decay(epoch):
+                return 1 - epoch / n_iter
+
             self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer_, lr_lambda=linear_decay
             )

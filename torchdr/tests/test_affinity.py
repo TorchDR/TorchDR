@@ -277,12 +277,12 @@ def test_entropic_affinity(dtype, metric, sparsity, keops):
     # -- check bounds on the root of entropic affinities --
     C = affinity._distance_matrix(to_torch(X, device=DEVICE))
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
-    assert (
-        entropy_gap(begin, C) < 0
-    ).all(), "Lower bound of entropic affinity root is not valid."
-    assert (
-        entropy_gap(end, C) > 0
-    ).all(), "Lower bound of entropic affinity root is not valid."
+    assert (entropy_gap(begin, C) < 0).all(), (
+        "Lower bound of entropic affinity root is not valid."
+    )
+    assert (entropy_gap(end, C) > 0).all(), (
+        "Lower bound of entropic affinity root is not valid."
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)
