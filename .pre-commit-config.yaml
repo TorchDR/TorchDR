@@ -39,12 +39,11 @@ repos:
       - id: shellcheck
         require_serial: true
 
-  # word spelling linter
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
-    hooks:
-      - id: codespell
-        require_serial: true
-        args:
-          - --skip=logs/**,data/**,*.ipynb
-          - --ignore-words-list=socio-economic
+  rev: v2.3.0
+  hooks:
+    - id: codespell
+      require_serial: true
+      args:
+        - --skip=logs/**,data/**,*.ipynb
+        - --ignore-words-list=OT
