@@ -110,7 +110,8 @@ def wrap_vectors(func):
     def wrapper(C, *args, **kwargs):
         use_keops = is_lazy_tensor(C)
 
-        unsqueeze = lambda arg: keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
+        def unsqueeze(arg):
+            return keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
 
         args = [
             (unsqueeze(arg) if isinstance(arg, torch.Tensor) else arg) for arg in args

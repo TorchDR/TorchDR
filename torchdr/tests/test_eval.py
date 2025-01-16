@@ -32,7 +32,7 @@ DEVICE = "cpu"
 def test_silhouette_score_euclidean(dtype, keops, metric):
     # perfect silhouette
     n = 10
-    I = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    Id = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
     y_I = torch.arange(n, device=DEVICE)
     ones = torch.ones(n, device=DEVICE, dtype=getattr(torch, dtype))
     zeros = torch.zeros(n, device=DEVICE, dtype=getattr(torch, dtype))
@@ -45,34 +45,34 @@ def test_silhouette_score_euclidean(dtype, keops, metric):
     if metric in admissible_LIST_METRICS:
         # tests edge cases with isolated samples
         with warnings.catch_warnings(record=True) as w:
-            coeffs = silhouette_samples(I, y_I, None, metric, None, keops, True)
+            coeffs = silhouette_samples(Id, y_I, None, metric, None, keops, True)
             assert issubclass(w[-1].category, UserWarning)
 
         assert_close(coeffs, ones)
         weighted_coeffs = silhouette_samples(
-            I, y_I, ones / n, metric, DEVICE, keops, False
+            Id, y_I, ones / n, metric, DEVICE, keops, False
         )
         assert_close(coeffs, weighted_coeffs)
-        score = silhouette_score(I, y_I, None, metric, DEVICE, keops)
+        score = silhouette_score(Id, y_I, None, metric, DEVICE, keops)
         assert_close(coeffs.mean(), score)
-        sampled_score = silhouette_score(I, y_I, None, metric, DEVICE, keops, n)
+        sampled_score = silhouette_score(Id, y_I, None, metric, DEVICE, keops, n)
         assert_close(score, sampled_score)
 
         # tests with equidistant samples
-        coeffs_2 = silhouette_samples(I, y_I2, ones / n, metric, None, keops)
+        coeffs_2 = silhouette_samples(Id, y_I2, ones / n, metric, None, keops)
         assert_close(coeffs_2, zeros)
 
         weighted_coeffs_2 = silhouette_samples(
-            I, y_I2, None, metric, DEVICE, keops, False
+            Id, y_I2, None, metric, DEVICE, keops, False
         )
         assert_close(coeffs_2, weighted_coeffs_2)
 
-        score_2 = silhouette_score(I, y_I2, None, metric, DEVICE, keops)
+        score_2 = silhouette_score(Id, y_I2, None, metric, DEVICE, keops)
         assert_close(coeffs_2.mean(), score_2)
 
     else:
         with pytest.raises(ValueError):
-            _ = silhouette_samples(I, y_I, None, metric, None, keops, True)
+            _ = silhouette_samples(Id, y_I, None, metric, None, keops, True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -80,8 +80,8 @@ def test_silhouette_score_euclidean(dtype, keops, metric):
 def test_silhouette_score_precomputed(dtype, keops):
     # perfect silhouette
     n = 10
-    I = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
-    CI = pairwise_distances(I, I, "euclidean")
+    Id = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    CI = pairwise_distances(Id, Id, "euclidean")
     ones = torch.ones(n, device=DEVICE, dtype=getattr(torch, dtype))
 
     y_I2 = []
@@ -91,7 +91,7 @@ def test_silhouette_score_precomputed(dtype, keops):
 
     # tests edge cases with isolated samples
     coeffs_pre = silhouette_samples(CI, y_I2, None, "precomputed", None, keops, True)
-    coeffs = silhouette_samples(I, y_I2, None, "euclidean", None, keops, True)
+    coeffs = silhouette_samples(Id, y_I2, None, "euclidean", None, keops, True)
 
     assert_close(coeffs_pre, coeffs)
     weighted_coeffs_pre = silhouette_samples(
@@ -122,9 +122,9 @@ def test_consistency_sklearn(dtype, keops, metric):
 
     score_torchdr = silhouette_score(X, y, None, metric, DEVICE, keops)
     score_sklearn = sk_silhouette_score(X, y, metric=metric)
-    assert (
-        score_torchdr - score_sklearn
-    ) ** 2 < 1e-5, "Silhouette scores from torchdr and sklearn should be close."
+    assert (score_torchdr - score_sklearn) ** 2 < 1e-5, (
+        "Silhouette scores from torchdr and sklearn should be close."
+    )
 
     # Generate y_noise by permuting half of the indices in y randomly
     y_noise = y.copy()
@@ -132,8 +132,6 @@ def test_consistency_sklearn(dtype, keops, metric):
 
     score_torchdr_noise = silhouette_score(X, y_noise, None, metric, DEVICE, keops)
     score_sklearn_noise = sk_silhouette_score(X, y_noise, metric=metric)
-    assert (
-        score_torchdr_noise - score_sklearn_noise
-    ) ** 2 < 1e-5, (
+    assert (score_torchdr_noise - score_sklearn_noise) ** 2 < 1e-5, (
         "Silhouette scores from torchdr and sklearn should be close on noised labels."
     )
