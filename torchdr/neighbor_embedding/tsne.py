@@ -12,7 +12,7 @@ from torchdr.utils import logsumexp_red
 class TSNE(SparseNeighborEmbedding):
     r"""t-Stochastic Neighbor Embedding (t-SNE) introduced in :cite:`van2008visualizing`.
 
-    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    It uses a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
     affinity :math:`\mathbf{Q}`.
 

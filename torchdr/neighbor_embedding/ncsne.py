@@ -12,7 +12,7 @@ from torchdr.utils import logsumexp_red
 class InfoTSNE(SampledNeighborEmbedding):
     r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
-    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    It uses a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
     affinity :math:`\mathbf{Q}`.
 

@@ -16,7 +16,7 @@ from torchdr.utils import cross_entropy_loss, logsumexp_red
 class TSNEkhorn(NeighborEmbedding):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
-    It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
+    It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output
     affinity :math:`\mathbf{Q}`.
 

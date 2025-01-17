@@ -111,7 +111,8 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     r"""Compute the scalar product affinity matrix.
 
     Its expression is given by :math:`\mathbf{X} \mathbf{X}^\top`
-    where :math:`\mathbf{X}` is the input data.
+    where :math:`\mathbf{X} = (\mathbf{x}_1, \ldots, \mathbf{x}_n)^\top`
+    with each row vector :math:`\mathbf{x}_i` corresponding to the i-th data sample.
 
     Parameters
     ----------
