@@ -58,11 +58,11 @@ params = {
     "lr": 1e0,
 }
 
-sne = SNE(early_exaggeration=1, **params)
+sne = SNE(early_exaggeration_coeff=1, **params)
 
-umap = UMAP(early_exaggeration=1, **params)
+umap = UMAP(early_exaggeration_coeff=1, **params)
 
-tsne = TSNE(early_exaggeration=1, **params)
+tsne = TSNE(early_exaggeration_coeff=1, **params)
 
 all_methods = {
     "TSNE": tsne,
