@@ -227,9 +227,9 @@ NE objectives share a common structure: they aim to **minimize** the **weighted 
 
 .. math::
 
-    \min_{\mathbf{Z}} \: - \gamma \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
+    \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_attraction` in TorchDR.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\lambda` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`early_exaggeration_coeff` in TorchDR because it is often set to a value larger than one at the beginning of the optimization.
 
 Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
 

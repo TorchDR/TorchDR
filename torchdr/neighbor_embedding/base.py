@@ -25,12 +25,12 @@ class NeighborEmbedding(AffinityMatcher):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
-    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
+    parameter.
 
     Note that the early exaggeration coefficient :math:`\lambda` is set to
     :math:`1` after the early exaggeration phase which duration is controlled by the
@@ -74,11 +74,9 @@ class NeighborEmbedding(AffinityMatcher):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
     """  # noqa: E501
@@ -103,8 +101,7 @@ class NeighborEmbedding(AffinityMatcher):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        early_exaggeration: float = 1.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
         **kwargs,
     ):
@@ -129,8 +126,7 @@ class NeighborEmbedding(AffinityMatcher):
             random_state=random_state,
         )
 
-        self.early_exaggeration = early_exaggeration
-        self.coeff_repulsion = coeff_repulsion
+        self.early_exaggeration_coeff = early_exaggeration_coeff
         self.early_exaggeration_iter = early_exaggeration_iter
 
         # improve consistency with the sklearn API
@@ -139,13 +135,13 @@ class NeighborEmbedding(AffinityMatcher):
         if "min_grad_norm" in kwargs:
             self.tol = kwargs["min_grad_norm"]
         if "early_exaggeration" in kwargs:
-            self.early_exaggeration = kwargs["early_exaggeration"]
+            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
     def _additional_updates(self, step):
         if (  # stop early exaggeration phase
-            self.early_exaggeration_ > 1 and step == self.early_exaggeration_iter
+            self.early_exaggeration_coeff_ > 1 and step == self.early_exaggeration_iter
         ):
-            self.early_exaggeration_ = 1
+            self.early_exaggeration_coeff_ = 1
             # reinitialize optim
             self._set_learning_rate()
             self._set_optimizer()
@@ -174,7 +170,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _fit(self, X: torch.Tensor):
         self._check_n_neighbors(X.shape[0])
-        self.early_exaggeration_ = (
+        self.early_exaggeration_coeff_ = (
             self.early_exaggeration
         )  # early_exaggeration_ may change during the optimization
 
@@ -192,7 +188,7 @@ class NeighborEmbedding(AffinityMatcher):
                         "rate, the optimizer should be 'SGD'."
                     )
             # from the sklearn TSNE implementation
-            self.lr_ = max(self.n_samples_in_ / self.early_exaggeration_ / 4, 50)
+            self.lr_ = max(self.n_samples_in_ / self.early_exaggeration_coeff_ / 4, 50)
         else:
             self.lr_ = self.lr
 
@@ -201,7 +197,7 @@ class NeighborEmbedding(AffinityMatcher):
         # from the sklearn TSNE implementation
         if self.optimizer_kwargs == "auto":
             if self.optimizer == "SGD":
-                if self.early_exaggeration_ > 1:
+                if self.early_exaggeration_coeff_ > 1:
                     optimizer_kwargs = {"momentum": 0.5}
                 else:
                     optimizer_kwargs = {"momentum": 0.8}
@@ -230,12 +226,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
-    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
+    parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
@@ -277,11 +273,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
     """  # noqa: E501
@@ -306,8 +300,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        early_exaggeration: float = 1.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
     ):
         # check affinity affinity_in
@@ -343,8 +336,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration=early_exaggeration,
-            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
@@ -365,8 +357,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _loss(self):
         loss = (
-            self.early_exaggeration_ * self._attractive_loss()
-            + self.coeff_repulsion * self._repulsive_loss()
+            self.early_exaggeration_coeff_ * self._attractive_loss()
+            + self._repulsive_loss()
         )
         return loss
 
@@ -378,12 +370,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
-    parameter and :math:`\gamma` is the :attr:`coeff_repulsion` parameter.
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
+    parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a
     :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
@@ -433,11 +425,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is 0.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term. Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
     n_negatives : int, optional
@@ -464,8 +454,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        early_exaggeration: float = 1.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
         n_negatives: int = 5,
     ):
@@ -490,8 +479,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration=early_exaggeration,
-            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
