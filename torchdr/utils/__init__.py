@@ -13,6 +13,7 @@ from .geometry import (
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
 from .optim import OPTIMIZERS, binary_search, false_position
 from .utils import (
+    seed_everything,
     batch_transpose,
     center_kernel,
     cross_entropy_loss,
@@ -51,6 +52,7 @@ from .wrappers import (
 )
 
 __all__ = [
+    "seed_everything",
     "LazyTensor",
     "LazyTensorType",
     "is_lazy_tensor",

@@ -73,7 +73,7 @@ class NeighborEmbedding(AffinityMatcher):
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
-        Random seed for reproducibility. Default is 0.
+        Random seed for reproducibility. Default is None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
@@ -100,7 +100,7 @@ class NeighborEmbedding(AffinityMatcher):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
         **kwargs,
@@ -272,7 +272,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
-        Random seed for reproducibility. Default is 0.
+        Random seed for reproducibility. Default is None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
@@ -299,7 +299,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
     ):
@@ -424,7 +424,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
-        Random seed for reproducibility. Default is 0.
+        Random seed for reproducibility. Default is None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         Default is 1.0.
@@ -453,7 +453,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = None,
         n_negatives: int = 5,
@@ -502,11 +502,13 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             else:
                 self.n_negatives_ = self.n_negatives
 
-        indices = self.generator_.integers(
-            1, n_possible_negatives, (self.n_samples_in_, self.n_negatives_)
-        )
         device = getattr(self.NN_indices_, "device", "cpu")
-        indices = torch.from_numpy(indices).to(device=device)
+        indices = torch.randint(
+            1,
+            n_possible_negatives,
+            (self.n_samples_in_, self.n_negatives_),
+            device=device,
+        )
 
         exclude_indices = (
             torch.arange(self.n_samples_in_).unsqueeze(1).to(device=device)

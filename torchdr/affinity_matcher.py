@@ -42,10 +42,10 @@ class AffinityMatcher(DRModule):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z})
+        \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{P}, \mathbf{Q})
 
-    where :math:`\mathcal{L}` is a loss function, :math:`\mathbf{A_X}` is the
-    input affinity matrix and :math:`\mathbf{A_Z}` is the affinity matrix of the
+    where :math:`\mathcal{L}` is a loss function, :math:`\mathbf{P}` is the
+    input affinity matrix and :math:`\mathbf{Q}` is the affinity matrix of the
     embedding.
 
     The embedding optimization is performed using a first-order optimization method, with gradients calculated via PyTorch's automatic differentiation.
@@ -87,7 +87,7 @@ class AffinityMatcher(DRModule):
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
-        Random seed for reproducibility. Default is 0.
+        Random seed for reproducibility. Default is None.
     """  # noqa: E501
 
     def __init__(
@@ -111,7 +111,7 @@ class AffinityMatcher(DRModule):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
     ):
         super().__init__(
             n_components=n_components,
@@ -208,8 +208,6 @@ class AffinityMatcher(DRModule):
         return self
 
     def _fit(self, X: torch.Tensor):
-        self._instantiate_generator()
-
         self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- check if affinity_in is precomputed else compute it ---
@@ -345,12 +343,6 @@ class AffinityMatcher(DRModule):
 
         return self.scheduler_
 
-    def _instantiate_generator(self):
-        self.generator_ = np.random.default_rng(
-            seed=self.random_state
-        )  # we use numpy because torch.Generator is not picklable
-        return self.generator_
-
     def _init_embedding(self, X):
         n = X.shape[0]
 
@@ -358,8 +350,8 @@ class AffinityMatcher(DRModule):
             embedding_ = to_torch(self.init, device=self.device)
 
         elif self.init == "normal" or self.init == "random":
-            embedding_ = torch.tensor(
-                self.generator_.standard_normal(size=(n, self.n_components)),
+            embedding_ = torch.randn(
+                (n, self.n_components),
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )

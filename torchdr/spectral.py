@@ -40,7 +40,7 @@ class PCA(DRModule):
         Device on which the computations are performed.
     verbose : bool, default=False
         Whether to print information during the computations.
-    random_state : float, default=0
+    random_state : float, default=None
         Random seed for reproducibility.
     svd_driver : str, optional
         Name of the cuSOLVER method to be used for torch.linalg.svd.
@@ -54,7 +54,7 @@ class PCA(DRModule):
         n_components: int = 2,
         device: str = "auto",
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         svd_driver: Optional[str] = None,
     ):
         super().__init__(
@@ -136,7 +136,7 @@ class KernelPCA(DRModule):
         Whether to use KeOps for computations.
     verbose : bool, default=False
         Whether to print information during the computations.
-    random_state : float, default=0
+    random_state : float, default=None
         Random seed for reproducibility.
     nodiag : bool, default=False
         Whether to remove eigenvectors with a zero eigenvalue.
@@ -149,7 +149,7 @@ class KernelPCA(DRModule):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         nodiag: bool = False,
     ):
         super().__init__(
@@ -319,7 +319,7 @@ class IncrementalPCA(DRModule):
         lowrank_niter: int = 4,
         device: str = "auto",
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
     ):
         super().__init__(
             n_components=n_components,

@@ -57,7 +57,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
-        Random seed for reproducibility, by default 0.
+        Random seed for reproducibility, by default None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         By default 12.0 for early exaggeration.
@@ -91,7 +91,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         device: str = None,
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,

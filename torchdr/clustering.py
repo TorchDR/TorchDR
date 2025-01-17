@@ -28,7 +28,7 @@ class ClusteringModule(BaseEstimator, ABC):
         Whether to use KeOps for computations.
     verbose : bool, default=False
         Whether to print information during the computations.
-    random_state : float, default=0
+    random_state : float, default=None
         Random seed for reproducibility.
     """
 
@@ -38,7 +38,7 @@ class ClusteringModule(BaseEstimator, ABC):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
     ):
         if keops and not pykeops:
             raise ValueError(
@@ -117,7 +117,7 @@ class KMeans(ClusteringModule):
         Whether to use KeOps for computations.
     verbose : bool, default=False
         Whether to print information during the computations.
-    random_state : float, default=0
+    random_state : float, default=None
         Random seed for reproducibility.
     metric : str, default="sqeuclidean"
         Metric to use for the distance computation.
@@ -133,7 +133,7 @@ class KMeans(ClusteringModule):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         metric: str = "sqeuclidean",
     ):
         super().__init__(
@@ -173,7 +173,6 @@ class KMeans(ClusteringModule):
         """
         X = to_torch(X, device=self.device)
 
-        self._instantiate_generator()
         self.inertia_ = float("inf")
 
         for _ in range(self.n_init):
@@ -233,7 +232,7 @@ class KMeans(ClusteringModule):
         n_samples, n_features = X.shape
 
         if self.init == "random":
-            centroid_indices = self.generator_.choice(
+            centroid_indices = np.random.choice(
                 n_samples, size=self.n_clusters, replace=False
             )
             centroids = X[centroid_indices].clone()
@@ -252,7 +251,7 @@ class KMeans(ClusteringModule):
         )
 
         # Randomly choose the first centroid
-        center_id = self.generator_.integers(n_samples)
+        center_id = np.random.randint(n_samples)
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
@@ -268,7 +267,7 @@ class KMeans(ClusteringModule):
             probs_np = probs.cpu().numpy()
             probs_np /= probs_np.sum()  # Normalize probabilities
             # Sample the next centroid index
-            center_id = self.generator_.choice(n_samples, p=probs_np)
+            center_id = np.random.choice(n_samples, p=probs_np)
             centers[c] = X[center_id]
 
             # Update the closest distances
@@ -284,12 +283,6 @@ class KMeans(ClusteringModule):
             closest_dist_sq = torch.minimum(closest_dist_sq, distances)
 
         return centers
-
-    def _instantiate_generator(self):
-        self.generator_ = np.random.default_rng(
-            seed=self.random_state
-        )  # we use numpy because torch.Generator is not picklable
-        return self.generator_
 
     def predict(self, X: torch.Tensor | np.ndarray):
         """Predict the closest cluster each sample in X belongs to.
