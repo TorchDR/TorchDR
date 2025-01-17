@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import pykeops
+from torchdr.utils import pykeops, seed_everything
 
 
 class DRModule(BaseEstimator, ABC):
@@ -28,7 +28,7 @@ class DRModule(BaseEstimator, ABC):
         Whether to use KeOps for computations.
     verbose : bool, default=False
         Whether to print information during the computations.
-    random_state : float, default=0
+    random_state : float, default=None
         Random seed for reproducibility.
     """
 
@@ -38,7 +38,7 @@ class DRModule(BaseEstimator, ABC):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
     ):
         if keops and not pykeops:
             raise ValueError(
@@ -49,7 +49,10 @@ class DRModule(BaseEstimator, ABC):
         self.n_components = n_components
         self.device = device
         self.keops = keops
+
         self.random_state = random_state
+        seed_everything(self.random_state)
+
         self.verbose = verbose
         if self.verbose:
             print(f"[TorchDR] Initializing DR model {self.__class__.__name__} ")

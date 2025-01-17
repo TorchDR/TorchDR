@@ -71,7 +71,7 @@ class TSNEkhorn(NeighborEmbedding):
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
-        Random seed for reproducibility, by default 0.
+        Random seed for reproducibility, by default None.
     early_exaggeration : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         By default 10.0 for early exaggeration.
@@ -118,7 +118,7 @@ class TSNEkhorn(NeighborEmbedding):
         device: str = None,
         keops: bool = False,
         verbose: bool = False,
-        random_state: float = 0,
+        random_state: float = None,
         early_exaggeration: float = 10.0,
         coeff_repulsion: float = 1.0,
         early_exaggeration_iter: int = 250,
