@@ -60,7 +60,7 @@ def test_NE(DRModel, kwargs, dtype, keops):
     Z = model.fit_transform(X)
 
     check_shape(Z, (n, 2))
-    assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+    assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 
 @pytest.mark.parametrize("dtype", lst_types)

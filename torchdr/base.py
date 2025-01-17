@@ -55,7 +55,7 @@ class DRModule(BaseEstimator, ABC):
 
         self.verbose = verbose
         if self.verbose:
-            print(f"[TorchDR] Initializing DR model {self.__class__.__name__} ")
+            print(f"[TorchDR] Initializing DR model {self.__class__.__name__}. ")
 
     @abstractmethod
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
