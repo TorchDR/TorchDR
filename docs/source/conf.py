@@ -94,7 +94,7 @@ html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"
 html_theme_options = {
     # "analytics_id": "",  # Provided by Google in your dashboard G-
-    "header_links_before_dropdown": 4,
+    "header_links_before_dropdown": 5,
     "icon_links": [
         {
             "name": "GitHub",
