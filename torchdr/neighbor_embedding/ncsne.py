@@ -12,7 +12,7 @@ from torchdr.utils import logsumexp_red
 class InfoTSNE(SampledNeighborEmbedding):
     r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
-    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    It uses a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
     affinity :math:`\mathbf{Q}`.
 
@@ -20,9 +20,9 @@ class InfoTSNE(SampledNeighborEmbedding):
 
     .. math::
 
-        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j \in N(i)} Q_{ij} \Big)
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j \in \mathrm{Neg}(i)} Q_{ij} \Big)
 
-    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
+    where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -58,11 +58,9 @@ class InfoTSNE(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         By default 12.0 for early exaggeration.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
     tol_affinity : _type_, optional
@@ -94,8 +92,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = None,
-        early_exaggeration: float = 12.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: int = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -143,8 +140,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration=early_exaggeration,
-            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
         )

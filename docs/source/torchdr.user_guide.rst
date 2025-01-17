@@ -20,14 +20,14 @@ Overview
 General Formulation of Dimensionality Reduction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{A_X}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{A_Z}`) matches :math:`\mathbf{A_X}`. This general problem is as follows
+DR aims to construct a low-dimensional representation (or embedding) :math:`\mathbf{Z} = (\mathbf{z}_1, ..., \mathbf{z}_n)^\top` of an input dataset :math:`\mathbf{X} = (\mathbf{x}_1, ..., \mathbf{x}_n)^\top` that best preserves its geometry, encoded via a pairwise affinity matrix :math:`\mathbf{P}`. To this end, DR methods optimize :math:`\mathbf{Z}` such that a pairwise affinity matrix in the embedding space (denoted :math:`\mathbf{Q}`) matches :math:`\mathbf{P}`. This general problem is as follows
 
 .. math::
 
-  \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{A_X}, \mathbf{A_Z}) \quad \text{(DR)}
+  \min_{\mathbf{Z}} \: \mathcal{L}( \mathbf{P}, \mathbf{Q}) \quad \text{(DR)}
 
 where :math:`\mathcal{L}` is typically the :math:`\ell_2` or cross-entropy loss.
-Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{A_X}, \mathbf{A_Z})`.
+Each DR method is thus characterized by a triplet :math:`(\mathcal{L}, \mathbf{P}, \mathbf{Q})`.
 
 TorchDR is structured around the above formulation :math:`\text{(DR)}`.
 Defining a DR algorithm solely requires providing an :class:`Affinity <Affinity>` object for both input and embedding as well as a loss function :math:`\mathcal{L}`.
@@ -195,23 +195,23 @@ In what follows we briefly present two families of DR algorithms: neighbor embed
 Spectral methods
 ^^^^^^^^^^^^^^^^
 
-Spectral methods correspond to choosing the scalar product affinity :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{z}_i, \mathbf{z}_j \rangle` for the embeddings and the :math:`\ell_2` loss.
+Spectral methods correspond to choosing the scalar product affinity :math:`P_{ij} = \langle \mathbf{z}_i, \mathbf{z}_j \rangle` for the embeddings and the :math:`\ell_2` loss.
 
 .. math::
 
-    \min_{\mathbf{Z}} \: \sum_{ij} ( [\mathbf{A_X}]_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
+    \min_{\mathbf{Z}} \: \sum_{ij} ( P_{ij} - \langle \mathbf{z}_i, \mathbf{z}_j \rangle )^{2}
 
-When :math:`\mathbf{A_X}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis :cite:`ham2004kernel` and an optimal solution is given by
+When :math:`\mathbf{P}` is positive semi-definite, this problem is commonly known as kernel Principal Component Analysis :cite:`ham2004kernel` and an optimal solution is given by
 
 .. math::
 
     \mathbf{Z}^{\star} = (\sqrt{\lambda_1} \mathbf{v}_1, ..., \sqrt{\lambda_d} \mathbf{v}_d)^\top
 
-where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the centered kernel matrix :math:`\mathbf{A_X}` and :math:`\mathbf{v}_1, ..., \mathbf{v}_d` are the corresponding eigenvectors.
+where :math:`\lambda_1, ..., \lambda_d` are the largest eigenvalues of the centered kernel matrix :math:`\mathbf{P}` and :math:`\mathbf{v}_1, ..., \mathbf{v}_d` are the corresponding eigenvectors.
 
 .. note::
 
-    PCA (available at :class:`torchdr.PCA`) corresponds to choosing :math:`[\mathbf{A_X}]_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
+    PCA (available at :class:`torchdr.PCA`) corresponds to choosing :math:`P_{ij} = \langle \mathbf{x}_i, \mathbf{x}_j \rangle`.
 
 
 .. _neighbor-embedding-section:
@@ -221,15 +221,15 @@ Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^^
 
 TorchDR aims to implement most popular **neighbor embedding (NE)** algorithms.
-In these methods, :math:`\mathbf{A_X}` and :math:`\mathbf{A_Z}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
+In these methods, :math:`\mathbf{P}` and :math:`\mathbf{Q}` can be viewed as **soft neighborhood graphs**, hence the term *neighbor embedding*.
 
 NE objectives share a common structure: they aim to **minimize** the **weighted sum** of an **attractive term** and a **repulsive term**. Interestingly, the **attractive term** is often the **cross-entropy** between the input and output affinities. Additionally, the **repulsive term** is typically a **function of the output affinities only**. Thus, the NE problem can be formulated as the following minimization problem:
 
 .. math::
 
-    \min_{\mathbf{Z}} \: - \sum_{ij} [\mathbf{A_X}]_{ij} \log [\mathbf{A_Z}]_{ij} + \gamma \mathcal{L}_{\mathrm{rep}}(\mathbf{A_Z}) \:.
+    \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q}) \:.
 
-In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{A_Z})` represents the repulsive part of the loss function while :math:`\gamma` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`coeff_repulsion` in TorchDR.
+In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\lambda` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`early_exaggeration_coeff` in TorchDR because it is often set to a value larger than one at the beginning of the optimization.
 
 Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
 
@@ -239,38 +239,38 @@ Many NE methods can be represented within this framework. The following table su
 
    * - **Method**
      - **Repulsive term** :math:`\mathcal{L}_{\mathrm{rep}}`
-     - **Affinity input** :math:`\mathbf{A_X}`
-     - **Affinity output** :math:`\mathbf{A_Z}`
+     - **Affinity input** :math:`\mathbf{P}`
+     - **Affinity output** :math:`\mathbf{Q}`
 
    * - :class:`SNE <SNE>`
-     - :math:`\sum_{i} \log(\sum_j [\mathbf{A_Z}]_{ij})`
+     - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`GaussianAffinity <GaussianAffinity>`
 
    * - :class:`TSNE <TSNE>`
-     - :math:`\log(\sum_{ij} [\mathbf{A_Z}]_{ij})`
+     - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`TSNEkhorn <TSNEkhorn>`
-     - :math:`\sum_{ij} [\mathbf{A_Z}]_{ij}`
+     - :math:`\sum_{ij} Q_{ij}`
      - :class:`SymmetricEntropicAffinity <SymmetricEntropicAffinity>`
      - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>`
-     - :math:`\sum_i \log(\sum_{j \in N(i)} [\mathbf{A_Z}]_{ij})`
+     - :math:`\sum_i \log(\sum_{j \in \mathrm{Neg}(i)} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`UMAP <UMAP>`
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
+     - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
    * - :class:`LargeVis <LargeVis>`
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - [\mathbf{A_Z}]_{ij})`
+     - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-In the above table, :math:`N(i)` denotes the set of negative samples
+In the above table, :math:`\mathrm{Neg}(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.

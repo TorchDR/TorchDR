@@ -119,25 +119,25 @@ If you have any questions or suggestions, feel free to open an issue on the
 `issue tracker <https://github.com/torchdr/torchdr/issues>`_ or contact `Hugues Van Assel <https://huguesva.github.io/>`_ directly.
 
 
-Citation
---------
+.. Citation
+.. --------
 
-If you use ``TorchDR`` in your research, please cite the following reference:
+.. If you use ``TorchDR`` in your research, please cite the following reference:
 
-.. code-block:: apalike
+.. .. code-block:: apalike
 
-    Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
+..     Van Assel H., Courty N., Flamary R., Garivier A., Massias M., Vayer T., Vincent-Cuaz C. TorchDR URL: https://torchdr.github.io/
 
-or in Bibtex format :
+.. or in Bibtex format :
 
-.. code-block:: bibtex
+.. .. code-block:: bibtex
 
-    @misc{vanassel2024torchdr,
-      author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},
-      title = {TorchDR},
-      url = {https://torchdr.github.io/},
-      year = {2024}
-    }
+..     @misc{vanassel2024torchdr,
+..       author = {Van Assel, Hugues and Courty, Nicolas and Flamary, Rémi and Garivier, Aurélien and Massias, Mathurin and Vayer, Titouan and Vincent-Cuaz, Cédric},
+..       title = {TorchDR},
+..       url = {https://torchdr.github.io/},
+..       year = {2024}
+..     }
 
 
 .. |Documentation| image:: https://img.shields.io/badge/Documentation-blue.svg
@@ -153,7 +153,7 @@ or in Bibtex format :
    :target: https://codecov.io/gh/torchdr/torchdr
 .. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
    :target: https://opensource.org/licenses/BSD-3-Clause
-.. |Version| image:: https://img.shields.io/badge/version-0.1-blue.svg
-   :target: https://github.com/TorchDR/TorchDR/releases/tag/0.1
+.. |Version| image:: https://img.shields.io/github/v/release/TorchDR/TorchDR.svg?color=blue
+   :target: https://github.com/TorchDR/TorchDR/releases
 .. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
    :target: https://github.com/astral-sh/ruff

@@ -6,7 +6,6 @@
     :caption: Contents:
 
     self
-    torchdr.quick_start
     torchdr.user_guide
     all
     auto_examples/index

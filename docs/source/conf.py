@@ -10,10 +10,17 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../torchdr"))
+
+from torchdr.__about__ import __version__  # Import the version from __about__.py
+
 project = "TorchDR"
 copyright = "2024, TorchDR team"
 author = "Hugues Van Assel"
-release = "0.1"
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -87,7 +94,7 @@ html_favicon = "figures/logo.ico"
 html_logo = "figures/torchdr_logo.png"
 html_theme_options = {
     # "analytics_id": "",  # Provided by Google in your dashboard G-
-    "header_links_before_dropdown": 4,
+    "header_links_before_dropdown": 5,
     "icon_links": [
         {
             "name": "GitHub",

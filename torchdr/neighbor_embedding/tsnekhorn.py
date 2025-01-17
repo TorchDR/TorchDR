@@ -16,7 +16,7 @@ from torchdr.utils import cross_entropy_loss, logsumexp_red
 class TSNEkhorn(NeighborEmbedding):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
-    It involves selecting a :class:`~torchdr.SymmetricEntropicAffinity` as input
+    It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.SinkhornAffinity` as output
     affinity :math:`\mathbf{Q}`.
 
@@ -72,11 +72,9 @@ class TSNEkhorn(NeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         By default 10.0 for early exaggeration.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
     lr_affinity_in : float, optional
@@ -119,8 +117,7 @@ class TSNEkhorn(NeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = None,
-        early_exaggeration: float = 10.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 10.0,
         early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
@@ -192,8 +189,7 @@ class TSNEkhorn(NeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration=early_exaggeration,
-            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
         )
 
@@ -213,8 +209,5 @@ class TSNEkhorn(NeighborEmbedding):
         else:
             repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
 
-        loss = (
-            self.early_exaggeration_ * attractive_term
-            + self.coeff_repulsion * repulsive_term
-        )
+        loss = self.early_exaggeration_coeff_ * attractive_term + repulsive_term
         return loss
