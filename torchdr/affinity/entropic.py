@@ -359,7 +359,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     r"""Compute the symmetric entropic affinity (SEA) introduced in :cite:`van2024snekhorn`.
 
     Compute the solution :math:`\mathbf{P}^{\mathrm{se}}` to the symmetric entropic
-    affinity (SEA) problem described in :cite:`van2024snekhorn`.
+    affinity (SEA) problem.
 
     The algorithm computes the optimal dual variables
     :math:`\mathbf{\mu}^\star \in \mathbb{R}^n` and

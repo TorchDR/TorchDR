@@ -12,7 +12,7 @@ from torchdr.utils import cross_entropy_loss, sum_output
 class UMAP(SampledNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
-    It involves selecting a :class:`~torchdr.UMAPAffinityIn` as input
+    It uses a :class:`~torchdr.UMAPAffinityIn` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
     affinity :math:`\mathbf{Q}`.
 
@@ -20,9 +20,9 @@ class UMAP(SampledNeighborEmbedding):
 
     .. math::
 
-        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})
 
-    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
+    where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
@@ -66,11 +66,9 @@ class UMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default 0.
-    early_exaggeration : float, optional
+    early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
         By default 1.0.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term, by default 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
     tol_affinity : float, optional
@@ -107,8 +105,7 @@ class UMAP(SampledNeighborEmbedding):
         keops: bool = False,
         verbose: bool = False,
         random_state: float = 0,
-        early_exaggeration: float = 1.0,
-        coeff_repulsion: float = 1.0,
+        early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -164,8 +161,7 @@ class UMAP(SampledNeighborEmbedding):
             keops=keops,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration=early_exaggeration,
-            coeff_repulsion=coeff_repulsion,
+            early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
         )
