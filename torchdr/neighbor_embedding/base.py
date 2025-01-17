@@ -171,7 +171,7 @@ class NeighborEmbedding(AffinityMatcher):
     def _fit(self, X: torch.Tensor):
         self._check_n_neighbors(X.shape[0])
         self.early_exaggeration_coeff_ = (
-            self.early_exaggeration
+            self.early_exaggeration_coeff
         )  # early_exaggeration_ may change during the optimization
 
         super()._fit(X)
@@ -212,7 +212,7 @@ class NeighborEmbedding(AffinityMatcher):
         return self.optimizer_
 
     def _set_scheduler(self):
-        if self.early_exaggeration_ > 1:
+        if self.early_exaggeration_coeff_ > 1:
             n_iter = min(self.early_exaggeration_iter, self.max_iter)
         else:
             n_iter = self.max_iter - self.early_exaggeration_iter
@@ -230,7 +230,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration`
+    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
