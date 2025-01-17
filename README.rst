@@ -153,7 +153,7 @@ or in Bibtex format :
    :target: https://codecov.io/gh/torchdr/torchdr
 .. |License| image:: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
    :target: https://opensource.org/licenses/BSD-3-Clause
-.. |Version| image:: https://img.shields.io/badge/version-0.1-blue.svg
-   :target: https://github.com/TorchDR/TorchDR/releases/tag/0.1
+.. |Version| image:: https://img.shields.io/github/v/release/TorchDR/TorchDR.svg?color=blue
+   :target: https://github.com/TorchDR/TorchDR/releases
 .. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
    :target: https://github.com/astral-sh/ruff
