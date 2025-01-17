@@ -251,7 +251,7 @@ class KMeans(ClusteringModule):
         )
 
         # Randomly choose the first centroid
-        center_id = np.random.randint(0, n_samples, size=n_samples)
+        center_id = np.random.randint(n_samples)
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
