@@ -258,19 +258,19 @@ Many NE methods can be represented within this framework. The following table su
      - :class:`SinkhornAffinity(base_kernel="student") <SinkhornAffinity>`
 
    * - :class:`InfoTSNE <InfoTSNE>`
-     - :math:`\sum_i \log(\sum_{j \in N(i)} Q_{ij})`
+     - :math:`\sum_i \log(\sum_{j \in \mathrm{Neg}(i)} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
    * - :class:`UMAP <UMAP>`
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
+     - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`UMAPAffinityIn <UMAPAffinityIn>`
      - :class:`UMAPAffinityOut <UMAPAffinityOut>`
 
    * - :class:`LargeVis <LargeVis>`
-     - :math:`- \sum_{i, j \in N(i)} \log (1 - Q_{ij})`
+     - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
      - :class:`StudentAffinity <StudentAffinity>`
 
-In the above table, :math:`N(i)` denotes the set of negative samples
+In the above table, :math:`\mathrm{Neg}(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.

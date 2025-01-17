@@ -12,7 +12,7 @@ from torchdr.utils import cross_entropy_loss, sum_output
 class LargeVis(SampledNeighborEmbedding):
     r"""LargeVis algorithm introduced in :cite:`tang2016visualizing`.
 
-    It involves selecting a :class:`~torchdr.EntropicAffinity` as input
+    It uses a :class:`~torchdr.EntropicAffinity` as input
     affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
     affinity :math:`\mathbf{Q}`.
 
@@ -20,9 +20,9 @@ class LargeVis(SampledNeighborEmbedding):
 
     .. math::
 
-        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})
 
-    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
+    where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
