@@ -20,9 +20,9 @@ class UMAP(SampledNeighborEmbedding):
 
     .. math::
 
-        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in N(i)} \log (1 - Q_{ij})
+        -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})
 
-    where :math:`N(i)` is the set of negatives samples for point :math:`i`.
+    where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
 
     Parameters
     ----------
