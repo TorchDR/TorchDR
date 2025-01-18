@@ -35,7 +35,7 @@ class Affinity(ABC):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
+        Verbosity. Default is False.
     """
 
     def __init__(

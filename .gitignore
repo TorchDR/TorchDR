@@ -147,3 +147,16 @@ data/
 *.pkl
 *.hdf5
 *.tar.gz
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+*.webp
+*.svg
+*.eps
+*.pdf
