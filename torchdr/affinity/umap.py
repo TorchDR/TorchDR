@@ -143,7 +143,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_samples_in = C.shape[0]
         n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
 
-        if self._sparsity:
+        if self.sparsity:
             if self.verbose:
                 print(
                     "[TorchDR] Affinity : sparsity mode enabled, computing "

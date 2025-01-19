@@ -37,9 +37,6 @@ def to_torch(x, device="auto", return_backend_device=False):
 
     If device="auto", the device is set to the device of the input x.
     """
-    if device != "auto":
-        new_device = torch.device(device)
-
     if isinstance(x, torch.Tensor):
         if torch.is_complex(x):
             raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
@@ -49,10 +46,10 @@ def to_torch(x, device="auto", return_backend_device=False):
         input_backend = "torch"
         input_device = x.device
 
-        if device == "auto" or input_device == new_device:
+        if device == "auto":
             x_ = x
         else:
-            x_ = x.to(new_device)
+            x_ = x.to(device)
 
     else:
         # check sparsity and if it contains only finite values
@@ -64,7 +61,9 @@ def to_torch(x, device="auto", return_backend_device=False):
         if np.iscomplex(x).any():
             raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
 
-        x_ = torch.from_numpy(x.copy()).to(new_device)
+        x_ = torch.from_numpy(x.copy()).to(
+            torch.device("cpu") if device == "auto" else device
+        )
 
     if not x_.dtype.is_floating_point:
         x_ = x_.float()
