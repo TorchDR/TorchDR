@@ -37,12 +37,6 @@ def to_torch(x, device="auto", return_backend_device=False):
 
     If device="auto", the device is set to the device of the input x.
     """
-    gpu_required = (
-        device in ["cuda", "cuda:0", "gpu", None]
-    ) and torch.cuda.is_available()
-
-    new_device = torch.device("cuda:0" if gpu_required else "cpu")
-
     if isinstance(x, torch.Tensor):
         if torch.is_complex(x):
             raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
@@ -52,10 +46,10 @@ def to_torch(x, device="auto", return_backend_device=False):
         input_backend = "torch"
         input_device = x.device
 
-        if device == "auto" or input_device == new_device:
+        if device == "auto":
             x_ = x
         else:
-            x_ = x.to(new_device)
+            x_ = x.to(device)
 
     else:
         # check sparsity and if it contains only finite values
@@ -67,10 +61,12 @@ def to_torch(x, device="auto", return_backend_device=False):
         if np.iscomplex(x).any():
             raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
 
-        x_ = torch.from_numpy(x.copy()).to(new_device)  # memory efficient
+        x_ = torch.from_numpy(x.copy()).to(
+            torch.device("cpu") if device == "auto" else device
+        )
 
     if not x_.dtype.is_floating_point:
-        x_ = x_.float()  # KeOps does not support int
+        x_ = x_.float()
 
     if return_backend_device:
         return x_, input_backend, input_device
@@ -138,7 +134,7 @@ def sum_output(func):
 
         if not (isinstance(output, torch.Tensor) or is_lazy_tensor(output)):
             raise ValueError(
-                "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
+                f"[TorchDR] ERROR : {func.__name__} can only be applied "
                 "to a torch.Tensor or pykeops.torch.LazyTensor."
             )
         elif ndim_output == 2:

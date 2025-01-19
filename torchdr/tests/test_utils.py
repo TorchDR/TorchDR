@@ -9,7 +9,7 @@ import torch
 from torch.testing import assert_close
 
 from torchdr.utils import (
-    LIST_METRICS,
+    LIST_METRICS_KEOPS,
     binary_search,
     center_kernel,
     check_shape,
@@ -86,7 +86,7 @@ def test_false_position(dtype):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS)
+@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
 def test_pairwise_distances(dtype, metric):
     n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
@@ -99,7 +99,7 @@ def test_pairwise_distances(dtype, metric):
 
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS)
+@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
 def test_pairwise_distances_keops(dtype, metric):
     n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
@@ -116,7 +116,7 @@ def test_pairwise_distances_keops(dtype, metric):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS)
+@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
 def test_symmetric_pairwise_distances(dtype, metric):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)
@@ -133,7 +133,7 @@ def test_symmetric_pairwise_distances(dtype, metric):
 
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS)
+@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
 def test_symmetric_pairwise_distances_keops(dtype, metric):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)
@@ -155,7 +155,7 @@ def test_symmetric_pairwise_distances_keops(dtype, metric):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS)
+@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
 def test_symmetric_pairwise_distances_indices(dtype, metric):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)

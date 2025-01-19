@@ -10,7 +10,7 @@ from torchdr.utils.utils import identity_matrix
 
 from .keops import LazyTensor, pykeops
 
-LIST_METRICS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
 
 
 def pairwise_distances(
@@ -119,7 +119,7 @@ def _pairwise_distances_torch(
     C : torch.Tensor of shape (n_samples, m_samples)
         Pairwise distances matrix.
     """
-    if metric not in LIST_METRICS:
+    if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
     if Y is None:
@@ -171,7 +171,7 @@ def _pairwise_distances_keops(
     C : pykeops.torch.LazyTensor of shape (n_samples, m_samples)
         Pairwise distances matrix.
     """
-    if metric not in LIST_METRICS:
+    if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
     if Y is None:

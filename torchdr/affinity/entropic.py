@@ -165,13 +165,13 @@ def _check_perplexity(perplexity, n, verbose=True):
         )
 
     if perplexity >= n or perplexity <= 1:
-        new_value = n // 2
+        new_value = 50
         if verbose:
             warnings.warn(
                 "[TorchDR] WARNING Affinity: The perplexity parameter must be "
                 "greater than 1 and smaller than the number of samples "
                 f"(here n = {n}). Got perplexity = {perplexity}. "
-                "Setting perplexity to {new_value}."
+                "Setting perplexity to {50}."
             )
         return new_value
     else:
@@ -230,9 +230,10 @@ class EntropicAffinity(SparseLogAffinity):
         Precision threshold at which the root finding algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
-    sparsity: bool or 'auto', optional
+    sparsity: bool, optional
         If True, keeps only the 3 * perplexity smallest element on each row of
         the ground cost matrix. Recommended if perplexity is not too big.
+        Default is True.
     metric : str, optional
         Metric to use for computing distances (default "sqeuclidean").
     zero_diag : bool, optional
@@ -250,7 +251,7 @@ class EntropicAffinity(SparseLogAffinity):
         perplexity: float = 30,
         tol: float = 1e-3,
         max_iter: int = 1000,
-        sparsity: bool | str = "auto",
+        sparsity: bool = "True",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -269,18 +270,6 @@ class EntropicAffinity(SparseLogAffinity):
             verbose=verbose,
             sparsity=sparsity,
         )
-
-    def _sparsity_rule(self):
-        if self.perplexity < 100:
-            return True
-        else:
-            if self.verbose:
-                warnings.warn(
-                    "[TorchDR] WARNING Affinity: perplexity is large "
-                    f"({self.perplexity}) thus we turn off sparsity for "
-                    "the EntropicAffinity. "
-                )
-            return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
@@ -308,21 +297,16 @@ class EntropicAffinity(SparseLogAffinity):
         target_entropy = np.log(perplexity) + 1
 
         k = 3 * perplexity
-        if self._sparsity:
-            if k >= n_samples_in - 1:
+        if self.sparsity:
+            if self.verbose:
                 print(
-                    "[TorchDR] WARNING Affinity: sparsity mode disabled "
-                    f"because perplexity is too large. 3 x perplexity = {k} "
-                    ">= n_samples - 1."
+                    f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
+                    "nearest neighbors. If this step is too slow, consider "
+                    "reducing the dimensionality of the data or disabling sparsity."
                 )
-                C_, indices = C, None
-            else:
-                if self.verbose:
-                    print(
-                        f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
-                        "nearest neighbors."
-                    )
-                C_, indices = kmin(C, k=k, dim=1)
+            # when using sparsity, we construct a reduced distance matrix
+            # of shape (n_samples, k)
+            C_, indices = kmin(C, k=k, dim=1)
         else:
             C_, indices = C, None
 

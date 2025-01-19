@@ -97,6 +97,7 @@ class TSNE(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        sparsity: bool = True,
         **kwargs,
     ):
         self.metric_in = metric_in
@@ -104,6 +105,7 @@ class TSNE(SparseNeighborEmbedding):
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -113,6 +115,7 @@ class TSNE(SparseNeighborEmbedding):
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=sparsity,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,

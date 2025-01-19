@@ -35,7 +35,7 @@ class Affinity(ABC):
     keops : bool, optional
         Whether to use KeOps for efficient computation of large-scale kernel operations.
     verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
+        Verbosity. Default is False.
     """
 
     def __init__(
@@ -234,7 +234,7 @@ class SparseLogAffinity(LogAffinity):
         device: str = "auto",
         keops: bool = False,
         verbose: bool = False,
-        sparsity: bool | str = "auto",
+        sparsity: bool = True,
     ):
         super().__init__(
             metric=metric,
@@ -244,26 +244,6 @@ class SparseLogAffinity(LogAffinity):
             verbose=verbose,
         )
         self.sparsity = sparsity
-        if sparsity == "auto":
-            self._sparsity = self._sparsity_rule()
-        else:
-            self._sparsity = sparsity
-
-    def _sparsity_rule(self):
-        r"""Rule to determine whether to compute the affinity matrix in a sparse format.
-
-        This method must be overridden by subclasses.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_sparsity_rule` method is not implemented by the subclass,
-            a NotImplementedError is raised.
-        """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : `_sparsity_rule` method is not implemented. "
-            "Therefore sparsity = 'auto' is not supported."
-        )
 
     def __call__(
         self,

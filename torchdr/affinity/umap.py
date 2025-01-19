@@ -83,8 +83,9 @@ class UMAPAffinityIn(SparseLogAffinity):
         Precision threshold for the root search.
     max_iter : int, optional
         Maximum number of iterations for the root search.
-    sparsity : bool or 'auto', optional
+    sparsity : bool, optional
         Whether to use sparsity mode.
+        Default is True.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -102,7 +103,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
         tol: float = 1e-5,
         max_iter: int = 1000,
-        sparsity: bool | str = "auto",
+        sparsity: bool = True,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -121,18 +122,6 @@ class UMAPAffinityIn(SparseLogAffinity):
             verbose=verbose,
             sparsity=sparsity,
         )
-
-    def _sparsity_rule(self):
-        if self.n_neighbors < 100:
-            return True
-        else:
-            if self.verbose:
-                warnings.warn(
-                    "[TorchDR] WARNING Affinity: n_neighbors is large "
-                    f"({self.n_neighbors}) thus we turn off sparsity for "
-                    "the UMAPAffinityIn. "
-                )
-            return False
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
         r"""Compute the input affinity matrix of UMAP from input data X.
@@ -155,11 +144,13 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_samples_in = C.shape[0]
         n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
 
-        if self._sparsity:
+        if self.sparsity:
             if self.verbose:
                 print(
                     "[TorchDR] Affinity : sparsity mode enabled, computing "
-                    "nearest neighbors."
+                    f"{n_neighbors} nearest neighbors. If this step is too slow, "
+                    "consider reducing the dimensionality of the data using PCA "
+                    "or disabling sparsity."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)

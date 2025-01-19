@@ -57,7 +57,7 @@ Here is a comparison of various neighbor embedding methods on the MNIST digits d
    :alt: various neighbor embedding methods on MNIST
    :align: center
 
-The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/mnist/panorama_readme.py>`_.
+The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_.
 
 **Single cell example.**
 Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.

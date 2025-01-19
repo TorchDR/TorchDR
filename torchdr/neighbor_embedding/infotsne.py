@@ -73,6 +73,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 5.
+    sparsity : bool, optional
+        Whether to use sparsity mode for the input affinity. Default is True.
     """  # noqa: E501
 
     def __init__(
@@ -99,12 +101,14 @@ class InfoTSNE(SampledNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 50,
+        sparsity: bool = True,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -114,7 +118,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             device=device,
             keops=keops,
             verbose=verbose,
-            sparsity="auto",
+            sparsity=sparsity,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
