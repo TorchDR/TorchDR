@@ -37,11 +37,8 @@ def to_torch(x, device="auto", return_backend_device=False):
 
     If device="auto", the device is set to the device of the input x.
     """
-    gpu_required = (
-        device in ["cuda", "cuda:0", "gpu", None]
-    ) and torch.cuda.is_available()
-
-    new_device = torch.device("cuda:0" if gpu_required else "cpu")
+    if device != "auto":
+        new_device = torch.device(device)
 
     if isinstance(x, torch.Tensor):
         if torch.is_complex(x):
@@ -67,10 +64,10 @@ def to_torch(x, device="auto", return_backend_device=False):
         if np.iscomplex(x).any():
             raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
 
-        x_ = torch.from_numpy(x.copy()).to(new_device)  # memory efficient
+        x_ = torch.from_numpy(x.copy()).to(new_device)
 
     if not x_.dtype.is_floating_point:
-        x_ = x_.float()  # KeOps does not support int
+        x_ = x_.float()
 
     if return_backend_device:
         return x_, input_backend, input_device

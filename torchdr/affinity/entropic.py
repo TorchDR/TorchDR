@@ -165,13 +165,13 @@ def _check_perplexity(perplexity, n, verbose=True):
         )
 
     if perplexity >= n or perplexity <= 1:
-        new_value = n // 2
+        new_value = 50
         if verbose:
             warnings.warn(
                 "[TorchDR] WARNING Affinity: The perplexity parameter must be "
                 "greater than 1 and smaller than the number of samples "
                 f"(here n = {n}). Got perplexity = {perplexity}. "
-                "Setting perplexity to {new_value}."
+                "Setting perplexity to {50}."
             )
         return new_value
     else:
@@ -270,18 +270,6 @@ class EntropicAffinity(SparseLogAffinity):
             sparsity=sparsity,
         )
 
-    def _sparsity_rule(self):
-        if self.perplexity < 100:
-            return True
-        else:
-            if self.verbose:
-                warnings.warn(
-                    "[TorchDR] WARNING Affinity: perplexity is large "
-                    f"({self.perplexity}) thus we turn off sparsity for "
-                    "the EntropicAffinity. "
-                )
-            return False
-
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
 
@@ -308,7 +296,7 @@ class EntropicAffinity(SparseLogAffinity):
         target_entropy = np.log(perplexity) + 1
 
         k = 3 * perplexity
-        if self._sparsity:
+        if self.sparsity:
             if k >= n_samples_in - 1:
                 print(
                     "[TorchDR] WARNING Affinity: sparsity mode disabled "

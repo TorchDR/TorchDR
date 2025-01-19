@@ -122,18 +122,6 @@ class UMAPAffinityIn(SparseLogAffinity):
             sparsity=sparsity,
         )
 
-    def _sparsity_rule(self):
-        if self.n_neighbors < 100:
-            return True
-        else:
-            if self.verbose:
-                warnings.warn(
-                    "[TorchDR] WARNING Affinity: n_neighbors is large "
-                    f"({self.n_neighbors}) thus we turn off sparsity for "
-                    "the UMAPAffinityIn. "
-                )
-            return False
-
     def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
         r"""Compute the input affinity matrix of UMAP from input data X.
 
