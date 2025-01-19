@@ -83,8 +83,9 @@ class UMAPAffinityIn(SparseLogAffinity):
         Precision threshold for the root search.
     max_iter : int, optional
         Maximum number of iterations for the root search.
-    sparsity : bool or 'auto', optional
+    sparsity : bool, optional
         Whether to use sparsity mode.
+        Default is True.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -102,7 +103,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
         tol: float = 1e-5,
         max_iter: int = 1000,
-        sparsity: bool | str = "auto",
+        sparsity: bool = True,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
