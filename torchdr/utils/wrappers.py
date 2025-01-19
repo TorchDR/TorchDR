@@ -134,7 +134,7 @@ def sum_output(func):
 
         if not (isinstance(output, torch.Tensor) or is_lazy_tensor(output)):
             raise ValueError(
-                "[TorchDR] ERROR : sum_all_axis_except_batch can only be applied "
+                f"[TorchDR] ERROR : {func.__name__} can only be applied "
                 "to a torch.Tensor or pykeops.torch.LazyTensor."
             )
         elif ndim_output == 2:
