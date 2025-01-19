@@ -75,6 +75,8 @@ class LargeVis(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
+    sparsity : bool, optional
+        Whether to use sparsity mode for the input affinity. Default is True.
     """  # noqa: E501
 
     def __init__(
@@ -102,12 +104,14 @@ class LargeVis(SampledNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 5,
+        sparsity: bool = True,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -117,6 +121,7 @@ class LargeVis(SampledNeighborEmbedding):
             device=device,
             keops=keops,
             verbose=verbose,
+            sparsity=sparsity,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,

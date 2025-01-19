@@ -148,7 +148,9 @@ class UMAPAffinityIn(SparseLogAffinity):
             if self.verbose:
                 print(
                     "[TorchDR] Affinity : sparsity mode enabled, computing "
-                    "nearest neighbors."
+                    f"{n_neighbors} nearest neighbors. If this step is too slow, "
+                    "consider reducing the dimensionality of the data using PCA "
+                    "or disabling sparsity."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)

@@ -68,7 +68,7 @@ z1 = umap.UMAP(n_components=2, verbose=True, n_neighbors=50).fit_transform(z_cpu
 
 # Dimensionality reduction
 z2 = torchdr.UMAP(
-    n_components=2, verbose=True, n_neighbors=50, device="cuda"
+    n_components=2, verbose=True, n_neighbors=50, device="cuda", sparsity=False
 ).fit_transform(all_embeddings)
 z2 = z2.cpu().numpy()
 

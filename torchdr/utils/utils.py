@@ -72,7 +72,7 @@ def kmin(A, k=1, dim=0):
         )
 
     if k >= A.shape[dim]:
-        return A, torch.arange(A.shape[dim]).int()
+        return A, None
 
     if is_lazy_tensor(A):
 

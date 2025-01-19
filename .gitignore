@@ -137,6 +137,7 @@ docs/source/sg_execution_times.rst
 # Misc
 .DS_Store
 .vscode
+dev
 
 # Data
 data/

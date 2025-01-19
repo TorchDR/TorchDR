@@ -5,7 +5,7 @@
 
 from .base import NeighborEmbedding, SampledNeighborEmbedding, SparseNeighborEmbedding
 from .largevis import LargeVis
-from .ncsne import InfoTSNE
+from .infotsne import InfoTSNE
 from .sne import SNE
 from .tsne import TSNE
 from .tsnekhorn import TSNEkhorn

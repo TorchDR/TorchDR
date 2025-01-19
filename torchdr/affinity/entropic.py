@@ -298,20 +298,15 @@ class EntropicAffinity(SparseLogAffinity):
 
         k = 3 * perplexity
         if self.sparsity:
-            if k >= n_samples_in - 1:
+            if self.verbose:
                 print(
-                    "[TorchDR] WARNING Affinity: sparsity mode disabled "
-                    f"because perplexity is too large. 3 x perplexity = {k} "
-                    ">= n_samples - 1."
+                    f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
+                    "nearest neighbors. If this step is too slow, consider "
+                    "reducing the dimensionality of the data or disabling sparsity."
                 )
-                C_, indices = C, None
-            else:
-                if self.verbose:
-                    print(
-                        f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
-                        "nearest neighbors."
-                    )
-                C_, indices = kmin(C, k=k, dim=1)
+            # when using sparsity, we construct a reduced distance matrix
+            # of shape (n_samples, k)
+            C_, indices = kmin(C, k=k, dim=1)
         else:
             C_, indices = C, None
 

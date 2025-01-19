@@ -81,6 +81,8 @@ class UMAP(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 10.
+    sparsity : bool, optional
+        Whether to use sparsity mode for the input affinity. Default is True.
     """  # noqa: E501
 
     def __init__(
