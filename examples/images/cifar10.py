@@ -19,8 +19,9 @@ print(f"Using device: {device}")
 def load_features():
     # Load dataset
     dataset = load_dataset("cifar10")
-    images = dataset["train"]["img"]
-    labels = dataset["train"]["label"]
+    train_images = dataset["train"]["img"]
+    test_images = dataset["test"]["img"]
+    images = train_images + test_images
 
     # Load the image processor and model
     image_processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
