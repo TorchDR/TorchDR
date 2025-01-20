@@ -24,7 +24,7 @@ from torchdr.eval import (
     silhouette_score,
     trustworthiness,
     Kary_preservation_score,
-    )
+)
 
 from torchdr.tests.utils import toy_dataset
 from torchdr.utils import to_torch, pairwise_distances, pykeops
@@ -194,9 +194,9 @@ def test_trustworthiness_consistency_sklearn(dtype, metric):
 
     score_torchdr = trustworthiness(X, Z, n_neighbors=5, metric=metric, device=DEVICE)
     score_sklearn = sk_trustworthiness(X, Z, n_neighbors=5, metric=metric)
-    assert (
-        score_torchdr - score_sklearn
-    ) ** 2 < 1e-5, "Trustworthiness from torchdr and sklearn should be close."
+    assert (score_torchdr - score_sklearn) ** 2 < 1e-5, (
+        "Trustworthiness from torchdr and sklearn should be close."
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)

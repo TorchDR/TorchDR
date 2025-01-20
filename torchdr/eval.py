@@ -333,9 +333,9 @@ def trustworthiness(
 
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
-    I = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
-    CX_ = CX + (2.0 * CX.max()) * I
-    CZ_ = CZ + (2.0 * CZ.max()) * I
+    Id = identity_matrix(CX.shape[-1], False, X.device, X.dtype)
+    CX_ = CX + (2.0 * CX.max()) * Id
+    CZ_ = CZ + (2.0 * CZ.max()) * Id
 
     # sort values in the input space
     # need to find a way to avoid storing the full matrix as follows
@@ -447,9 +447,9 @@ def Kary_preservation_score(
 
     # we set the diagonal to high values to exclude the points themselves from
     # their own neighborhood
-    I = identity_matrix(n_samples_x, keops, X.device, X.dtype)
-    CX_ = CX + (2.0 * CX.max()) * I
-    CZ_ = CZ + (2.0 * CZ.max()) * I
+    Id = identity_matrix(n_samples_x, keops, X.device, X.dtype)
+    CX_ = CX + (2.0 * CX.max()) * Id
+    CZ_ = CZ + (2.0 * CZ.max()) * Id
 
     # get indices of nearest neighbors in the input space
     minK_values_X, minK_indices_X = kmin(CX_, k=K, dim=1)
