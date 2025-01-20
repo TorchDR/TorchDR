@@ -21,4 +21,4 @@ Version 0.1 (2024-09-17)
 - Template objects for neighbor embedding methods.
 - Spectral embeddings via eigendecomposition of the input affinity matrix (when applicable).
 - KeOps compatibility for all components, except spectral embeddings.
-- Silhouette score.
+- Silhouette, Kary preservation and trustworthiness scores.

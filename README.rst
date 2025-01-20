@@ -93,7 +93,7 @@ Dimensionality Reduction Algorithms
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~
 
-``TorchDR`` provides efficient GPU-compatible evaluation metrics : *Silhouette score*.
+``TorchDR`` provides efficient GPU-compatible evaluation metrics : *Silhouette score*, *Kary preservation score*, *trustworthiness*.
 
 
 Installation

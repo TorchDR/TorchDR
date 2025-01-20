@@ -35,7 +35,12 @@ from .affinity_matcher import AffinityMatcher
 # import DR methods
 from .base import DRModule
 from .clustering import KMeans
-from .eval import silhouette_samples, silhouette_score
+from .eval import (
+    silhouette_samples,
+    silhouette_score,
+    trustworthiness,
+    Kary_preservation_score,
+)
 from .neighbor_embedding import (
     SNE,
     TSNE,
@@ -95,4 +100,6 @@ __all__ = [
     "false_position",
     "silhouette_samples",
     "silhouette_score",
+    "trustworthiness",
+    "Kary_preservation_score",
 ]

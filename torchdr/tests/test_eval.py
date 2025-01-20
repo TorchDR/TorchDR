@@ -12,11 +12,22 @@ import numpy as np
 import pytest
 import torch
 from sklearn.metrics import silhouette_score as sk_silhouette_score
+from sklearn.manifold import trustworthiness as sk_trustworthiness
+
+from sklearn.decomposition import PCA
+
 from torch.testing import assert_close
 
-from torchdr.eval import admissible_LIST_METRICS, silhouette_samples, silhouette_score
+from torchdr.eval import (
+    admissible_LIST_METRICS,
+    silhouette_samples,
+    silhouette_score,
+    trustworthiness,
+    Kary_preservation_score,
+)
+
 from torchdr.tests.utils import toy_dataset
-from torchdr.utils import pairwise_distances, pykeops
+from torchdr.utils import to_torch, pairwise_distances, pykeops
 
 lst_types = ["float32", "float64"]
 if pykeops:
@@ -135,3 +146,102 @@ def test_consistency_sklearn(dtype, keops, metric):
     assert (score_torchdr_noise - score_sklearn_noise) ** 2 < 1e-5, (
         "Silhouette scores from torchdr and sklearn should be close on noised labels."
     )
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan", "whatever"])
+def test_trustworthiness_euclidean(dtype, metric):
+    # perfect trustworthiness
+    n = 30
+    X = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
+    Z = X.clone()
+    n_neighbors = 5
+
+    if metric in admissible_LIST_METRICS:
+        CX = pairwise_distances(X, X, metric, keops=False)
+        CZ = pairwise_distances(Z, Z, metric, keops=False)
+
+        score = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = trustworthiness(CX[:, :-2], CZ, n_neighbors, "precomputed", DEVICE)
+        # compare to precomputed scores
+        with pytest.raises(ValueError):
+            _ = trustworthiness(CZ, CX[:, :-2], n_neighbors, "precomputed", DEVICE)
+
+        score_precomputed = trustworthiness(CX, CZ, n_neighbors, "precomputed")
+
+        assert score == 1.0
+        assert score == score_precomputed
+
+    else:
+        with pytest.raises(ValueError):
+            _ = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+
+    # catch errors
+    n_neighbors = n / 2 + 1
+
+    with pytest.raises(ValueError):
+        _ = trustworthiness(X, Z, n_neighbors, metric, DEVICE)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan"])
+def test_trustworthiness_consistency_sklearn(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+    Z = PCA(n_components=1, random_state=0).fit_transform(X)
+
+    score_torchdr = trustworthiness(X, Z, n_neighbors=5, metric=metric, device=DEVICE)
+    score_sklearn = sk_trustworthiness(X, Z, n_neighbors=5, metric=metric)
+    assert (score_torchdr - score_sklearn) ** 2 < 1e-5, (
+        "Trustworthiness from torchdr and sklearn should be close."
+    )
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("keops", lst_keops)
+@pytest.mark.parametrize("metric", ["euclidean", "manhattan", "whatever"])
+def test_Kary_preservation_score_euclidean(dtype, keops, metric):
+    n = 10
+    X, _ = toy_dataset(n, dtype)
+    X = to_torch(X)
+    Z = X.clone()
+    K = 2
+
+    if metric in admissible_LIST_METRICS:
+        CX = pairwise_distances(X, X, metric, keops=False)
+        CZ = pairwise_distances(Z, Z, metric, keops=False)
+
+        # compute initial score
+        score = Kary_preservation_score(X, Z, K, False, metric, DEVICE, keops)
+
+        # - check abnormal number of neighbors
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(X, Z, n, False, metric, DEVICE, keops)
+
+        # - check consistency with adjusted score while X = Z
+        adjusted_score = Kary_preservation_score(X, Z, K, True, metric, None, keops)
+
+        # compare to precomputed scores
+        # - check abnormal dimensions for pairwise similarity matrices
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(
+                CX[:, :-2], CZ, K, False, "precomputed", DEVICE, keops
+            )
+
+        # - check abnormal dimensions for pairwise similarity matrices
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(
+                CZ, CX[:, :-2], K, False, "precomputed", DEVICE, keops
+            )
+
+        score_precomputed = Kary_preservation_score(
+            CX, CZ, K, False, "precomputed", DEVICE, keops
+        )
+
+        assert score == adjusted_score == score_precomputed == 1.0
+
+    else:
+        with pytest.raises(ValueError):
+            _ = Kary_preservation_score(X, Z, K, False, metric, DEVICE, keops)
