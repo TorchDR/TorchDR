@@ -4,13 +4,11 @@ import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-from sklearn.preprocessing import LabelEncoder
-import torchdr
-import matplotlib.pyplot as plt
 import numpy as np
+import datamapplot
+import matplotlib.pyplot as plt
 
-# import datamapplot
+import torchdr
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -18,7 +16,9 @@ print(f"Using device: {device}")
 
 def load_features():
     # Load dataset
-    images = dataset["train"]["img"]
+    train_images = dataset["train"]["img"]
+    test_images = dataset["test"]["img"]
+    images = train_images + test_images
 
     # Load the image processor and model
     image_processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
@@ -60,7 +60,11 @@ if __name__ == "__main__":
 
     # Plot the embeddings
     dataset = load_dataset("cifar10")
-    labels = dataset["train"]["label"]
+
+    train_labels = dataset["train"]["fine_label"]
+    test_labels = dataset["test"]["fine_label"]
+    labels = train_labels + test_labels
+
     label_dict = {
         0: "airplane",
         1: "automobile",
@@ -86,8 +90,6 @@ if __name__ == "__main__":
     ).fit_transform(z_)
     z = z.cpu().numpy()
 
-    import datamapplot
-
     datamapplot.create_plot(z, labels_str, label_over_points=True)
 
-    plt.savefig("datamapplot_cifar.png")
+    plt.savefig("datamapplot_cifar10.png")
