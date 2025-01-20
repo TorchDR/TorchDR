@@ -298,12 +298,6 @@ def trustworthiness(
     trustworthiness : float
         Trustworthiness of the low-dimensional embedding.
 
-    References
-    ----------
-    .. [25] J.Venna and S.Kaski. Neighborhood Preservation in Nonlinear
-        Projection Methods: An Experimental Study. In Proceedings of the
-        International Conference on Artificial Neural Networks (ICANN 2001).
-
     """
     n_samples_x = X.shape[0]
 
@@ -416,11 +410,6 @@ def Kary_preservation_score(
     -------
     score : float
         Average agreement rate between K-ary neighborhoods.
-
-    References
-    ----------
-    .. [26] J.Lee, M.Verleysen, Quality assessment of dimensionality reduction:
-        rank-based criteria, Neurocomputing (2009).
 
     """
     n_samples_x = X.shape[0]
