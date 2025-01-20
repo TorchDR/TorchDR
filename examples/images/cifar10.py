@@ -61,8 +61,8 @@ if __name__ == "__main__":
     # Plot the embeddings
     dataset = load_dataset("cifar10")
 
-    train_labels = dataset["train"]["fine_label"]
-    test_labels = dataset["test"]["fine_label"]
+    train_labels = dataset["train"]["label"]
+    test_labels = dataset["test"]["label"]
     labels = train_labels + test_labels
 
     label_dict = {
@@ -81,15 +81,18 @@ if __name__ == "__main__":
     labels_str = vectorized_converter(labels)
 
     # Dimensionality reduction
-    z_ = torchdr.PCA(n_components=50, device=device).fit_transform(embeddings)
     z = torchdr.UMAP(
         n_components=2,
         verbose=True,
         n_neighbors=50,
         device=device,
-    ).fit_transform(z_)
+    ).fit_transform(embeddings)
     z = z.cpu().numpy()
 
-    datamapplot.create_plot(z, labels_str, label_over_points=True)
-
-    plt.savefig("datamapplot_cifar10.png")
+    fig, ax = datamapplot.create_plot(
+        z,
+        labels_str,
+        label_over_points=True,
+        label_font_size=20,
+    )
+    fig.savefig("datamapplot_cifar10.png", bbox_inches="tight")

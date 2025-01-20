@@ -52,7 +52,7 @@ Getting Started
 **MNIST example.**
 Here is a comparison of various neighbor embedding methods on the MNIST digits dataset.
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
+.. image:: docs/source/figures/mnist_readme.png
    :width: 800px
    :alt: various neighbor embedding methods on MNIST
    :align: center
@@ -62,7 +62,7 @@ The code to generate this figure is available `here <https://github.com/TorchDR/
 **Single cell example.**
 Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
+.. image:: docs/source/figures/single_cell_readme.png
    :width: 700px
    :alt: single cell embeddings
    :align: center
@@ -70,7 +70,7 @@ Here is an example of single cell embeddings using ``TorchDR``, where the embedd
 The code for this figure is `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
 
 
-.. image:: https://github.com/huguesva/TorchDR/tree/cifar_fig/docs/source/figures/cifar100_tsne.png
+.. image:: docs/source/figures/cifar100_tsne.png
    :width: 1024px
    :alt: TSNE on CIFAR100 DINO features
    :align: center
