@@ -70,7 +70,7 @@ Here is an example of single cell embeddings using ``TorchDR``, where the embedd
 The code for this figure is `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
 
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/cifar100_tsne.png
+.. image:: https://github.com/huguesva/TorchDR/tree/cifar_fig/docs/source/figures/cifar100_tsne.png
    :width: 800px
    :alt: TSNE on CIFAR100 DINO features
    :align: center
