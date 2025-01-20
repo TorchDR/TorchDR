@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 from sklearn.preprocessing import LabelEncoder
 import torchdr
-import umap
 import matplotlib.pyplot as plt
+import numpy as np
 
 # import datamapplot
 
@@ -18,10 +18,7 @@ print(f"Using device: {device}")
 
 def load_features():
     # Load dataset
-    dataset = load_dataset("cifar10")
-    train_images = dataset["train"]["img"]
-    test_images = dataset["test"]["img"]
-    images = train_images + test_images
+    images = dataset["train"]["img"]
 
     # Load the image processor and model
     image_processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
@@ -61,30 +58,36 @@ if __name__ == "__main__":
     else:
         embeddings = load_features()
 
+    # Plot the embeddings
+    dataset = load_dataset("cifar10")
+    labels = dataset["train"]["label"]
+    label_dict = {
+        0: "airplane",
+        1: "automobile",
+        2: "bird",
+        3: "cat",
+        4: "deer",
+        5: "dog",
+        6: "frog",
+        7: "horse",
+        8: "ship",
+        9: "truck",
+    }
+    vectorized_converter = np.vectorize(lambda x: label_dict[x])
+    labels_str = vectorized_converter(labels)
+
     # Dimensionality reduction
     z_ = torchdr.PCA(n_components=50, device=device).fit_transform(embeddings)
     z = torchdr.UMAP(
-        n_components=2, verbose=True, n_neighbors=50, device=device
+        n_components=2,
+        verbose=True,
+        n_neighbors=50,
+        device=device,
     ).fit_transform(z_)
-    z = z.cpu()
+    z = z.cpu().numpy()
 
-    # Plot the embeddings
-    plt.figure(figsize=(10, 10))
-    plt.scatter(z[:, 0], z[:, 1], s=1, alpha=0.5)
+    import datamapplot
 
-# # Label encode the labels
-# label_encoder = LabelEncoder()
-# encoded_labels = label_encoder.fit_transform(labels)
+    datamapplot.create_plot(z, labels_str, label_over_points=True)
 
-# # z_cpu = all_embeddings.cpu().numpy()
-# # z1 = umap.UMAP(n_components=2, verbose=True, n_neighbors=50).fit_transform(z_cpu)
-
-# z_ = torchdr.PCA(n_components=100, device="cuda").fit_transform(all_embeddings)
-# embeddings = torchdr.UMAP(
-#     n_components=2, verbose=True, n_neighbors=50, device="cuda"
-# ).fit_transform(z_)
-# embeddings = embeddings.cpu().numpy()
-
-# datamapplot.create_plot(embeddings, labels)
-
-# plt.savefig("cifar10_fig.png")
+    plt.savefig("datamapplot_cifar.png")
