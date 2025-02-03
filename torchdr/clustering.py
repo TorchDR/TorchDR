@@ -211,7 +211,7 @@ class KMeans(ClusteringModule):
 
         for it in range(self.max_iter):
             # E step: assign points to the closest cluster
-            C = pairwise_distances(
+            C, _ = pairwise_distances(
                 X, centroids, metric=self.metric, backend=self.backend
             )
             _, centroid_membership = kmin(C, k=1, dim=1)
@@ -265,7 +265,7 @@ class KMeans(ClusteringModule):
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
-        closest_dist_sq = pairwise_distances(
+        closest_dist_sq, _ = pairwise_distances(
             X, centers[0:1], metric=self.metric, backend=None
         ).squeeze()
 
@@ -281,7 +281,7 @@ class KMeans(ClusteringModule):
             centers[c] = X[center_id]
 
             # Update the closest distances
-            distances = pairwise_distances(
+            distances, _ = pairwise_distances(
                 X, centers[c : c + 1], metric=self.metric, backend=None
             ).squeeze()
 
@@ -308,7 +308,7 @@ class KMeans(ClusteringModule):
             Cluster labels.
         """
         X = to_torch(X, device=self.device)
-        C = pairwise_distances(
+        C, _ = pairwise_distances(
             X, self.cluster_centers_, metric=self.metric, backend=None
         )
         _, labels = kmin(C, k=1, dim=1)

@@ -127,7 +127,7 @@ def test_symmetric_pairwise_distances(dtype, metric):
     check_symmetry(C)
 
     # --- check consistency with pairwise_distances ---
-    C_ = pairwise_distances(x, metric=metric, backend=None)
+    C_, _ = pairwise_distances(x, metric=metric, backend=None)
     check_similarity(C, C_)
 
 
