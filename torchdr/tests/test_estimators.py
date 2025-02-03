@@ -41,7 +41,7 @@ def test_check_estimator(estimator, kwargs):
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_init_keops_error(monkeypatch):
     with pytest.raises(ValueError, match="pykeops is not installed"):
-        TSNE(backend=None)
+        TSNE(backend="keops")
 
 
 def test_init_verbose(capfd):

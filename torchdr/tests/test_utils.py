@@ -210,7 +210,7 @@ def test_no_indices_keops_false(mock_obj):
 
 
 def test_no_indices_keops(mock_obj):
-    mock_obj.backend = True
+    mock_obj.backend = "keops"
     result = mock_obj.some_method()
     assert result == "Function executed"
     assert getattr(mock_obj, "backend_") == "keops"  # Ensure backend_ remains "keops"
