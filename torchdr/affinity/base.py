@@ -528,7 +528,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         X = to_torch(X, device=self.device)
         if Y is not None:
             Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
+        C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:
             return log_affinity
