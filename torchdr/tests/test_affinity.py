@@ -76,7 +76,7 @@ def test_scalar_product_affinity(dtype):
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_symmetry(P)
 
@@ -102,7 +102,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
         if isinstance(dim, int):
@@ -132,7 +132,7 @@ def test_normalized_student_affinity(dtype, metric, dim):
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
         if isinstance(dim, int):
@@ -158,7 +158,7 @@ def test_gibbs_affinity(dtype, metric):
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
 
@@ -183,7 +183,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
         P = affinity(X)
         list_P.append(P)
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
         if isinstance(dim, int):
@@ -209,7 +209,7 @@ def test_magic_affinity(dtype, metric):
         P = affinity(X)
         list_P.append(P)
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
         check_marginal(P, one, dim=1)
@@ -232,7 +232,7 @@ def test_student_affinity(dtype, metric):
         list_P.append(P)
 
         # -- check properties of the affinity matrix --
-        check_type(P, backend=backend)
+        check_type(P, backend == "keops")
         check_shape(P, (n, n))
         check_nonnegativity(P)
 
@@ -373,7 +373,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend):
     P = affinity(X)
 
     # -- check properties of the affinity matrix --
-    check_type(P, backend=backend)
+    check_type(P, backend == "keops")
     check_shape(P, (n, n))
     check_symmetry(P)
     check_marginal(P, ones / n, dim=1, tol=tol, log=False)
@@ -401,7 +401,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend):
     P = affinity(X)
 
     # -- check properties of the affinity matrix --
-    check_type(P, backend=backend)
+    check_type(P, backend == "keops")
     check_shape(P, (n, n))
     check_nonnegativity(P)
 
@@ -425,7 +425,7 @@ def test_umap_embedding_affinity(dtype, metric, backend, a, b):
     P = affinity(X)
 
     # -- check properties of the affinity matrix --
-    check_type(P, backend=backend)
+    check_type(P, backend == "keops")
     check_shape(P, (n, n))
     check_nonnegativity(P)
     check_symmetry(P)

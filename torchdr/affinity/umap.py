@@ -140,9 +140,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         if self.verbose:
             print("[TorchDR] Affinity : computing the input affinity matrix of UMAP.")
 
-        C = self._distance_matrix(X)
-
-        n_samples_in = C.shape[0]
+        n_samples_in = X.shape[0]
         n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
 
         if self.sparsity:
@@ -155,9 +153,10 @@ class UMAPAffinityIn(SparseLogAffinity):
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
-            C_, indices = kmin(C, k=n_neighbors, dim=1)
+            C_, indices = self._distance_matrix(X, k=n_neighbors)
         else:
-            C_, indices = C, None
+            C_ = self._distance_matrix(X)
+            indices = None
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
