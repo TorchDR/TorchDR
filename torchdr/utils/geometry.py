@@ -6,7 +6,8 @@
 
 import torch
 
-from torchdr.utils import identity_matrix, kmin
+from torchdr.utils.utils import identity_matrix
+from torchdr.utils import kmin
 
 from .keops import LazyTensor, pykeops
 

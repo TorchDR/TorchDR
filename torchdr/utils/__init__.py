@@ -27,7 +27,6 @@ from .utils import (
     sum_matrix_vector,
     sum_red,
     svd_flip,
-    identity_matrix,
 )
 from .validation import (
     check_entropy,
@@ -98,5 +97,4 @@ __all__ = [
     "batch_transpose",
     "handle_keops",
     "faiss",
-    "identity_matrix",
 ]
