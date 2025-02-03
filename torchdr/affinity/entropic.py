@@ -307,8 +307,7 @@ class EntropicAffinity(SparseLogAffinity):
             # of shape (n_samples, k)
             C_, indices = self._distance_matrix(X, k=k)
         else:
-            C_ = self._distance_matrix(X)
-            indices = None
+            C_, indices = self._distance_matrix(X)
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_, eps)
@@ -461,7 +460,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 "[TorchDR] Affinity : computing the Symmetric Entropic Affinity matrix."
             )
 
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
 
         n_samples_in = X.shape[0]
         perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
@@ -706,7 +705,7 @@ class SinkhornAffinity(LogAffinity):
             of shape (n_samples, n_samples)
             Log of the doubly stochastic affinity matrix.
         """
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
@@ -826,7 +825,7 @@ class NormalizedGaussianAffinity(LogAffinity):
             of shape (n_samples, n_samples)
             Log of the normalized Gaussian affinity matrix.
         """
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
 
         log_affinity_matrix = -C / self.sigma
 
@@ -908,7 +907,7 @@ class NormalizedStudentAffinity(LogAffinity):
             of shape(n_samples, n_samples)
             Log of the normalized Student affinity matrix.
         """
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
 
         log_affinity_matrix = (
             -0.5

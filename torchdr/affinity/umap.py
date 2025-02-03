@@ -155,8 +155,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             # of shape (n_samples, n_neighbors)
             C_, indices = self._distance_matrix(X, k=n_neighbors)
         else:
-            C_ = self._distance_matrix(X)
-            indices = None
+            C_, indices = self._distance_matrix(X)
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 

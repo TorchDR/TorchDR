@@ -6,7 +6,7 @@
 
 import torch
 
-from torchdr.utils.utils import identity_matrix
+from torchdr.utils import identity_matrix, kmin
 
 from .keops import LazyTensor, pykeops
 
@@ -52,15 +52,19 @@ def pairwise_distances(
         )
 
     if backend == "keops":
-        C = _pairwise_distances_keops(X, Y, metric)
+        C, _ = _pairwise_distances_keops(X, Y, metric)
     else:
-        C = _pairwise_distances_torch(X, Y, metric)
+        C, _ = _pairwise_distances_torch(X, Y, metric)
 
     return C
 
 
 def symmetric_pairwise_distances(
-    X: torch.Tensor, metric: str, backend: str = None, add_diag: float = None
+    X: torch.Tensor,
+    metric: str,
+    backend: str = None,
+    add_diag: float = None,
+    k: int = None,
 ):
     r"""Compute pairwise distances matrix between points in a dataset.
 
@@ -78,6 +82,8 @@ def symmetric_pairwise_distances(
         Default is None.
     add_diag : float, optional
         If not None, adds weight on the diagonal of the distance matrix.
+    k : int, optional
+        Number of nearest neighbors to consider for the distances.
 
     Returns
     -------
@@ -91,19 +97,19 @@ def symmetric_pairwise_distances(
         )
 
     if backend == "keops":
-        C = _pairwise_distances_keops(X, metric=metric)
+        C, indices = _pairwise_distances_keops(X, metric=metric, k=k)
     else:
-        C = _pairwise_distances_torch(X, metric=metric)
+        C, indices = _pairwise_distances_torch(X, metric=metric, k=k)
 
-    if add_diag is not None:  # add mass on the diagonal
+    if add_diag is not None and k is None:  # add mass on the diagonal
         Id = identity_matrix(C.shape[-1], backend == "keops", X.device, X.dtype)
         C += add_diag * Id
 
-    return C
+    return C, indices
 
 
 def _pairwise_distances_torch(
-    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
+    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean", k: int = None
 ):
     r"""Compute pairwise distances matrix between points in two datasets.
 
@@ -117,6 +123,9 @@ def _pairwise_distances_torch(
         Second dataset.
     metric : str
         Metric to use for computing distances.
+    k : int, optional
+        Number of nearest neighbors to consider for the distances.
+        Default is None.
 
     Returns
     -------
@@ -151,11 +160,15 @@ def _pairwise_distances_torch(
             X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
         ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
 
-    return C
+    if k is not None:
+        C, indices = kmin(C, k=k, dim=1)
+        return C, indices
+    else:
+        return C, None
 
 
 def _pairwise_distances_keops(
-    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean"
+    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean", k: int = None
 ):
     r"""Compute pairwise distances matrix between points in two datasets.
 
@@ -169,11 +182,16 @@ def _pairwise_distances_keops(
         Second dataset.
     metric : str
         Metric to use for computing distances.
+    k : int, optional
+        Number of nearest neighbors to consider for the distances.
+        Default is None.
 
     Returns
     -------
     C : pykeops.torch.LazyTensor of shape (n_samples, m_samples)
         Pairwise distances matrix.
+    indices: torch.Tensor of shape (n_samples, k)
+        Indices of the k nearest neighbors. If k is None, indices is None.
     """
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
@@ -195,7 +213,11 @@ def _pairwise_distances_keops(
     elif metric == "hyperbolic":
         C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
 
-    return C
+    if k is not None:
+        C, indices = kmin(C, k=k, dim=1)
+        return C, indices
+    else:
+        return C, None
 
 
 def symmetric_pairwise_distances_indices(

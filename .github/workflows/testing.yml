@@ -44,7 +44,7 @@ jobs:
         run: |
           python -m pip install --user -e .[all,test]
       # Run Tests
-      - name: Run Tests without torch
+      - name: Run Tests
         run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
       # Codecov
       - name: Upload coverage reports to Codecov

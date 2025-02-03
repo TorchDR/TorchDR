@@ -106,7 +106,7 @@ class Affinity(ABC):
         )
 
     @handle_keops
-    def _distance_matrix(self, X: torch.Tensor):
+    def _distance_matrix(self, X: torch.Tensor, k: int = None):
         r"""Compute the pairwise distance matrix from the input data.
 
         It uses the specified metric and optionally leveraging KeOps
@@ -116,6 +116,8 @@ class Affinity(ABC):
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
             Input data.
+        k : int, optional
+            Number of nearest neighbors to compute the distance matrix. Default is None.
 
         Returns
         -------
@@ -129,6 +131,7 @@ class Affinity(ABC):
             metric=self.metric,
             backend=self.backend_,
             add_diag=self.add_diag,
+            k=k,
         )
 
 

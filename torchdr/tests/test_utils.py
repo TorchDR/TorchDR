@@ -122,7 +122,7 @@ def test_symmetric_pairwise_distances(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, backend=None)
+    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
@@ -139,11 +139,11 @@ def test_symmetric_pairwise_distances_keops(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, backend=None)
+    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
-    C_keops = symmetric_pairwise_distances(x, metric=metric, backend="keops")
+    C_keops, _ = symmetric_pairwise_distances(x, metric=metric, backend="keops")
     check_shape(C_keops, (n, n))
     check_symmetry(C_keops)
 
@@ -165,7 +165,7 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full = symmetric_pairwise_distances(x, metric=metric, backend=None)
+    C_full, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)

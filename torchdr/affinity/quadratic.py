@@ -154,7 +154,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "Affinity matrix."
             )
 
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 
