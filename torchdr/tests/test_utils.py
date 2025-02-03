@@ -162,7 +162,7 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     indices = torch.randint(0, n, (n, 10))
 
     # --- check consistency with symmetric_pairwise_distances ---
-    C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
+    C_indices, _ = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
     C_full, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)

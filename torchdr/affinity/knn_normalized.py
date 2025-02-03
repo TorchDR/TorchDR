@@ -120,7 +120,7 @@ class SelfTuningAffinity(LogAffinity):
         log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix in log domain.
         """
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
@@ -207,7 +207,7 @@ class MAGICAffinity(Affinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
 
         minK_values, minK_indices = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]

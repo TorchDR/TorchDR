@@ -89,6 +89,8 @@ def symmetric_pairwise_distances(
     -------
     C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
+    indices: torch.Tensor of shape (n_samples, k) or (n_batch, n_samples_batch, k)
+        Indices of the k nearest neighbors. If k is None, indices is None.
     """  # noqa E501
     if backend == "keops" and not pykeops:  # pykeops no installed
         raise ValueError(
@@ -131,6 +133,8 @@ def _pairwise_distances_torch(
     -------
     C : torch.Tensor of shape (n_samples, m_samples)
         Pairwise distances matrix.
+    indices: torch.Tensor of shape (n_samples, k)
+        Indices of the k nearest neighbors. If k is None, indices is None.
     """
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
@@ -243,6 +247,8 @@ def symmetric_pairwise_distances_indices(
     -------
     C_indices : torch.Tensor of shape (n, k)
         Pairwise distances matrix for the subset of pairs.
+    indices : torch.Tensor of shape (n, k)
+        Indices of the pairs for which to compute the distances.
     """
     X_indices = X[indices.int()]  # Shape (n, k, p)
 
@@ -261,4 +267,4 @@ def symmetric_pairwise_distances_indices(
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 
-    return C_indices
+    return C_indices, indices
