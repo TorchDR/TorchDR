@@ -30,6 +30,7 @@ repos:
       - id: check-toml
       - id: check-case-conflict
       - id: check-added-large-files
+        args: ['--maxkb', '1000']
       - id: check-merge-conflict
 
   # shell scripts linter

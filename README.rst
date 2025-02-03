@@ -8,7 +8,7 @@ Torch Dimensionality Reduction
 
 |Documentation| |Version| |License| |Python 3.10+| |Pytorch| |Ruff| |Test Status| |CircleCI| |codecov|
 
-``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to accelerate the development of new DR methods by providing a common simplified framework.
+``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to provide fast, GPU-compatible implementations of DR algorithms, as well as to accelerate the development of new DR methods by providing a common, simplified framework.
 
 DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. ``TorchDR`` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
@@ -18,10 +18,10 @@ Benefits of ``TorchDR`` include:
    :widths: auto
    :header-rows: 0
 
-   * - **Modularity**
-     - All of it is written in **python** in a **highly modular** way, making it easy to create or transform components.
    * - **Speed**
      - Supports **GPU acceleration**, leverages **sparsity** and **batching** strategies with **contrastive learning** techniques.
+   * - **Modularity**
+     - All of it is written in **python** in a **highly modular** way, making it easy to create or transform components.
    * - **Memory efficiency**
      - Relies on **sparsity** and/or ``pykeops`` symbolic tensors to **avoid memory overflows**.
    * - **Compatibility**
@@ -49,25 +49,39 @@ Getting Started
 
     z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
 
-**MNIST example.**
-Here is a comparison of various neighbor embedding methods on the MNIST digits dataset.
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
+Examples
+--------
+
+See the `examples <https://github.com/TorchDR/TorchDR/tree/main/examples/>`_ folder for all examples.
+
+
+**MNIST.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_)
+A comparison of various neighbor embedding methods on the MNIST digits dataset.
+
+.. image:: docs/source/figures/mnist_readme.png
    :width: 800px
    :alt: various neighbor embedding methods on MNIST
    :align: center
 
-The code to generate this figure is available `here <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_.
 
-**Single cell example.**
-Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.
+**Single-cell genomics.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_)
+Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 
-.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
+.. image:: docs/source/figures/single_cell_readme.png
    :width: 700px
    :alt: single cell embeddings
    :align: center
 
-The code for this figure is `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
+
+**CIFAR100.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py>`_)
+Visualizing the CIFAR100 dataset using DINO features and TSNE.
+
+.. image:: docs/source/figures/cifar100_tsne.png
+   :width: 1024px
+   :alt: TSNE on CIFAR100 DINO features
+   :align: center
+
 
 
 Implemented Features (to date)
