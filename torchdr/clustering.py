@@ -281,9 +281,9 @@ class KMeans(ClusteringModule):
             centers[c] = X[center_id]
 
             # Update the closest distances
-            distances, _ = pairwise_distances(
+            distances = pairwise_distances(
                 X, centers[c : c + 1], metric=self.metric, backend=None
-            ).squeeze()
+            )[0].squeeze()
 
             if self.metric == "euclidean":
                 distances = distances**2
