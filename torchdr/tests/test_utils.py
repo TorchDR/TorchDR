@@ -206,17 +206,17 @@ def mock_obj():
 def test_no_indices_keops_false(mock_obj):
     result = mock_obj.some_method()
     assert result == "Function executed"
-    assert getattr(mock_obj, "backend_") is False  # Ensure keops_ remains False
+    assert getattr(mock_obj, "backend_") is None  # Ensure backend_ remains None
 
 
-def test_no_indices_keops_true(mock_obj):
+def test_no_indices_keops(mock_obj):
     mock_obj.backend = True
     result = mock_obj.some_method()
     assert result == "Function executed"
-    assert getattr(mock_obj, "backend_") is True  # Ensure keops_ remains True
+    assert getattr(mock_obj, "backend_") == "keops"  # Ensure backend_ remains "keops"
 
 
 def test_indices_provided(mock_obj):
     result = mock_obj.some_method(indices=[1, 2, 3])
     assert result == "Function executed"
-    assert getattr(mock_obj, "backend_", None) is None  # Ensure keops_ isn't set
+    assert getattr(mock_obj, "backend_", None) is None  # Ensure backend_ isn't set
