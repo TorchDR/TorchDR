@@ -16,7 +16,7 @@ from torchdr.utils import pykeops
 
 # define lists for keops testing
 if pykeops:
-    lst_backend = [None, "backend"]
+    lst_backend = [None, "keops"]
 else:
     pykeops = False
     lst_backend = [None]
@@ -269,7 +269,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
-    check_type(log_P, backend=backend)
+    check_type(log_P, backend == "keops")
     check_shape(log_P, (n, n))
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
@@ -314,7 +314,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
     log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
-    check_type(log_P, backend=backend)
+    check_type(log_P, backend == "keops")
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
@@ -345,7 +345,7 @@ def test_doubly_stochastic_entropic(dtype, metric, backend):
     log_P = affinity(X, log=True)
 
     # -- check properties of the affinity matrix --
-    check_type(log_P, backend=backend)
+    check_type(log_P, backend == "keops")
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
