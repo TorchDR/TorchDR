@@ -8,7 +8,7 @@ Torch Dimensionality Reduction
 
 |Documentation| |Version| |License| |Python 3.10+| |Pytorch| |Ruff| |Test Status| |CircleCI| |codecov|
 
-``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to provide fast, GPU-compatible implementations of DR algorithms, as well as to accelerate the development of new DR methods by providing a common, simplified framework.
+``TorchDR`` is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to provide **fast GPU-compatible** implementations of DR algorithms, as well as to accelerate the development of new DR methods by providing a **common simplified framework**.
 
 DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix** . To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. ``TorchDR`` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
@@ -19,11 +19,11 @@ Benefits of ``TorchDR`` include:
    :header-rows: 0
 
    * - **Speed**
-     - Supports **GPU acceleration**, leverages **sparsity** and **batching** strategies with **contrastive learning** techniques.
+     - Supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.
    * - **Modularity**
      - All of it is written in **python** in a **highly modular** way, making it easy to create or transform components.
    * - **Memory efficiency**
-     - Relies on **sparsity** and/or ``pykeops`` symbolic tensors to **avoid memory overflows**.
+     - Relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
    * - **Compatibility**
      - Implemented methods are fully **compatible** with the ``sklearn`` API and ``torch`` ecosystem.
 
@@ -102,7 +102,7 @@ Dimensionality Reduction Algorithms
 
 **Spectral.** ``TorchDR`` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian (PCA, KernelPCA, IncrementalPCA).
 
-**Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE*, *t-SNE*, *t-SNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
+**Neighbor Embedding.** ``TorchDR`` includes various **neighbor embedding methods** such as *SNE*, *TSNE*, *TSNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
 
 Evaluation Metric
 ~~~~~~~~~~~~~~~~~~

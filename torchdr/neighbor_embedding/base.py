@@ -68,8 +68,9 @@ class NeighborEmbedding(AffinityMatcher):
         If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for computations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
@@ -98,7 +99,7 @@ class NeighborEmbedding(AffinityMatcher):
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
@@ -121,7 +122,7 @@ class NeighborEmbedding(AffinityMatcher):
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
         )
@@ -267,8 +268,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for computations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
@@ -297,7 +299,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
@@ -333,7 +335,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
@@ -419,8 +421,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for computations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
@@ -451,7 +454,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         early_exaggeration_coeff: float = 1.0,
@@ -476,7 +479,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,

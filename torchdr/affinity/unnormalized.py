@@ -27,8 +27,9 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity.
     """
@@ -39,14 +40,14 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = True,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.sigma = sigma
@@ -75,8 +76,9 @@ class StudentAffinity(UnnormalizedLogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """
@@ -87,14 +89,14 @@ class StudentAffinity(UnnormalizedLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.degrees_of_freedom = degrees_of_freedom
@@ -118,8 +120,9 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     ----------
     device : str, optional
         Device to use for computations. Default is "cuda".
-    keops : bool, optional
-        Whether to use KeOps for computations. Default is True.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """
@@ -127,13 +130,13 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     def __init__(
         self,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric="angular",
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             zero_diag=False,
         )

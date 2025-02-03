@@ -11,6 +11,7 @@ from .geometry import (
     symmetric_pairwise_distances_indices,
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
+from .faiss import faiss
 from .optim import OPTIMIZERS, binary_search, false_position
 from .utils import (
     seed_everything,
@@ -95,4 +96,5 @@ __all__ = [
     "handle_backend",
     "batch_transpose",
     "handle_keops",
+    "faiss",
 ]

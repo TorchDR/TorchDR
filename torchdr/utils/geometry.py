@@ -49,7 +49,7 @@ def pairwise_distances(
             "pykeops is not installed. Please install it to use `keops=true`."
         )
 
-    if keops:  # recommended for large datasets
+    if keops:
         C = _pairwise_distances_keops(X, Y, metric)
     else:
         C = _pairwise_distances_torch(X, Y, metric)
@@ -83,7 +83,8 @@ def symmetric_pairwise_distances(
     """  # noqa E501
     if keops and not pykeops:  # pykeops no installed
         raise ValueError(
-            "pykeops is not installed. Please install it to use `keops=true`."
+            "[TorchDR] ERROR : pykeops is not installed. "
+            "Please install it to use `keops=true`."
         )
 
     if keops:  # recommended for large datasets

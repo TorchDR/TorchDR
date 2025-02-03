@@ -66,8 +66,9 @@ class TSNEkhorn(NeighborEmbedding):
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
-    keops : bool, optional
-        Whether to use KeOps, by default False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
@@ -114,7 +115,7 @@ class TSNEkhorn(NeighborEmbedding):
         max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         early_exaggeration_coeff: float = 10.0,
@@ -147,7 +148,7 @@ class TSNEkhorn(NeighborEmbedding):
                 tol=tol_affinity_in,
                 max_iter=max_iter_affinity_in,
                 device=device,
-                keops=keops,
+                backend=backend,
                 verbose=verbose,
                 zero_diag=False,
             )
@@ -158,13 +159,13 @@ class TSNEkhorn(NeighborEmbedding):
                 tol=tol_affinity_in,
                 max_iter=max_iter_affinity_in,
                 device=device,
-                keops=keops,
+                backend=backend,
                 verbose=verbose,
             )
         affinity_out = SinkhornAffinity(
             metric=metric_out,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=False,
             base_kernel="student",
             with_grad=unrolling,
@@ -186,7 +187,7 @@ class TSNEkhorn(NeighborEmbedding):
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,

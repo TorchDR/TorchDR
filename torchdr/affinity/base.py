@@ -14,6 +14,7 @@ from torchdr.utils import (
     handle_keops,
     pairwise_distances,
     pykeops,
+    faiss,
     symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
     to_torch,
@@ -32,8 +33,9 @@ class Affinity(ABC):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data.
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """
@@ -43,20 +45,26 @@ class Affinity(ABC):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
-        if keops and not pykeops:
+        if backend == "keops" and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
-                "`keops=true`."
+                "`backend`=`keops`."
+            )
+
+        if backend == "faiss" and not faiss:
+            raise ValueError(
+                "[TorchDR] ERROR : faiss is not installed. Please install it to use "
+                "`backend`=`faiss`."
             )
 
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag
         self.device = device
-        self.keops = keops
+        self.backend = backend
         self.verbose = verbose
         self.zero_diag = zero_diag
         self.add_diag = 1e12 if self.zero_diag else None
@@ -113,7 +121,7 @@ class Affinity(ABC):
         -------
         C : torch.Tensor or pykeops.torch.LazyTensor
             The pairwise distance matrix. The type of the returned matrix depends on the
-            value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
+            value of the `keops` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
         return symmetric_pairwise_distances(
@@ -134,8 +142,9 @@ class LogAffinity(Affinity):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data.
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel operations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
     """
@@ -145,14 +154,14 @@ class LogAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
 
@@ -218,9 +227,9 @@ class SparseLogAffinity(LogAffinity):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel
-        operations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
     sparsity : bool or 'auto', optional
@@ -232,7 +241,7 @@ class SparseLogAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         sparsity: bool = True,
     ):
@@ -240,7 +249,7 @@ class SparseLogAffinity(LogAffinity):
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.sparsity = sparsity
@@ -320,9 +329,9 @@ class UnnormalizedAffinity(Affinity):
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel
-        operations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
     """
@@ -332,14 +341,14 @@ class UnnormalizedAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
 
@@ -422,7 +431,7 @@ class UnnormalizedAffinity(Affinity):
         -------
         C : torch.Tensor or pykeops.torch.LazyTensor
             The pairwise distance matrix. The type of the returned matrix depends on the
-            value of the `keops` attribute. If `keops` is True, a KeOps LazyTensor
+            value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
         if Y is not None and indices is not None:
@@ -462,9 +471,9 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for efficient computation of large-scale kernel
-        operations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
     """
@@ -474,14 +483,14 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
 

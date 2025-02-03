@@ -240,8 +240,9 @@ class EntropicAffinity(SparseLogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    keops : bool, optional
-        Whether to use KeOps for computation.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """  # noqa: E501
@@ -255,7 +256,7 @@ class EntropicAffinity(SparseLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         self.perplexity = perplexity
@@ -266,7 +267,7 @@ class EntropicAffinity(SparseLogAffinity):
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             sparsity=sparsity,
         )
@@ -290,9 +291,7 @@ class EntropicAffinity(SparseLogAffinity):
         if self.verbose:
             print("[TorchDR] Affinity : computing the Entropic Affinity matrix.")
 
-        C = self._distance_matrix(X)
-
-        n_samples_in = C.shape[0]
+        n_samples_in = X.shape[0]
         perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
         target_entropy = np.log(perplexity) + 1
 
@@ -306,9 +305,10 @@ class EntropicAffinity(SparseLogAffinity):
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k)
-            C_, indices = kmin(C, k=k, dim=1)
+            C_, indices = self._distance_matrix(X, k=k)
         else:
-            C_, indices = C, None
+            C_ = self._distance_matrix(X)
+            indices = None
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_, eps)
@@ -404,8 +404,9 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    keops : bool, optional
-        Whether to use KeOps for computation.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """  # noqa: E501
@@ -422,14 +423,14 @@ class SymmetricEntropicAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.perplexity = perplexity
@@ -651,8 +652,9 @@ class SinkhornAffinity(LogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    keops : bool, optional
-        Whether to use KeOps for computation.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     with_grad : bool, optional (default=False)
@@ -670,7 +672,7 @@ class SinkhornAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         with_grad: bool = False,
     ):
@@ -678,7 +680,7 @@ class SinkhornAffinity(LogAffinity):
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.eps = eps
@@ -781,8 +783,9 @@ class NormalizedGaussianAffinity(LogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity.
     normalization_dim : int or Tuple[int], optional
@@ -795,7 +798,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         normalization_dim: int | Tuple[int] = (0, 1),
     ):
@@ -803,7 +806,7 @@ class NormalizedGaussianAffinity(LogAffinity):
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.sigma = sigma
@@ -862,8 +865,9 @@ class NormalizedStudentAffinity(LogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity.
     normalization_dim : int or Tuple[int], optional
@@ -876,7 +880,7 @@ class NormalizedStudentAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         normalization_dim: int | Tuple[int] = (0, 1),
     ):
@@ -884,7 +888,7 @@ class NormalizedStudentAffinity(LogAffinity):
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.degrees_of_freedom = degrees_of_freedom
