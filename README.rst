@@ -47,7 +47,7 @@ Getting Started
 
 .. code-block:: python
 
-    z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
+    z_gpu = TSNE(perplexity=30, device="cuda", backend="keops").fit_transform(x_)
 
 
 Examples

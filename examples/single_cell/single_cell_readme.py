@@ -35,14 +35,14 @@ y_10x_encoded = LabelEncoder().fit_transform(y_10x)
 
 
 # --- Compute TSNE embeddings ---
-tsne = TSNE(keops=True, device="cuda", verbose=True)
+tsne = TSNE(backend="keops", device="cuda", verbose=True)
 z_tsne = tsne.fit_transform(x_macosko)
 
 # --- Compute LargeVis embeddings ---
 largevis = LargeVis(
     verbose=True,
     device="cuda",
-    keops=True,
+    backend="keops",
     max_iter=1000,
     n_negatives=50,
     optimizer="Adam",
