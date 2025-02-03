@@ -265,9 +265,9 @@ class KMeans(ClusteringModule):
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
-        closest_dist_sq, _ = pairwise_distances(
+        closest_dist_sq = pairwise_distances(
             X, centers[0:1], metric=self.metric, backend=None
-        ).squeeze()
+        )[0].squeeze()
 
         for c in range(1, self.n_clusters):
             # Choose the next centroid
