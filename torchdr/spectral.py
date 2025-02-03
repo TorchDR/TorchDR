@@ -132,8 +132,9 @@ class KernelPCA(DRModule):
         Number of components to project the input data onto.
     device : str, default="auto"
         Device on which the computations are performed.
-    keops : bool, default=False
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, default=False
         Whether to print information during the computations.
     random_state : float, default=None
@@ -147,7 +148,7 @@ class KernelPCA(DRModule):
         affinity: Affinity = GaussianAffinity(),
         n_components: int = 2,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         nodiag: bool = False,
@@ -155,18 +156,18 @@ class KernelPCA(DRModule):
         super().__init__(
             n_components=n_components,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
         )
 
         self.affinity = affinity
-        self.affinity.keops = keops
+        self.affinity.backend = backend
         self.affinity.device = device
         self.affinity.random_state = random_state
         self.nodiag = nodiag
 
-        if keops:
+        if backend == "keops":
             raise NotImplementedError(
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )

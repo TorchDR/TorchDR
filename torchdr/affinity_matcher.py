@@ -82,8 +82,9 @@ class AffinityMatcher(DRModule):
         If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
-    keops : bool, optional
-        Whether to use KeOps for computations. Default is False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
@@ -109,14 +110,14 @@ class AffinityMatcher(DRModule):
         init_scaling: float = 1e-4,
         tolog: bool = False,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
     ):
         super().__init__(
             n_components=n_components,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
         )

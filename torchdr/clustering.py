@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch
+from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch, faiss
 
 
 class ClusteringModule(BaseEstimator, ABC):
@@ -24,8 +24,9 @@ class ClusteringModule(BaseEstimator, ABC):
         Number of clusters to form.
     device : str, default="auto"
         Device on which the computations are performed.
-    keops : bool, default=False
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, default=False
         Whether to print information during the computations.
     random_state : float, default=None
@@ -36,19 +37,25 @@ class ClusteringModule(BaseEstimator, ABC):
         self,
         n_clusters: int = 2,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
     ):
-        if keops and not pykeops:
+        if backend == "keops" and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR: pykeops is not installed. Please install it to use "
                 "`keops=True`."
             )
 
+        if backend == "faiss" and not faiss:
+            raise ValueError(
+                "[TorchDR] ERROR: faiss is not installed. Please install it to use "
+                "`backend=faiss`."
+            )
+
         self.n_clusters = n_clusters
         self.device = device
-        self.keops = keops
+        self.backend = backend
         self.random_state = random_state
         self.verbose = verbose
         if self.verbose:
@@ -113,8 +120,9 @@ class KMeans(ClusteringModule):
         Relative tolerance with regards to inertia to declare convergence.
     device : str, default="auto"
         Device on which the computations are performed.
-    keops : bool, default=False
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, default=False
         Whether to print information during the computations.
     random_state : float, default=None
@@ -131,7 +139,7 @@ class KMeans(ClusteringModule):
         max_iter: int = 300,
         tol: float = 1e-4,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         metric: str = "sqeuclidean",
@@ -139,7 +147,7 @@ class KMeans(ClusteringModule):
         super().__init__(
             n_clusters=n_clusters,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
         )
@@ -203,7 +211,9 @@ class KMeans(ClusteringModule):
 
         for it in range(self.max_iter):
             # E step: assign points to the closest cluster
-            C = pairwise_distances(X, centroids, metric=self.metric, keops=self.keops)
+            C = pairwise_distances(
+                X, centroids, metric=self.metric, backend=self.backend
+            )
             _, centroid_membership = kmin(C, k=1, dim=1)
             centroid_membership = centroid_membership.view(-1).to(torch.int64)
 
@@ -256,7 +266,7 @@ class KMeans(ClusteringModule):
 
         # Initialize list of closest distances
         closest_dist_sq = pairwise_distances(
-            X, centers[0:1], metric=self.metric, keops=False
+            X, centers[0:1], metric=self.metric, backend=None
         ).squeeze()
 
         for c in range(1, self.n_clusters):
@@ -272,7 +282,7 @@ class KMeans(ClusteringModule):
 
             # Update the closest distances
             distances = pairwise_distances(
-                X, centers[c : c + 1], metric=self.metric, keops=False
+                X, centers[c : c + 1], metric=self.metric, backend=None
             ).squeeze()
 
             if self.metric == "euclidean":
@@ -299,7 +309,7 @@ class KMeans(ClusteringModule):
         """
         X = to_torch(X, device=self.device)
         C = pairwise_distances(
-            X, self.cluster_centers_, metric=self.metric, keops=False
+            X, self.cluster_centers_, metric=self.metric, backend=None
         )
         _, labels = kmin(C, k=1, dim=1)
         return labels.view(-1).to(torch.int64)
