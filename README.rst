@@ -49,33 +49,39 @@ Getting Started
 
     z_gpu = TSNE(perplexity=30, device="cuda", keops=True).fit_transform(x_)
 
-**MNIST example.**
-Here is a comparison of various neighbor embedding methods on the MNIST digits dataset.
+
+Examples
+--------
+
+See the `examples <https://github.com/TorchDR/TorchDR/tree/main/examples/>`_ folder for all examples.
+
+
+**MNIST.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_)
+A comparison of various neighbor embedding methods on the MNIST digits dataset.
 
 .. image:: docs/source/figures/mnist_readme.png
    :width: 800px
    :alt: various neighbor embedding methods on MNIST
    :align: center
 
-Code `here <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_.
 
-**Single cell example.**
-Here is an example of single cell embeddings using ``TorchDR``, where the embeddings are colored by cell type and the number of cells is indicated in each title.
+**Single-cell genomics.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_)
+Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 
 .. image:: docs/source/figures/single_cell_readme.png
    :width: 700px
    :alt: single cell embeddings
    :align: center
 
-Code `here <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_.
 
+**CIFAR100.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py>`_)
+Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
 .. image:: docs/source/figures/cifar100_tsne.png
    :width: 1024px
    :alt: TSNE on CIFAR100 DINO features
    :align: center
 
-Code `here <<https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py>`_.
 
 
 Implemented Features (to date)
