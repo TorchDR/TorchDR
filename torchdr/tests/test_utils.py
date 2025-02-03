@@ -93,7 +93,7 @@ def test_pairwise_distances(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = pairwise_distances(x, y, metric=metric, keops=False)
+    C = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
 
@@ -106,10 +106,10 @@ def test_pairwise_distances_keops(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = pairwise_distances(x, y, metric=metric, keops=False)
+    C = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
-    C_keops = pairwise_distances(x, y, metric=metric, keops=True)
+    C_keops = pairwise_distances(x, y, metric=metric, backend="keops")
     check_shape(C_keops, (n, m))
 
     check_similarity_torch_keops(C, C_keops, K=10)
@@ -122,12 +122,12 @@ def test_symmetric_pairwise_distances(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
     # --- check consistency with pairwise_distances ---
-    C_ = pairwise_distances(x, metric=metric, keops=False)
+    C_ = pairwise_distances(x, metric=metric, backend=None)
     check_similarity(C, C_)
 
 
@@ -139,18 +139,18 @@ def test_symmetric_pairwise_distances_keops(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
-    C_keops = symmetric_pairwise_distances(x, metric=metric, keops=True)
+    C_keops = symmetric_pairwise_distances(x, metric=metric, backend="keops")
     check_shape(C_keops, (n, n))
     check_symmetry(C_keops)
 
     check_similarity_torch_keops(C, C_keops, K=10)
 
     # --- check consistency with pairwise_distances ---
-    C_ = pairwise_distances(x, metric=metric, keops=False)
+    C_ = pairwise_distances(x, metric=metric, backend=None)
     check_similarity(C, C_)
 
 
@@ -165,7 +165,7 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C_full = symmetric_pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
@@ -190,8 +190,8 @@ def test_center_kernel(dtype):
 
 
 class MockClass:
-    def __init__(self, keops=False):
-        self.keops = keops
+    def __init__(self, backend=None):
+        self.backend = backend
 
     @handle_keops
     def some_method(self, *args, **kwargs):

@@ -121,13 +121,13 @@ class Affinity(ABC):
         -------
         C : torch.Tensor or pykeops.torch.LazyTensor
             The pairwise distance matrix. The type of the returned matrix depends on the
-            value of the `keops` attribute. If `backend` is `keops`, a KeOps LazyTensor
+            value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
         return symmetric_pairwise_distances(
             X=X,
             metric=self.metric,
-            keops=self.keops_,
+            backend=self.backend_,
             add_diag=self.add_diag,
         )
 
@@ -446,11 +446,11 @@ class UnnormalizedAffinity(Affinity):
             )
 
         elif Y is not None:
-            return pairwise_distances(X, Y, metric=self.metric, keops=self.keops_)
+            return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
 
         else:
             return symmetric_pairwise_distances(
-                X, metric=self.metric, keops=self.keops_, add_diag=self.add_diag
+                X, metric=self.metric, backend=self.backend_, add_diag=self.add_diag
             )
 
 

@@ -17,7 +17,7 @@ def pairwise_distances(
     X: torch.Tensor,
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
-    keops: bool = False,
+    backend: str = None,
 ):
     r"""Compute pairwise distances matrix between points in two datasets.
 
@@ -32,8 +32,9 @@ def pairwise_distances(
         Second dataset. If None, Y = X.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
-    keops : bool, optional
-        If True, uses KeOps for computing the distances.
+    backend: {"keops", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
 
     Returns
     -------
@@ -44,12 +45,13 @@ def pairwise_distances(
     if Y is None:
         Y = X
 
-    if keops and not pykeops:  # pykeops no installed
+    if backend == "keops" and not pykeops:  # pykeops no installed
         raise ValueError(
-            "pykeops is not installed. Please install it to use `keops=true`."
+            "[TorchDR] ERROR : pykeops is not installed. "
+            "Please install it to use `backend=keops`."
         )
 
-    if keops:
+    if backend == "keops":
         C = _pairwise_distances_keops(X, Y, metric)
     else:
         C = _pairwise_distances_torch(X, Y, metric)
@@ -58,7 +60,7 @@ def pairwise_distances(
 
 
 def symmetric_pairwise_distances(
-    X: torch.Tensor, metric: str, keops: bool = False, add_diag: float = None
+    X: torch.Tensor, metric: str, backend: str = None, add_diag: float = None
 ):
     r"""Compute pairwise distances matrix between points in a dataset.
 
@@ -71,8 +73,9 @@ def symmetric_pairwise_distances(
         Input dataset.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
-    keops : bool, optional
-        If True, uses KeOps for computing the distances.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     add_diag : float, optional
         If not None, adds weight on the diagonal of the distance matrix.
 
@@ -81,19 +84,19 @@ def symmetric_pairwise_distances(
     C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
         Pairwise distances matrix.
     """  # noqa E501
-    if keops and not pykeops:  # pykeops no installed
+    if backend == "keops" and not pykeops:  # pykeops no installed
         raise ValueError(
             "[TorchDR] ERROR : pykeops is not installed. "
-            "Please install it to use `keops=true`."
+            "Please install it to use `backend=keops`."
         )
 
-    if keops:  # recommended for large datasets
+    if backend == "keops":
         C = _pairwise_distances_keops(X, metric=metric)
     else:
         C = _pairwise_distances_torch(X, metric=metric)
 
     if add_diag is not None:  # add mass on the diagonal
-        Id = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
+        Id = identity_matrix(C.shape[-1], backend == "keops", X.device, X.dtype)
         C += add_diag * Id
 
     return C
