@@ -1,4 +1,5 @@
 
+- CIFAR examples with DINOv2 features `PR #158 <https://github.com/TorchDR/TorchDR/pull/158>`_.
 - Fast linter and formatter with Ruff `PR #151 <https://github.com/TorchDR/TorchDR/pull/151>`_.
 - Pre-commit hooks added for code quality and consistency checks `PR #147 <https://github.com/TorchDR/TorchDR/pull/147>`_.
 - Incremental PCA `PR #137 <https://github.com/TorchDR/TorchDR/pull/137>`_.
