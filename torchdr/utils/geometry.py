@@ -18,6 +18,7 @@ def pairwise_distances(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     backend: str = None,
+    k: int = None,
 ):
     r"""Compute pairwise distances matrix between points in two datasets.
 
@@ -34,6 +35,9 @@ def pairwise_distances(
         Metric to use for computing distances. The default is "sqeuclidean".
     backend: {"keops", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    k : int, optional
+        Number of nearest neighbors to consider for the distances.
         Default is None.
 
     Returns
@@ -52,11 +56,11 @@ def pairwise_distances(
         )
 
     if backend == "keops":
-        C, _ = _pairwise_distances_keops(X, Y, metric)
+        C, indices = _pairwise_distances_keops(X, Y, metric, k=k)
     else:
-        C, _ = _pairwise_distances_torch(X, Y, metric)
+        C, indices = _pairwise_distances_torch(X, Y, metric, k=k)
 
-    return C
+    return C, indices
 
 
 def symmetric_pairwise_distances(
