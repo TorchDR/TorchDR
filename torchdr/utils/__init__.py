@@ -7,7 +7,6 @@
 from .geometry import (
     LIST_METRICS_KEOPS,
     pairwise_distances,
-    symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
@@ -73,7 +72,6 @@ __all__ = [
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
-    "symmetric_pairwise_distances",
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
     "check_marginal",
