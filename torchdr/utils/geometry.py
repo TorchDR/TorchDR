@@ -189,7 +189,7 @@ def _pairwise_distances_torch(
     if do_exclude:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
-        C[diag_idx, diag_idx] = float("inf")
+        C[diag_idx, diag_idx] = 1e12
 
     if k is not None:
         C_knn, indices = kmin(C, k=k, dim=1)
@@ -268,7 +268,7 @@ def _pairwise_distances_keops(
     if do_exclude:
         n = X.shape[0]
         Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
-        C = C + Id * float("inf")
+        C = C + Id * 1e12
 
     if k is not None:
         C_knn, indices = kmin(C, k=k, dim=1)
