@@ -52,8 +52,9 @@ class InfoTSNE(SampledNeighborEmbedding):
         Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
-    keops : bool, optional
-        Whether to use KeOps, by default False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
@@ -91,7 +92,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         max_iter: int = 2000,
         tolog: bool = False,
         device: str = None,
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
         early_exaggeration_coeff: float = 12.0,
@@ -116,14 +117,14 @@ class InfoTSNE(SampledNeighborEmbedding):
             tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             sparsity=sparsity,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
             device=device,
-            keops=False,
+            backend=backend,
             verbose=False,
         )
 
@@ -141,7 +142,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             init_scaling=init_scaling,
             tolog=tolog,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,

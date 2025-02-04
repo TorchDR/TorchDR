@@ -62,7 +62,7 @@ model = AffinityMatcher(
     init="normal",
     lr=1e1,
     max_iter=50,
-    keops=False,
+    backend=None,
 )
 Z_am = model.fit_transform(X)
 

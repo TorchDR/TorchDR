@@ -16,9 +16,9 @@ from torchdr.tests.utils import toy_dataset
 from torchdr.utils import check_shape, pykeops
 
 if pykeops:
-    lst_keops = [True, False]
+    lst_backend = ["keops", None]
 else:
-    lst_keops = [False]
+    lst_backend = [None]
 
 
 lst_types = ["float32", "float64"]
@@ -42,14 +42,14 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("keops", lst_keops)
-def test_NE(DRModel, kwargs, dtype, keops):
+@pytest.mark.parametrize("backend", lst_backend)
+def test_NE(DRModel, kwargs, dtype, backend):
     n = 100
     X, y = toy_dataset(n, dtype)
 
     model = DRModel(
         n_components=2,
-        keops=keops,
+        backend=backend,
         device=DEVICE,
         init="normal",
         max_iter=100,
@@ -64,8 +64,8 @@ def test_NE(DRModel, kwargs, dtype, keops):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("keops", lst_keops)
-def test_array_init(dtype, keops):
+@pytest.mark.parametrize("backend", lst_backend)
+def test_array_init(dtype, backend):
     n = 100
     X, y = toy_dataset(n, dtype)
 
@@ -78,7 +78,7 @@ def test_array_init(dtype, keops):
     for Z_init in [Z_init_np, Z_init_torch]:
         model = SNE(
             n_components=2,
-            keops=keops,
+            backend=backend,
             device=DEVICE,
             init=Z_init,
             max_iter=100,

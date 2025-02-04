@@ -96,8 +96,9 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Whether to set the diagonal elements of the affinity matrix to 0.
     device : str, optional
         Device to use for computation.
-    keops : bool, optional
-        Whether to use KeOps for computation.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """  # noqa: E501
@@ -115,14 +116,14 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.eps = eps
@@ -153,7 +154,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 "Affinity matrix."
             )
 
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 

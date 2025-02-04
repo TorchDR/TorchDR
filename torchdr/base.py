@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import pykeops, seed_everything
+from torchdr.utils import pykeops, seed_everything, faiss
 
 
 class DRModule(BaseEstimator, ABC):
@@ -24,8 +24,9 @@ class DRModule(BaseEstimator, ABC):
         Number of components to project the input data onto.
     device : str, default="auto"
         Device on which the computations are performed.
-    keops : bool, default=False
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, default=False
         Whether to print information during the computations.
     random_state : float, default=None
@@ -36,19 +37,25 @@ class DRModule(BaseEstimator, ABC):
         self,
         n_components: int = 2,
         device: str = "auto",
-        keops: bool = False,
+        backend: str = None,
         verbose: bool = False,
         random_state: float = None,
     ):
-        if keops and not pykeops:
+        if backend == "keops" and not pykeops:
             raise ValueError(
                 "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
                 "`keops=true`."
             )
 
+        if backend == "faiss" and not faiss:
+            raise ValueError(
+                "[TorchDR] ERROR : faiss is not installed. Please install it to use "
+                "`backend=faiss`."
+            )
+
         self.n_components = n_components
         self.device = device
-        self.keops = keops
+        self.backend = backend
 
         self.random_state = random_state
         seed_everything(self.random_state)

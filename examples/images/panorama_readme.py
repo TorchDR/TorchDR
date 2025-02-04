@@ -15,19 +15,19 @@ y = mnist.target.astype("int64")
 x = PCA(50).fit_transform(x)
 
 # --- Compute TSNE embedding ---
-tsne = TSNE(keops=True, device="cuda", verbose=True)
+tsne = TSNE(backend="keops", device="cuda", verbose=True)
 z_tsne = tsne.fit_transform(x)
 
 # --- Compute InfoTSNE embedding ---
-infotsne = InfoTSNE(keops=True, device="cuda", verbose=True)
+infotsne = InfoTSNE(backend="keops", device="cuda", verbose=True)
 z_infotsne = infotsne.fit_transform(x)
 
 # --- Compute LargeVis embedding ---
-largevis = LargeVis(keops=True, device="cuda", verbose=True, max_iter=10000)
+largevis = LargeVis(backend="keops", device="cuda", verbose=True, max_iter=10000)
 z_largevis = largevis.fit_transform(x)
 
 # --- Compute UMAP embedding ---
-umap = UMAP(keops=True, device="cuda", verbose=True, max_iter=10000)
+umap = UMAP(backend="keops", device="cuda", verbose=True, max_iter=10000)
 z_umap = umap.fit_transform(x)
 
 

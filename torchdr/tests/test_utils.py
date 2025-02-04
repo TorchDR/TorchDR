@@ -93,7 +93,7 @@ def test_pairwise_distances(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = pairwise_distances(x, y, metric=metric, keops=False)
+    C, _ = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
 
@@ -106,10 +106,10 @@ def test_pairwise_distances_keops(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = pairwise_distances(x, y, metric=metric, keops=False)
+    C, _ = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
-    C_keops = pairwise_distances(x, y, metric=metric, keops=True)
+    C_keops, _ = pairwise_distances(x, y, metric=metric, backend="keops")
     check_shape(C_keops, (n, m))
 
     check_similarity_torch_keops(C, C_keops, K=10)
@@ -122,12 +122,12 @@ def test_symmetric_pairwise_distances(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
     # --- check consistency with pairwise_distances ---
-    C_ = pairwise_distances(x, metric=metric, keops=False)
+    C_, _ = pairwise_distances(x, metric=metric, backend=None)
     check_similarity(C, C_)
 
 
@@ -139,18 +139,18 @@ def test_symmetric_pairwise_distances_keops(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     check_shape(C, (n, n))
     check_symmetry(C)
 
-    C_keops = symmetric_pairwise_distances(x, metric=metric, keops=True)
+    C_keops, _ = symmetric_pairwise_distances(x, metric=metric, backend="keops")
     check_shape(C_keops, (n, n))
     check_symmetry(C_keops)
 
     check_similarity_torch_keops(C, C_keops, K=10)
 
     # --- check consistency with pairwise_distances ---
-    C_ = pairwise_distances(x, metric=metric, keops=False)
+    C_, _ = pairwise_distances(x, metric=metric, backend=None)
     check_similarity(C, C_)
 
 
@@ -162,10 +162,10 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     indices = torch.randint(0, n, (n, 10))
 
     # --- check consistency with symmetric_pairwise_distances ---
-    C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
+    C_indices, _ = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full = symmetric_pairwise_distances(x, metric=metric, keops=False)
+    C_full, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
@@ -190,8 +190,8 @@ def test_center_kernel(dtype):
 
 
 class MockClass:
-    def __init__(self, keops=False):
-        self.keops = keops
+    def __init__(self, backend=None):
+        self.backend = backend
 
     @handle_keops
     def some_method(self, *args, **kwargs):
@@ -206,17 +206,17 @@ def mock_obj():
 def test_no_indices_keops_false(mock_obj):
     result = mock_obj.some_method()
     assert result == "Function executed"
-    assert getattr(mock_obj, "keops_") is False  # Ensure keops_ remains False
+    assert getattr(mock_obj, "backend_") is None  # Ensure backend_ remains None
 
 
-def test_no_indices_keops_true(mock_obj):
-    mock_obj.keops = True
+def test_no_indices_keops(mock_obj):
+    mock_obj.backend = "keops"
     result = mock_obj.some_method()
     assert result == "Function executed"
-    assert getattr(mock_obj, "keops_") is True  # Ensure keops_ remains True
+    assert getattr(mock_obj, "backend_") == "keops"  # Ensure backend_ remains "keops"
 
 
 def test_indices_provided(mock_obj):
     result = mock_obj.some_method(indices=[1, 2, 3])
     assert result == "Function executed"
-    assert getattr(mock_obj, "keops_", None) is None  # Ensure keops_ isn't set
+    assert getattr(mock_obj, "backend_", None) is None  # Ensure backend_ isn't set

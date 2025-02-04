@@ -19,7 +19,7 @@ DEVICE = "cpu"
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_keops_not_installed():
     with pytest.raises(ValueError, match="pykeops is not installed"):
-        SNE(keops=True)
+        SNE(backend="keops")
 
 
 @pytest.mark.parametrize(
@@ -34,14 +34,14 @@ def test_keops_not_installed():
 )
 def test_check_estimator(estimator, kwargs):
     check_estimator(
-        estimator(verbose=False, device=DEVICE, keops=False, max_iter=1, **kwargs)
+        estimator(verbose=False, device=DEVICE, backend=None, max_iter=1, **kwargs)
     )
 
 
 @pytest.mark.skipif(pykeops, reason="pykeops is available")
 def test_init_keops_error(monkeypatch):
     with pytest.raises(ValueError, match="pykeops is not installed"):
-        TSNE(keops=True)
+        TSNE(backend="keops")
 
 
 def test_init_verbose(capfd):

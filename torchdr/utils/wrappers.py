@@ -168,11 +168,11 @@ def handle_backend(func):
 
 
 def handle_keops(func):
-    """Set the keops_ attribute to True if an OutOfMemoryError is encountered.
+    """Set the backend_ attribute to 'keops' if an OutOfMemoryError is encountered.
 
-    If keops is set to True, keops_ is also set to True and nothing is done.
+    If backend is set to 'keops', backend_ is also set to 'keops' and nothing is done.
     Otherwise, the function is called and if an OutOfMemoryError is encountered,
-    keops_ is set to True and the function is called again.
+    backend_ is set to 'keops' and the function is called again.
     """  # noqa: RST306
 
     @functools.wraps(func)
@@ -181,24 +181,24 @@ def handle_keops(func):
         if kwargs.get("indices", None) is not None:
             return func(self, *args, **kwargs)
 
-        if not hasattr(self, "keops_"):
-            self.keops_ = self.keops
-            if not self.keops_:
+        if not hasattr(self, "backend_"):
+            self.backend_ = self.backend
+            if self.backend_ != "keops":
                 try:
                     return func(self, *args, **kwargs)
 
                 except torch.cuda.OutOfMemoryError:
                     print(
-                        "[TorchDR] Out of memory encountered, setting keops to True "
+                        "[TorchDR] Out of memory encountered, setting backend to 'keops' "
                         f"for {self.__class__.__name__} object."
                     )
                     if not pykeops:
                         raise ValueError(
                             "[TorchDR] ERROR : pykeops is not installed. "
-                            "To use `keops=True`, please run `pip install pykeops` "
+                            "To use `backend='keops'`, please run `pip install pykeops` "
                             "or `pip install torchdr[all]`. "
                         )
-                    self.keops_ = True
+                    self.backend_ = "keops"
 
         return func(self, *args, **kwargs)
 

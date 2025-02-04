@@ -42,13 +42,13 @@ def test_kmeans_fit_predict(sample_data, dtype, init_method):
     assert kmeans.cluster_centers_.dtype == dtype
 
 
-@pytest.mark.parametrize("keops", [False, True])
-def test_kmeans_keops(sample_data, keops):
+@pytest.mark.parametrize("backend", [None, "keops"])
+def test_kmeans_keops(sample_data, backend):
     """Test KMeans with keops enabled or disabled."""
-    if keops and not pykeops:
-        pytest.skip("pykeops is not installed, skipping test with keops=True")
+    if backend == "keops" and not pykeops:
+        pytest.skip("pykeops is not installed, skipping test with backend=`keops`.")
     X = torch.tensor(sample_data, dtype=torch.float64)
-    kmeans = TorchKMeans(n_clusters=2, keops=keops, random_state=42)
+    kmeans = TorchKMeans(n_clusters=2, backend=backend, random_state=42)
     kmeans.fit(X)
 
     # Check that labels are set
