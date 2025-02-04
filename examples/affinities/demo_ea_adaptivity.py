@@ -64,7 +64,7 @@ def plot_affinity_graph(G):
 #
 
 aff = NormalizedGaussianAffinity(
-    sigma=1, normalization_dim=1, keops=False, zero_diag=False
+    sigma=1, normalization_dim=1, backend=None, zero_diag=False
 )
 K = aff(X)
 
@@ -100,7 +100,7 @@ plt.show()
 # :class:`torchdr.EntropicAffinity`.
 
 aff_ea = EntropicAffinity(
-    perplexity=5, keops=False, verbose=False, zero_diag=False, sparsity=False
+    perplexity=5, backend=None, verbose=False, zero_diag=False, sparsity=False
 )
 EA = aff_ea(X)
 
