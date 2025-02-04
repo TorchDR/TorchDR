@@ -43,7 +43,7 @@ from .validation import (
     relative_similarity,
 )
 from .wrappers import (
-    handle_backend,
+    handle_type,
     handle_keops,
     sum_output,
     to_torch,
@@ -91,7 +91,7 @@ __all__ = [
     "center_kernel",
     "to_torch",
     "torch_to_backend",
-    "handle_backend",
+    "handle_type",
     "batch_transpose",
     "handle_keops",
     "faiss",

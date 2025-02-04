@@ -22,7 +22,7 @@ from torchdr.base import DRModule
 from torchdr.utils import (
     center_kernel,
     check_nonnegativity_eigenvalues,
-    handle_backend,
+    handle_type,
     sum_red,
     svd_flip,
     to_torch,
@@ -88,7 +88,7 @@ class PCA(DRModule):
         self.embedding_ = U[:, : self.n_components] @ S[: self.n_components].diag()
         return self
 
-    @handle_backend
+    @handle_type
     def transform(self, X: torch.Tensor | np.ndarray):
         r"""Project the input data onto the PCA components.
 
@@ -213,7 +213,7 @@ class KernelPCA(DRModule):
         self.eigenvalues_ = eigvals
         return self
 
-    @handle_backend
+    @handle_type
     def transform(self, X: torch.Tensor | np.ndarray):
         r"""Project the input data onto the KernelPCA components.
 
@@ -535,7 +535,7 @@ class IncrementalPCA(DRModule):
             self.noise_variance_ = torch.tensor(0.0, device=X.device)
         return self
 
-    @handle_backend
+    @handle_type
     def transform(self, X: torch.Tensor | np.ndarray):
         """Apply dimensionality reduction to `X`.
 

@@ -24,7 +24,7 @@ from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
     cross_entropy_loss,
-    handle_backend,
+    handle_type,
     square_loss,
     to_torch,
 )
@@ -169,7 +169,7 @@ class AffinityMatcher(DRModule):
             affinity_in._sparsity = False  # turn off sparsity
         self.affinity_in = affinity_in
 
-    @handle_backend
+    @handle_type
     def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
         """Fit the model to the provided data and returns the transformed data.
 
