@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from scipy.optimize import curve_fit
 
-from torchdr.affinity.base import SparseLogAffinity, UnnormalizedAffinity
+from torchdr.affinity.base import SparseLogAffinity, UnnormalizedLogAffinity
 from torchdr.utils import false_position, kmin, wrap_vectors
 
 from ..utils import LazyTensorType
@@ -178,7 +178,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         return log_affinity_matrix, indices
 
 
-class UMAPAffinityOut(UnnormalizedAffinity):
+class UMAPAffinityOut(UnnormalizedLogAffinity):
     r"""Compute the affinity used in embedding space in UMAP :cite:`mcinnes2018umap`.
 
     Its :math:`(i,j)` coefficient is as follows:
@@ -243,5 +243,5 @@ class UMAPAffinityOut(UnnormalizedAffinity):
             self._a = a
             self._b = b
 
-    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
-        return 1 / (1 + self._a * C**self._b)
+    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+        return -(1 + self._a * C**self._b).log()

@@ -67,7 +67,6 @@ class Affinity(ABC):
         self.backend = backend
         self.verbose = verbose
         self.zero_diag = zero_diag
-        self.add_diag = 1e12 if self.zero_diag else None
 
     def __call__(self, X: torch.Tensor | np.ndarray, **kwargs):
         r"""Compute the affinity matrix from the input data.
@@ -130,7 +129,7 @@ class Affinity(ABC):
             X=X,
             metric=self.metric,
             backend=self.backend_,
-            add_diag=self.add_diag,
+            exclude_self=self.zero_diag,
             k=k,
         )
 
@@ -453,7 +452,10 @@ class UnnormalizedAffinity(Affinity):
 
         else:
             return symmetric_pairwise_distances(
-                X, metric=self.metric, backend=self.backend_, add_diag=self.add_diag
+                X,
+                metric=self.metric,
+                backend=self.backend_,
+                exclude_self=self.zero_diag,
             )
 
 

@@ -67,7 +67,7 @@ def symmetric_pairwise_distances(
     X: torch.Tensor,
     metric: str,
     backend: str = None,
-    add_diag: float = None,
+    exclude_self: float = None,
     k: int = None,
 ):
     r"""Compute pairwise distances matrix between points in a dataset.
@@ -84,7 +84,7 @@ def symmetric_pairwise_distances(
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
-    add_diag : float, optional
+    exclude_self : float, optional
         If not None, adds weight on the diagonal of the distance matrix.
     k : int, optional
         Number of nearest neighbors to consider for the distances.
@@ -103,49 +103,66 @@ def symmetric_pairwise_distances(
         )
 
     if backend == "keops":
-        C, indices = _pairwise_distances_keops(X, metric=metric, k=k)
+        C, indices = _pairwise_distances_keops(
+            X, metric=metric, k=k, exclude_self=exclude_self
+        )
     else:
-        C, indices = _pairwise_distances_torch(X, metric=metric, k=k)
-
-    if add_diag is not None and k is None:  # add mass on the diagonal
-        Id = identity_matrix(C.shape[-1], backend == "keops", X.device, X.dtype)
-        C += add_diag * Id
+        C, indices = _pairwise_distances_torch(
+            X, metric=metric, k=k, exclude_self=exclude_self
+        )
 
     return C, indices
 
 
 def _pairwise_distances_torch(
-    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean", k: int = None
+    X: torch.Tensor,
+    Y: torch.Tensor = None,
+    metric: str = "sqeuclidean",
+    k: int = None,
+    exclude_self: bool = False,
 ):
-    r"""Compute pairwise distances matrix between points in two datasets.
+    r"""Compute pairwise distances between points using PyTorch.
 
-    Return the pairwise distance matrix as a torch tensor.
+    When Y is not provided (i.e. computing distances within X) and
+    `exclude_self` is True, the self–distance for each point (i.e. the diagonal)
+    is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
     ----------
     X : torch.Tensor of shape (n_samples, n_features)
         First dataset.
-    Y : torch.Tensor of shape (m_samples, n_features)
-        Second dataset.
+    Y : torch.Tensor of shape (m_samples, n_features), optional
+        Second dataset. If None, Y is set to X.
     metric : str
-        Metric to use for computing distances.
+        Metric to use for computing distances. Supported values are those in LIST_METRICS_KEOPS.
     k : int, optional
         Number of nearest neighbors to consider for the distances.
-        Default is None.
+        If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
+    exclude_self : bool, default False
+        If True and Y is not provided, the self–distance (diagonal elements) are set to infinity,
+        excluding the self index from the k nearest neighbors.
 
     Returns
     -------
-    C : torch.Tensor of shape (n_samples, m_samples)
-        Pairwise distances matrix.
-    indices: torch.Tensor of shape (n_samples, k)
-        Indices of the k nearest neighbors. If k is None, indices is None.
+    C : torch.Tensor
+        If k is None, C is the full pairwise distance matrix of shape (n_samples, m_samples).
+        If k is provided, C is of shape (n_samples, k) containing the k smallest distances for each sample.
+    indices : torch.Tensor or None
+        If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
+        Otherwise, None.
     """
+    # Check metric support.
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
+    # If Y is not provided, use X and decide about self–exclusion.
     if Y is None:
         Y = X
+        do_exclude = exclude_self
+    else:
+        do_exclude = False  # Only exclude self when Y is not provided.
 
+    # Compute pairwise distances.
     if metric == "sqeuclidean":
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
@@ -154,9 +171,7 @@ def _pairwise_distances_torch(
         X_norm = (X**2).sum(-1)
         Y_norm = (Y**2).sum(-1)
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
-        C = torch.clip(
-            C, min=0.0
-        ).sqrt()  # negative values can appear because of float precision
+        C = torch.clip(C, min=0.0).sqrt()  # Avoid negatives due to precision.
     elif metric == "manhattan":
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(-1)
     elif metric == "angular":
@@ -167,63 +182,97 @@ def _pairwise_distances_torch(
         C = (
             X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
         ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
+    else:
+        raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
+
+    # If requested, exclude self–neighbors by setting the diagonal to infinity.
+    if do_exclude:
+        n = C.shape[0]
+        diag_idx = torch.arange(n, device=C.device)
+        C[diag_idx, diag_idx] = float("inf")
 
     if k is not None:
-        C, indices = kmin(C, k=k, dim=1)
-        return C, indices
+        C_knn, indices = kmin(C, k=k, dim=1)
+        return C_knn, indices
     else:
         return C, None
 
 
 def _pairwise_distances_keops(
-    X: torch.Tensor, Y: torch.Tensor = None, metric: str = "sqeuclidean", k: int = None
+    X: torch.Tensor,
+    Y: torch.Tensor = None,
+    metric: str = "sqeuclidean",
+    k: int = None,
+    exclude_self: bool = False,
 ):
-    r"""Compute pairwise distances matrix between points in two datasets.
+    r"""Compute pairwise distances between points using KeOps LazyTensors.
 
-    Return the pairwise distance matrix as KeOps lazy tensor.
+    When Y is not provided (i.e. computing distances within X) and
+    `exclude_self` is True, the self–distance for each point (diagonal)
+    is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
     ----------
     X : torch.Tensor of shape (n_samples, n_features)
         First dataset.
-    Y : torch.Tensor of shape (m_samples, n_features)
-        Second dataset.
+    Y : torch.Tensor of shape (m_samples, n_features), optional
+        Second dataset. If None, Y is set to X.
     metric : str
-        Metric to use for computing distances.
+        Metric to use for computing distances. Supported values are those in LIST_METRICS_KEOPS.
     k : int, optional
         Number of nearest neighbors to consider for the distances.
-        Default is None.
+        If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
+    exclude_self : bool, default False
+        If True and Y is not provided, the self–distance (diagonal entries) are set to infinity,
+        excluding the self index from the k nearest neighbors.
 
     Returns
     -------
-    C : pykeops.torch.LazyTensor of shape (n_samples, m_samples)
-        Pairwise distances matrix.
-    indices: torch.Tensor of shape (n_samples, k)
-        Indices of the k nearest neighbors. If k is None, indices is None.
+    C : pykeops.torch.LazyTensor
+        If k is None, C is the full pairwise distance LazyTensor of shape (n_samples, m_samples).
+        If k is provided, C is of shape (n_samples, k) containing the k smallest distances for each sample.
+    indices : torch.Tensor or None
+        If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
+        Otherwise, None.
     """
+    # Check metric support.
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
+    # If Y is not provided, use X and decide about self–exclusion.
     if Y is None:
         Y = X
+        do_exclude = exclude_self
+    else:
+        do_exclude = False  # Only exclude self when Y is not provided.
 
-    X_i = LazyTensor(X.unsqueeze(-2))
-    Y_j = LazyTensor(Y.unsqueeze(-3))
+    # Create LazyTensors for pairwise operations.
+    X_i = LazyTensor(X.unsqueeze(-2))  # Shape: (n, 1, d)
+    Y_j = LazyTensor(Y.unsqueeze(-3))  # Shape: (1, m, d)
 
+    # Compute pairwise distances.
     if metric == "sqeuclidean":
         C = ((X_i - Y_j) ** 2).sum(-1)
     elif metric == "euclidean":
-        C = ((X_i - Y_j) ** 2).sum(-1) ** (1.0 / 2.0)
+        C = (((X_i - Y_j) ** 2).sum(-1)) ** 0.5
     elif metric == "manhattan":
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
         C = -(X_i | Y_j)
     elif metric == "hyperbolic":
         C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
+    else:
+        raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
+
+    # If requested, exclude self–neighbors by masking the diagonal.
+    if do_exclude:
+        n = X.shape[0]
+        Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
+        C = C + Id * float("inf")
 
     if k is not None:
-        C, indices = kmin(C, k=k, dim=1)
-        return C, indices
+        C_knn, indices = kmin(C, k=k, dim=1)
+        return C_knn, indices
     else:
         return C, None
 
