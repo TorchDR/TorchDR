@@ -15,7 +15,6 @@ from torchdr.utils import (
     pairwise_distances,
     pykeops,
     faiss,
-    symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
     to_torch,
 )
@@ -125,7 +124,7 @@ class Affinity(ABC):
             value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        return symmetric_pairwise_distances(
+        return pairwise_distances(
             X=X,
             metric=self.metric,
             backend=self.backend_,
@@ -451,7 +450,7 @@ class UnnormalizedAffinity(Affinity):
             return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
 
         else:
-            return symmetric_pairwise_distances(
+            return pairwise_distances(
                 X,
                 metric=self.metric,
                 backend=self.backend_,
