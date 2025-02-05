@@ -118,7 +118,7 @@ def test_pairwise_distances_keops(dtype, metric):
     C_keops, _ = pairwise_distances(x, y, k=k, metric=metric, backend="keops")
     check_shape(C_keops, (n, k))
 
-    check_similarity_torch_keops(C, C_keops, K=10)
+    torch.testing.assert_close(C, C_keops, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.skipif(not faiss, reason="faiss is not available")

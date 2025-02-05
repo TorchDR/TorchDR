@@ -43,11 +43,24 @@ Getting Started
     x_ = PCA(n_components=50).fit_transform(x)
     z = TSNE(perplexity=30).fit_transform(x_)
 
-``TorchDR`` enables **GPU acceleration without memory limitations** thanks to the KeOps library. This can be easily enabled as follows:
+
+``TorchDR`` is fully **GPU compatible**, allowing a **significant speed up** when a GPU is available. To allow computations on the gpu, simply set ``device="cuda"`` as in the following example:
 
 .. code-block:: python
 
-    z_gpu = TSNE(perplexity=30, device="cuda", backend="keops").fit_transform(x_)
+    z_gpu = TSNE(perplexity=30, device="cuda").fit_transform(x_)
+
+
+
+Backends
+========
+
+The ``backend`` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
+
+- To perform symbolic tensor computations on the GPU without memory limitations, you can leverage the `KeOps Library <https://www.kernel-operations.io/keops/index.html>`. This library also allows computing kNN graphs. To enable KeOps, set ``backend="keops"``.
+- Alternatively, you can use ``backend="faiss"`` to rely on `Faiss <https://github.com/facebookresearch/faiss>`_ for fast kNN computations.
+- Finally, setting ``backend="torch"`` will use raw PyTorch for computations.
+
 
 
 Examples
