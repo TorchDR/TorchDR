@@ -113,9 +113,10 @@ def test_pairwise_distances_keops(dtype, metric):
     check_similarity_torch_keops(C, C_keops, K=10)
 
     # --- check consistency between torch and keops with kNN search ---
-    C, _ = pairwise_distances(x, y, k=10, metric=metric, backend=None)
-    C_keops, _ = pairwise_distances(x, y, k=10, metric=metric, backend="keops")
-    check_shape(C_keops, (n, m))
+    k = 10
+    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
+    C_keops, _ = pairwise_distances(x, y, k=k, metric=metric, backend="keops")
+    check_shape(C_keops, (n, k))
 
     check_similarity_torch_keops(C, C_keops, K=10)
 
@@ -129,9 +130,10 @@ def test_pairwise_distances_faiss(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and faiss ---
-    C, _ = pairwise_distances(x, y, k=10, metric=metric, backend=None)
-    C_faiss, _ = pairwise_distances(x, y, k=10, metric=metric, backend="faiss")
-    check_shape(C_faiss, (n, m))
+    k = 10
+    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
+    C_faiss, _ = pairwise_distances(x, y, k=k, metric=metric, backend="faiss")
+    check_shape(C_faiss, (n, k))
 
     torch.testing.assert_close(C, C_faiss, rtol=1e-5, atol=1e-5)
 
