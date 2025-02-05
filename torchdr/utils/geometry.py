@@ -296,6 +296,7 @@ def _pairwise_distances_faiss(
         )
 
     # Convert input tensor X to a NumPy array.
+    dtype = X.dtype
     X_np = X.detach().cpu().numpy().astype(np.float32)
     n, d = X_np.shape
 
@@ -309,19 +310,7 @@ def _pairwise_distances_faiss(
 
     # Set up the FAISS index depending on the metric.
     if metric == "angular":
-        # Normalize X_np in-place for angular similarity.
-        X_norm = np.linalg.norm(X_np, axis=1, keepdims=True)
-        # Avoid division by zero by replacing zeros with 1.0
-        X_norm[X_norm == 0] = 1.0
-        X_np /= X_norm  # In-place division
-
-        # If Y_np is a different object than X_np, normalize Y_np in-place.
-        # (If Y_np is the same as X_np, normalization is already done.)
-        if Y_np is not X_np:
-            Y_norm = np.linalg.norm(Y_np, axis=1, keepdims=True)
-            Y_norm[Y_norm == 0] = 1.0
-            Y_np /= Y_norm
-
+        # Use the inner product index. Note: FAISS returns negative inner products.
         index = faiss.IndexFlatIP(d)
 
     elif metric in {"euclidean", "sqeuclidean"}:
@@ -377,7 +366,7 @@ def _pairwise_distances_faiss(
 
     # Convert back to torch tensors.
     device = X.device
-    distances = torch.from_numpy(D).to(device)
+    distances = torch.from_numpy(D).to(device).to(dtype)
     indices = torch.from_numpy(Ind).to(device).long()
 
     return distances, indices
