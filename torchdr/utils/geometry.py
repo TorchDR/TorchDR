@@ -118,7 +118,7 @@ def _pairwise_distances_torch(
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
     # If Y is not provided, use X (and reuse its memory).
-    if Y is None:
+    if Y is None or Y is X:
         Y = X
         do_exclude = exclude_self
     else:
@@ -209,7 +209,7 @@ def _pairwise_distances_keops(
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
     # If Y is not provided, use X and decide about self–exclusion.
-    if Y is None:
+    if Y is None or Y is X:
         Y = X
         do_exclude = exclude_self
     else:
@@ -299,7 +299,7 @@ def _pairwise_distances_faiss(
     n, d = X_np.shape
 
     # If Y is not provided, reuse X_np for Y_np.
-    if Y is None:
+    if Y is None or Y is X:
         Y_np = X_np
         do_exclude = exclude_self
     else:
