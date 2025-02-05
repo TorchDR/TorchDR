@@ -53,13 +53,13 @@ Getting Started
 
 
 Backends
-========
+--------
 
 The ``backend`` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
 
-- To perform symbolic tensor computations on the GPU without memory limitations, you can leverage the `KeOps Library <https://www.kernel-operations.io/keops/index.html>`. This library also allows computing kNN graphs. To enable KeOps, set ``backend="keops"``.
+- To perform symbolic tensor computations on the GPU without memory limitations, you can leverage the `KeOps Library <https://www.kernel-operations.io/keops/index.html>`_. This library also allows computing kNN graphs. To enable KeOps, set ``backend="keops"``.
 - Alternatively, you can use ``backend="faiss"`` to rely on `Faiss <https://github.com/facebookresearch/faiss>`_ for fast kNN computations.
-- Finally, setting ``backend="torch"`` will use raw PyTorch for computations.
+- Finally, setting ``backend=None`` will use raw PyTorch for all computations.
 
 
 
