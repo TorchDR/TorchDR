@@ -72,7 +72,7 @@ See the `examples <https://github.com/TorchDR/TorchDR/tree/main/examples/>`_ fol
 **MNIST.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_)
 A comparison of various neighbor embedding methods on the MNIST digits dataset.
 
-.. image:: docs/source/figures/mnist_readme.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
    :width: 800px
    :alt: various neighbor embedding methods on MNIST
    :align: center
@@ -81,7 +81,7 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 **Single-cell genomics.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_)
 Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 
-.. image:: docs/source/figures/single_cell_readme.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
    :width: 700px
    :alt: single cell embeddings
    :align: center
@@ -90,7 +90,7 @@ Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 **CIFAR100.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py>`_)
 Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
-.. image:: docs/source/figures/cifar100_tsne.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/cifar100_tsne.png
    :width: 1024px
    :alt: TSNE on CIFAR100 DINO features
    :align: center
