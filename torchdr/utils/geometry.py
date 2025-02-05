@@ -12,6 +12,7 @@ from .keops import LazyTensor, pykeops
 from .faiss import faiss
 
 LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
 def pairwise_distances(
@@ -288,7 +289,7 @@ def _pairwise_distances_faiss(
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
     """
-    if metric not in {"euclidean", "sqeuclidean", "angular"}:
+    if metric not in LIST_METRICS_FAISS:
         raise ValueError(
             "[TorchDR] Only 'euclidean', 'sqeuclidean', and 'angular' metrics "
             "are supported for FAISS."
