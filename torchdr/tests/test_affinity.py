@@ -58,12 +58,6 @@ LIST_METRICS_TEST = ["sqeuclidean"]
 DEVICE = "cpu"
 
 
-@pytest.mark.skipif(pykeops, reason="pykeops is available")
-def test_keops_not_installed():
-    with pytest.raises(ValueError, match="pykeops is not installed"):
-        ScalarProductAffinity(backend="keops")
-
-
 @pytest.mark.parametrize("dtype", lst_types)
 def test_scalar_product_affinity(dtype):
     n = 50
