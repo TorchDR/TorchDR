@@ -6,6 +6,7 @@
 
 from .geometry import (
     LIST_METRICS_KEOPS,
+    LIST_METRICS_FAISS,
     pairwise_distances,
     symmetric_pairwise_distances_indices,
 )
@@ -74,6 +75,7 @@ __all__ = [
     "pairwise_distances",
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
+    "LIST_METRICS_FAISS",
     "check_marginal",
     "relative_similarity",
     "check_similarity",
