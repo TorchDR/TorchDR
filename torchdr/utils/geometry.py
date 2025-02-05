@@ -61,18 +61,18 @@ def pairwise_distances(
         C, indices = _pairwise_distances_keops(
             X, Y, metric, k=k, exclude_self=exclude_self
         )
-    elif backend == "faiss":
+    elif backend == "faiss" and k is not None:
         if not faiss:
             raise ValueError(
                 "[TorchDR] ERROR : faiss is not installed. "
                 "Please install it to use `backend=faiss`."
             )
         C, indices = _pairwise_distances_faiss(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
         )
     else:
         C, indices = _pairwise_distances_torch(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
         )
 
     return C, indices
@@ -249,9 +249,9 @@ def _pairwise_distances_keops(
 
 def _pairwise_distances_faiss(
     X: torch.Tensor,
+    k: int,
     Y: torch.Tensor = None,
     metric: str = "euclidean",
-    k: int = None,
     exclude_self: bool = False,
 ):
     r"""Compute the k nearest neighbors using FAISS.
