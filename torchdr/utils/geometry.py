@@ -341,6 +341,9 @@ def _pairwise_distances_faiss(
     # For "euclidean", take the square root of the squared distances.
     if metric == "euclidean":
         D = np.sqrt(D)
+    # For "angular", negate the inner products.
+    elif metric == "angular":
+        D = -D
     # For "sqeuclidean", leave the distances as returned (i.e. squared).
 
     # If doing self–search with self–exclusion, remove the self neighbor from the results.
