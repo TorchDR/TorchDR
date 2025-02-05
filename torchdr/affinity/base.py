@@ -13,8 +13,6 @@ from torchdr.utils import (
     LazyTensorType,
     handle_keops,
     pairwise_distances,
-    pykeops,
-    faiss,
     symmetric_pairwise_distances_indices,
     to_torch,
 )
@@ -47,18 +45,6 @@ class Affinity(ABC):
         backend: str = None,
         verbose: bool = False,
     ):
-        if backend == "keops" and not pykeops:
-            raise ValueError(
-                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
-                "`backend`=`keops`."
-            )
-
-        if backend == "faiss" and not faiss:
-            raise ValueError(
-                "[TorchDR] ERROR : faiss is not installed. Please install it to use "
-                "`backend`=`faiss`."
-            )
-
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag

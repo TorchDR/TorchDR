@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import pykeops, seed_everything, faiss
+from torchdr.utils import seed_everything
 
 
 class DRModule(BaseEstimator, ABC):
@@ -41,18 +41,6 @@ class DRModule(BaseEstimator, ABC):
         verbose: bool = False,
         random_state: float = None,
     ):
-        if backend == "keops" and not pykeops:
-            raise ValueError(
-                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
-                "`keops=true`."
-            )
-
-        if backend == "faiss" and not faiss:
-            raise ValueError(
-                "[TorchDR] ERROR : faiss is not installed. Please install it to use "
-                "`backend=faiss`."
-            )
-
         self.n_components = n_components
         self.device = device
         self.backend = backend

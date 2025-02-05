@@ -8,7 +8,6 @@ import torch
 import numpy as np
 
 from torchdr.utils.utils import identity_matrix, kmin
-
 from .keops import LazyTensor, pykeops
 from .faiss import faiss
 
@@ -52,8 +51,12 @@ def pairwise_distances(
     of shape (n_samples, m_samples)
         Pairwise distances matrix.
     """
+    # If Y is not provided, use X and decide about self–exclusion.
     if Y is None:
         Y = X
+        do_exclude = exclude_self
+    else:
+        do_exclude = False  # Only exclude self when Y is not provided.
 
     if backend == "keops" and not pykeops:  # pykeops no installed
         raise ValueError(
@@ -69,15 +72,15 @@ def pairwise_distances(
 
     if backend == "keops":
         C, indices = _pairwise_distances_keops(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X, Y, metric, k=k, exclude_self=do_exclude
         )
     elif backend == "faiss":
         C, indices = _pairwise_distances_faiss(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X, Y, metric, k=k, exclude_self=do_exclude
         )
     else:
         C, indices = _pairwise_distances_torch(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X, Y, metric, k=k, exclude_self=do_exclude
         )
 
     return C, indices
@@ -124,13 +127,6 @@ def _pairwise_distances_torch(
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
-    # If Y is not provided, use X and decide about self–exclusion.
-    if Y is None:
-        Y = X
-        do_exclude = exclude_self
-    else:
-        do_exclude = False  # Only exclude self when Y is not provided.
-
     # Compute pairwise distances.
     if metric == "sqeuclidean":
         X_norm = (X**2).sum(-1)
@@ -155,7 +151,7 @@ def _pairwise_distances_torch(
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by setting the diagonal to infinity.
-    if do_exclude:
+    if exclude_self:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
         C[diag_idx, diag_idx] = 1e12
@@ -208,13 +204,6 @@ def _pairwise_distances_keops(
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
-    # If Y is not provided, use X and decide about self–exclusion.
-    if Y is None:
-        Y = X
-        do_exclude = exclude_self
-    else:
-        do_exclude = False  # Only exclude self when Y is not provided.
-
     # Create LazyTensors for pairwise operations.
     X_i = LazyTensor(X.unsqueeze(-2))  # Shape: (n, 1, d)
     Y_j = LazyTensor(Y.unsqueeze(-3))  # Shape: (1, m, d)
@@ -234,7 +223,7 @@ def _pairwise_distances_keops(
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by masking the diagonal.
-    if do_exclude:
+    if exclude_self:
         n = X.shape[0]
         Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
         C = C + Id * 1e12
@@ -322,7 +311,7 @@ def _pairwise_distances_faiss(
         index = faiss.IndexFlatL2(d)
     else:
         # This branch should never be reached due to the initial check.
-        raise ValueError(f"Metric '{metric}' is not supported.")
+        raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
 
     # If the input tensor is on GPU, move the index to GPU.
     if X.device.type == "cuda":
