@@ -51,36 +51,27 @@ def pairwise_distances(
     of shape (n_samples, m_samples)
         Pairwise distances matrix.
     """
-    # If Y is not provided, use X and decide about self–exclusion.
-    if Y is None:
-        Y = X
-        do_exclude = exclude_self
-    else:
-        do_exclude = False  # Only exclude self when Y is not provided.
-
-    if backend == "keops" and not pykeops:  # pykeops no installed
-        raise ValueError(
-            "[TorchDR] ERROR : pykeops is not installed. "
-            "Please install it to use `backend=keops`."
-        )
-
-    elif backend == "faiss" and not faiss:  # faiss not installed
-        raise ValueError(
-            "[TorchDR] ERROR : faiss is not installed. "
-            "Please install it to use `backend=faiss`."
-        )
-
     if backend == "keops":
+        if not pykeops:
+            raise ValueError(
+                "[TorchDR] ERROR : pykeops is not installed. "
+                "Please install it to use `backend=keops`."
+            )
         C, indices = _pairwise_distances_keops(
-            X, Y, metric, k=k, exclude_self=do_exclude
+            X, Y, metric, k=k, exclude_self=exclude_self
         )
     elif backend == "faiss":
+        if not faiss:
+            raise ValueError(
+                "[TorchDR] ERROR : faiss is not installed. "
+                "Please install it to use `backend=faiss`."
+            )
         C, indices = _pairwise_distances_faiss(
-            X, Y, metric, k=k, exclude_self=do_exclude
+            X, Y, metric, k=k, exclude_self=exclude_self
         )
     else:
         C, indices = _pairwise_distances_torch(
-            X, Y, metric, k=k, exclude_self=do_exclude
+            X, Y, metric, k=k, exclude_self=exclude_self
         )
 
     return C, indices
@@ -123,39 +114,52 @@ def _pairwise_distances_torch(
         If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
         Otherwise, None.
     """
-    # Check metric support.
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
-    # Compute pairwise distances.
+    # If Y is not provided, use X (and reuse its memory).
+    if Y is None:
+        Y = X
+        do_exclude = exclude_self
+    else:
+        do_exclude = False  # Only exclude self when Y is not provided.
+
+    # For metrics that require norms, compute once and reuse if Y is X.
+    if metric in {"sqeuclidean", "euclidean", "hyperbolic"}:
+        X_norm = (X**2).sum(dim=-1)
+        if Y is X:
+            Y_norm = X_norm
+        else:
+            Y_norm = (Y**2).sum(dim=-1)
+
+    # Compute pairwise distances for each metric.
     if metric == "sqeuclidean":
-        X_norm = (X**2).sum(-1)
-        Y_norm = (Y**2).sum(-1)
-        C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+        # (X_norm.unsqueeze(-1)) has shape (n, 1) and (Y_norm.unsqueeze(-2)) has shape (1, m).
+        C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
     elif metric == "euclidean":
-        X_norm = (X**2).sum(-1)
-        Y_norm = (Y**2).sum(-1)
-        C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
-        C = torch.clip(C, min=0.0).sqrt()  # Avoid negatives due to precision.
+        C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
+        # In-place clamp and sqrt to reduce memory usage.
+        C.clamp_(min=0.0)
+        C.sqrt_()
     elif metric == "manhattan":
-        C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(-1)
+        # Note: This will create a large intermediate tensor with shape (n, m, d).
+        C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(dim=-1)
     elif metric == "angular":
-        C = -X @ Y.transpose(-1, -2)
+        C = -(X @ Y.transpose(-1, -2))
     elif metric == "hyperbolic":
-        X_norm = (X**2).sum(-1)
-        Y_norm = (Y**2).sum(-1)
         C = (
-            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
         ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by setting the diagonal to infinity.
-    if exclude_self:
+    if do_exclude:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
-        C[diag_idx, diag_idx] = 1e12
+        C[diag_idx, diag_idx] = float("inf")  # Or use a large number like 1e12.
 
+    # If k is provided, select the k smallest distances per row.
     if k is not None:
         C_knn, indices = kmin(C, k=k, dim=1)
         return C_knn, indices
@@ -204,6 +208,13 @@ def _pairwise_distances_keops(
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
+    # If Y is not provided, use X and decide about self–exclusion.
+    if Y is None:
+        Y = X
+        do_exclude = exclude_self
+    else:
+        do_exclude = False  # Only exclude self when Y is not provided.
+
     # Create LazyTensors for pairwise operations.
     X_i = LazyTensor(X.unsqueeze(-2))  # Shape: (n, 1, d)
     Y_j = LazyTensor(Y.unsqueeze(-3))  # Shape: (1, m, d)
@@ -223,7 +234,7 @@ def _pairwise_distances_keops(
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by masking the diagonal.
-    if exclude_self:
+    if do_exclude:
         n = X.shape[0]
         Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
         C = C + Id * 1e12
@@ -279,36 +290,43 @@ def _pairwise_distances_faiss(
     """
     if metric not in {"euclidean", "sqeuclidean", "angular"}:
         raise ValueError(
-            "Only 'euclidean', 'sqeuclidean', and 'angular' metrics are supported for FAISS."
+            "[TorchDR] Only 'euclidean', 'sqeuclidean', and 'angular' metrics "
+            "are supported for FAISS."
         )
 
-    # If Y is not provided, we are searching within X.
-    if Y is None:
-        Y = X
-        self_search = True
-    else:
-        self_search = False
-
-    # Convert input tensors to numpy arrays of type float32.
+    # Convert input tensor X to a NumPy array.
     X_np = X.detach().cpu().numpy().astype(np.float32)
-    Y_np = Y.detach().cpu().numpy().astype(np.float32)
     n, d = X_np.shape
+
+    # If Y is not provided, reuse X_np for Y_np.
+    if Y is None:
+        Y_np = X_np
+        do_exclude = exclude_self
+    else:
+        Y_np = Y.detach().cpu().numpy().astype(np.float32)
+        do_exclude = False
 
     # Set up the FAISS index depending on the metric.
     if metric == "angular":
-        # Normalize vectors for angular similarity.
+        # Normalize X_np in-place for angular similarity.
         X_norm = np.linalg.norm(X_np, axis=1, keepdims=True)
+        # Avoid division by zero by replacing zeros with 1.0
         X_norm[X_norm == 0] = 1.0
-        X_np = X_np / X_norm
+        X_np /= X_norm  # In-place division
 
-        Y_norm = np.linalg.norm(Y_np, axis=1, keepdims=True)
-        Y_norm[Y_norm == 0] = 1.0
-        Y_np = Y_np / Y_norm
+        # If Y_np is a different object than X_np, normalize Y_np in-place.
+        # (If Y_np is the same as X_np, normalization is already done.)
+        if Y_np is not X_np:
+            Y_norm = np.linalg.norm(Y_np, axis=1, keepdims=True)
+            Y_norm[Y_norm == 0] = 1.0
+            Y_np /= Y_norm
 
         index = faiss.IndexFlatIP(d)
+
     elif metric in {"euclidean", "sqeuclidean"}:
         # Use the L2 index. Note: FAISS returns squared distances.
         index = faiss.IndexFlatL2(d)
+
     else:
         # This branch should never be reached due to the initial check.
         raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
@@ -322,7 +340,7 @@ def _pairwise_distances_faiss(
     index.add(Y_np)
 
     # If self-search and excluding self, search for one extra neighbor.
-    if self_search and exclude_self:
+    if do_exclude:
         k_search = k + 1
     else:
         k_search = k
@@ -336,7 +354,7 @@ def _pairwise_distances_faiss(
     # For "sqeuclidean", leave the distances as returned (i.e. squared).
 
     # If doing self–search with self–exclusion, remove the self neighbor from the results.
-    if self_search and exclude_self:
+    if do_exclude:
         new_D = []
         new_Ind = []
         for i in range(n):
