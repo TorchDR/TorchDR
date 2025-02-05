@@ -153,11 +153,11 @@ def _pairwise_distances_torch(
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
-    # If requested, exclude self–neighbors by setting the diagonal to infinity.
+    # If requested, exclude self–neighbors by setting the diagonal to a large number.
     if do_exclude:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
-        C[diag_idx, diag_idx] = float("inf")  # Or use a large number like 1e12.
+        C[diag_idx, diag_idx] = 1e12
 
     # If k is provided, select the k smallest distances per row.
     if k is not None:
