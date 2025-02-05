@@ -91,3 +91,40 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
+
+  Test-faiss:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checking Out Repository
+        uses: actions/checkout@v2
+      - name: Create/Restore torchdr Data Cache
+        id: cache-torchdr_datasets_faiss
+        uses: actions/cache@v2
+        with:
+          path: ~/torchdr_datasets
+          key: ${{ runner.os }}-v3-faiss
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: "3.10"
+          activate-environment: test-faiss-env
+      - run: which python
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+      - name: Install FAISS
+        run: conda install -c conda-forge -c pytorch faiss-cpu=1.10.0 --yes
+      - name: Install 'torchdr' package
+        run: pip install -e ".[test]"
+      - name: Run Tests
+        run: pytest torchdr/tests/test_utils.py --verbose --cov=torchdr torchdr/ --cov-report term
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: TorchDR/TorchDR

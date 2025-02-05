@@ -10,17 +10,17 @@ from torch.testing import assert_close
 
 from torchdr.utils import (
     LIST_METRICS_KEOPS,
+    LIST_METRICS_FAISS,
     binary_search,
     center_kernel,
     check_shape,
     check_similarity,
     check_similarity_torch_keops,
-    check_symmetry,
     false_position,
     handle_keops,
     pairwise_distances,
     pykeops,
-    symmetric_pairwise_distances,
+    faiss,
     symmetric_pairwise_distances_indices,
 )
 
@@ -107,51 +107,35 @@ def test_pairwise_distances_keops(dtype, metric):
 
     # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
-    check_shape(C, (n, m))
-
     C_keops, _ = pairwise_distances(x, y, metric=metric, backend="keops")
     check_shape(C_keops, (n, m))
 
     check_similarity_torch_keops(C, C_keops, K=10)
 
+    # --- check consistency between torch and keops with kNN search ---
+    k = 10
+    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
+    C_keops, _ = pairwise_distances(x, y, k=k, metric=metric, backend="keops")
+    check_shape(C_keops, (n, k))
 
+    torch.testing.assert_close(C, C_keops, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
-def test_symmetric_pairwise_distances(dtype, metric):
-    n, p = 100, 10
+@pytest.mark.parametrize("metric", LIST_METRICS_FAISS)
+def test_pairwise_distances_faiss(dtype, metric):
+    n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
+    y = torch.randn(m, p, dtype=dtype)
 
-    # --- check consistency between torch and keops ---
-    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
-    check_shape(C, (n, n))
-    check_symmetry(C)
+    # --- check consistency between torch and faiss ---
+    k = 10
+    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
+    C_faiss, _ = pairwise_distances(x, y, k=k, metric=metric, backend="faiss")
+    check_shape(C_faiss, (n, k))
 
-    # --- check consistency with pairwise_distances ---
-    C_, _ = pairwise_distances(x, metric=metric, backend=None)
-    check_similarity(C, C_)
-
-
-@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
-def test_symmetric_pairwise_distances_keops(dtype, metric):
-    n, p = 100, 10
-    x = torch.randn(n, p, dtype=dtype)
-
-    # --- check consistency between torch and keops ---
-    C, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
-    check_shape(C, (n, n))
-    check_symmetry(C)
-
-    C_keops, _ = symmetric_pairwise_distances(x, metric=metric, backend="keops")
-    check_shape(C_keops, (n, n))
-    check_symmetry(C_keops)
-
-    check_similarity_torch_keops(C, C_keops, K=10)
-
-    # --- check consistency with pairwise_distances ---
-    C_, _ = pairwise_distances(x, metric=metric, backend=None)
-    check_similarity(C, C_)
+    torch.testing.assert_close(C, C_faiss, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -165,7 +149,7 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     C_indices, _ = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full, _ = symmetric_pairwise_distances(x, metric=metric, backend=None)
+    C_full, _ = pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)

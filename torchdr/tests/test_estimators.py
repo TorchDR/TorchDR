@@ -11,15 +11,8 @@ import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
 from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, LargeVis, TSNEkhorn
-from torchdr.utils import pykeops
 
 DEVICE = "cpu"
-
-
-@pytest.mark.skipif(pykeops, reason="pykeops is available")
-def test_keops_not_installed():
-    with pytest.raises(ValueError, match="pykeops is not installed"):
-        SNE(backend="keops")
 
 
 @pytest.mark.parametrize(
@@ -36,12 +29,6 @@ def test_check_estimator(estimator, kwargs):
     check_estimator(
         estimator(verbose=False, device=DEVICE, backend=None, max_iter=1, **kwargs)
     )
-
-
-@pytest.mark.skipif(pykeops, reason="pykeops is available")
-def test_init_keops_error(monkeypatch):
-    with pytest.raises(ValueError, match="pykeops is not installed"):
-        TSNE(backend="keops")
 
 
 def test_init_verbose(capfd):

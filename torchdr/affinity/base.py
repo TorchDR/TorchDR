@@ -13,9 +13,6 @@ from torchdr.utils import (
     LazyTensorType,
     handle_keops,
     pairwise_distances,
-    pykeops,
-    faiss,
-    symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
     to_torch,
 )
@@ -48,18 +45,6 @@ class Affinity(ABC):
         backend: str = None,
         verbose: bool = False,
     ):
-        if backend == "keops" and not pykeops:
-            raise ValueError(
-                "[TorchDR] ERROR : pykeops is not installed. Please install it to use "
-                "`backend`=`keops`."
-            )
-
-        if backend == "faiss" and not faiss:
-            raise ValueError(
-                "[TorchDR] ERROR : faiss is not installed. Please install it to use "
-                "`backend`=`faiss`."
-            )
-
         self.log = {}
         self.metric = metric
         self.zero_diag = zero_diag
@@ -125,7 +110,7 @@ class Affinity(ABC):
             value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        return symmetric_pairwise_distances(
+        return pairwise_distances(
             X=X,
             metric=self.metric,
             backend=self.backend_,
@@ -451,7 +436,7 @@ class UnnormalizedAffinity(Affinity):
             return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
 
         else:
-            return symmetric_pairwise_distances(
+            return pairwise_distances(
                 X,
                 metric=self.metric,
                 backend=self.backend_,

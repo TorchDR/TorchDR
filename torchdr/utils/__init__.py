@@ -6,8 +6,8 @@
 
 from .geometry import (
     LIST_METRICS_KEOPS,
+    LIST_METRICS_FAISS,
     pairwise_distances,
-    symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
@@ -44,7 +44,7 @@ from .validation import (
     relative_similarity,
 )
 from .wrappers import (
-    handle_backend,
+    handle_type,
     handle_keops,
     sum_output,
     to_torch,
@@ -73,9 +73,9 @@ __all__ = [
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
-    "symmetric_pairwise_distances",
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
+    "LIST_METRICS_FAISS",
     "check_marginal",
     "relative_similarity",
     "check_similarity",
@@ -93,7 +93,7 @@ __all__ = [
     "center_kernel",
     "to_torch",
     "torch_to_backend",
-    "handle_backend",
+    "handle_type",
     "batch_transpose",
     "handle_keops",
     "faiss",

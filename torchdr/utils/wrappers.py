@@ -150,7 +150,7 @@ def sum_output(func):
     return wrapper
 
 
-def handle_backend(func):
+def handle_type(func):
     """Convert input to torch and device specified by self.
 
     Then convert the output to the input backend and device.

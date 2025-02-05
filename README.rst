@@ -43,11 +43,24 @@ Getting Started
     x_ = PCA(n_components=50).fit_transform(x)
     z = TSNE(perplexity=30).fit_transform(x_)
 
-``TorchDR`` enables **GPU acceleration without memory limitations** thanks to the KeOps library. This can be easily enabled as follows:
+
+``TorchDR`` is fully **GPU compatible**, allowing a **significant speed up** when a GPU is available. To allow computations on the gpu, simply set ``device="cuda"`` as in the following example:
 
 .. code-block:: python
 
-    z_gpu = TSNE(perplexity=30, device="cuda", backend="keops").fit_transform(x_)
+    z_gpu = TSNE(perplexity=30, device="cuda").fit_transform(x_)
+
+
+
+Backends
+--------
+
+The ``backend`` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
+
+- To perform symbolic tensor computations on the GPU without memory limitations, you can leverage the `KeOps Library <https://www.kernel-operations.io/keops/index.html>`_. This library also allows computing kNN graphs. To enable KeOps, set ``backend="keops"``.
+- Alternatively, you can use ``backend="faiss"`` to rely on `Faiss <https://github.com/facebookresearch/faiss>`_ for fast kNN computations.
+- Finally, setting ``backend=None`` will use raw PyTorch for all computations.
+
 
 
 Examples
@@ -59,7 +72,7 @@ See the `examples <https://github.com/TorchDR/TorchDR/tree/main/examples/>`_ fol
 **MNIST.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py>`_)
 A comparison of various neighbor embedding methods on the MNIST digits dataset.
 
-.. image:: docs/source/figures/mnist_readme.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png
    :width: 800px
    :alt: various neighbor embedding methods on MNIST
    :align: center
@@ -68,7 +81,7 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 **Single-cell genomics.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py>`_)
 Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 
-.. image:: docs/source/figures/single_cell_readme.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png
    :width: 700px
    :alt: single cell embeddings
    :align: center
@@ -77,7 +90,7 @@ Visualizing cells using ``TorchDR``. Embeddings are colored by cell type.
 **CIFAR100.** (`Code <https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py>`_)
 Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
-.. image:: docs/source/figures/cifar100_tsne.png
+.. image:: https://github.com/torchdr/torchdr/raw/main/docs/source/figures/cifar100_tsne.png
    :width: 1024px
    :alt: TSNE on CIFAR100 DINO features
    :align: center
