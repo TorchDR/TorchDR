@@ -169,6 +169,8 @@ If you have any questions or suggestions, feel free to open an issue on the
 
 .. |Documentation| image:: https://img.shields.io/badge/Documentation-blue.svg
    :target: https://torchdr.github.io/
+.. |Benchmark| image:: https://img.shields.io/badge/Benchmarks-blue.svg
+   :target: https://github.com/TorchDR/TorchDR/tree/main/benchmarks
 .. |Pytorch| image:: https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white
    :target: https://pytorch.org/get-started/locally/
 .. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue.svg
