@@ -78,8 +78,6 @@ class AffinityMatcher(DRModule):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -89,6 +87,8 @@ class AffinityMatcher(DRModule):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is None.
+    n_iter_check : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -108,11 +108,11 @@ class AffinityMatcher(DRModule):
         max_iter: int = 1000,
         init: str | torch.Tensor | np.ndarray = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        n_iter_check: int = 50,
     ):
         super().__init__(
             n_components=n_components,
@@ -129,6 +129,8 @@ class AffinityMatcher(DRModule):
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
         self.tol = tol
+        self.n_iter_check = n_iter_check
+        self.verbose = verbose
         self.max_iter = max_iter
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
@@ -142,9 +144,6 @@ class AffinityMatcher(DRModule):
 
         self.init = init
         self.init_scaling = init_scaling
-
-        self.tolog = tolog
-        self.verbose = verbose
 
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
@@ -239,14 +238,16 @@ class AffinityMatcher(DRModule):
             loss = self._loss()
             loss.backward()
 
-            grad_norm = self.embedding_.grad.norm(2).item()
-            if grad_norm < self.tol:
-                if self.verbose:
-                    print(
-                        f"[TorchDR] Convergence reached at iter {k} with grad norm: "
-                        f"{grad_norm:.2e}."
-                    )
-                break
+            check_convergence = k % self.n_iter_check == 0
+            if check_convergence:
+                grad_norm = self.embedding_.grad.norm(2).item()
+                if grad_norm < self.tol:
+                    if self.verbose:
+                        print(
+                            f"[TorchDR] Convergence reached at iter {k} with grad norm: "
+                            f"{grad_norm:.2e}."
+                        )
+                    break
 
             self.optimizer_.step()
             self.scheduler_.step()
@@ -257,7 +258,7 @@ class AffinityMatcher(DRModule):
                 f"at iter {k}.",
             )
 
-            if self.verbose:
+            if self.verbose and check_convergence == 0:
                 pbar.set_description(
                     f"[TorchDR] DR Loss : {loss.item():.2e} | "
                     f"Grad norm : {grad_norm:.2e} "

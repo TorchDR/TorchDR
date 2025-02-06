@@ -48,8 +48,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 2000.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -90,7 +88,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
         max_iter: int = 2000,
-        tolog: bool = False,
         device: str = None,
         backend: str = None,
         verbose: bool = False,
@@ -140,7 +137,6 @@ class InfoTSNE(SampledNeighborEmbedding):
             scheduler=scheduler,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,

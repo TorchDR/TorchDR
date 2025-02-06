@@ -48,8 +48,6 @@ class SNE(SparseNeighborEmbedding):
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -87,7 +85,6 @@ class SNE(SparseNeighborEmbedding):
         init_scaling: float = 1e-4,
         tol: float = 1e-7,
         max_iter: int = 2000,
-        tolog: bool = False,
         device: str = None,
         backend: str = None,
         verbose: bool = False,
@@ -134,7 +131,6 @@ class SNE(SparseNeighborEmbedding):
             scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,

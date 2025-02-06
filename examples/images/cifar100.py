@@ -5,16 +5,18 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
-import datamapplot
 import matplotlib.pyplot as plt
+import datamapplot
 
 import torchdr
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 
-def load_features():
+def load_features(dataset):
     # Load dataset
     dataset = load_dataset("cifar100")
     train_images = dataset["train"]["img"]
@@ -48,20 +50,21 @@ def load_features():
     # Concatenate all embeddings
     all_embeddings = torch.cat(embeddings, dim=0)
     print("Shape of the embeddings:", all_embeddings.shape)
-    torch.save(all_embeddings.cpu(), "cifar100_embeddings.pt")
+    torch.save(all_embeddings.cpu(), os.path.join(BASE_DIR, "cifar100_embeddings.pt"))
 
     return all_embeddings
 
 
 if __name__ == "__main__":
-    if os.path.exists("cifar100_embeddings.pt"):
-        embeddings = torch.load("cifar100_embeddings.pt")
-    else:
-        embeddings = load_features()
-
-    # Plot the embeddings
     dataset = load_dataset("cifar100")
 
+    embeddings_file = os.path.join(BASE_DIR, "cifar100_embeddings.pt")
+    if os.path.exists(embeddings_file):
+        embeddings = torch.load(embeddings_file)
+    else:
+        embeddings = load_features(dataset)
+
+    # Plot the embeddings
     train_labels = dataset["train"]["fine_label"]
     test_labels = dataset["test"]["fine_label"]
     labels = train_labels + test_labels
@@ -173,9 +176,16 @@ if __name__ == "__main__":
 
     # Dimensionality reduction
     z = torchdr.TSNE(
-        n_components=2, verbose=True, perplexity=50, device=device, max_iter=2000
+        n_components=2,
+        verbose=True,
+        perplexity=50,
+        device=device,
+        max_iter=2000,
+        backend="faiss",
     ).fit_transform(embeddings)
     z = z.cpu().numpy()
 
-    fig, ax = datamapplot.create_plot(z, labels_str, label_over_points=True)
+    fig, ax = datamapplot.create_plot(
+        z, labels_str, label_over_points=True, label_font_size=30
+    )
     fig.savefig("datamapplot_cifar100.png", bbox_inches="tight")

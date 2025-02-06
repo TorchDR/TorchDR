@@ -62,8 +62,6 @@ class TSNEkhorn(NeighborEmbedding):
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm, by default 2000.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -113,7 +111,6 @@ class TSNEkhorn(NeighborEmbedding):
         init_scaling: float = 1e-4,
         tol: float = 1e-4,
         max_iter: int = 2000,
-        tolog: bool = False,
         device: str = None,
         backend: str = None,
         verbose: bool = False,
@@ -185,7 +182,6 @@ class TSNEkhorn(NeighborEmbedding):
             scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,

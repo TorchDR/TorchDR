@@ -64,8 +64,6 @@ class NeighborEmbedding(AffinityMatcher):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -97,7 +95,6 @@ class NeighborEmbedding(AffinityMatcher):
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -120,7 +117,6 @@ class NeighborEmbedding(AffinityMatcher):
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -264,8 +260,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -297,7 +291,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -333,7 +326,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -452,7 +444,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -477,7 +468,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
