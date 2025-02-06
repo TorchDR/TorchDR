@@ -150,21 +150,38 @@ def sum_output(func):
     return wrapper
 
 
-def handle_type(func):
-    """Convert input to torch and device specified by self.
+def handle_type(_func=None, *, set_device=True):
+    """
+    Convert input to torch and optionally set device specified by self.
 
     Then convert the output to the input backend and device.
+
+    Parameters
+    ----------
+    _func : callable, optional
+        The function to be wrapped.
+    set_device : bool, default=True
+        If True, set the device to self.device if it is not None.
     """
 
-    @functools.wraps(func)
-    def wrapper(self, X, *args, **kwargs):
-        X_, input_backend, input_device = to_torch(
-            X, device=self.device, return_backend_device=True
-        )
-        output = func(self, X_, *args, **kwargs).detach()
-        return torch_to_backend(output, backend=input_backend, device=input_device)
+    def decorator_handle_type(func):
+        @functools.wraps(func)
+        def wrapper(self, X, *args, **kwargs):
+            # Use self.device if set_device is True, else leave device unset (None)
+            device = self.device if set_device else "auto"
+            X_, input_backend, input_device = to_torch(
+                X, device=device, return_backend_device=True
+            )
+            output = func(self, X_, *args, **kwargs).detach()
+            return torch_to_backend(output, backend=input_backend, device=input_device)
 
-    return wrapper
+        return wrapper
+
+    # Support both @handle_type and @handle_type(set_device=...)
+    if _func is None:
+        return decorator_handle_type
+    else:
+        return decorator_handle_type(_func)
 
 
 def handle_keops(func):

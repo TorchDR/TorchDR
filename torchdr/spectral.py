@@ -446,7 +446,7 @@ class IncrementalPCA(DRModule):
         IncrementalPCA:
             The fitted IPCA model.
         """
-        X = to_torch(X, device=self.device)
+        X = to_torch(X, device="auto")
         if check_input:
             X = self._validate_data(X)
         n_samples, n_features = X.shape
@@ -456,7 +456,8 @@ class IncrementalPCA(DRModule):
         for batch in self.gen_batches(
             n_samples, self.batch_size, min_batch_size=self.n_components or 0
         ):
-            self.partial_fit(X[batch], check_input=False)
+            X_batch = X[batch].to(X.device if self.device == "auto" else self.device)
+            self.partial_fit(X_batch, check_input=False)
 
         return self
 
