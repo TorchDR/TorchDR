@@ -117,7 +117,7 @@ Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
 ### Evaluation Metric
 
-`TorchDR` provides efficient GPU-compatible evaluation metrics: [`Silhouette`](https://torchdr.github.io/dev/gen_modules/torchdr.Silhouette.html).
+`TorchDR` provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
 
 ## Installation
 
