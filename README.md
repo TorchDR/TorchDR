@@ -19,12 +19,14 @@ TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorc
 
 DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix**. To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
+
 ## Benefits of TorchDR
 
-- **Speed**: Supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.
-- **Modularity**: All of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
-- **Memory efficiency**: Relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
-- **Compatibility**: Implemented methods are fully **compatible** with the sklearn API and torch ecosystem.
+| **Speed**            | Supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.  |
+| **Modularity**       | All of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.            |
+| **Memory efficiency**| Relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.                                            |
+| **Compatibility**    | Implemented methods are fully **compatible** with the sklearn API and torch ecosystem.                                       |
+
 
 ## Getting Started
 
@@ -45,6 +47,7 @@ z = TSNE(perplexity=30).fit_transform(x_)
 ```python
 z_gpu = TSNE(perplexity=30, device="cuda").fit_transform(x_)
 ```
+
 
 ## Backends
 
