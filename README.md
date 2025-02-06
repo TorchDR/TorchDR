@@ -42,7 +42,7 @@ x_ = PCA(n_components=50).fit_transform(x)
 z = TSNE(perplexity=30).fit_transform(x_)
 ```
 
-`TorchDR` is fully **GPU compatible**, allowing a **significant speed up** when a GPU is available. To allow computations on the GPU, simply set `device="cuda"` as in the following example:
+`TorchDR` is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
 
 ```python
 z_gpu = TSNE(perplexity=30, device="cuda").fit_transform(x_)
@@ -60,12 +60,14 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ## Benchmarks
 
-| Dataset         | Samples   | Method         | Runtime (sec) | Memory (MB) |
-|-----------------|-----------|----------------|---------------|-------------|
-| Macosko         | 44,808    | TorchDR UMAP   | 7.7           | 100.4       |
-|                 |           | Classic UMAP   | 61.3          | 410.9       |
-| 10x Mouse Zheng | 1,306,127 | TorchDR UMAP   | 184.4         | 2699.7      |
-|                 |           | Classic UMAP   | 1910.4        | 11278.1     |
+Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py). Stay tuned for additional benchmarks.
+
+| Dataset         | Samples   | Method           | Runtime (sec) | Memory (MB) |
+|-----------------|-----------|------------------|---------------|-------------|
+| Macosko         | 44,808    | Classic UMAP     | 61.3          | 410.9       |
+|                 |           | TorchDR UMAP     | **7.7**       | **100.4**   |
+| 10x Mouse Zheng | 1,306,127 | Classic UMAP     | 1910.4        | 11278.1     |
+|                 |           | TorchDR UMAP     | **184.4**     | **2699.7**  |
 
 
 ## Examples
