@@ -43,7 +43,7 @@ def test_convergence_reached(capfd):
     model = AffinityMatcher(
         affinity_in=TestAffinity(),
         affinity_out=TestAffinity(),
-        tol=1e0,
+        min_grad_norm=1e0,
         max_iter=3,
         verbose=True,
     )
