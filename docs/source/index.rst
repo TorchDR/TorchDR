@@ -1,4 +1,3 @@
-.. include:: ../../README.rst
 
 .. toctree::
     :maxdepth: 2
@@ -12,3 +11,6 @@
     torchdr.releases
     torchdr.contributing
     torchdr.bibliography
+
+.. include:: ../../README.md
+    :parser: myst_parser.sphinx_

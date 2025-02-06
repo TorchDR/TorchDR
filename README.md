@@ -58,6 +58,15 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 - Finally, setting `backend=None` will use raw PyTorch for all computations.
 
 
+## Benchmarks
+
+| Dataset         | Samples   | TorchDR UMAP runtime (sec) | Classic UMAP runtime (sec) | TorchDR UMAP memory (MB) | Classic UMAP memory (MB) |
+|-----------------|-----------|----------------------------|----------------------------|--------------------------|--------------------------|
+| Macosko         | 44,808    | 7.7                        | 61.3                       | 100.4                    | 410.9                    |
+| 10x Mouse Zheng | 1,306,127 | 184.4                      | 1910.4                     | 2699.7                   | 11278.1                  |
+
+
+
 ## Examples
 
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
