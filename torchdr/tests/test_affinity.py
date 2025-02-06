@@ -297,7 +297,6 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
         backend=backend,
         metric=metric,
         tol=1e-5,
-        tolog=True,
         verbose=True,
         lr=lr,
         max_iter=3000,
@@ -333,7 +332,6 @@ def test_doubly_stochastic_entropic(dtype, metric, backend):
         metric=metric,
         tol=tol,
         device=DEVICE,
-        tolog=True,
         verbose=True,
     )
     log_P = affinity(X, log=True)
@@ -361,7 +359,6 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend):
         metric=metric,
         tol=tol,
         device=DEVICE,
-        tolog=True,
         verbose=True,
     )
     P = affinity(X)

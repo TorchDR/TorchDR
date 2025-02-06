@@ -60,7 +60,7 @@ To prevent memory overflows, TorchDR relies on ``pykeops`` :cite:`charlier2021ke
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-Set :attr:`keops=True` as input to any module to use symbolic tensors. For small datasets, setting :attr:`keops=False` allows the computation of the full affinity matrix directly in memory.
+Set :attr:`backend="keops"` as input to any module to use symbolic tensors.
 
 
 Affinities
