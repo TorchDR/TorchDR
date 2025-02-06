@@ -170,6 +170,18 @@ UMAP Affinities
    UMAPAffinityIn
    UMAPAffinityOut
 
+Scores
+^^^^^^
+
+The following classes are used to evaluate the embeddings.
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myfunc_template.rst
+
+   silhouette_score
+
+
 Utils
 ^^^^^
 

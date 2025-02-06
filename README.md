@@ -96,11 +96,12 @@ Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
 **Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
 
-**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods** such as *SNE*, *TSNE*, *TSNEkhorn*, *UMAP*, *LargeVis* and *InfoTSNE*.
+**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
+
 
 ### Evaluation Metric
 
-`TorchDR` provides efficient GPU-compatible evaluation metrics: *Silhouette score*.
+`TorchDR` provides efficient GPU-compatible evaluation metrics: [`Silhouette`](https://torchdr.github.io/dev/gen_modules/torchdr.Silhouette.html).
 
 ## Installation
 
