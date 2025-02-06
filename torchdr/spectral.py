@@ -456,7 +456,7 @@ class IncrementalPCA(DRModule):
         for batch in self.gen_batches(
             n_samples, self.batch_size, min_batch_size=self.n_components or 0
         ):
-            X_batch = X[batch].to(self.device)
+            X_batch = X[batch].to(X.device if self.device == "auto" else self.device)
             self.partial_fit(X_batch, check_input=False)
 
         return self
@@ -536,7 +536,7 @@ class IncrementalPCA(DRModule):
             self.noise_variance_ = torch.tensor(0.0, device=X.device)
         return self
 
-    @handle_type(set_device=False)
+    @handle_type
     def transform(self, X: torch.Tensor | np.ndarray):
         """Apply dimensionality reduction to `X`.
 
