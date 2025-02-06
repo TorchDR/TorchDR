@@ -22,11 +22,10 @@ DR aims to construct a **low-dimensional representation (or embedding)** of an i
 
 ## Benefits of TorchDR
 
-|-----------------------|------------------------------------------------------------------------------------------------------------------------------|
-| **Speed**             | Supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.  |
-| **Modularity**        | All of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.            |
-| **Memory efficiency** | Relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.                                            |
-| **Compatibility**     | Implemented methods are fully **compatible** with the sklearn API and torch ecosystem.                                       |
+- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.
+- **Modularity**: all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
+- **Memory efficiency**: relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
+- **Compatibility**: implemented methods are fully **compatible** with the sklearn API and torch ecosystem.
 
 
 ## Getting Started
