@@ -258,7 +258,7 @@ class AffinityMatcher(DRModule):
                 f"at iter {k}.",
             )
 
-            if self.verbose and check_convergence == 0:
+            if self.verbose:
                 pbar.set_description(
                     f"[TorchDR] DR Loss : {loss.item():.2e} | "
                     f"Grad norm : {grad_norm:.2e} "
