@@ -96,3 +96,12 @@ doc = [
     "myst-parser",
     "pandas",
 ]
+
+examples = [
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "transformers",
+    "datasets",
+    "datamapplot",
+]

@@ -44,12 +44,10 @@ class SNE(SparseNeighborEmbedding):
         Initialization for the embedding Z.
     init_scaling : float, optional
         Scaling factor for the initialization.
-    tol : float, optional
+    min_grad_norm : float, optional
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the descent algorithm.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -85,9 +83,8 @@ class SNE(SparseNeighborEmbedding):
         scheduler_kwargs: dict = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tol: float = 1e-7,
+        min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        tolog: bool = False,
         device: str = None,
         backend: str = None,
         verbose: bool = False,
@@ -127,14 +124,13 @@ class SNE(SparseNeighborEmbedding):
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
-            tol=tol,
+            min_grad_norm=min_grad_norm,
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,

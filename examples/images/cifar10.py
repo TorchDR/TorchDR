@@ -10,11 +10,13 @@ import matplotlib.pyplot as plt
 
 import torchdr
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 
-def load_features():
+def load_features(dataset):
     # Load dataset
     train_images = dataset["train"]["img"]
     test_images = dataset["test"]["img"]
@@ -47,19 +49,19 @@ def load_features():
     # Concatenate all embeddings
     all_embeddings = torch.cat(embeddings, dim=0)
     print("Shape of the embeddings:", all_embeddings.shape)
-    torch.save(all_embeddings.cpu(), "cifar10_embeddings.pt")
+    torch.save(all_embeddings.cpu(), os.path.join(BASE_DIR, "cifar10_embeddings.pt"))
 
     return all_embeddings
 
 
 if __name__ == "__main__":
-    if os.path.exists("cifar10_embeddings.pt"):
-        embeddings = torch.load("cifar10_embeddings.pt")
-    else:
-        embeddings = load_features()
-
-    # Plot the embeddings
     dataset = load_dataset("cifar10")
+
+    embeddings_file = os.path.join(BASE_DIR, "cifar10_embeddings.pt")
+    if os.path.exists(embeddings_file):
+        embeddings = torch.load(embeddings_file)
+    else:
+        embeddings = load_features(dataset)
 
     train_labels = dataset["train"]["label"]
     test_labels = dataset["test"]["label"]
@@ -86,13 +88,14 @@ if __name__ == "__main__":
         verbose=True,
         n_neighbors=50,
         device=device,
+        backend="faiss",
     ).fit_transform(embeddings)
     z = z.cpu().numpy()
 
-    fig, ax = datamapplot.create_plot(
-        z,
-        labels_str,
-        label_over_points=True,
-        label_font_size=20,
-    )
-    fig.savefig("datamapplot_cifar10.png", bbox_inches="tight")
+    # fig, ax = datamapplot.create_plot(
+    #     z,
+    #     labels_str,
+    #     label_over_points=True,
+    #     label_font_size=30,
+    # )
+    # fig.savefig("datamapplot_cifar10.png", bbox_inches="tight")

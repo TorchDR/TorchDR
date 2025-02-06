@@ -56,7 +56,7 @@ class NeighborEmbedding(AffinityMatcher):
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
-    tol : float, optional
+    min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
@@ -64,8 +64,6 @@ class NeighborEmbedding(AffinityMatcher):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -93,11 +91,10 @@ class NeighborEmbedding(AffinityMatcher):
         optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-7,
+        min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -116,11 +113,10 @@ class NeighborEmbedding(AffinityMatcher):
             lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
-            tol=tol,
+            min_grad_norm=min_grad_norm,
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -134,7 +130,7 @@ class NeighborEmbedding(AffinityMatcher):
         if "learning_rate" in kwargs:
             self.lr = kwargs["learning_rate"]
         if "min_grad_norm" in kwargs:
-            self.tol = kwargs["min_grad_norm"]
+            self.min_grad_norm = kwargs["min_grad_norm"]
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
@@ -256,7 +252,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
-    tol : float, optional
+    min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
@@ -264,8 +260,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -293,11 +287,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         optimizer_kwargs: dict | str = None,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-7,
+        min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -329,11 +322,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
-            tol=tol,
+            min_grad_norm=min_grad_norm,
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -409,7 +401,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
-    tol : float, optional
+    min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
@@ -417,8 +409,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
-    tolog : bool, optional
-        If True, logs the optimization process. Default is False.
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
@@ -448,11 +438,10 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         lr: float | str = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict | str = None,
-        tol: float = 1e-7,
+        min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
-        tolog: bool = False,
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
@@ -473,11 +462,10 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
-            tol=tol,
+            min_grad_norm=min_grad_norm,
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
-            tolog=tolog,
             device=device,
             backend=backend,
             verbose=verbose,
