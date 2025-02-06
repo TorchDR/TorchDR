@@ -3,13 +3,15 @@ import pickle
 from io import BytesIO
 import time
 import requests
+import os
 
 import torch
+import psutil
 from sklearn.preprocessing import LabelEncoder
 
-# Import UMAP from torchdr (GPU-accelerated) and from umap-learn (classic)
-from torchdr import UMAP as TorchdrUMAP
-import umap
+# Import UMAP implementations
+from torchdr import UMAP as TorchdrUMAP  # GPU-accelerated UMAP from torchdr
+import umap  # Classic UMAP from umap-learn
 
 
 def download_and_load_dataset(url):
@@ -38,17 +40,40 @@ def load_datasets():
     return (x_macosko, y_macosko_encoded), (x_10x, y_10x_encoded)
 
 
-def time_umap(model, X):
-    """Fit UMAP on X and return the elapsed time and embedding."""
+def time_umap(model, X, device=None):
+    """
+    Fit the UMAP model on X and measure both runtime and memory usage.
+
+    For torchdr UMAP (GPU-accelerated), we measure peak GPU memory usage.
+    For classic UMAP (umap-learn), we measure the additional CPU memory used.
+    """
+    # For torchdr UMAP, reset GPU memory statistics if a CUDA device is used.
+    if device is not None and device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
+    # For classic UMAP, measure CPU memory before fitting.
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss
+
     start = time.perf_counter()
     embedding = model.fit_transform(X)
     elapsed = time.perf_counter() - start
-    return elapsed, embedding
+
+    if device is not None and device.type == "cuda":
+        # Get peak GPU memory allocated in MB.
+        mem_used = torch.cuda.max_memory_allocated(device) / (1024**2)
+    else:
+        # For classic UMAP, measure the difference in CPU memory usage in MB.
+        mem_after = process.memory_info().rss
+        mem_used = (mem_after - mem_before) / (1024**2)
+
+    return elapsed, embedding, mem_used
 
 
 def main():
     # Load the datasets.
     (x_macosko, y_macosko), (x_10x, y_10x) = load_datasets()
+
     max_iter = 500
     kwargs_torchdr = {
         "max_iter": max_iter,
@@ -69,29 +94,39 @@ def main():
     print("=== Macosko dataset ===")
     print(f"Number of samples: {x_macosko.shape[0]}")
     print(f"Number of features: {x_macosko.shape[1]}")
+
     # Torchdr UMAP (GPU accelerated)
     torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr = time_umap(torchdr_umap, x_macosko)
+    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
+        torchdr_umap, x_macosko, device=device
+    )
     print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
+    print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
 
     # Classic UMAP (umap-learn)
     classic_umap = umap.UMAP(**kwargs_umap)
-    time_classic, emb_classic = time_umap(classic_umap, x_macosko)
-    print(f"Classic UMAP runtime: {time_classic:.4f} seconds\n")
+    time_classic, emb_classic, mem_classic = time_umap(classic_umap, x_macosko)
+    print(f"Classic UMAP runtime: {time_classic:.4f} seconds")
+    print(f"Classic UMAP additional CPU memory usage: {mem_classic:.2f} MB\n")
 
-    # --- Run on 10x Mouse Zheng dataset ---
+    # --- Optionally: Run on 10x Mouse Zheng dataset ---
     print("=== 10x Mouse Zheng dataset ===")
     print(f"Number of samples: {x_10x.shape[0]}")
     print(f"Number of features: {x_10x.shape[1]}")
-    # Torchdr UMAP (GPU accelerated)
-    torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr = time_umap(torchdr_umap, x_10x)
-    print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
 
-    # Classic UMAP (umap-learn)
+    # Torchdr UMAP on 10x dataset
+    torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
+    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
+        torchdr_umap, x_10x, device=device
+    )
+    print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
+    print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
+
+    # Classic UMAP on 10x dataset
     classic_umap = umap.UMAP(**kwargs_umap)
-    time_classic, emb_classic = time_umap(classic_umap, x_10x)
+    time_classic, emb_classic, mem_classic = time_umap(classic_umap, x_10x)
     print(f"Classic UMAP runtime: {time_classic:.4f} seconds")
+    print(f"Classic UMAP additional CPU memory usage: {mem_classic:.2f} MB")
 
 
 if __name__ == "__main__":
