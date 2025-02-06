@@ -1,3 +1,12 @@
+r"""
+Incremental PCA on GPU
+======================
+
+This example demonstrates how to use the `IncrementalPCA` class on GPU.
+We compare the memory usage and time taken to fit the model with the regular
+`PCA` class on GPU.
+"""
+
 import time
 import gc
 import torch
