@@ -63,7 +63,7 @@ The ``backend`` keyword specifies which tool to use for handling kNN computation
 
 
 +------------------+-----------+------------------------------+-------------------------------+------------------------------+-------------------------------+
-| Dataset          | Samples   | Torchdr UMAP runtime (sec)   | Classic UMAP runtime (sec)    | Torchdr UMAP memory (MB)     | Classic UMAP memory (MB)      |
+| Dataset          | Samples   | TorchDR UMAP runtime (sec)   | Classic UMAP runtime (sec)    | TorchDR UMAP memory (MB)     | Classic UMAP memory (MB)      |
 +==================+===========+==============================+===============================+==============================+===============================+
 | Macosko          | 44,808    | 7.7                          | 61.3                          | 100.4                        | 410.9                         |
 +------------------+-----------+------------------------------+-------------------------------+------------------------------+-------------------------------+

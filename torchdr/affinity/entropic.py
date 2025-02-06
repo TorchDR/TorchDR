@@ -395,8 +395,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         Number of maximum iterations for the algorithm, by default 500.
     optimizer : {'SGD', 'Adam', 'NAdam', 'LBFGS}, optional
         Which pytorch optimizer to use (default 'Adam').
-    tolog : bool, optional
-        Whether to store intermediate result in a dictionary (default False).
     metric : str, optional
         Metric to use for computing distances, by default "sqeuclidean".
     zero_diag : bool, optional
@@ -418,7 +416,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         tol: float = 1e-3,
         max_iter: int = 500,
         optimizer: str = "Adam",
-        tolog: bool = False,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -437,7 +434,6 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.tol = tol
         self.max_iter = max_iter
         self.optimizer = optimizer
-        self.tolog = tolog
         self.eps_square = eps_square
 
     def _compute_log_affinity(self, X: torch.Tensor):
@@ -509,20 +505,12 @@ class SymmetricEntropicAffinity(LogAffinity):
                 ),
             )
 
-            if self.tolog:
-                self.log_["eps"] = [self.eps_.clone().detach().cpu()]
-                self.log_["mu"] = [self.eps_.clone().detach().cpu()]
-
             log_affinity_matrix = _log_Pse(
                 C, self.eps_, self.mu_, eps_square=self.eps_square
             )
 
         else:  # other optimizers including SGD and Adam
             optimizer = OPTIMIZERS[self.optimizer]([self.eps_, self.mu_], lr=self.lr)
-
-            if self.tolog:
-                self.log_["eps"] = [self.eps_.clone().detach().cpu()]
-                self.log_["mu"] = [self.eps_.clone().detach().cpu()]
 
             pbar = tqdm(range(self.max_iter), disable=not self.verbose)
             for k in pbar:
@@ -553,10 +541,6 @@ class SymmetricEntropicAffinity(LogAffinity):
                             "consider decreasing the learning rate."
                         ),
                     )
-
-                    if self.tolog:
-                        self.log_["eps"].append(self.eps_.clone().detach())
-                        self.log_["mu"].append(self.mu_.clone().detach())
 
                     perps = (H - 1).exp()
                     if self.verbose:
@@ -643,8 +627,6 @@ class SinkhornAffinity(LogAffinity):
         Number of maximum iterations for the algorithm.
     base_kernel : {"gaussian", "student"}, optional
         Which base kernel to normalize as doubly stochastic.
-    tolog : bool, optional
-        Whether to store intermediate result in a dictionary.
     metric : str, optional
         Metric to use for computing distances (default "sqeuclidean").
     zero_diag : bool, optional
@@ -667,7 +649,6 @@ class SinkhornAffinity(LogAffinity):
         tol: float = 1e-5,
         max_iter: int = 1000,
         base_kernel: str = "gaussian",
-        tolog: bool = False,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -686,7 +667,6 @@ class SinkhornAffinity(LogAffinity):
         self.tol = tol
         self.max_iter = max_iter
         self.base_kernel = base_kernel
-        self.tolog = tolog
         self.with_grad = with_grad
 
     def _compute_log_affinity(self, X: torch.Tensor, init_dual: torch.Tensor = None):
@@ -725,9 +705,6 @@ class SinkhornAffinity(LogAffinity):
             else init_dual
         )
 
-        if self.tolog:
-            self.log["dual"] = [self.dual_.clone().detach().cpu()]
-
         context_manager = (
             contextlib.nullcontext() if self.with_grad else torch.no_grad()
         )
@@ -737,9 +714,6 @@ class SinkhornAffinity(LogAffinity):
                 # well conditioned symmetric Sinkhorn iteration (Feydy et al. 2019)
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
                 self.dual_ = 0.5 * (self.dual_ + reduction)
-
-                if self.tolog:
-                    self.log["dual"].append(self.dual_.clone().detach().cpu())
 
                 check_NaNs(
                     self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}."

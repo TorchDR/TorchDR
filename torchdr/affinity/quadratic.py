@@ -88,10 +88,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Learning rate for the optimizer.
     base_kernel : {"gaussian", "student"}, optional
         Which base kernel to normalize as doubly stochastic.
-    tolog : bool, optional
-        Whether to store intermediate result in a dictionary.
     metric : str, optional
-    Metric to use for computing distances (default "sqeuclidean").
+        Metric to use for computing distances (default "sqeuclidean").
     zero_diag : bool, optional
         Whether to set the diagonal elements of the affinity matrix to 0.
     device : str, optional
@@ -112,7 +110,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         optimizer: str = "Adam",
         lr: float = 1e0,
         base_kernel: str = "gaussian",
-        tolog: bool = False,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -133,7 +130,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.optimizer = optimizer
         self.lr = lr
         self.base_kernel = base_kernel
-        self.tolog = tolog
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
@@ -167,8 +163,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             if self.init_dual is None
             else self.init_dual
         )
-        if self.tolog:
-            self.log["dual"] = [self.dual_.clone().detach().cpu()]
 
         optimizer = OPTIMIZERS[self.optimizer]([self.dual_], lr=self.lr)
 
@@ -189,9 +183,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                     "consider decreasing the learning rate."
                 ),
             )
-
-            if self.tolog:
-                self.log["dual"].append(self.dual_.clone().detach().cpu())
 
             if self.verbose:
                 pbar.set_description(
