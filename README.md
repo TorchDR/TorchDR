@@ -60,11 +60,12 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ## Benchmarks
 
-| Dataset         | Samples   | TorchDR UMAP runtime (sec) | Classic UMAP runtime (sec) | TorchDR UMAP memory (MB) | Classic UMAP memory (MB) |
-|-----------------|-----------|----------------------------|----------------------------|--------------------------|--------------------------|
-| Macosko         | 44,808    | 7.7                        | 61.3                       | 100.4                    | 410.9                    |
-| 10x Mouse Zheng | 1,306,127 | 184.4                      | 1910.4                     | 2699.7                   | 11278.1                  |
-
+| Dataset         | Samples   | Method         | Runtime (sec) | Memory (MB) |
+|-----------------|-----------|----------------|---------------|-------------|
+| Macosko         | 44,808    | TorchDR UMAP   | 7.7           | 100.4       |
+|                 |           | Classic UMAP   | 61.3          | 410.9       |
+| 10x Mouse Zheng | 1,306,127 | TorchDR UMAP   | 184.4         | 2699.7      |
+|                 |           | Classic UMAP   | 1910.4        | 11278.1     |
 
 
 ## Examples
@@ -102,7 +103,7 @@ Visualizing the CIFAR100 dataset using DINO features and TSNE.
 - Usual affinities: [`ScalarProductAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.ScalarProductAffinity.html), [`GaussianAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.GaussianAffinity.html), [`StudentAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.StudentAffinity.html).
 - Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html).
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
-- Adaptive affinities with entropy control: [`EntropyAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropyAffinity.html), [`SymmetricEntropyAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropyAffinity.html).
+- Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).
 
 
 ### Dimensionality Reduction Algorithms
