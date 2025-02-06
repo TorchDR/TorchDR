@@ -53,7 +53,7 @@ def main():
     kwargs_torchdr = {
         "max_iter": max_iter,
         "verbose": True,
-        "backend": "faiss",
+        "backend": "keops",
         "device": "cuda",
     }
     kwargs_umap = {
