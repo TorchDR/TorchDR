@@ -70,7 +70,7 @@ class AffinityMatcher(DRModule):
         Learning rate scheduler. Default is "constant".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
-    tol : float, optional
+    min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
@@ -104,7 +104,7 @@ class AffinityMatcher(DRModule):
         lr: float | str = 1e0,
         scheduler: str = "constant",
         scheduler_kwargs: dict = None,
-        tol: float = 1e-7,
+        min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
         init: str | torch.Tensor | np.ndarray = "pca",
         init_scaling: float = 1e-4,
@@ -128,7 +128,7 @@ class AffinityMatcher(DRModule):
         self.optimizer = optimizer
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
-        self.tol = tol
+        self.min_grad_norm = min_grad_norm
         self.n_iter_check = n_iter_check
         self.verbose = verbose
         self.max_iter = max_iter
@@ -241,7 +241,7 @@ class AffinityMatcher(DRModule):
             check_convergence = k % self.n_iter_check == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
-                if grad_norm < self.tol:
+                if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         print(
                             f"[TorchDR] Convergence reached at iter {k} with grad norm: "

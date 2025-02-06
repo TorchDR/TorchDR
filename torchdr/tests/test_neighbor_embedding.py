@@ -54,7 +54,7 @@ def test_NE(DRModel, kwargs, dtype, backend):
         init="normal",
         max_iter=100,
         random_state=0,
-        tol=1e-10,
+        min_grad_norm=1e-10,
         **(param_optim | kwargs),
     )
     Z = model.fit_transform(X)
