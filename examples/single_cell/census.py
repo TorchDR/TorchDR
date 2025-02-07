@@ -5,23 +5,10 @@ import anndata
 import cellxgene_census
 import numpy as np
 import scanpy as sc
+import datamapplot
+import matplotlib.pyplot as plt
 
-# human embeddings
-CENSUS_VERSION = "2023-12-15"
-EXPERIMENT_NAME = "homo_sapiens"
-
-# These are embeddings available to this Census version
-embedding_names = ["geneformer", "scvi", "scgpt", "uce"]
-
-census = cellxgene_census.open_soma(census_version=CENSUS_VERSION)
-
-# Let's find our cells of interest
-obs_value_filter = "tissue_general=='eye' and is_primary_data == True"
-
-obs_df = cellxgene_census.get_obs(
-    census, EXPERIMENT_NAME, value_filter=obs_value_filter, column_names=["soma_joinid"]
-)
-soma_joinids_subset = obs_df["soma_joinid"].values.tolist()
+from torchdr import LargeVis
 
 
 def remove_missing_embedding_cells(adata: anndata.AnnData, emb_names: List[str]):
@@ -39,14 +26,68 @@ def remove_missing_embedding_cells(adata: anndata.AnnData, emb_names: List[str])
     return adata
 
 
-# Let's get the AnnData
+# human embeddings
+CENSUS_VERSION = "2023-12-15"
+EXPERIMENT_NAME = "homo_sapiens"
+
+# These are embeddings available to this Census version
+embedding_names = ["scgpt"]
+
+census = cellxgene_census.open_soma(census_version=CENSUS_VERSION)
+
+
+obs_value_filter = (
+    "tissue_general=='lung' and dataset_id=='53d208b0-2cfd-4366-9866-c3c6114081bc'"
+)
+
 adata = cellxgene_census.get_anndata(
     census=census,
     organism=EXPERIMENT_NAME,
-    obs_coords=soma_joinids_subset,
+    obs_value_filter=obs_value_filter,
     obs_embeddings=embedding_names,
 )
 
 adata = remove_missing_embedding_cells(adata, embedding_names)
 
-print(adata)
+
+labels_dict = adata.obs.to_dict(orient="list")
+
+embeddings = adata.obsm["scgpt"]
+
+
+Z = LargeVis(device="cuda", backend="keops", verbose=True).fit_transform(embeddings)
+
+fig, ax = datamapplot.create_plot(
+    Z,
+    labels_dict["cell_type"],
+    label_over_points=True,
+    dynamic_label_size=True,
+    min_font_size=7,
+    figsize=(5, 5),
+)
+plt.tight_layout()
+plt.savefig("scgpt_cell_type.pdf", bbox_inches="tight")
+
+
+fig, ax = datamapplot.create_plot(
+    Z,
+    labels_dict["sex"],
+    label_over_points=True,
+    dynamic_label_size=True,
+    min_font_size=10,
+    figsize=(5, 5),
+)
+plt.tight_layout()
+plt.savefig("scgpt_sex.pdf", bbox_inches="tight")
+
+
+fig, ax = datamapplot.create_plot(
+    Z,
+    labels_dict["development_stage"],
+    label_over_points=False,
+    dynamic_label_size=True,
+    min_font_size=10,
+    figsize=(5, 5),
+)
+plt.tight_layout()
+plt.savefig("scgpt_dv_stage.pdf", bbox_inches="tight")

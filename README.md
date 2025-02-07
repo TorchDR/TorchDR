@@ -85,6 +85,11 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 Visualizing cells using `TorchDR`. Embeddings are colored by cell type.
 
 <p align="center">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
+</p>
+
+
+<p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png" width="700" alt="single cell embeddings">
 </p>
 
