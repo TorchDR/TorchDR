@@ -74,6 +74,7 @@ Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime a
 
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
 
+
 **MNIST.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py))
 A comparison of various neighbor embedding methods on the MNIST digits dataset.
 
@@ -81,16 +82,13 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png" width="800" alt="various neighbor embedding methods on MNIST">
 </p>
 
+
 **Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
 Visualizing cells using `TorchDR`.
 
 <p align="center">
-  <img src="docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
-</p>
-
-<!-- <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
-</p> -->
+</p>
 
 
 **CIFAR100.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py))
