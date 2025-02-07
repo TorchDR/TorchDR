@@ -14,7 +14,7 @@ __all__ = [
 
 __title__ = "torchdr"
 __summary__ = "Dimensionality Reduction Library using PyTorch"
-__version__ = "0.1"
+__version__ = "0.2"
 __author__ = "Hugues Van Assel"
 __license__ = "BSD-3-Clause-Clear"
 __url__ = "https://torchdr.github.io/"
