@@ -84,7 +84,7 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 
 
 **Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
-Visualizing cells using `TorchDR`.
+Visualizing cells using `LargeVis` from `TorchDR`.
 
 <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
