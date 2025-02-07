@@ -60,19 +60,20 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ## Benchmarks
 
-Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py). Stay tuned for additional benchmarks.
+Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py). Stay tuned for additional benchmarks.
 
-| Dataset         | Samples   | Method           | Runtime (sec) | Memory (MB) |
-|-----------------|-----------|------------------|---------------|-------------|
-| Macosko         | 44,808    | Classic UMAP     | 61.3          | 410.9       |
-|                 |           | TorchDR UMAP     | **7.7**       | **100.4**   |
-| 10x Mouse Zheng | 1,306,127 | Classic UMAP     | 1910.4        | 11278.1     |
-|                 |           | TorchDR UMAP     | **184.4**     | **2699.7**  |
+| Dataset         | Samples   | Method            | Runtime (sec) | Memory (MB) |
+|-----------------|-----------|-------------------|---------------|-------------|
+| Macosko         | 44,808    | Classic UMAP (CPU)| 61.3          | 410.9       |
+|                 |           | TorchDR UMAP (GPU)| **7.7**       | **100.4**   |
+| 10x Mouse Zheng | 1,306,127 | Classic UMAP (CPU)| 1910.4        | 11278.1     |
+|                 |           | TorchDR UMAP (GPU)| **184.4**     | **2699.7**  |
 
 
 ## Examples
 
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
+
 
 **MNIST.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py))
 A comparison of various neighbor embedding methods on the MNIST digits dataset.
@@ -81,12 +82,14 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png" width="800" alt="various neighbor embedding methods on MNIST">
 </p>
 
+
 **Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
-Visualizing cells using `TorchDR`. Embeddings are colored by cell type.
+Visualizing cells using `LargeVis` from `TorchDR`.
 
 <p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png" width="700" alt="single cell embeddings">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
 </p>
+
 
 **CIFAR100.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py))
 Visualizing the CIFAR100 dataset using DINO features and TSNE.
