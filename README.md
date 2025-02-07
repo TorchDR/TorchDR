@@ -82,16 +82,16 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 </p>
 
 **Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
-Visualizing cells using `TorchDR`. Embeddings are colored by cell type.
+Visualizing cells using `TorchDR`.
 
 <p align="center">
+  <img src="docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
+</p>
+
+<!-- <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
-</p>
+</p> -->
 
-
-<p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell_readme.png" width="700" alt="single cell embeddings">
-</p>
 
 **CIFAR100.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py))
 Visualizing the CIFAR100 dataset using DINO features and TSNE.
