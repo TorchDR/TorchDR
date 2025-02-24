@@ -145,6 +145,9 @@ class AffinityMatcher(DRModule):
         self.init = init
         self.init_scaling = init_scaling
 
+        self._check_affinities(affinity_in, affinity_out, kwargs_affinity_out)
+
+    def _check_affinities(self, affinity_in, affinity_out, kwargs_affinity_out):
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
             raise ValueError(
@@ -350,6 +353,11 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init, device=self.device)
+            if embedding_.shape != (n, self.n_components):
+                raise ValueError(
+                    f"[TorchDR] ERROR : init shape {embedding_.shape} not compatible "
+                    f"with (n, n_components) = ({n}, {self.n_components})."
+                )
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
