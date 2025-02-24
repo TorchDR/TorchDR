@@ -1,4 +1,7 @@
 
+Version 0.2 (2025-02-07)
+------------------------
+
 - FAISS support for KNN `PR #160 <https://github.com/TorchDR/TorchDR/pull/160>`_.
 - CIFAR examples with DINOv2 features `PR #158 <https://github.com/TorchDR/TorchDR/pull/158>`_.
 - Fast linter and formatter with Ruff `PR #151 <https://github.com/TorchDR/TorchDR/pull/151>`_.
