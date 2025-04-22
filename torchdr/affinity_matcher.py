@@ -28,7 +28,7 @@ from torchdr.utils import (
     square_loss,
     to_torch,
 )
-from typing import Union, Dict, Optional
+from typing import Union, Dict, Optional, Any
 
 
 LOSS_DICT = {
@@ -171,7 +171,9 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
 
     @handle_type
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None):
+    def fit_transform(
+        self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None
+    ):
         """Fit the model to the provided data and returns the transformed data.
 
         Parameters
