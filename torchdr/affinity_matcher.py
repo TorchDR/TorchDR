@@ -28,6 +28,8 @@ from torchdr.utils import (
     square_loss,
     to_torch,
 )
+from typing import Union, Dict, Optional
+
 
 LOSS_DICT = {
     "square_loss": square_loss,
@@ -95,23 +97,23 @@ class AffinityMatcher(DRModule):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         loss_fn: str = "square_loss",
-        kwargs_loss: dict = {},
+        kwargs_loss: Dict = {},
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float | str = 1e0,
+        optimizer_kwargs: Optional[Dict] = None,
+        lr: float = 1e0,
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
-        init: str | torch.Tensor | np.ndarray = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         n_iter_check: int = 50,
     ):
         super().__init__(
@@ -169,7 +171,7 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
 
     @handle_type
-    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None):
         """Fit the model to the provided data and returns the transformed data.
 
         Parameters
@@ -188,7 +190,7 @@ class AffinityMatcher(DRModule):
         self._fit(X)
         return self.embedding_
 
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the model to the provided data.
 
         Parameters
@@ -286,7 +288,7 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 
-    def _additional_updates(self, step):
+    def _additional_updates(self):
         pass
 
     def _set_params(self):

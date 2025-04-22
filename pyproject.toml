@@ -104,4 +104,5 @@ examples = [
     "transformers",
     "datasets",
     "datamapplot",
+    "psutil",
 ]
