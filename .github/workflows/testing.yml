@@ -35,45 +35,6 @@ jobs:
       # Install Python & Packages
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
-      - run: which python
-      - name: Install dependencies
-        run: |
-          python -m pip install --user --upgrade --progress-bar off pip
-      - name: Install 'torchdr' package
-        run: |
-          python -m pip install --user -e .[all,test]
-      # Run Tests
-      - name: Run Tests
-        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
-      # Codecov
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: TorchDR/TorchDR
-
-  Test-python-3-7:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    defaults:
-      run:
-        shell: bash -l {0}
-    steps:
-      # Install torchdr
-      - name: Checking Out Repository
-        uses: actions/checkout@v4
-      # Cache 'torchdr' datasets
-      - name: Create/Restore torchdr Data Cache
-        id: cache-torchdr_datasets_py37
-        uses: actions/cache@v4
-        with:
-          path: ~/torchdr_datasets
-          key: ${{ runner.os }}-v3-py37
-      # Install Python & Packages
-      - uses: actions/setup-python@v4
-        with:
           python-version: "3.7"
       - run: which python
       - name: Install dependencies
@@ -81,7 +42,7 @@ jobs:
           python -m pip install --user --upgrade --progress-bar off pip
       - name: Install 'torchdr' package
         run: |
-          python -m pip install --user -e .[test]
+          python -m pip install --user -e .[all,test]
       # Run Tests
       - name: Run Tests
         run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term

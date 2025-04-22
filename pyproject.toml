@@ -109,4 +109,5 @@ examples = [
     "datasets",
     "datamapplot",
     "psutil",
+    "requests",
 ]
