@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import torch
+from typing import Union, Optional
 
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 from torchdr.utils import LazyTensorType
@@ -40,7 +41,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = True,
     ):
         super().__init__(
@@ -52,7 +53,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         )
         self.sigma = sigma
 
-    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C / self.sigma
 
 
@@ -89,7 +90,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -101,7 +102,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         )
         self.degrees_of_freedom = degrees_of_freedom
 
-    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return (
             -0.5
             * (self.degrees_of_freedom + 1)
@@ -130,7 +131,7 @@ class ScalarProductAffinity(UnnormalizedAffinity):
     def __init__(
         self,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -141,5 +142,5 @@ class ScalarProductAffinity(UnnormalizedAffinity):
             zero_diag=False,
         )
 
-    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C
