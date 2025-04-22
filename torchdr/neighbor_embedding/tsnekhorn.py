@@ -4,6 +4,8 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Optional, Union
+
 from torchdr.affinity import (
     EntropicAffinity,
     SinkhornAffinity,
@@ -44,12 +46,12 @@ class TSNEkhorn(NeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1e0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
+    lr : float or 'auto', optional
+        Learning rate for the algorithm. By default 'auto'.
+    optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
+        Which pytorch optimizer to use, by default 'auto'.
+    optimizer_kwargs : dict or 'auto', optional
+        Arguments for the optimizer, by default 'auto'.
     scheduler : {'constant', 'linear'}, optional
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
@@ -102,21 +104,21 @@ class TSNEkhorn(NeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        lr: Union[float, str] = "auto",
+        optimizer: str = "auto",
+        optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-4,
         max_iter: int = 2000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 10.0,
-        early_exaggeration_iter: int = 250,
+        early_exaggeration_iter: Optional[int] = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
