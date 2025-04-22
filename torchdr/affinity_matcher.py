@@ -62,6 +62,10 @@ class AffinityMatcher(DRModule):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
+    loss_fn : str, optional
+        Loss function to use for the optimization. Default is "square_loss".
+    kwargs_loss : dict, optional
+        Additional keyword arguments for the loss function.
     optimizer : str, optional
         Optimizer to use for the optimization. Default is "Adam".
     optimizer_kwargs : dict, optional
@@ -100,7 +104,7 @@ class AffinityMatcher(DRModule):
         kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         loss_fn: str = "square_loss",
-        kwargs_loss: Dict = {},
+        kwargs_loss: Optional[Dict] = None,
         optimizer: str = "Adam",
         optimizer_kwargs: Optional[Dict] = None,
         lr: float = 1e0,
@@ -279,15 +283,19 @@ class AffinityMatcher(DRModule):
             self.affinity_out, LogAffinity
         ):
             self.kwargs_affinity_out.setdefault("log", True)
+            if self.kwargs_loss is None:
+                self.kwargs_loss = {}
             self.kwargs_loss.setdefault("log", True)
 
         if getattr(self, "NN_indices_", None) is not None:
             Q = self.affinity_out(
-                self.embedding_, indices=self.NN_indices_, **self.kwargs_affinity_out
+                self.embedding_,
+                indices=self.NN_indices_,
+                **(self.kwargs_affinity_out or {}),
             )
         else:
-            Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
+            Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
+        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
         return loss
 
     def _additional_updates(self):
