@@ -12,6 +12,8 @@ from sklearn.base import BaseEstimator
 
 from torchdr.utils import seed_everything
 
+from typing import Union, Optional, Any
+
 
 class DRModule(BaseEstimator, ABC):
     """Base class for DR methods.
@@ -53,7 +55,9 @@ class DRModule(BaseEstimator, ABC):
             print(f"[TorchDR] Initializing DR model {self.__class__.__name__}. ")
 
     @abstractmethod
-    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit_transform(
+        self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
+    ):
         """Fit the dimensionality reduction model and transform the input data.
 
         Parameters
