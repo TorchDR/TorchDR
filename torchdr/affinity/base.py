@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 from abc import ABC
+from typing import Union, Any
 
 import numpy as np
 import torch
@@ -53,7 +54,7 @@ class Affinity(ABC):
         self.verbose = verbose
         self.zero_diag = zero_diag
 
-    def __call__(self, X: torch.Tensor | np.ndarray, **kwargs):
+    def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
 
         Parameters
@@ -152,7 +153,9 @@ class LogAffinity(Affinity):
             verbose=verbose,
         )
 
-    def __call__(self, X: torch.Tensor | np.ndarray, log: bool = False, **kwargs):
+    def __call__(
+        self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
+    ):
         r"""Compute the affinity matrix from the input data.
 
         Parameters
@@ -243,7 +246,7 @@ class SparseLogAffinity(LogAffinity):
 
     def __call__(
         self,
-        X: torch.Tensor | np.ndarray,
+        X: Union[torch.Tensor, np.ndarray],
         log: bool = False,
         return_indices: bool = False,
         **kwargs,
@@ -341,8 +344,8 @@ class UnnormalizedAffinity(Affinity):
 
     def __call__(
         self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
+        X: Union[torch.Tensor, np.ndarray],
+        Y: Union[torch.Tensor, np.ndarray] = None,
         indices: torch.Tensor = None,
         **kwargs,
     ):
@@ -369,7 +372,7 @@ class UnnormalizedAffinity(Affinity):
         C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
-    def _affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         r"""Compute the affinity from the distance matrix.
 
         This method must be overridden by subclasses.
@@ -392,8 +395,8 @@ class UnnormalizedAffinity(Affinity):
     @handle_keops
     def _distance_matrix(
         self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
+        X: Union[torch.Tensor, np.ndarray],
+        Y: Union[torch.Tensor, np.ndarray] = None,
         indices: torch.Tensor = None,
     ):
         r"""Compute the pairwise distance matrix from the input data.
@@ -486,8 +489,8 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
 
     def __call__(
         self,
-        X: torch.Tensor | np.ndarray,
-        Y: torch.Tensor | np.ndarray = None,
+        X: Union[torch.Tensor, np.ndarray],
+        Y: Union[torch.Tensor, np.ndarray] = None,
         indices: torch.Tensor = None,
         log: bool = False,
         **kwargs,
@@ -522,7 +525,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         else:
             return log_affinity.exp()
 
-    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         r"""Compute the log affinity from the distance matrix.
 
         This method must be overridden by subclasses.

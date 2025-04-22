@@ -16,6 +16,7 @@ import torch
 from tqdm import tqdm
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
+from typing import Union
 from torchdr.utils import (
     OPTIMIZERS,
     batch_transpose,
@@ -773,7 +774,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
-        normalization_dim: int | Tuple[int] = (0, 1),
+        normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
     ):
         super().__init__(
             metric=metric,
@@ -855,7 +856,7 @@ class NormalizedStudentAffinity(LogAffinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
-        normalization_dim: int | Tuple[int] = (0, 1),
+        normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
     ):
         super().__init__(
             metric=metric,
