@@ -282,6 +282,8 @@ class AffinityMatcher(DRModule):
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
+            if self.kwargs_affinity_out is None:
+                self.kwargs_affinity_out = {}
             self.kwargs_affinity_out.setdefault("log", True)
             if self.kwargs_loss is None:
                 self.kwargs_loss = {}
