@@ -241,18 +241,20 @@ class AffinityMatcher(DRModule):
         self._set_scheduler()
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for k in pbar:
+        for step in pbar:
+            self.n_iter_ = step
+
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
 
-            check_convergence = k % self.n_iter_check == 0
+            check_convergence = self.n_iter_ % self.n_iter_check == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         print(
-                            f"[TorchDR] Convergence reached at iter {k} with grad norm: "
+                            f"[TorchDR] Convergence reached at iter {self.n_iter_} with grad norm: "
                             f"{grad_norm:.2e}."
                         )
                     break
@@ -263,7 +265,7 @@ class AffinityMatcher(DRModule):
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
-                f"at iter {k}.",
+                f"at iter {step}.",
             )
 
             if self.verbose:
@@ -272,9 +274,7 @@ class AffinityMatcher(DRModule):
                     f"Grad norm : {grad_norm:.2e} "
                 )
 
-            self._additional_updates(k)
-
-        self.n_iter_ = k
+            self._additional_updates()
 
         return self
 
@@ -300,7 +300,7 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
         return loss
 
-    def _additional_updates(self, **kwargs):
+    def _additional_updates(self):
         pass
 
     def _set_params(self):

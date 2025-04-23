@@ -135,9 +135,10 @@ class NeighborEmbedding(AffinityMatcher):
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
-    def _additional_updates(self, step):
+    def _additional_updates(self):
         if (  # stop early exaggeration phase
-            self.early_exaggeration_coeff_ > 1 and step == self.early_exaggeration_iter
+            self.early_exaggeration_coeff_ > 1
+            and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
             # reinitialize optim
