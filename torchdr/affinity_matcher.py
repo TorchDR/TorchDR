@@ -300,7 +300,7 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
         return loss
 
-    def _additional_updates(self):
+    def _additional_updates(self, **kwargs):
         pass
 
     def _set_params(self):
@@ -324,7 +324,7 @@ class AffinityMatcher(DRModule):
         else:
             self.lr_ = self.lr
 
-    def _set_scheduler(self, n_iter=None):
+    def _set_scheduler(self, n_iter: Optional[int] = None):
         n_iter = n_iter or self.max_iter
 
         if not hasattr(self, "optimizer_"):
