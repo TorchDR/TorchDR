@@ -12,6 +12,8 @@ from sklearn.base import BaseEstimator
 
 from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch, faiss
 
+from typing import Union, Optional, Any
+
 
 class ClusteringModule(BaseEstimator, ABC):
     """Base class for clustering methods.
@@ -62,7 +64,7 @@ class ClusteringModule(BaseEstimator, ABC):
             print(f"[TorchDR] Initializing clustering model {self.__class__.__name__} ")
 
     @abstractmethod
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the clustering model.
 
         Parameters
@@ -79,7 +81,7 @@ class ClusteringModule(BaseEstimator, ABC):
         """
         raise NotImplementedError
 
-    def fit_predict(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit_predict(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the clustering model and output the predicted labels.
 
         Parameters
@@ -164,7 +166,7 @@ class KMeans(ClusteringModule):
             )
         self.metric = metric
 
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the k-means model.
 
         Parameters
@@ -294,7 +296,7 @@ class KMeans(ClusteringModule):
 
         return centers
 
-    def predict(self, X: torch.Tensor | np.ndarray):
+    def predict(self, X: Union[torch.Tensor, np.ndarray]):
         """Predict the closest cluster each sample in X belongs to.
 
         Parameters

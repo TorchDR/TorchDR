@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Tuple
+from typing import Tuple, Union, Optional
 
 import torch
 
@@ -65,7 +65,7 @@ class SelfTuningAffinity(LogAffinity):
         \exp \left( - \frac{C_{ij}}{\sigma_i \sigma_j} \right)
 
     In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
+    :math:`\sigma_i` is the distance from the K'th nearest neighbor of data point
     :math:`\mathbf{x}_i`.
 
     Parameters
@@ -90,11 +90,11 @@ class SelfTuningAffinity(LogAffinity):
     def __init__(
         self,
         K: int = 7,
-        normalization_dim: int | Tuple[int] = (0, 1),
+        normalization_dim: Union[int, Tuple[int]] = (0, 1),
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -145,7 +145,7 @@ class MAGICAffinity(Affinity):
         P_{ij} \leftarrow \exp \left( - \frac{C_{ij}}{\sigma_i} \right)
 
     In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma_i` is the distance from the K’th nearest neighbor of data point
+    :math:`\sigma_i` is the distance from the K'th nearest neighbor of data point
     :math:`\mathbf{x}_i`.
 
     Then it averages the affinity matrix with its transpose:
@@ -181,8 +181,8 @@ class MAGICAffinity(Affinity):
         K: int = 7,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(

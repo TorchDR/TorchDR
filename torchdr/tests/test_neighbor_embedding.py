@@ -34,8 +34,8 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
     [
         (SNE, {}),
         (TSNE, {}),
-        (TSNEkhorn, SEA_params | {"unrolling": True}),
-        (TSNEkhorn, SEA_params | {"unrolling": False}),
+        (TSNEkhorn, {**SEA_params, "unrolling": True}),
+        (TSNEkhorn, {**SEA_params, "unrolling": False}),
         (LargeVis, {}),
         (InfoTSNE, {}),
         (UMAP, {}),
@@ -55,7 +55,7 @@ def test_NE(DRModel, kwargs, dtype, backend):
         max_iter=100,
         random_state=0,
         min_grad_norm=1e-10,
-        **(param_optim | kwargs),
+        **{**param_optim, **kwargs},
     )
     Z = model.fit_transform(X)
 

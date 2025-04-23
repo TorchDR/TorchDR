@@ -8,7 +8,7 @@
 import torch
 from tqdm import tqdm
 
-DTYPE = torch.double
+DTYPE = torch.float32
 DEVICE = "cpu"
 
 OPTIMIZERS = {

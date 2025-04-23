@@ -4,6 +4,8 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Union, Optional
+
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import logsumexp_red
@@ -80,20 +82,20 @@ class InfoTSNE(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float | str = "auto",
+        lr: Union[float, str] = "auto",
         optimizer: str = "auto",
-        optimizer_kwargs: dict | str = "auto",
+        optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: str = "constant",
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: int = 250,
+        early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",

@@ -5,7 +5,8 @@
 # License: BSD 3-Clause License
 
 import warnings
-
+import numpy as np
+from typing import Any, Dict, Union, Optional
 import torch
 
 from torchdr.affinity import (
@@ -84,24 +85,24 @@ class NeighborEmbedding(AffinityMatcher):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
-        lr: float | str = 1e0,
+        lr: Union[float, str] = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict | str = None,
+        optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        init: str = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
-        **kwargs,
+        early_exaggeration_iter: Optional[int] = None,
+        **kwargs: Any,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -134,9 +135,10 @@ class NeighborEmbedding(AffinityMatcher):
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
-    def _additional_updates(self, step):
+    def _additional_updates(self):
         if (  # stop early exaggeration phase
-            self.early_exaggeration_coeff_ > 1 and step == self.early_exaggeration_iter
+            self.early_exaggeration_coeff_ > 1
+            and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
             # reinitialize optim
@@ -280,23 +282,23 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
-        lr: float | str = 1e0,
+        lr: Union[float, str] = 1e0,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict | str = None,
+        optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
+        early_exaggeration_iter: Optional[int] = None,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -431,23 +433,23 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float | str = 1e0,
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        lr: Union[float, str] = 1e0,
         scheduler: str = "constant",
-        scheduler_kwargs: dict | str = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
+        early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
     ):
         self.n_negatives = n_negatives

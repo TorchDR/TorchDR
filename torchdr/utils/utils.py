@@ -1,6 +1,7 @@
 """Useful functions for defining objectives and constraints."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Rémi Flamary <remi.flamary@polytechnique.edu>
 #
 # License: BSD 3-Clause License
 

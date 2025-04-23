@@ -4,6 +4,8 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Optional
+
 from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_output
@@ -90,21 +92,21 @@ class UMAP(SampledNeighborEmbedding):
         n_components: int = 2,
         min_dist: float = 0.1,
         spread: float = 1.0,
-        a: float = None,
-        b: float = None,
+        a: Optional[float] = None,
+        b: Optional[float] = None,
         lr: float = 1e-1,
         optimizer: str = "SGD",
-        optimizer_kwargs: dict = None,
+        optimizer_kwargs: Optional[Dict] = None,
         scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,

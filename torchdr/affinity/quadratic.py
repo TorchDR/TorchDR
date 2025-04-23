@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import warnings
+from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -104,7 +105,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     def __init__(
         self,
         eps: float = 1.0,
-        init_dual: torch.Tensor = None,
+        init_dual: Optional[torch.Tensor] = None,
         tol: float = 1e-5,
         max_iter: int = 1000,
         optimizer: str = "Adam",
@@ -113,7 +114,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
