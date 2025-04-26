@@ -207,9 +207,7 @@ class NeighborEmbedding(AffinityMatcher):
                     f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
                 )
         else:
-            if not isinstance(self.optimizer, type) or not issubclass(
-                self.optimizer, torch.optim.Optimizer
-            ):
+            if not issubclass(self.optimizer, torch.optim.Optimizer):
                 raise ValueError(
                     "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
                     "torch.optim) or a subclass of torch.optim.Optimizer"
