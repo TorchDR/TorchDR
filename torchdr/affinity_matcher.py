@@ -72,7 +72,7 @@ class AffinityMatcher(DRModule):
         Additional keyword arguments for the optimizer.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    scheduler : str or torch.optim.lr_scheduler._LRScheduler, optional
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
         Default is None (no scheduler).
     scheduler_kwargs : dict, optional
@@ -110,7 +110,7 @@ class AffinityMatcher(DRModule):
         optimizer_kwargs: Optional[Dict] = None,
         lr: float = 1e0,
         scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler._LRScheduler]]
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
@@ -318,7 +318,13 @@ class AffinityMatcher(DRModule):
                     f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
                 )
         else:
-            # Assume it's already an optimizer class from torch.optim
+            if not isinstance(self.optimizer, type) or not issubclass(
+                self.optimizer, torch.optim.Optimizer
+            ):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
+                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                )
             optimizer_class = self.optimizer
 
         self.optimizer_ = optimizer_class(
@@ -363,11 +369,11 @@ class AffinityMatcher(DRModule):
                     f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
                 )
         else:
-            # Check if the scheduler is a subclass of _LRScheduler
-            if not issubclass(self.scheduler, torch.optim.lr_scheduler._LRScheduler):
+            # Check if the scheduler is a subclass of LRScheduler
+            if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
                 raise ValueError(
                     "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
-                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler._LRScheduler"
+                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler"
                 )
             self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 

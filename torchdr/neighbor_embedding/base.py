@@ -198,15 +198,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _set_optimizer(self):
         # Special case for 'auto' - convert to 'SGD'
-        if self.optimizer == "auto":
-            optimizer_name = "SGD"
-            try:
-                optimizer_class = getattr(torch.optim, optimizer_name)
-            except AttributeError:
-                raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{optimizer_name}' not found in torch.optim"
-                )
-        elif isinstance(self.optimizer, str):
+        if isinstance(self.optimizer, str):
             # Get optimizer directly from torch.optim
             try:
                 optimizer_class = getattr(torch.optim, self.optimizer)
@@ -215,6 +207,13 @@ class NeighborEmbedding(AffinityMatcher):
                     f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
                 )
         else:
+            if not isinstance(self.optimizer, type) or not issubclass(
+                self.optimizer, torch.optim.Optimizer
+            ):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
+                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                )
             # Assume it's already an optimizer class
             optimizer_class = self.optimizer
 
