@@ -20,7 +20,6 @@ from torchdr.affinity import (
 from torchdr.base import DRModule
 from torchdr.spectral import PCA
 from torchdr.utils import (
-    OPTIMIZERS,
     check_NaNs,
     check_nonnegativity,
     cross_entropy_loss,
@@ -28,7 +27,7 @@ from torchdr.utils import (
     square_loss,
     to_torch,
 )
-from typing import Union, Dict, Optional, Any
+from typing import Union, Dict, Optional, Any, Type
 
 
 LOSS_DICT = {
@@ -66,14 +65,16 @@ class AffinityMatcher(DRModule):
         Loss function to use for the optimization. Default is "square_loss".
     kwargs_loss : dict, optional
         Additional keyword arguments for the loss function.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    scheduler : str, optional
-        Learning rate scheduler. Default is "constant".
+    scheduler : str or torch.optim.lr_scheduler._LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
@@ -105,10 +106,12 @@ class AffinityMatcher(DRModule):
         n_components: int = 2,
         loss_fn: str = "square_loss",
         kwargs_loss: Optional[Dict] = None,
-        optimizer: str = "Adam",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Optional[Dict] = None,
         lr: float = 1e0,
-        scheduler: str = "constant",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler._LRScheduler]]
+        ] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
@@ -127,9 +130,6 @@ class AffinityMatcher(DRModule):
             verbose=verbose,
             random_state=random_state,
         )
-
-        if optimizer not in OPTIMIZERS and optimizer != "auto":
-            raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
 
         self.optimizer = optimizer
         self.optimizer_kwargs = optimizer_kwargs
@@ -260,7 +260,8 @@ class AffinityMatcher(DRModule):
                     break
 
             self.optimizer_.step()
-            self.scheduler_.step()
+            if self.scheduler_ is not None:
+                self.scheduler_.step()
 
             check_NaNs(
                 self.embedding_,
@@ -308,7 +309,19 @@ class AffinityMatcher(DRModule):
         return self.params_
 
     def _set_optimizer(self):
-        self.optimizer_ = OPTIMIZERS[self.optimizer](
+        if isinstance(self.optimizer, str):
+            # Try to get the optimizer from torch.optim
+            try:
+                optimizer_class = getattr(torch.optim, self.optimizer)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                )
+        else:
+            # Assume it's already an optimizer class from torch.optim
+            optimizer_class = self.optimizer
+
+        self.optimizer_ = optimizer_class(
             self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
@@ -333,29 +346,30 @@ class AffinityMatcher(DRModule):
                 "Please call _set_optimizer before _set_scheduler."
             )
 
-        if self.scheduler == "constant":
-            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
-                self.optimizer_, factor=1, total_iters=0
-            )
+        # If scheduler is None, don't create a scheduler
+        if self.scheduler is None:
+            self.scheduler_ = None
+            return self.scheduler_
 
-        elif self.scheduler == "linear":
+        scheduler_kwargs = self.scheduler_kwargs or {}
 
-            def linear_decay(epoch):
-                return 1 - epoch / n_iter
-
-            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer_, lr_lambda=linear_decay
-            )
-
-        elif self.scheduler == "cosine":
-            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer_, T_max=n_iter
-            )
-
+        if isinstance(self.scheduler, str):
+            # Try to get the scheduler from torch.optim.lr_scheduler
+            try:
+                scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler)
+                self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
+                )
         else:
-            raise ValueError(
-                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
-            )
+            # Check if the scheduler is a subclass of _LRScheduler
+            if not issubclass(self.scheduler, torch.optim.lr_scheduler._LRScheduler):
+                raise ValueError(
+                    "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
+                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler._LRScheduler"
+                )
+            self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 
         return self.scheduler_
 
