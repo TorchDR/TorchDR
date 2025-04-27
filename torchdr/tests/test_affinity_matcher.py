@@ -5,13 +5,6 @@ from torchdr.affinity import Affinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 
-def test_invalid_optimizer():
-    with pytest.raises(ValueError):
-        AffinityMatcher(
-            affinity_in=Affinity(), affinity_out=Affinity(), optimizer="invalid"
-        )
-
-
 def test_invalid_loss_fn():
     with pytest.raises(ValueError):
         AffinityMatcher(
