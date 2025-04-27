@@ -67,7 +67,7 @@ class AffinityMatcher(DRModule):
         Additional keyword arguments for the loss function.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
-        Default is "SGD".
+        Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
     lr : float or 'auto', optional
@@ -106,7 +106,7 @@ class AffinityMatcher(DRModule):
         n_components: int = 2,
         loss_fn: str = "square_loss",
         kwargs_loss: Optional[Dict] = None,
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Optional[Dict] = None,
         lr: float = 1e0,
         scheduler: Optional[
