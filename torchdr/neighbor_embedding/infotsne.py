@@ -146,6 +146,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             device=device,

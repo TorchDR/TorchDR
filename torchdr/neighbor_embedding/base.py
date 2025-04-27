@@ -216,14 +216,11 @@ class NeighborEmbedding(AffinityMatcher):
             optimizer_class = self.optimizer
 
         # Handle 'auto' for optimizer_kwargs
-        if self.optimizer_kwargs == "auto":
-            if self.optimizer == "auto" or self.optimizer == "SGD":
-                if self.early_exaggeration_coeff_ > 1:
-                    optimizer_kwargs = {"momentum": 0.5}
-                else:
-                    optimizer_kwargs = {"momentum": 0.8}
+        if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
+            if self.early_exaggeration_coeff_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
             else:
-                optimizer_kwargs = {}
+                optimizer_kwargs = {"momentum": 0.8}
         else:
             optimizer_kwargs = self.optimizer_kwargs or {}
 
