@@ -4,7 +4,8 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Type
+import torch
 
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
@@ -36,12 +37,17 @@ class InfoTSNE(SampledNeighborEmbedding):
         Dimension of the embedding space.
     lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
-    optimizer : {'SGD', 'Adam', 'NAdam', 'auto'}, optional
-        Which pytorch optimizer to use, by default 'auto'.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD".
     optimizer_kwargs : dict or 'auto', optional
-        Arguments for the optimizer, by default 'auto'.
-    scheduler : {'constant', 'linear'}, optional
-        Learning rate scheduler.
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
+    scheduler_kwargs : dict, optional
+        Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -64,7 +70,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         By default 12.0 for early exaggeration.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : _type_, optional
+    tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
@@ -83,9 +89,12 @@ class InfoTSNE(SampledNeighborEmbedding):
         perplexity: float = 30,
         n_components: int = 2,
         lr: Union[float, str] = "auto",
-        optimizer: str = "auto",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: str = "constant",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
@@ -137,6 +146,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             device=device,

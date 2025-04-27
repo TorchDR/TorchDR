@@ -17,7 +17,6 @@ from tqdm import tqdm
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from typing import Union, Tuple, Optional
 from torchdr.utils import (
-    OPTIMIZERS,
     batch_transpose,
     check_NaNs,
     entropy,
@@ -393,7 +392,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         Precision threshold at which the algorithm stops, by default 1e-5.
     max_iter : int, optional
         Number of maximum iterations for the algorithm, by default 500.
-    optimizer : {'SGD', 'Adam', 'NAdam', 'LBFGS}, optional
+    optimizer : str , optional
         Which pytorch optimizer to use (default 'Adam').
     metric : str, optional
         Metric to use for computing distances, by default "sqeuclidean".
@@ -509,8 +508,9 @@ class SymmetricEntropicAffinity(LogAffinity):
                 C, self.eps_, self.mu_, eps_square=self.eps_square
             )
 
-        else:  # other optimizers including SGD and Adam
-            optimizer = OPTIMIZERS[self.optimizer]([self.eps_, self.mu_], lr=self.lr)
+        else:
+            optimizer_class = getattr(torch.optim, self.optimizer)
+            optimizer = optimizer_class([self.eps_, self.mu_], lr=self.lr)
 
             pbar = tqdm(range(self.max_iter), disable=not self.verbose)
             for k in pbar:
