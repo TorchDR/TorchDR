@@ -88,7 +88,7 @@ class TSNEkhorn(NeighborEmbedding):
     eps_square_affinity_in : bool, optional
         When computing the symmetric entropic affinity, whether to optimize
         on the square of the dual variables. May be more stable in practice.
-    tol_affinity_in : _type_, optional
+    tol_affinity_in : float, optional
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.

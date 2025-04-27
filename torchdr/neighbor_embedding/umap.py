@@ -36,7 +36,7 @@ class UMAP(SampledNeighborEmbedding):
     min_dist : float, optional
         Minimum distance between points in the embedding space.
     spread : float, optional
-        Initial spread of the embedding space.
+        The effective scale of the embedded points. Used to configure the UMAPAffinityOut.
     a : float, optional
         Parameter for the Student t-distribution.
     b : float, optional

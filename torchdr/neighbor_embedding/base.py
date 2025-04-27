@@ -64,7 +64,7 @@ class NeighborEmbedding(AffinityMatcher):
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
-    init : str, optional
+    init : str or torch.Tensor or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
@@ -82,6 +82,8 @@ class NeighborEmbedding(AffinityMatcher):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    learning_rate : float, optional
+        Alias for lr parameter for sklearn API compatibility.
     """  # noqa: E501
 
     def __init__(
@@ -278,7 +280,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
-    init : str, optional
+    init : str or torch.Tensor or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
@@ -313,7 +315,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        init: str = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
         backend: Optional[str] = None,
