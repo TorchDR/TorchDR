@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity import Affinity
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import create_sparse_tensor_from_row_indices, to_torch
+from torchdr.utils import check_NaNs, create_sparse_tensor_from_row_indices, to_torch
 
 
 class DistR(AffinityMatcher):
@@ -19,7 +19,7 @@ class DistR(AffinityMatcher):
 
     DistR constructs low dimensional prototypes that represent the data by minimizing the
     Gromov-Wasserstein Optimal Transport (OT) distance between the input data points and
-    the prototypes. The obtained OT plan is used to associate each data point to a prototype.
+    the prototypes. The OT plan associates each data point to a prototype.
 
     The model solves a problem of the form:
 
@@ -150,8 +150,6 @@ class DistR(AffinityMatcher):
         else:
             raise ValueError("[TorchDR] ERROR : loss_fn must be 'square_loss' or 'kl_loss'.")
 
-        self._init_T()
-
     def _init_OT_plan(self):
         if isinstance(self.init_OT_plan, (torch.Tensor, np.ndarray)):
             self.OT_plan_ = to_torch(self.init_OT_plan, device=self.device)
@@ -162,8 +160,8 @@ class DistR(AffinityMatcher):
                     f"({self.n_samples_in_}, {self.n_prototypes})."
                 )
         elif self.init_OT_plan == "random":
-            OT_plan = torch.randn((self.n_samples_in_, self.n_prototypes), device=self.device)
-            self.self.OT_plan_ = OT_plan / OT_plan.sum(-1, keepdim=True)
+            OT_plan = torch.rand((self.n_samples_in_, self.n_prototypes), device=self.device)
+            self.OT_plan_ = OT_plan / OT_plan.sum(-1, keepdim=True)
         else:
             raise ValueError("[TorchDR] ERROR : init_OT_plan must be 'random' or a torch.Tensor.")
 
@@ -184,8 +182,9 @@ class DistR(AffinityMatcher):
         # If sparsity is used, convert the affinity to a sparse tensor
         if hasattr(self, "NN_indices_"):
             self.PX_ = create_sparse_tensor_from_row_indices(
-                self.PX_, self.NN_indices_, (self.n_samples_in_, self.n_samples_in_)
+                self.NN_indices_, self.PX_, (self.n_samples_in_, self.n_samples_in_)
             )
+        self._init_OT_plan()
 
     def _loss(self):
         one_N = torch.ones(self.n_samples_in_, device=self.device)
@@ -194,17 +193,42 @@ class DistR(AffinityMatcher):
         Q_detached = Q.detach()  # Detach Q to prevent gradients flowing to the embeddings
 
         OT_plan = self.OT_plan_.clone()
-        for _ in range(self.n_iter_mirror_descent):
+        for step in range(self.n_iter_mirror_descent):
             OT_plan.requires_grad_(True)
 
             q = OT_plan.sum(dim=0, keepdim=False)
             loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
+
+            check_NaNs(
+                loss,
+                msg=f"[TorchDR] ERROR : NaNs in the Mirror Descent loss at iter {step}.",
+            )
+
             loss.backward()
 
             # Mirror descent update
             with torch.no_grad():
-                K = (OT_plan.grad - self.epsilon_mirror_descent * OT_plan).exp()
-                OT_plan = K / K.sum(dim=1, keepdim=True)
+                log_OT_plan = OT_plan.log()
+
+                check_NaNs(
+                    OT_plan,
+                    msg=f"[TorchDR] ERROR : NaNs in 0st step of Mirror Descent at iter {step}.",
+                )
+
+                log_K = self.epsilon_mirror_descent * OT_plan.log() - OT_plan.grad
+                log_OT_plan = log_K - log_K.logsumexp(dim=1, keepdim=True)
+
+                check_NaNs(
+                    log_OT_plan,
+                    msg=f"[TorchDR] ERROR : NaNs in 1st step of Mirror Descent at iter {step}.",
+                )
+
+                OT_plan = log_OT_plan.exp()
+
+                check_NaNs(
+                    OT_plan,
+                    msg=f"[TorchDR] ERROR : NaNs in 2nd step of Mirror Descent at iter {step}.",
+                )
 
         self.OT_plan_ = OT_plan
         q_converged = self.OT_plan_.sum(dim=0, keepdim=False)
@@ -248,48 +272,55 @@ class GromovWassersteinDecomposableLoss:
         one_p = torch.ones(p.shape[0], device=p.device)
         one_q = torch.ones(q.shape[0], device=q.device)
         L_kronecker_T = (
-            self.f1(P) @ p @ one_q.T
-            + one_p @ q.T @ self.f2(Q).T
+            self.f1(P) @ torch.outer(p, one_q)
+            + torch.outer(one_p, q) @ self.f2(Q).T
             - self.h1(P) @ OT_plan @ self.h2(Q).T
         )
         return (L_kronecker_T * OT_plan).sum()
 
-    def f1(x):
+    def f1(self, X):
         raise NotImplementedError("[TorchDR] ERROR : f1 method is not implemented.")
 
-    def f2(x):
+    def f2(self, X):
         raise NotImplementedError("[TorchDR] ERROR : f2 method is not implemented.")
 
-    def h1(x):
+    def h1(self, X):
         raise NotImplementedError("[TorchDR] ERROR : h1 method is not implemented.")
 
-    def h2(x):
+    def h2(self, X):
         raise NotImplementedError("[TorchDR] ERROR : h2 method is not implemented.")
 
 
 class SquareLoss(GromovWassersteinDecomposableLoss):
-    def f1(X):
+    def f1(self, X):
         return X**2
 
-    def f2(X):
+    def f2(self, X):
         return X**2
 
-    def h1(X):
+    def h1(self, X):
         return X
 
-    def h2(X):
+    def h2(self, X):
         return 2 * X
 
 
 class KLDivLoss(GromovWassersteinDecomposableLoss):
-    def f1(X):
-        return X * X.log() - X
+    def f1(self, X):
+        if X.is_sparse:
+            vals = X.coalesce().values()
+            idxs = X.coalesce().indices()
+            size = X.coalesce().size()
+            computed_values = torch.xlogy(vals, vals) - vals
+            return torch.sparse_coo_tensor(idxs, computed_values, size)
+        else:
+            return X * X.log() - X
 
-    def f2(X):
+    def f2(self, X):
         return X
 
-    def h1(X):
+    def h1(self, X):
         return X
 
-    def h2(X):
+    def h2(self, X):
         return X.log()

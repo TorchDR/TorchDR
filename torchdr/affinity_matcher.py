@@ -32,6 +32,7 @@ from torchdr.utils import (
 LOSS_DICT = {
     "square_loss": square_loss,
     "cross_entropy_loss": cross_entropy_loss,
+    "kl_loss": cross_entropy_loss,
 }
 
 

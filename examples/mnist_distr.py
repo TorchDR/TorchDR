@@ -6,7 +6,12 @@ import numpy as np
 from sklearn.datasets import fetch_openml
 
 import torch
-from torchdr.affinity import EntropicAffinity, StudentAffinity, GaussianAffinity
+from torchdr.affinity import (
+    EntropicAffinity,
+    StudentAffinity,
+    GaussianAffinity,
+    ScalarProductAffinity,
+)
 from torchdr import DistR, PCA
 
 # Check for GPU availability
@@ -23,8 +28,10 @@ X_tensor = torch.tensor(X, dtype=torch.float32, device=device)
 
 # Configure affinities
 # affinity_in = EntropicAffinity(perplexity=30)
-affinity_in = GaussianAffinity()
-affinity_out = StudentAffinity()
+# affinity_in = GaussianAffinity()
+# affinity_out = StudentAffinity()
+affinity_in = ScalarProductAffinity()
+affinity_out = ScalarProductAffinity()
 
 # Create and fit DistR model
 distr = DistR(
