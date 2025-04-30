@@ -7,7 +7,7 @@
 # License: BSD 3-Clause License
 
 from functools import partial
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -27,8 +27,6 @@ from torchdr.utils import (
     svd_flip,
     to_torch,
 )
-
-from typing import Union
 
 
 class PCA(DRModule):
@@ -82,9 +80,7 @@ class PCA(DRModule):
         """
         X = to_torch(X, device=self.device)
         self.mean_ = X.mean(0, keepdim=True)
-        U, S, V = torch.linalg.svd(
-            X - self.mean_, full_matrices=False, driver=self.svd_driver
-        )
+        U, S, V = torch.linalg.svd(X - self.mean_, full_matrices=False, driver=self.svd_driver)
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
         self.embedding_ = U[:, : self.n_components] @ S[: self.n_components].diag()
@@ -229,9 +225,7 @@ class KernelPCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
-        if not isinstance(
-            self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)
-        ):
+        if not isinstance(self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)):
             aff_name = self.affinity.__class__.__name__
             raise ValueError(
                 "KernelPCA.transform can only be used when `affinity` is "
@@ -246,9 +240,7 @@ class KernelPCA(DRModule):
         K += self.K_fit_all_
 
         result = (
-            K
-            @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[: self.n_components]).sqrt()
+            K @ self.eigenvectors_ @ torch.diag(1 / self.eigenvalues_[: self.n_components]).sqrt()
         )
         # remove np.inf arising from division by 0 eigenvalues:
         zero_eigvals = self.eigenvalues_[: self.n_components] == 0
@@ -352,9 +344,7 @@ class IncrementalPCA(DRModule):
             self._svd_fn = svd_fn
 
         else:
-            self._svd_fn = partial(
-                torch.linalg.svd, full_matrices=False, driver=svd_driver
-            )
+            self._svd_fn = partial(torch.linalg.svd, full_matrices=False, driver=svd_driver)
 
     def _validate_data(self, X) -> torch.Tensor:
         valid_dtypes = [torch.float32, torch.float64]
@@ -392,9 +382,7 @@ class IncrementalPCA(DRModule):
             return last_mean, last_variance, last_sample_count
 
         if last_sample_count > 0:
-            assert last_mean is not None, (
-                "last_mean should not be None if last_sample_count > 0."
-            )
+            assert last_mean is not None, "last_mean should not be None if last_sample_count > 0."
             assert last_variance is not None, (
                 "last_variance should not be None if last_sample_count > 0."
             )

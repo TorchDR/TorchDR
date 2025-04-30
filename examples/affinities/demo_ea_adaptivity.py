@@ -24,15 +24,9 @@ from torchdr import EntropicAffinity, NormalizedGaussianAffinity
 torch.manual_seed(0)
 n_cluster = 20  # number of points per cluster
 
-X1 = torch.Tensor([-10, -10])[None, :] + torch.normal(
-    0, 1, size=(n_cluster, 2), dtype=torch.double
-)
-X2 = torch.Tensor([10, -10])[None, :] + torch.normal(
-    0, 2, size=(n_cluster, 2), dtype=torch.double
-)
-X3 = torch.Tensor([0, 10])[None, :] + torch.normal(
-    0, 3, size=(n_cluster, 2), dtype=torch.double
-)
+X1 = torch.Tensor([-10, -10])[None, :] + torch.normal(0, 1, size=(n_cluster, 2), dtype=torch.double)
+X2 = torch.Tensor([10, -10])[None, :] + torch.normal(0, 2, size=(n_cluster, 2), dtype=torch.double)
+X3 = torch.Tensor([0, 10])[None, :] + torch.normal(0, 3, size=(n_cluster, 2), dtype=torch.double)
 
 X = torch.cat([X1, X2, X3], 0)
 
@@ -63,9 +57,7 @@ def plot_affinity_graph(G):
 # parameter ``normalization_dim=1``.
 #
 
-aff = NormalizedGaussianAffinity(
-    sigma=1, normalization_dim=1, backend=None, zero_diag=False
-)
+aff = NormalizedGaussianAffinity(sigma=1, normalization_dim=1, backend=None, zero_diag=False)
 K = aff(X)
 
 plt.figure(1, (6, 3))

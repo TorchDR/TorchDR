@@ -1,8 +1,9 @@
 # conftest.py
+import random
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-import random
 
 
 @pytest.fixture(autouse=True, scope="session")

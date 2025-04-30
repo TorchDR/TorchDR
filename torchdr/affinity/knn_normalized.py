@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -127,9 +127,7 @@ class SelfTuningAffinity(LogAffinity):
         log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                log_affinity_matrix, self.normalization_dim
-            )
+            self.log_normalization_ = logsumexp_red(log_affinity_matrix, self.normalization_dim)
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         return log_affinity_matrix

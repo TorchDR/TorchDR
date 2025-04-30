@@ -5,8 +5,9 @@
 # License: BSD 3-Clause License
 
 import warnings
+from typing import Any, Dict, Optional, Type, Union
+
 import numpy as np
-from typing import Any, Dict, Union, Optional, Type
 import torch
 
 from torchdr.affinity import (
@@ -95,9 +96,7 @@ class NeighborEmbedding(AffinityMatcher):
         lr: Union[float, str] = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
@@ -144,8 +143,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _additional_updates(self):
         if (  # stop early exaggeration phase
-            self.early_exaggeration_coeff_ > 1
-            and self.n_iter_ == self.early_exaggeration_iter
+            self.early_exaggeration_coeff_ > 1 and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
             # reinitialize optim
@@ -309,9 +307,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         lr: Union[float, str] = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
@@ -362,24 +358,17 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _attractive_loss(self):
         if isinstance(self.affinity_out, UnnormalizedLogAffinity):
-            log_Q = self.affinity_out(
-                self.embedding_, log=True, indices=self.NN_indices_
-            )
+            log_Q = self.affinity_out(self.embedding_, log=True, indices=self.NN_indices_)
             return cross_entropy_loss(self.PX_, log_Q, log=True)
         else:
             Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
             return cross_entropy_loss(self.PX_, Q)
 
     def _repulsive_loss(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _repulsive_loss method must be implemented."
-        )
+        raise NotImplementedError("[TorchDR] ERROR : _repulsive_loss method must be implemented.")
 
     def _loss(self):
-        loss = (
-            self.early_exaggeration_coeff_ * self._attractive_loss()
-            + self._repulsive_loss()
-        )
+        loss = self.early_exaggeration_coeff_ * self._attractive_loss() + self._repulsive_loss()
         return loss
 
 
@@ -465,9 +454,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         lr: Union[float, str] = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,

@@ -4,17 +4,16 @@
 # License: BSD 3-Clause License
 
 
+from .faiss import faiss
 from .geometry import (
-    LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
+    LIST_METRICS_KEOPS,
     pairwise_distances,
     symmetric_pairwise_distances_indices,
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
-from .faiss import faiss
 from .optim import binary_search, false_position
 from .utils import (
-    seed_everything,
     batch_transpose,
     center_kernel,
     cross_entropy_loss,
@@ -23,6 +22,7 @@ from .utils import (
     kmin,
     logsumexp_red,
     prod_matrix_vector,
+    seed_everything,
     square_loss,
     sum_matrix_vector,
     sum_red,
@@ -44,8 +44,8 @@ from .validation import (
     relative_similarity,
 )
 from .wrappers import (
-    handle_type,
     handle_keops,
+    handle_type,
     sum_output,
     to_torch,
     torch_to_backend,

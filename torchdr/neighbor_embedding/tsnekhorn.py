@@ -4,7 +4,8 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Dict, Optional, Union, Type
+from typing import Dict, Optional, Type, Union
+
 import torch
 
 from torchdr.affinity import (
@@ -111,9 +112,7 @@ class TSNEkhorn(NeighborEmbedding):
         lr: Union[float, str] = "auto",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -202,9 +201,7 @@ class TSNEkhorn(NeighborEmbedding):
         if not hasattr(self, "dual_sinkhorn_"):
             self.dual_sinkhorn_ = None
 
-        log_Q = self.affinity_out(
-            self.embedding_, log=True, init_dual=self.dual_sinkhorn_
-        )
+        log_Q = self.affinity_out(self.embedding_, log=True, init_dual=self.dual_sinkhorn_)
         self.dual_sinkhorn_ = self.affinity_out.dual_.detach()
         P = self.PX_
 

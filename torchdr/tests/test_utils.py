@@ -9,18 +9,18 @@ import torch
 from torch.testing import assert_close
 
 from torchdr.utils import (
-    LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
+    LIST_METRICS_KEOPS,
     binary_search,
     center_kernel,
     check_shape,
     check_similarity,
     check_similarity_torch_keops,
+    faiss,
     false_position,
     handle_keops,
     pairwise_distances,
     pykeops,
-    faiss,
     symmetric_pairwise_distances_indices,
 )
 
@@ -50,9 +50,7 @@ def test_binary_search(dtype):
     begin = 0.5 * torch.ones(2, dtype=torch.float16)
     end = None
 
-    m = binary_search(
-        f, 2, begin=begin, end=end, max_iter=1000, tol=tol, verbose=True, dtype=dtype
-    )
+    m = binary_search(f, 2, begin=begin, end=end, max_iter=1000, tol=tol, verbose=True, dtype=dtype)
     assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
 

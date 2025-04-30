@@ -56,6 +56,13 @@ packages = ["torchdr"]
 [tool.setuptools.dynamic]
 version = {attr = "torchdr.__about__.__version__"}
 
+[tool.ruff]
+target-version = "py37"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
 [project.urls]
 homepage = "https://torchdr.github.io/"
 documentation = "https://torchdr.github.io/"

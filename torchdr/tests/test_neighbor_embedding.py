@@ -92,6 +92,4 @@ def test_array_init(dtype, backend):
         assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
 
     # --- checks that the two inits yield similar results ---
-    assert ((lst_Z[0] - lst_Z[1]) ** 2).mean() < 1e-5, (
-        "The two inits should yield similar results."
-    )
+    assert ((lst_Z[0] - lst_Z[1]) ** 2).mean() < 1e-5, "The two inits should yield similar results."

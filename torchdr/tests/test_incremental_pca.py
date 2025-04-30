@@ -161,9 +161,7 @@ def test_incremental_pca_lowrank():
     ipca = IncrementalPCA(n_components=n_components, batch_size=batch_size)
     ipca.fit(X)
 
-    ipcalr = IncrementalPCA(
-        n_components=n_components, batch_size=batch_size, lowrank=True
-    )
+    ipcalr = IncrementalPCA(n_components=n_components, batch_size=batch_size, lowrank=True)
     ipcalr.fit(X)
 
     assert_close(ipca.components_, ipcalr.components_, rtol=1e-7, atol=1e-7)

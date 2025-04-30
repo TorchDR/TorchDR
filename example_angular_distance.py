@@ -1,7 +1,9 @@
-import torch
-from torchdr.utils.geometry import pairwise_distances
 import time
+
+import torch
 from scipy.spatial.distance import cdist
+
+from torchdr.utils.geometry import pairwise_distances
 
 # Set device to GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

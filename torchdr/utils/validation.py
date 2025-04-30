@@ -111,9 +111,7 @@ def check_similarity(P, P_target, tol=1e-5, msg=None):
     """Check if a torch.Tensor or LazyTensor is close to a target matrix."""
     (n, p) = P.shape
     (also_n, also_p) = P_target.shape
-    assert n == also_n and p == also_p, (
-        "Matrix and target matrix do not have the same shape."
-    )
+    assert n == also_n and p == also_p, "Matrix and target matrix do not have the same shape."
     assert relative_similarity(P, P_target) < tol, (
         msg or "Matrix is not close to the target matrix."
     )
@@ -145,9 +143,7 @@ def check_marginal(P, marg, dim=1, tol=1e-5, log=False):
 
 def check_total_sum(P, total_sum, tol=1e-5):
     """Check if a torch.Tensor or LazyTensor has the correct total sum."""
-    assert ((P.sum(0).sum() - total_sum) / total_sum).abs() < tol, (
-        "Matrix has the wrong total sum."
-    )
+    assert ((P.sum(0).sum() - total_sum) / total_sum).abs() < tol, "Matrix has the wrong total sum."
 
 
 def check_entropy(P, entropy_target, dim=1, tol=1e-5, log=True):

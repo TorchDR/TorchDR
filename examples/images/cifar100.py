@@ -185,7 +185,5 @@ if __name__ == "__main__":
     ).fit_transform(embeddings)
     z = z.cpu().numpy()
 
-    fig, ax = datamapplot.create_plot(
-        z, labels_str, label_over_points=True, label_font_size=30
-    )
+    fig, ax = datamapplot.create_plot(z, labels_str, label_over_points=True, label_font_size=30)
     fig.savefig("datamapplot_cifar100.png", bbox_inches="tight")

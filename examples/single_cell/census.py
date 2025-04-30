@@ -36,9 +36,7 @@ embedding_names = ["scgpt"]
 census = cellxgene_census.open_soma(census_version=CENSUS_VERSION)
 
 
-obs_value_filter = (
-    "tissue_general=='lung' and dataset_id=='53d208b0-2cfd-4366-9866-c3c6114081bc'"
-)
+obs_value_filter = "tissue_general=='lung' and dataset_id=='53d208b0-2cfd-4366-9866-c3c6114081bc'"
 
 adata = cellxgene_census.get_anndata(
     census=census,

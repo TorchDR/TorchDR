@@ -20,10 +20,7 @@ def output_contiguous(func):
     def wrapper(*args, **kwargs):
         output = func(*args, **kwargs)
         if isinstance(output, tuple):
-            output = (
-                out.contiguous() if isinstance(out, torch.Tensor) else out
-                for out in output
-            )
+            output = (out.contiguous() if isinstance(out, torch.Tensor) else out for out in output)
         elif isinstance(output, torch.Tensor):
             output = output.contiguous()
         return output
@@ -61,9 +58,7 @@ def to_torch(x, device="auto", return_backend_device=False):
         if np.iscomplex(x).any():
             raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
 
-        x_ = torch.from_numpy(x.copy()).to(
-            torch.device("cpu") if device == "auto" else device
-        )
+        x_ = torch.from_numpy(x.copy()).to(torch.device("cpu") if device == "auto" else device)
 
     if not x_.dtype.is_floating_point:
         x_ = x_.float()
@@ -109,9 +104,7 @@ def wrap_vectors(func):
         def unsqueeze(arg):
             return keops_unsqueeze(arg) if use_keops else arg.unsqueeze(-1)
 
-        args = [
-            (unsqueeze(arg) if isinstance(arg, torch.Tensor) else arg) for arg in args
-        ]
+        args = [(unsqueeze(arg) if isinstance(arg, torch.Tensor) else arg) for arg in args]
         kwargs = {
             key: (unsqueeze(value) if isinstance(value, torch.Tensor) else value)
             for key, value in kwargs.items()
@@ -143,8 +136,7 @@ def sum_output(func):
             return output.sum(2).sum(1)
         else:
             raise ValueError(
-                "[TorchDR] ERROR : Unsupported input shape for "
-                "sum_all_axis_except_batch function."
+                "[TorchDR] ERROR : Unsupported input shape for sum_all_axis_except_batch function."
             )
 
     return wrapper
@@ -169,9 +161,7 @@ def handle_type(_func=None, *, set_device=True):
         def wrapper(self, X, *args, **kwargs):
             # Use self.device if set_device is True, else leave device unset (None)
             device = self.device if set_device else "auto"
-            X_, input_backend, input_device = to_torch(
-                X, device=device, return_backend_device=True
-            )
+            X_, input_backend, input_device = to_torch(X, device=device, return_backend_device=True)
             output = func(self, X_, *args, **kwargs).detach()
             return torch_to_backend(output, backend=input_backend, device=input_device)
 

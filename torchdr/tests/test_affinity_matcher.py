@@ -1,15 +1,15 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
 from torch.optim import SGD
-from torch.optim.lr_scheduler import StepLR, ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
 
 from torchdr.affinity import (
     Affinity,
+    GaussianAffinity,
+    NormalizedGaussianAffinity,
     ScalarProductAffinity,
     SparseLogAffinity,
-    NormalizedGaussianAffinity,
-    GaussianAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -60,9 +60,7 @@ def test_convergence_reached(capfd):
 
 
 def test_scheduler_not_set_optimizer():
-    model = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
-    )
+    model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity())
     with pytest.raises(ValueError):
         model._set_scheduler()
 
@@ -284,9 +282,7 @@ def test_sparse_affinity_warning():
             return torch.rand(X.shape[0], X.shape[0])
 
     with pytest.warns(UserWarning):
-        AffinityMatcher(
-            affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity()
-        )
+        AffinityMatcher(affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity())
 
     # No warning when using UnnormalizedAffinity
     sparse_affinity = TestSparseAffinity()
@@ -361,8 +357,6 @@ def test_sparse_affinity_with_indices():
 def test_additional_updates():
     # This is a placeholder test for _additional_updates method
     # which currently does nothing in the base class
-    model = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
-    )
+    model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity())
     # Just ensure it doesn't raise an error
     model._additional_updates()

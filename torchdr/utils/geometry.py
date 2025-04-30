@@ -4,12 +4,13 @@
 #
 # License: BSD 3-Clause License
 
-import torch
 import numpy as np
+import torch
 
 from torchdr.utils.utils import identity_matrix, kmin
-from .keops import LazyTensor, pykeops
+
 from .faiss import faiss
+from .keops import LazyTensor, pykeops
 
 LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
@@ -58,9 +59,7 @@ def pairwise_distances(
                 "[TorchDR] ERROR : pykeops is not installed. "
                 "Please install it to use `backend=keops`."
             )
-        C, indices = _pairwise_distances_keops(
-            X, Y, metric, k=k, exclude_self=exclude_self
-        )
+        C, indices = _pairwise_distances_keops(X, Y, metric, k=k, exclude_self=exclude_self)
     elif backend == "faiss" and k is not None:
         if not faiss:
             raise ValueError(
@@ -114,7 +113,7 @@ def _pairwise_distances_torch(
     indices : torch.Tensor or None
         If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
         Otherwise, None.
-    """
+    """  # noqa: E501
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
@@ -148,9 +147,9 @@ def _pairwise_distances_torch(
     elif metric == "angular":
         C = -(X @ Y.transpose(-1, -2))
     elif metric == "hyperbolic":
-        C = (
-            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
-        ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
+        C = (X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))) / (
+            X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2)
+        )
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
@@ -204,7 +203,7 @@ def _pairwise_distances_keops(
     indices : torch.Tensor or None
         If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
         Otherwise, None.
-    """
+    """  # noqa: E501
     # Check metric support.
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
@@ -288,7 +287,7 @@ def _pairwise_distances_faiss(
         For metric=="angular", distances are the (normalized) inner product scores.
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
-    """
+    """  # noqa: E501
     if metric not in LIST_METRICS_FAISS:
         raise ValueError(
             "[TorchDR] Only 'euclidean', 'sqeuclidean', and 'angular' metrics "

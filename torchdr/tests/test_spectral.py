@@ -33,9 +33,7 @@ def test_KernelPCA_sklearn(n_components):
 
     # same results as sklearn for Gaussian kernel
     res_Y = model.transform(Y)
-    model_sk = skKernelPCA(
-        n_components=n_components, kernel="rbf", gamma=1 / sigma
-    ).fit(X)
+    model_sk = skKernelPCA(n_components=n_components, kernel="rbf", gamma=1 / sigma).fit(X)
     X_sk = model_sk.transform(X)
     Y_sk = model_sk.transform(Y)
     np.testing.assert_allclose(X_sk, res_1, rtol=rtol)
@@ -54,10 +52,7 @@ def test_KernelPCA_no_transform():
     model.fit(X)
     model.fit_transform(X)
 
-    match = (
-        "can only be used when `affinity` is an UnnormalizedAffinity or "
-        "UnnormalizedLogAffinity"
-    )
+    match = "can only be used when `affinity` is an UnnormalizedAffinity or UnnormalizedLogAffinity"
     with pytest.raises(ValueError, match=match):
         model.transform(X)  # cannot use transform.
 

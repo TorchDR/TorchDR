@@ -8,6 +8,7 @@
 import os
 import random
 import time
+
 import numpy as np
 import torch
 
@@ -68,9 +69,7 @@ def kmin(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
-        raise ValueError(
-            "[TorchDR] ERROR : the input dim to kmin should be an integer."
-        )
+        raise ValueError("[TorchDR] ERROR : the input dim to kmin should be an integer.")
 
     if k >= A.shape[dim]:
         return A, None
@@ -94,9 +93,7 @@ def kmax(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
-        raise ValueError(
-            "[TorchDR] ERROR : the input dim to kmax should be an integer."
-        )
+        raise ValueError("[TorchDR] ERROR : the input dim to kmax should be an integer.")
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim]).int()
@@ -178,8 +175,7 @@ def sum_red(P, dim):
             return P.sum(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
-                "Should be (0, 1) or 0 or 1."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. Should be (0, 1) or 0 or 1."
             )
 
     else:
@@ -198,9 +194,7 @@ def logsumexp_red(log_P, dim):
     """
     ndim_input = len(log_P.shape)
     if ndim_input != 2:
-        raise ValueError(
-            "[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor."
-        )
+        raise ValueError("[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor.")
 
     if dim is None:
         return 0
@@ -217,8 +211,7 @@ def logsumexp_red(log_P, dim):
             return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
-                "Should be (0, 1) or 0 or 1."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. Should be (0, 1) or 0 or 1."
             )
 
     else:
@@ -289,6 +282,4 @@ def batch_transpose(arg):
     elif isinstance(arg, torch.Tensor):
         return arg.transpose(-2, -1)
     else:
-        raise ValueError(
-            "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
-        )
+        raise ValueError("[TorchDR] ERROR : Unsupported input shape for batch_transpose function.")

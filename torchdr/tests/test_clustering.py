@@ -18,9 +18,7 @@ from torchdr.utils import pykeops
 @pytest.fixture
 def sample_data():
     """Create a simple dataset for clustering."""
-    X = np.array(
-        [[1.0, 2.0], [1.0, 4.0], [1.0, 0.0], [10.0, 2.0], [10.0, 4.0], [10.0, 0.0]]
-    )
+    X = np.array([[1.0, 2.0], [1.0, 4.0], [1.0, 0.0], [10.0, 2.0], [10.0, 4.0], [10.0, 0.0]])
     return X
 
 
@@ -66,9 +64,7 @@ def test_kmeans_sklearn_comparison(sample_data):
     random_state = 42
 
     # Fit TorchKMeans
-    torch_kmeans = TorchKMeans(
-        n_clusters=2, init="k-means++", random_state=random_state
-    )
+    torch_kmeans = TorchKMeans(n_clusters=2, init="k-means++", random_state=random_state)
     torch_kmeans.fit(sample_data)
     torch_labels = torch_kmeans.labels_.numpy()
 
@@ -101,9 +97,7 @@ def test_kmeans_predict(sample_data, dtype):
     assert predictions.shape[0] == X.shape[0]
 
     # Predictions should match labels from fit
-    assert torch.equal(predictions, kmeans.labels_), (
-        "Predictions do not match labels from fit"
-    )
+    assert torch.equal(predictions, kmeans.labels_), "Predictions do not match labels from fit"
 
 
 def test_kmeans_invalid_init():

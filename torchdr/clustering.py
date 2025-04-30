@@ -5,14 +5,13 @@
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch, faiss
-
-from typing import Union, Optional, Any
+from torchdr.utils import faiss, kmin, pairwise_distances, pykeops, to_torch
 
 
 class ClusteringModule(BaseEstimator, ABC):
@@ -45,14 +44,12 @@ class ClusteringModule(BaseEstimator, ABC):
     ):
         if backend == "keops" and not pykeops:
             raise ValueError(
-                "[TorchDR] ERROR: pykeops is not installed. Please install it to use "
-                "`keops=True`."
+                "[TorchDR] ERROR: pykeops is not installed. Please install it to use `keops=True`."
             )
 
         if backend == "faiss" and not faiss:
             raise ValueError(
-                "[TorchDR] ERROR: faiss is not installed. Please install it to use "
-                "`backend=faiss`."
+                "[TorchDR] ERROR: faiss is not installed. Please install it to use `backend=faiss`."
             )
 
         self.n_clusters = n_clusters
@@ -213,18 +210,14 @@ class KMeans(ClusteringModule):
 
         for it in range(self.max_iter):
             # E step: assign points to the closest cluster
-            C, _ = pairwise_distances(
-                X, centroids, metric=self.metric, backend=self.backend
-            )
+            C, _ = pairwise_distances(X, centroids, metric=self.metric, backend=self.backend)
             _, centroid_membership = kmin(C, k=1, dim=1)
             centroid_membership = centroid_membership.view(-1).to(torch.int64)
 
             # M step: update the centroids to the normalized cluster average
             # Compute the sum of points per cluster:
             new_centroids = torch.zeros_like(centroids)
-            new_centroids.scatter_add_(
-                0, centroid_membership[:, None].repeat(1, n_features_in), X
-            )
+            new_centroids.scatter_add_(0, centroid_membership[:, None].repeat(1, n_features_in), X)
             # Divide by the number of points per cluster:
             Ncl = (
                 torch.bincount(centroid_membership, minlength=self.n_clusters)
@@ -244,9 +237,7 @@ class KMeans(ClusteringModule):
         n_samples, n_features = X.shape
 
         if self.init == "random":
-            centroid_indices = np.random.choice(
-                n_samples, size=self.n_clusters, replace=False
-            )
+            centroid_indices = np.random.choice(n_samples, size=self.n_clusters, replace=False)
             centroids = X[centroid_indices].clone()
         elif self.init == "k-means++":
             centroids = self._kmeans_plusplus(X)
@@ -258,18 +249,16 @@ class KMeans(ClusteringModule):
 
     def _kmeans_plusplus(self, X):
         n_samples, n_features = X.shape
-        centers = torch.empty(
-            (self.n_clusters, n_features), device=X.device, dtype=X.dtype
-        )
+        centers = torch.empty((self.n_clusters, n_features), device=X.device, dtype=X.dtype)
 
         # Randomly choose the first centroid
         center_id = np.random.randint(n_samples)
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
-        closest_dist_sq = pairwise_distances(
-            X, centers[0:1], metric=self.metric, backend=None
-        )[0].squeeze()
+        closest_dist_sq = pairwise_distances(X, centers[0:1], metric=self.metric, backend=None)[
+            0
+        ].squeeze()
 
         for c in range(1, self.n_clusters):
             # Choose the next centroid
@@ -283,9 +272,9 @@ class KMeans(ClusteringModule):
             centers[c] = X[center_id]
 
             # Update the closest distances
-            distances = pairwise_distances(
-                X, centers[c : c + 1], metric=self.metric, backend=None
-            )[0].squeeze()
+            distances = pairwise_distances(X, centers[c : c + 1], metric=self.metric, backend=None)[
+                0
+            ].squeeze()
 
             if self.metric == "euclidean":
                 distances = distances**2
@@ -310,8 +299,6 @@ class KMeans(ClusteringModule):
             Cluster labels.
         """
         X = to_torch(X, device=self.device)
-        C, _ = pairwise_distances(
-            X, self.cluster_centers_, metric=self.metric, backend=None
-        )
+        C, _ = pairwise_distances(X, self.cluster_centers_, metric=self.metric, backend=None)
         _, labels = kmin(C, k=1, dim=1)
         return labels.view(-1).to(torch.int64)

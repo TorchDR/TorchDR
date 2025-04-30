@@ -4,13 +4,14 @@
 #
 # License: BSD 3-Clause License
 
-import numpy as np
-from typing import Optional, Dict, Union, Type
+from typing import Dict, Optional, Type, Union
 
+import numpy as np
 import torch
-from torchdr.utils import to_torch
+
 from torchdr.affinity import Affinity
 from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.utils import to_torch
 
 
 class DistR(AffinityMatcher):
@@ -25,9 +26,7 @@ class DistR(AffinityMatcher):
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Optional[Dict] = None,
         lr: float | str = 1e0,
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
@@ -67,17 +66,13 @@ class DistR(AffinityMatcher):
     def _check_affinities(self, affinity_in, affinity_out, kwargs_affinity_out):
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
-            raise ValueError(
-                "[TorchDR] ERROR : affinity_out must be an Affinity instance."
-            )
+            raise ValueError("[TorchDR] ERROR : affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
-            raise ValueError(
-                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
-            )
+            raise ValueError('[TorchDR] affinity_in must be an Affinity instance or "precomputed".')
         self.affinity_in = affinity_in
 
     def _loss(self):
@@ -101,8 +96,7 @@ class DistR(AffinityMatcher):
 
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : init {self.init} not supported in "
-                f"{self.__class__.__name__}."
+                f"[TorchDR] ERROR : init {self.init} not supported in {self.__class__.__name__}."
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()

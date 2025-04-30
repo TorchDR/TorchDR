@@ -49,9 +49,7 @@ def test_silhouette_score_euclidean(dtype, backend, metric):
             assert issubclass(w[-1].category, UserWarning)
 
         assert_close(coeffs, ones)
-        weighted_coeffs = silhouette_samples(
-            Id, y_I, ones / n, metric, DEVICE, backend, False
-        )
+        weighted_coeffs = silhouette_samples(Id, y_I, ones / n, metric, DEVICE, backend, False)
         assert_close(coeffs, weighted_coeffs)
         score = silhouette_score(Id, y_I, None, metric, DEVICE, backend)
         assert_close(coeffs.mean(), score)
@@ -62,9 +60,7 @@ def test_silhouette_score_euclidean(dtype, backend, metric):
         coeffs_2 = silhouette_samples(Id, y_I2, ones / n, metric, None, backend)
         assert_close(coeffs_2, zeros)
 
-        weighted_coeffs_2 = silhouette_samples(
-            Id, y_I2, None, metric, DEVICE, backend, False
-        )
+        weighted_coeffs_2 = silhouette_samples(Id, y_I2, None, metric, DEVICE, backend, False)
         assert_close(coeffs_2, weighted_coeffs_2)
 
         score_2 = silhouette_score(Id, y_I2, None, metric, DEVICE, backend)
@@ -100,16 +96,12 @@ def test_silhouette_score_precomputed(dtype, backend):
     assert_close(coeffs_pre, weighted_coeffs_pre)
     score_pre = silhouette_score(CI, y_I2, None, "precomputed", DEVICE, backend)
     assert_close(coeffs_pre.mean(), score_pre)
-    sampled_score_pre = silhouette_score(
-        CI, y_I2, None, "precomputed", DEVICE, backend, n
-    )
+    sampled_score_pre = silhouette_score(CI, y_I2, None, "precomputed", DEVICE, backend, n)
     assert_close(score_pre, sampled_score_pre)
 
     # catch errors
     with pytest.raises(ValueError):
-        _ = silhouette_samples(
-            CI[:, :-2], y_I2, None, "precomputed", None, backend, True
-        )
+        _ = silhouette_samples(CI[:, :-2], y_I2, None, "precomputed", None, backend, True)
 
     with pytest.raises(ValueError):
         _ = silhouette_score(CI[:, :-2], y_I2, None, "precomputed", None, backend, n)
