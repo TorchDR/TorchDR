@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import numpy as np
+from typing import Optional, Dict, Union, Type
 
 import torch
 from torchdr.utils import to_torch
@@ -21,11 +22,13 @@ class DistR(AffinityMatcher):
         n_components: int = 2,
         loss_fn: str = "square_loss",
         kwargs_loss: dict = {},
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
+        optimizer_kwargs: Optional[Dict] = None,
         lr: float | str = 1e0,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
         init: str | torch.Tensor | np.ndarray = "pca",
