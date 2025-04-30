@@ -40,7 +40,7 @@ class DistR(AffinityMatcher):
         n_prototypes: int = 10,
         init_T: Union[str, torch.Tensor, np.ndarray] = "random",
         n_iter_T: int = 10,
-        epsilon_T: float = 1e-1,
+        epsilon_mirror_descent: float = 1e-1,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -67,7 +67,7 @@ class DistR(AffinityMatcher):
         self.n_prototypes = n_prototypes
         self.init_T = init_T
         self.n_iter_T = n_iter_T
-        self.epsilon_T = epsilon_T
+        self.epsilon_mirror_descent = epsilon_mirror_descent
 
         if self.loss_fn == "square_loss":
             self.Loss = SquareLoss()
@@ -107,15 +107,22 @@ class DistR(AffinityMatcher):
         Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
         Q_detached = Q.detach()  # Detach Q to prevent gradients flowing to the embeddings
 
-        OT_plan = self.OT_plan_
-        OT_plan.requires_grad_()
+        OT_plan = self.OT_plan_.clone()
+        for _ in range(self.n_iter_T):
+            OT_plan.requires_grad_(True)
 
-        for t in range(self.n_iter_T):
             q = OT_plan.sum(dim=0, keepdim=False)
             loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
             loss.backward()
 
-        return super()._loss()
+            # Mirror descent update
+            with torch.no_grad():
+                K = (OT_plan.grad - self.epsilon_mirror_descent * OT_plan).exp()
+                OT_plan = K / K.sum(dim=1, keepdim=True)
+
+        self.OT_plan_ = OT_plan
+        q_converged = self.OT_plan_.sum(dim=0, keepdim=False)
+        return self.Loss(self.PX_, Q, one_N, q_converged, self.OT_plan_)
 
     def _init_embedding(self, X):
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
@@ -153,11 +160,11 @@ class GromovWassersteinDecomposableLoss:
     """
 
     def __call__(self, P, Q, p, q, OT_plan):
-        one_N = torch.ones(p.shape[0], device=p.device)
-        one_n = torch.ones(q.shape[0], device=q.device)
+        one_p = torch.ones(p.shape[0], device=p.device)
+        one_q = torch.ones(q.shape[0], device=q.device)
         L_kronecker_T = (
-            self.f1(P) @ p @ one_n.T
-            + one_N @ q.T @ self.f2(Q).T
+            self.f1(P) @ p @ one_q.T
+            + one_p @ q.T @ self.f2(Q).T
             - self.h1(P) @ OT_plan @ self.h2(Q).T
         )
         return (L_kronecker_T * OT_plan).sum()
