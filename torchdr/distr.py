@@ -38,8 +38,8 @@ class DistR(AffinityMatcher):
         random_state: float = None,
         n_iter_check: int = 50,
         n_prototypes: int = 10,
-        init_T: Union[str, torch.Tensor, np.ndarray] = "random",
-        n_iter_T: int = 10,
+        init_OT_plan: Union[str, torch.Tensor, np.ndarray] = "random",
+        n_iter_mirror_descent: int = 10,
         epsilon_mirror_descent: float = 1e-1,
     ):
         super().__init__(
@@ -65,8 +65,8 @@ class DistR(AffinityMatcher):
             n_iter_check=n_iter_check,
         )
         self.n_prototypes = n_prototypes
-        self.init_T = init_T
-        self.n_iter_T = n_iter_T
+        self.init_OT_plan = init_OT_plan
+        self.n_iter_mirror_descent = n_iter_mirror_descent
         self.epsilon_mirror_descent = epsilon_mirror_descent
 
         if self.loss_fn == "square_loss":
@@ -78,8 +78,20 @@ class DistR(AffinityMatcher):
 
         self._init_T()
 
-    def _init_T(self):
-        pass
+    def _init_OT_plan(self):
+        if isinstance(self.init_OT_plan, (torch.Tensor, np.ndarray)):
+            self.OT_plan_ = to_torch(self.init_OT_plan, device=self.device)
+            if self.OT_plan_.shape != (self.n_samples_in_, self.n_prototypes):
+                raise ValueError(
+                    f"[TorchDR] ERROR : init_OT_plan shape {self.OT_plan_.shape} "
+                    "not compatible with (n_samples_in_, n_prototypes) = "
+                    f"({self.n_samples_in_}, {self.n_prototypes})."
+                )
+        elif self.init_OT_plan == "random":
+            OT_plan = torch.randn((self.n_samples_in_, self.n_prototypes), device=self.device)
+            self.self.OT_plan_ = OT_plan / OT_plan.sum(-1, keepdim=True)
+        else:
+            raise ValueError("[TorchDR] ERROR : init_OT_plan must be 'random' or a torch.Tensor.")
 
     def _check_affinities(self, affinity_in, affinity_out, kwargs_affinity_out):
         # --- check affinity_out ---
@@ -108,7 +120,7 @@ class DistR(AffinityMatcher):
         Q_detached = Q.detach()  # Detach Q to prevent gradients flowing to the embeddings
 
         OT_plan = self.OT_plan_.clone()
-        for _ in range(self.n_iter_T):
+        for _ in range(self.n_iter_mirror_descent):
             OT_plan.requires_grad_(True)
 
             q = OT_plan.sum(dim=0, keepdim=False)
@@ -150,8 +162,7 @@ class DistR(AffinityMatcher):
 
 
 class GromovWassersteinDecomposableLoss:
-    """
-    Base class for implementing decomposable loss functions for Gromov-Wasserstein problems.
+    """Base class for implementing decomposable loss functions for Gromov-Wasserstein problems.
 
     This class follows the decomposition framework for the Gromov-Wasserstein objective
     as described in Peyré et al. (2016): https://proceedings.mlr.press/v48/peyre16.pdf
