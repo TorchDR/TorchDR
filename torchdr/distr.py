@@ -38,6 +38,9 @@ class DistR(AffinityMatcher):
         random_state: float = None,
         n_iter_check: int = 50,
         n_prototypes: int = 10,
+        init_T: Union[str, torch.Tensor, np.ndarray] = "random",
+        n_iter_T: int = 10,
+        epsilon_T: float = 1e-1,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -62,6 +65,21 @@ class DistR(AffinityMatcher):
             n_iter_check=n_iter_check,
         )
         self.n_prototypes = n_prototypes
+        self.init_T = init_T
+        self.n_iter_T = n_iter_T
+        self.epsilon_T = epsilon_T
+
+        if self.loss_fn == "square_loss":
+            self.Loss = SquareLoss()
+        elif self.loss_fn == "kl_loss":
+            self.Loss = KLDivLoss()
+        else:
+            raise ValueError("[TorchDR] ERROR : loss_fn must be 'square_loss' or 'kl_loss'.")
+
+        self._init_T()
+
+    def _init_T(self):
+        pass
 
     def _check_affinities(self, affinity_in, affinity_out, kwargs_affinity_out):
         # --- check affinity_out ---
@@ -84,24 +102,18 @@ class DistR(AffinityMatcher):
             )
 
     def _loss(self):
-        # if (self.loss_fn == "cross_entropy_loss") and isinstance(self.affinity_out, LogAffinity):
-        #     if self.kwargs_affinity_out is None:
-        #         self.kwargs_affinity_out = {}
-        #     self.kwargs_affinity_out.setdefault("log", True)
-        #     if self.kwargs_loss is None:
-        #         self.kwargs_loss = {}
-        #     self.kwargs_loss.setdefault("log", True)
+        one_N = torch.ones(self.n_samples_in_, device=self.device)
 
-        # if getattr(self, "NN_indices_", None) is not None:
-        #     Q = self.affinity_out(
-        #         self.embedding_,
-        #         indices=self.NN_indices_,
-        #         **(self.kwargs_affinity_out or {}),
-        #     )
-        # else:
-        #     Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
-        # loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
-        # return loss
+        Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
+        Q_detached = Q.detach()  # Detach Q to prevent gradients flowing to the embeddings
+
+        OT_plan = self.OT_plan_
+        OT_plan.requires_grad_()
+
+        for t in range(self.n_iter_T):
+            q = OT_plan.sum(dim=0, keepdim=False)
+            loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
+            loss.backward()
 
         return super()._loss()
 
@@ -128,3 +140,64 @@ class DistR(AffinityMatcher):
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()
+
+
+class GromovWassersteinDecomposableLoss:
+    """
+    Base class for implementing decomposable loss functions for Gromov-Wasserstein problems.
+
+    This class follows the decomposition framework for the Gromov-Wasserstein objective
+    as described in Peyré et al. (2016): https://proceedings.mlr.press/v48/peyre16.pdf
+
+    Subclasses must implement the decomposition functions f1, f2, h1, and h2.
+    """
+
+    def __call__(self, P, Q, p, q, OT_plan):
+        one_N = torch.ones(p.shape[0], device=p.device)
+        one_n = torch.ones(q.shape[0], device=q.device)
+        L_kronecker_T = (
+            self.f1(P) @ p @ one_n.T
+            + one_N @ q.T @ self.f2(Q).T
+            - self.h1(P) @ OT_plan @ self.h2(Q).T
+        )
+        return (L_kronecker_T * OT_plan).sum()
+
+    def f1(x):
+        raise NotImplementedError("[TorchDR] ERROR : f1 method is not implemented.")
+
+    def f2(x):
+        raise NotImplementedError("[TorchDR] ERROR : f2 method is not implemented.")
+
+    def h1(x):
+        raise NotImplementedError("[TorchDR] ERROR : h1 method is not implemented.")
+
+    def h2(x):
+        raise NotImplementedError("[TorchDR] ERROR : h2 method is not implemented.")
+
+
+class SquareLoss(GromovWassersteinDecomposableLoss):
+    def f1(X):
+        return X**2
+
+    def f2(X):
+        return X**2
+
+    def h1(X):
+        return X
+
+    def h2(X):
+        return 2 * X
+
+
+class KLDivLoss(GromovWassersteinDecomposableLoss):
+    def f1(X):
+        return X * X.log() - X
+
+    def f2(X):
+        return X
+
+    def h1(X):
+        return X
+
+    def h2(X):
+        return X.log()
