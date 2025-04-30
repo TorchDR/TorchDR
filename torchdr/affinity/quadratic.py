@@ -5,12 +5,13 @@
 # License: BSD 3-Clause License
 
 import warnings
+from typing import Optional
 
 import torch
 from tqdm import tqdm
 
 from torchdr.affinity import Affinity
-from torchdr.utils import OPTIMIZERS, batch_transpose, check_NaNs, wrap_vectors
+from torchdr.utils import batch_transpose, check_NaNs, wrap_vectors
 
 
 @wrap_vectors
@@ -82,8 +83,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the algorithm.
-    optimizer : {"Adam", "SGD", "NAdam"}, optional
-        Optimizer to use for the dual ascent.
+    optimizer : str, optional
+        Optimizer to use for the dual ascent (default 'Adam').
     lr : float, optional
         Learning rate for the optimizer.
     base_kernel : {"gaussian", "student"}, optional
@@ -104,7 +105,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
     def __init__(
         self,
         eps: float = 1.0,
-        init_dual: torch.Tensor = None,
+        init_dual: Optional[torch.Tensor] = None,
         tol: float = 1e-5,
         max_iter: int = 1000,
         optimizer: str = "Adam",
@@ -113,7 +114,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -164,7 +165,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             else self.init_dual
         )
 
-        optimizer = OPTIMIZERS[self.optimizer]([self.dual_], lr=self.lr)
+        optimizer_class = getattr(torch.optim, self.optimizer)
+        optimizer = optimizer_class([self.dual_], lr=self.lr)
 
         # Dual ascent iterations
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)

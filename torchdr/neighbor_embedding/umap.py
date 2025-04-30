@@ -4,6 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Optional, Union, Type
+import torch
+
 from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_output
@@ -33,21 +36,24 @@ class UMAP(SampledNeighborEmbedding):
     min_dist : float, optional
         Minimum distance between points in the embedding space.
     spread : float, optional
-        Initial spread of the embedding space.
+        The effective scale of the embedded points. Used to configure the UMAPAffinityOut.
     a : float, optional
         Parameter for the Student t-distribution.
     b : float, optional
         Parameter for the Student t-distribution.
     lr : float, optional
         Learning rate for the algorithm, by default 1e-1.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'SGD'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
-    scheduler : {'constant', 'linear'}, optional
-        Learning rate scheduler.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
-        Arguments for the scheduler, by default None.
+        Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -90,21 +96,23 @@ class UMAP(SampledNeighborEmbedding):
         n_components: int = 2,
         min_dist: float = 0.1,
         spread: float = 1.0,
-        a: float = None,
-        b: float = None,
+        a: Optional[float] = None,
+        b: Optional[float] = None,
         lr: float = 1e-1,
-        optimizer: str = "SGD",
-        optimizer_kwargs: dict = None,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: int = 0,
         tol_affinity: float = 1e-3,

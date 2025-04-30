@@ -8,14 +8,8 @@
 import torch
 from tqdm import tqdm
 
-DTYPE = torch.double
+DTYPE = torch.float32
 DEVICE = "cpu"
-
-OPTIMIZERS = {
-    "SGD": torch.optim.SGD,
-    "Adam": torch.optim.Adam,
-    "NAdam": torch.optim.NAdam,
-}
 
 
 def binary_search(

@@ -5,7 +5,8 @@
 # License: BSD 3-Clause License
 
 import warnings
-
+import numpy as np
+from typing import Any, Dict, Union, Optional, Type
 import torch
 
 from torchdr.affinity import (
@@ -15,7 +16,7 @@ from torchdr.affinity import (
     UnnormalizedLogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import OPTIMIZERS, cross_entropy_loss
+from torchdr.utils import cross_entropy_loss
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -48,19 +49,22 @@ class NeighborEmbedding(AffinityMatcher):
         Number of dimensions for the embedding. Default is 2.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or 'auto', optional
-        Optimizer to use for the optimization. Default is "Adam".
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer.
-    scheduler : str, optional
-        Learning rate scheduler. Default is "constant".
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
-    init : str, optional
+    init : str or torch.Tensor or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
@@ -78,30 +82,34 @@ class NeighborEmbedding(AffinityMatcher):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    learning_rate : float, optional
+        Alias for lr parameter for sklearn API compatibility.
     """  # noqa: E501
 
     def __init__(
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
-        lr: float | str = 1e0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict | str = None,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        lr: Union[float, str] = 1e0,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        init: str = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
-        **kwargs,
+        early_exaggeration_iter: Optional[int] = None,
+        **kwargs: Any,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -134,9 +142,10 @@ class NeighborEmbedding(AffinityMatcher):
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
-    def _additional_updates(self, step):
+    def _additional_updates(self):
         if (  # stop early exaggeration phase
-            self.early_exaggeration_coeff_ > 1 and step == self.early_exaggeration_iter
+            self.early_exaggeration_coeff_ > 1
+            and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
             # reinitialize optim
@@ -178,7 +187,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _set_learning_rate(self):
         if self.lr == "auto":
-            if self.optimizer not in ["auto", "SGD"]:
+            if self.optimizer != "SGD":
                 if self.verbose:
                     warnings.warn(
                         "[TorchDR] WARNING : when 'auto' is used for the learning "
@@ -190,22 +199,34 @@ class NeighborEmbedding(AffinityMatcher):
             self.lr_ = self.lr
 
     def _set_optimizer(self):
-        optimizer = "SGD" if self.optimizer == "auto" else self.optimizer
-        # from the sklearn TSNE implementation
-        if self.optimizer_kwargs == "auto":
-            if self.optimizer == "SGD":
-                if self.early_exaggeration_coeff_ > 1:
-                    optimizer_kwargs = {"momentum": 0.5}
-                else:
-                    optimizer_kwargs = {"momentum": 0.8}
-            else:
-                optimizer_kwargs = {}
+        # Special case for 'auto' - convert to 'SGD'
+        if isinstance(self.optimizer, str):
+            # Get optimizer directly from torch.optim
+            try:
+                optimizer_class = getattr(torch.optim, self.optimizer)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                )
         else:
-            optimizer_kwargs = self.optimizer_kwargs
+            if not issubclass(self.optimizer, torch.optim.Optimizer):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
+                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                )
+            # Assume it's already an optimizer class
+            optimizer_class = self.optimizer
 
-        self.optimizer_ = OPTIMIZERS[optimizer](
-            self.params_, lr=self.lr_, **(optimizer_kwargs or {})
-        )
+        # Handle 'auto' for optimizer_kwargs
+        if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
+            if self.early_exaggeration_coeff_ > 1:
+                optimizer_kwargs = {"momentum": 0.5}
+            else:
+                optimizer_kwargs = {"momentum": 0.8}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs or {}
+
+        self.optimizer_ = optimizer_class(self.params_, lr=self.lr_, **optimizer_kwargs)
         return self.optimizer_
 
     def _set_scheduler(self):
@@ -244,19 +265,22 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Number of dimensions for the embedding. Default is 2.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or 'auto', optional
-        Optimizer to use for the optimization. Default is "Adam".
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer.
-    scheduler : str, optional
-        Learning rate scheduler. Default is "constant".
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 2000.
-    init : str, optional
+    init : str or torch.Tensor or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
@@ -280,23 +304,25 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
-        lr: float | str = 1e0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict | str = None,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        lr: Union[float, str] = 1e0,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        init: str = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
+        early_exaggeration_iter: Optional[int] = None,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -317,9 +343,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             affinity_out=affinity_out,
             kwargs_affinity_out=kwargs_affinity_out,
             n_components=n_components,
+            lr=lr,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
-            lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
             min_grad_norm=min_grad_norm,
@@ -393,12 +419,15 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Number of dimensions for the embedding. Default is 2.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or 'auto', optional
-        Optimizer to use for the optimization. Default is "Adam".
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer.
-    scheduler : str, optional
-        Learning rate scheduler. Default is "constant".
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
@@ -431,23 +460,25 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float | str = 1e0,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict | str = None,
+        lr: Union[float, str] = 1e0,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = None,
+        early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
     ):
         self.n_negatives = n_negatives
@@ -457,9 +488,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             affinity_out=affinity_out,
             kwargs_affinity_out=kwargs_affinity_out,
             n_components=n_components,
+            lr=lr,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
-            lr=lr,
             scheduler=scheduler,
             scheduler_kwargs=scheduler_kwargs,
             min_grad_norm=min_grad_norm,

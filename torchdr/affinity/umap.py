@@ -6,6 +6,7 @@
 
 import math
 import warnings
+from typing import Union, Any, Optional
 
 import numpy as np
 import torch
@@ -13,8 +14,6 @@ from scipy.optimize import curve_fit
 
 from torchdr.affinity.base import SparseLogAffinity, UnnormalizedLogAffinity
 from torchdr.utils import false_position, kmin, wrap_vectors
-
-from ..utils import LazyTensorType
 
 
 @wrap_vectors
@@ -108,7 +107,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -124,7 +123,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             sparsity=sparsity,
         )
 
-    def _compute_sparse_log_affinity(self, X: torch.Tensor | np.ndarray):
+    def _compute_sparse_log_affinity(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Compute the input affinity matrix of UMAP from input data X.
 
         Parameters
@@ -218,12 +217,12 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
         self,
         min_dist: float = 0.1,
         spread: float = 1,
-        a: float = None,
-        b: float = None,
+        a: Optional[float] = None,
+        b: Optional[float] = None,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -243,5 +242,5 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
             self._a = a
             self._b = b
 
-    def _log_affinity_formula(self, C: torch.Tensor | LazyTensorType):
+    def _log_affinity_formula(self, C: Union[torch.Tensor, Any]):
         return -(1 + self._a * C**self._b).log()

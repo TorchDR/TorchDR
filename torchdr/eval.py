@@ -13,16 +13,18 @@ import torch
 
 from torchdr.utils import pairwise_distances, prod_matrix_vector, to_torch
 
+from typing import Union, Optional
+
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
 
 
 def silhouette_samples(
-    X: torch.Tensor | np.ndarray,
-    labels: torch.Tensor | np.ndarray,
-    weights: torch.Tensor | np.ndarray = None,
+    X: Union[torch.Tensor, np.ndarray],
+    labels: Union[torch.Tensor, np.ndarray],
+    weights: Optional[Union[torch.Tensor, np.ndarray]] = None,
     metric: str = "euclidean",
-    device: str = None,
-    backend: str = None,
+    device: Optional[str] = None,
+    backend: Optional[str] = None,
     warn: bool = True,
 ):
     r"""Compute the silhouette coefficients for each data sample.
@@ -163,14 +165,14 @@ def silhouette_samples(
 
 
 def silhouette_score(
-    X: torch.Tensor | np.ndarray,
-    labels: torch.Tensor | np.ndarray,
-    weights: torch.Tensor | np.ndarray = None,
+    X: Union[torch.Tensor, np.ndarray],
+    labels: Union[torch.Tensor, np.ndarray],
+    weights: Optional[Union[torch.Tensor, np.ndarray]] = None,
     metric: str = "euclidean",
-    device: str = None,
-    backend: str = None,
-    sample_size: int = None,
-    random_state: int = None,
+    device: Optional[str] = None,
+    backend: Optional[str] = None,
+    sample_size: Optional[int] = None,
+    random_state: Optional[int] = None,
     warn: bool = True,
 ):
     r"""Compute the Silhouette score as the mean of silhouette coefficients.

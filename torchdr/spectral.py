@@ -28,6 +28,8 @@ from torchdr.utils import (
     to_torch,
 )
 
+from typing import Union
+
 
 class PCA(DRModule):
     r"""Principal Component Analysis module.
@@ -65,7 +67,7 @@ class PCA(DRModule):
         )
         self.svd_driver = svd_driver
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def fit(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the PCA model.
 
         Parameters
@@ -89,7 +91,7 @@ class PCA(DRModule):
         return self
 
     @handle_type
-    def transform(self, X: torch.Tensor | np.ndarray):
+    def transform(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Project the input data onto the PCA components.
 
         Parameters
@@ -104,7 +106,7 @@ class PCA(DRModule):
         """
         return (X - self.mean_) @ self.components_.T
 
-    def fit_transform(self, X: torch.Tensor | np.ndarray):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the PCA model and project the input data onto the components.
 
         Parameters
@@ -172,7 +174,7 @@ class KernelPCA(DRModule):
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )
 
-    def fit(self, X: torch.Tensor | np.ndarray):
+    def fit(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the KernelPCA model.
 
         Parameters
@@ -214,7 +216,7 @@ class KernelPCA(DRModule):
         return self
 
     @handle_type
-    def transform(self, X: torch.Tensor | np.ndarray):
+    def transform(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Project the input data onto the KernelPCA components.
 
         Parameters
@@ -254,7 +256,7 @@ class KernelPCA(DRModule):
             result[:, zero_eigvals] = 0
         return result
 
-    def fit_transform(self, X: torch.Tensor | np.ndarray):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the KernelPCA model and project the input data onto the components.
 
         Parameters
@@ -431,7 +433,7 @@ class IncrementalPCA(DRModule):
 
         return updated_mean, updated_variance, updated_sample_count
 
-    def fit(self, X: torch.Tensor | np.ndarray, check_input: bool = True):
+    def fit(self, X: Union[torch.Tensor, np.ndarray], check_input: bool = True):
         """Fit the model with data `X` using minibatches of size `batch_size`.
 
         Parameters
@@ -537,7 +539,7 @@ class IncrementalPCA(DRModule):
         return self
 
     @handle_type
-    def transform(self, X: torch.Tensor | np.ndarray):
+    def transform(self, X: Union[torch.Tensor, np.ndarray]):
         """Apply dimensionality reduction to `X`.
 
         The input data `X` is projected on the first principal components
@@ -556,7 +558,7 @@ class IncrementalPCA(DRModule):
         X = X - self.mean_
         return X @ self.components_.T
 
-    def fit_transform(self, X: torch.Tensor | np.ndarray):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the model with data `X` and apply the dimensionality reduction.
 
         Parameters

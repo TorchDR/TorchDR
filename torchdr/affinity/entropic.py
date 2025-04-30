@@ -9,15 +9,14 @@
 import contextlib
 import math
 import warnings
-from typing import Tuple
 
 import numpy as np
 import torch
 from tqdm import tqdm
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
+from typing import Union, Tuple, Optional
 from torchdr.utils import (
-    OPTIMIZERS,
     batch_transpose,
     check_NaNs,
     entropy,
@@ -256,7 +255,7 @@ class EntropicAffinity(SparseLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         self.perplexity = perplexity
@@ -393,7 +392,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         Precision threshold at which the algorithm stops, by default 1e-5.
     max_iter : int, optional
         Number of maximum iterations for the algorithm, by default 500.
-    optimizer : {'SGD', 'Adam', 'NAdam', 'LBFGS}, optional
+    optimizer : str , optional
         Which pytorch optimizer to use (default 'Adam').
     metric : str, optional
         Metric to use for computing distances, by default "sqeuclidean".
@@ -419,7 +418,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
@@ -509,8 +508,9 @@ class SymmetricEntropicAffinity(LogAffinity):
                 C, self.eps_, self.mu_, eps_square=self.eps_square
             )
 
-        else:  # other optimizers including SGD and Adam
-            optimizer = OPTIMIZERS[self.optimizer]([self.eps_, self.mu_], lr=self.lr)
+        else:
+            optimizer_class = getattr(torch.optim, self.optimizer)
+            optimizer = optimizer_class([self.eps_, self.mu_], lr=self.lr)
 
             pbar = tqdm(range(self.max_iter), disable=not self.verbose)
             for k in pbar:
@@ -652,7 +652,7 @@ class SinkhornAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
         with_grad: bool = False,
     ):
@@ -669,7 +669,9 @@ class SinkhornAffinity(LogAffinity):
         self.base_kernel = base_kernel
         self.with_grad = with_grad
 
-    def _compute_log_affinity(self, X: torch.Tensor, init_dual: torch.Tensor = None):
+    def _compute_log_affinity(
+        self, X: torch.Tensor, init_dual: Optional[torch.Tensor] = None
+    ):
         r"""Compute the entropic doubly stochastic affinity matrix.
 
         Parameters
@@ -771,9 +773,9 @@ class NormalizedGaussianAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        normalization_dim: int | Tuple[int] = (0, 1),
+        normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
     ):
         super().__init__(
             metric=metric,
@@ -853,9 +855,9 @@ class NormalizedStudentAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        normalization_dim: int | Tuple[int] = (0, 1),
+        normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
     ):
         super().__init__(
             metric=metric,

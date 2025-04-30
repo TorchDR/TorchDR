@@ -20,7 +20,6 @@ from torchdr.affinity import (
 from torchdr.base import DRModule
 from torchdr.spectral import PCA
 from torchdr.utils import (
-    OPTIMIZERS,
     check_NaNs,
     check_nonnegativity,
     cross_entropy_loss,
@@ -28,6 +27,8 @@ from torchdr.utils import (
     square_loss,
     to_torch,
 )
+from typing import Union, Dict, Optional, Any, Type
+
 
 LOSS_DICT = {
     "square_loss": square_loss,
@@ -60,14 +61,20 @@ class AffinityMatcher(DRModule):
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
-    optimizer : str, optional
-        Optimizer to use for the optimization. Default is "Adam".
+    loss_fn : str, optional
+        Loss function to use for the optimization. Default is "square_loss".
+    kwargs_loss : dict, optional
+        Additional keyword arguments for the loss function.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
     lr : float or 'auto', optional
         Learning rate for the optimizer. Default is 1e0.
-    scheduler : str, optional
-        Learning rate scheduler. Default is "constant".
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
@@ -95,23 +102,25 @@ class AffinityMatcher(DRModule):
         self,
         affinity_in: Affinity,
         affinity_out: Affinity,
-        kwargs_affinity_out: dict = {},
+        kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         loss_fn: str = "square_loss",
-        kwargs_loss: dict = {},
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        lr: float | str = 1e0,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        kwargs_loss: Optional[Dict] = None,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
+        optimizer_kwargs: Optional[Dict] = None,
+        lr: float = 1e0,
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
-        init: str | torch.Tensor | np.ndarray = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         n_iter_check: int = 50,
     ):
         super().__init__(
@@ -121,9 +130,6 @@ class AffinityMatcher(DRModule):
             verbose=verbose,
             random_state=random_state,
         )
-
-        if optimizer not in OPTIMIZERS and optimizer != "auto":
-            raise ValueError(f"[TorchDR] ERROR : Optimizer {optimizer} not supported.")
 
         self.optimizer = optimizer
         self.optimizer_kwargs = optimizer_kwargs
@@ -172,7 +178,9 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
 
     @handle_type
-    def fit_transform(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit_transform(
+        self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None
+    ):
         """Fit the model to the provided data and returns the transformed data.
 
         Parameters
@@ -191,7 +199,7 @@ class AffinityMatcher(DRModule):
         self._fit(X)
         return self.embedding_
 
-    def fit(self, X: torch.Tensor | np.ndarray, y=None):
+    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the model to the provided data.
 
         Parameters
@@ -236,29 +244,32 @@ class AffinityMatcher(DRModule):
         self._set_scheduler()
 
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for k in pbar:
+        for step in pbar:
+            self.n_iter_ = step
+
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
 
-            check_convergence = k % self.n_iter_check == 0
+            check_convergence = self.n_iter_ % self.n_iter_check == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         print(
-                            f"[TorchDR] Convergence reached at iter {k} with grad norm: "
+                            f"[TorchDR] Convergence reached at iter {self.n_iter_} with grad norm: "
                             f"{grad_norm:.2e}."
                         )
                     break
 
             self.optimizer_.step()
-            self.scheduler_.step()
+            if self.scheduler_ is not None:
+                self.scheduler_.step()
 
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
-                f"at iter {k}.",
+                f"at iter {step}.",
             )
 
             if self.verbose:
@@ -267,9 +278,7 @@ class AffinityMatcher(DRModule):
                     f"Grad norm : {grad_norm:.2e} "
                 )
 
-            self._additional_updates(k)
-
-        self.n_iter_ = k
+            self._additional_updates()
 
         return self
 
@@ -277,19 +286,25 @@ class AffinityMatcher(DRModule):
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
+            if self.kwargs_affinity_out is None:
+                self.kwargs_affinity_out = {}
             self.kwargs_affinity_out.setdefault("log", True)
+            if self.kwargs_loss is None:
+                self.kwargs_loss = {}
             self.kwargs_loss.setdefault("log", True)
 
         if getattr(self, "NN_indices_", None) is not None:
             Q = self.affinity_out(
-                self.embedding_, indices=self.NN_indices_, **self.kwargs_affinity_out
+                self.embedding_,
+                indices=self.NN_indices_,
+                **(self.kwargs_affinity_out or {}),
             )
         else:
-            Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
+            Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
+        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
         return loss
 
-    def _additional_updates(self, step):
+    def _additional_updates(self):
         pass
 
     def _set_params(self):
@@ -297,7 +312,23 @@ class AffinityMatcher(DRModule):
         return self.params_
 
     def _set_optimizer(self):
-        self.optimizer_ = OPTIMIZERS[self.optimizer](
+        if isinstance(self.optimizer, str):
+            # Try to get the optimizer from torch.optim
+            try:
+                optimizer_class = getattr(torch.optim, self.optimizer)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                )
+        else:
+            if not issubclass(self.optimizer, torch.optim.Optimizer):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
+                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                )
+            optimizer_class = self.optimizer
+
+        self.optimizer_ = optimizer_class(
             self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
@@ -313,7 +344,7 @@ class AffinityMatcher(DRModule):
         else:
             self.lr_ = self.lr
 
-    def _set_scheduler(self, n_iter=None):
+    def _set_scheduler(self, n_iter: Optional[int] = None):
         n_iter = n_iter or self.max_iter
 
         if not hasattr(self, "optimizer_"):
@@ -322,29 +353,30 @@ class AffinityMatcher(DRModule):
                 "Please call _set_optimizer before _set_scheduler."
             )
 
-        if self.scheduler == "constant":
-            self.scheduler_ = torch.optim.lr_scheduler.ConstantLR(
-                self.optimizer_, factor=1, total_iters=0
-            )
+        # If scheduler is None, don't create a scheduler
+        if self.scheduler is None:
+            self.scheduler_ = None
+            return self.scheduler_
 
-        elif self.scheduler == "linear":
+        scheduler_kwargs = self.scheduler_kwargs or {}
 
-            def linear_decay(epoch):
-                return 1 - epoch / n_iter
-
-            self.scheduler_ = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer_, lr_lambda=linear_decay
-            )
-
-        elif self.scheduler == "cosine":
-            self.scheduler_ = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer_, T_max=n_iter
-            )
-
+        if isinstance(self.scheduler, str):
+            # Try to get the scheduler from torch.optim.lr_scheduler
+            try:
+                scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler)
+                self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
+                )
         else:
-            raise ValueError(
-                f"[TorchDR] ERROR : scheduler {self.scheduler} not supported."
-            )
+            # Check if the scheduler is a subclass of LRScheduler
+            if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
+                raise ValueError(
+                    "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
+                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler"
+                )
+            self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 
         return self.scheduler_
 

@@ -4,6 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Optional, Union, Type
+import torch
+
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_output
@@ -34,14 +37,17 @@ class LargeVis(SampledNeighborEmbedding):
         Dimension of the embedding space.
     lr : float or 'auto', optional
         Learning rate for the algorithm, by default 'auto'.
-    optimizer : {'SGD', 'Adam', 'NAdam', 'auto}, optional
-        Which pytorch optimizer to use, by default 'auto'.
-    optimizer_kwargs : dict or 'auto, optional
-        Arguments for the optimizer, by default 'auto'.
-    scheduler : {'constant', 'linear'}, optional
-        Learning rate scheduler.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
-        Arguments for the scheduler, by default None.
+        Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -82,21 +88,23 @@ class LargeVis(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float | str = "auto",
-        optimizer: str = "auto",
-        optimizer_kwargs: dict | str = "auto",
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        lr: Union[float, str] = "auto",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 3000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: int = 250,
+        early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",

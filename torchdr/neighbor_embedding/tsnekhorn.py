@@ -4,6 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Dict, Optional, Union, Type
+import torch
+
 from torchdr.affinity import (
     EntropicAffinity,
     SinkhornAffinity,
@@ -44,16 +47,19 @@ class TSNEkhorn(NeighborEmbedding):
         Different values can result in significantly different results.
     n_components : int, optional
         Dimension of the embedding space.
-    lr : float, optional
-        Learning rate for the algorithm, by default 1e0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
-    optimizer_kwargs : dict, optional
-        Arguments for the optimizer, by default None.
-    scheduler : {'constant', 'linear'}, optional
-        Learning rate scheduler.
+    lr : float or 'auto', optional
+        Learning rate for the algorithm. By default 'auto'.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "SGD".
+    optimizer_kwargs : dict or 'auto', optional
+        Additional keyword arguments for the optimizer. Default is 'auto',
+        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
     scheduler_kwargs : dict, optional
-        Arguments for the scheduler, by default None.
+        Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -82,7 +88,7 @@ class TSNEkhorn(NeighborEmbedding):
     eps_square_affinity_in : bool, optional
         When computing the symmetric entropic affinity, whether to optimize
         on the square of the dual variables. May be more stable in practice.
-    tol_affinity_in : _type_, optional
+    tol_affinity_in : float, optional
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.
@@ -102,21 +108,23 @@ class TSNEkhorn(NeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: float = 1.0,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = None,
-        scheduler: str = "constant",
-        scheduler_kwargs: dict = None,
+        lr: Union[float, str] = "auto",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer_kwargs: Union[Dict, str] = "auto",
+        scheduler: Optional[
+            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
+        ] = None,
+        scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-4,
         max_iter: int = 2000,
-        device: str = None,
-        backend: str = None,
+        device: Optional[str] = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 10.0,
-        early_exaggeration_iter: int = 250,
+        early_exaggeration_iter: Optional[int] = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
