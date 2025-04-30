@@ -15,6 +15,80 @@ from torchdr.utils import create_sparse_tensor_from_row_indices, to_torch
 
 
 class DistR(AffinityMatcher):
+    r"""Distributional Reduction (DistR) for DR with OT :cite:`van2024distributional`.
+
+    DistR constructs low dimensional prototypes that represent the data by minimizing the
+    Gromov-Wasserstein Optimal Transport (OT) distance between the input data points and
+    the prototypes. The obtained OT plan is used to associate each data point to a prototype.
+
+    The model solves a problem of the form:
+
+    .. math::
+        \min_{\mathbf{Z}, \mathbf{T}} \: \mathcal{GW}(\mathbf{P}, \mathbf{Q}, \mathbf{T})
+
+    where :math:`\mathcal{GW}` is a Gromov-Wasserstein loss function, :math:`\mathbf{P}` is the
+    input affinity matrix, :math:`\mathbf{Q}` is the affinity matrix of the prototype embeddings,
+    and :math:`\mathbf{T}` is the optimal transport plan between the data points and prototypes.
+
+    The optimization alternates between updating the transport plan via mirror descent and
+    updating the prototype embeddings via gradient descent.
+
+    Parameters
+    ----------
+    affinity_in : Affinity
+        The affinity object for the input space.
+    affinity_out : Affinity
+        The affinity object for the output embedding space.
+    kwargs_affinity_out : dict, optional
+        Additional keyword arguments for the affinity_out method.
+    n_components : int, optional
+        Number of dimensions for the embedding. Default is 2.
+    loss_fn : str, optional
+        Loss function to use for the optimization. Must be 'square_loss' or 'kl_loss'.
+        Default is "square_loss".
+    kwargs_loss : dict, optional
+        Additional keyword arguments for the loss function.
+    optimizer : str or torch.optim.Optimizer, optional
+        Name of an optimizer from torch.optim or an optimizer class.
+        Default is "Adam".
+    optimizer_kwargs : dict, optional
+        Additional keyword arguments for the optimizer.
+    lr : float or 'auto', optional
+        Learning rate for the optimizer. Default is 1e0.
+    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
+        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Default is None (no scheduler).
+    scheduler_kwargs : dict, optional
+        Additional keyword arguments for the scheduler.
+    min_grad_norm : float, optional
+        Tolerance for stopping criterion. Default is 1e-7.
+    max_iter : int, optional
+        Maximum number of iterations. Default is 1000.
+    init : str | torch.Tensor | np.ndarray, optional
+        Initialization method for the prototype embeddings. Default is "pca".
+    init_scaling : float, optional
+        Scaling factor for the initial embedding. Default is 1e-4.
+    device : str, optional
+        Device to use for computations. Default is "auto".
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    verbose : bool, optional
+        Verbosity of the optimization process. Default is False.
+    random_state : float, optional
+        Random seed for reproducibility. Default is None.
+    n_iter_check : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
+    n_prototypes : int, optional
+        Number of prototypes to use for representing the data. Default is 10.
+    init_OT_plan : str | torch.Tensor | np.ndarray, optional
+        Initialization method for the transport plan. Default is "random".
+    n_iter_mirror_descent : int, optional
+        Number of mirror descent iterations for updating the transport plan. Default is 10.
+    epsilon_mirror_descent : float, optional
+        Regularization parameter for mirror descent. Default is 1e-1.
+    """
+
     def __init__(
         self,
         affinity_in: Affinity,
