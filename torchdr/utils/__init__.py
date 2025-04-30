@@ -16,6 +16,7 @@ from .optim import binary_search, false_position
 from .utils import (
     batch_transpose,
     center_kernel,
+    create_sparse_tensor_from_row_indices,
     cross_entropy_loss,
     entropy,
     kmax,
@@ -97,4 +98,5 @@ __all__ = [
     "batch_transpose",
     "handle_keops",
     "faiss",
+    "create_sparse_tensor_from_row_indices",
 ]

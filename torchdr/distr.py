@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity import Affinity
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import to_torch
+from torchdr.utils import create_sparse_tensor_from_row_indices, to_torch
 
 
 class DistR(AffinityMatcher):
@@ -75,7 +75,34 @@ class DistR(AffinityMatcher):
             raise ValueError('[TorchDR] affinity_in must be an Affinity instance or "precomputed".')
         self.affinity_in = affinity_in
 
+    def _set_input_affinity(self, X: torch.Tensor):
+        super()._set_input_affinity(X)
+        # If sparsity is used, convert the affinity to a sparse tensor
+        if hasattr(self, "NN_indices_"):
+            self.PX_ = create_sparse_tensor_from_row_indices(
+                self.PX_, self.NN_indices_, (self.n_samples_in_, self.n_samples_in_)
+            )
+
     def _loss(self):
+        # if (self.loss_fn == "cross_entropy_loss") and isinstance(self.affinity_out, LogAffinity):
+        #     if self.kwargs_affinity_out is None:
+        #         self.kwargs_affinity_out = {}
+        #     self.kwargs_affinity_out.setdefault("log", True)
+        #     if self.kwargs_loss is None:
+        #         self.kwargs_loss = {}
+        #     self.kwargs_loss.setdefault("log", True)
+
+        # if getattr(self, "NN_indices_", None) is not None:
+        #     Q = self.affinity_out(
+        #         self.embedding_,
+        #         indices=self.NN_indices_,
+        #         **(self.kwargs_affinity_out or {}),
+        #     )
+        # else:
+        #     Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
+        # loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
+        # return loss
+
         return super()._loss()
 
     def _init_embedding(self, X):

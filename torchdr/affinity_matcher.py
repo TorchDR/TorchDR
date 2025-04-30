@@ -207,10 +207,7 @@ class AffinityMatcher(DRModule):
         self.fit_transform(X)
         return self
 
-    def _fit(self, X: torch.Tensor):
-        self.n_samples_in_, self.n_features_in_ = X.shape
-
-        # --- check if affinity_in is precomputed else compute it ---
+    def _set_input_affinity(self, X: torch.Tensor):
         if self.affinity_in == "precomputed":
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
@@ -226,6 +223,10 @@ class AffinityMatcher(DRModule):
             else:
                 self.PX_ = self.affinity_in(X)
 
+    def _fit(self, X: torch.Tensor):
+        self.n_samples_in_, self.n_features_in_ = X.shape
+
+        self._set_input_affinity(X)
         self._init_embedding(X)
         self._set_params()
         self._set_learning_rate()
