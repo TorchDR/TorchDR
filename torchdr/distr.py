@@ -27,8 +27,9 @@ class DistR(AffinityMatcher):
         \min_{\mathbf{Z}, \mathbf{T}} \: \mathcal{GW}(\mathbf{P}, \mathbf{Q}, \mathbf{T})
 
     where :math:`\mathcal{GW}` is a Gromov-Wasserstein loss function, :math:`\mathbf{P}` is the
-    input affinity matrix, :math:`\mathbf{Q}` is the affinity matrix of the prototype embeddings,
-    and :math:`\mathbf{T}` is the optimal transport plan between the data points and prototypes.
+    input affinity matrix, :math:`\mathbf{Q}` is the affinity matrix of the prototype embeddings
+    :math:`\mathbf{Z}`, and :math:`\mathbf{T}` is the optimal transport plan between the data
+    and the prototypes.
 
     The optimization alternates between updating the transport plan via mirror descent and
     updating the prototype embeddings via gradient descent.
@@ -99,12 +100,12 @@ class DistR(AffinityMatcher):
         kwargs_loss: dict = {},
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Optional[Dict] = None,
-        lr: float | str = 1e0,
+        lr: Union[float, str] = 1e0,
         scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
-        init: str | torch.Tensor | np.ndarray = "pca",
+        init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
         backend: str = None,
@@ -201,34 +202,17 @@ class DistR(AffinityMatcher):
 
             check_NaNs(
                 loss,
-                msg=f"[TorchDR] ERROR : NaNs in the Mirror Descent loss at iter {step}.",
+                msg="[TorchDR] ERROR : NaNs in the Mirror Descent for Gromov-Wasserstein "
+                f"loss at iter {step}.",
             )
 
             loss.backward()
 
             # Mirror descent update
             with torch.no_grad():
-                log_OT_plan = OT_plan.log()
-
-                check_NaNs(
-                    OT_plan,
-                    msg=f"[TorchDR] ERROR : NaNs in 0st step of Mirror Descent at iter {step}.",
-                )
-
                 log_K = self.epsilon_mirror_descent * OT_plan.log() - OT_plan.grad
                 log_OT_plan = log_K - log_K.logsumexp(dim=1, keepdim=True)
-
-                check_NaNs(
-                    log_OT_plan,
-                    msg=f"[TorchDR] ERROR : NaNs in 1st step of Mirror Descent at iter {step}.",
-                )
-
                 OT_plan = log_OT_plan.exp()
-
-                check_NaNs(
-                    OT_plan,
-                    msg=f"[TorchDR] ERROR : NaNs in 2nd step of Mirror Descent at iter {step}.",
-                )
 
         self.OT_plan_ = OT_plan
         q_converged = self.OT_plan_.sum(dim=0, keepdim=False)
@@ -307,7 +291,7 @@ class SquareLoss(GromovWassersteinDecomposableLoss):
 
 class KLDivLoss(GromovWassersteinDecomposableLoss):
     def f1(self, X):
-        if X.is_sparse:
+        if X.is_sparse:  # cannot call .log() on sparse tensors
             vals = X.coalesce().values()
             idxs = X.coalesce().indices()
             size = X.coalesce().size()
