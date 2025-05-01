@@ -198,15 +198,15 @@ class DistR(AffinityMatcher):
             OT_plan.requires_grad_(True)
 
             q = OT_plan.sum(dim=0, keepdim=False)
-            loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
+            gw_loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
 
             check_NaNs(
-                loss,
+                gw_loss,
                 msg="[TorchDR] ERROR : NaNs in the Mirror Descent for Gromov-Wasserstein "
                 f"loss at iter {step}.",
             )
 
-            loss.backward()
+            gw_loss.backward()
 
             # Mirror descent update
             with torch.no_grad():
