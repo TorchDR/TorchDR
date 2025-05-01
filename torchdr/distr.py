@@ -26,10 +26,10 @@ class DistR(AffinityMatcher):
     .. math::
         \min_{\mathbf{Z}, \mathbf{T}} \: \mathcal{GW}(\mathbf{P}, \mathbf{Q}, \mathbf{T})
 
-    where :math:`\mathcal{GW}` is a Gromov-Wasserstein loss function, :math:`\mathbf{P}` is the
-    input affinity matrix, :math:`\mathbf{Q}` is the affinity matrix of the prototype embeddings
-    :math:`\mathbf{Z}`, and :math:`\mathbf{T}` is the optimal transport plan between the data
-    and the prototypes.
+    where :math:`\mathcal{GW}` is a Gromov-Wasserstein loss function :cite:`peyre2016gromov`,
+    :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the affinity matrix
+    of the prototype embeddings :math:`\mathbf{Z}`, and :math:`\mathbf{T}` is the optimal
+    transport plan between the data and the prototypes.
 
     The optimization alternates between updating the transport plan via mirror descent and
     updating the prototype embeddings via gradient descent.
@@ -247,7 +247,7 @@ class GromovWassersteinDecomposableLoss:
     """Base class for implementing decomposable loss functions for Gromov-Wasserstein problems.
 
     This class follows the decomposition framework for the Gromov-Wasserstein objective
-    as described in Peyré et al. (2016): https://proceedings.mlr.press/v48/peyre16.pdf
+    as described in :cite:`peyre2016gromov`.
 
     Subclasses must implement the decomposition functions f1, f2, h1, and h2.
     """
