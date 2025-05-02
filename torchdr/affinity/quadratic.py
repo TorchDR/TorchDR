@@ -146,10 +146,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             The computed affinity matrix.
         """
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : computing the Doubly Stochastic Quadratic "
-                "Affinity matrix."
-            )
+            print("[TorchDR] Affinity : computing the Doubly Stochastic Quadratic Affinity matrix.")
 
         C, _ = self._distance_matrix(X)
         if self.base_kernel == "student":

@@ -35,6 +35,7 @@ from .affinity_matcher import AffinityMatcher
 # import DR methods
 from .base import DRModule
 from .clustering import KMeans
+from .distr import DistR
 from .eval import silhouette_samples, silhouette_score
 from .neighbor_embedding import (
     SNE,
@@ -90,6 +91,7 @@ __all__ = [
     "TSNEkhorn",
     "LargeVis",
     "UMAP",
+    "DistR",
     "pairwise_distances",
     "binary_search",
     "false_position",

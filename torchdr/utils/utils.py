@@ -8,6 +8,8 @@
 import os
 import random
 import time
+from typing import Tuple
+
 import numpy as np
 import torch
 
@@ -68,9 +70,7 @@ def kmin(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
-        raise ValueError(
-            "[TorchDR] ERROR : the input dim to kmin should be an integer."
-        )
+        raise ValueError("[TorchDR] ERROR : the input dim to kmin should be an integer.")
 
     if k >= A.shape[dim]:
         return A, None
@@ -94,9 +94,7 @@ def kmax(A, k=1, dim=0):
     Output (both values and indices) of dim (n, k) if dim=1 and (k, n) if dim=0.
     """
     if not isinstance(dim, int):
-        raise ValueError(
-            "[TorchDR] ERROR : the input dim to kmax should be an integer."
-        )
+        raise ValueError("[TorchDR] ERROR : the input dim to kmax should be an integer.")
 
     if k >= A.shape[dim]:
         return A, torch.arange(A.shape[dim]).int()
@@ -178,8 +176,7 @@ def sum_red(P, dim):
             return P.sum(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
-                "Should be (0, 1) or 0 or 1."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. Should be (0, 1) or 0 or 1."
             )
 
     else:
@@ -198,9 +195,7 @@ def logsumexp_red(log_P, dim):
     """
     ndim_input = len(log_P.shape)
     if ndim_input != 2:
-        raise ValueError(
-            "[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor."
-        )
+        raise ValueError("[TorchDR] ERROR : input to logsumexp_red should be a 2d tensor.")
 
     if dim is None:
         return 0
@@ -217,8 +212,7 @@ def logsumexp_red(log_P, dim):
             return log_P.logsumexp(dim)[None, :]  # shape (1, n, 1)
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. "
-                "Should be (0, 1) or 0 or 1."
+                f"[TorchDR] ERROR : invalid normalization_dim: {dim}. Should be (0, 1) or 0 or 1."
             )
 
     else:
@@ -289,6 +283,45 @@ def batch_transpose(arg):
     elif isinstance(arg, torch.Tensor):
         return arg.transpose(-2, -1)
     else:
+        raise ValueError("[TorchDR] ERROR : Unsupported input shape for batch_transpose function.")
+
+
+def create_sparse_tensor_from_row_indices(
+    row_col_indices: torch.Tensor, values: torch.Tensor, size: Tuple[int, int]
+) -> torch.Tensor:
+    if row_col_indices.dtype not in [torch.int, torch.long, torch.int16, torch.int8]:
+        raise TypeError("[TorchDR] ERROR : row_col_indices must be an integer tensor")
+
+    num_rows, k = row_col_indices.shape
+    num_elements = num_rows * k
+
+    if values.shape == (num_rows, k):
+        flat_values = values.flatten()
+    elif values.shape == (num_elements,):
+        flat_values = values
+    else:
         raise ValueError(
-            "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
+            f"[TorchDR] ERROR : Values shape {values.shape} is incompatible with "
+            f"row_col_indices shape {(num_rows, k)}"
         )
+
+    coo_row_indices = torch.arange(num_rows, device=row_col_indices.device).repeat_interleave(k)
+    coo_col_indices = row_col_indices.flatten()
+    coo_indices = torch.stack([coo_row_indices, coo_col_indices], dim=0)
+
+    if size[0] != num_rows:
+        raise ValueError(
+            f"[TorchDR] ERROR : Provided size[0] ({size[0]}) does not match "
+            f"number of rows in row_col_indices ({num_rows})"
+        )
+    if num_elements > 0 and size[1] <= coo_col_indices.max().item():
+        raise ValueError(
+            f"[TorchDR] ERROR : Provided size[1] ({size[1]}) is too small for "
+            f"maximum column index ({coo_col_indices.max().item()})"
+        )
+
+    sparse_tensor = torch.sparse_coo_tensor(
+        indices=coo_indices, values=flat_values, size=size, device=values.device
+    )
+
+    return sparse_tensor

@@ -9,13 +9,13 @@
 import contextlib
 import math
 import warnings
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
 from tqdm import tqdm
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
-from typing import Union, Tuple, Optional
 from torchdr.utils import (
     batch_transpose,
     check_NaNs,
@@ -159,8 +159,7 @@ def _check_perplexity(perplexity, n, verbose=True):
     r"""Check the perplexity parameter and return a valid value."""
     if n <= 1:
         raise ValueError(
-            "[TorchDR] ERROR Affinity: Input has less than one sample : "
-            f"n_samples = {n}."
+            f"[TorchDR] ERROR Affinity: Input has less than one sample : n_samples = {n}."
         )
 
     if perplexity >= n or perplexity <= 1:
@@ -451,9 +450,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         """
         self.log_ = {}
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : computing the Symmetric Entropic Affinity matrix."
-            )
+            print("[TorchDR] Affinity : computing the Symmetric Entropic Affinity matrix.")
 
         C, _ = self._distance_matrix(X)
 
@@ -504,9 +501,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                 ),
             )
 
-            log_affinity_matrix = _log_Pse(
-                C, self.eps_, self.mu_, eps_square=self.eps_square
-            )
+            log_affinity_matrix = _log_Pse(C, self.eps_, self.mu_, eps_square=self.eps_square)
 
         else:
             optimizer_class = getattr(torch.optim, self.optimizer)
@@ -551,14 +546,9 @@ class SymmetricEntropicAffinity(LogAffinity):
                             f"(std:{float(P_sum.std().item()): .2e})"
                         )
 
-                    if (
-                        torch.norm(grad_eps) < self.tol
-                        and torch.norm(grad_mu) < self.tol
-                    ):
+                    if torch.norm(grad_eps) < self.tol and torch.norm(grad_mu) < self.tol:
                         if self.verbose:
-                            print(
-                                f"[TorchDR] Affinity : convergence reached at iter {k}."
-                            )
+                            print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
@@ -669,9 +659,7 @@ class SinkhornAffinity(LogAffinity):
         self.base_kernel = base_kernel
         self.with_grad = with_grad
 
-    def _compute_log_affinity(
-        self, X: torch.Tensor, init_dual: Optional[torch.Tensor] = None
-    ):
+    def _compute_log_affinity(self, X: torch.Tensor, init_dual: Optional[torch.Tensor] = None):
         r"""Compute the entropic doubly stochastic affinity matrix.
 
         Parameters
@@ -707,9 +695,7 @@ class SinkhornAffinity(LogAffinity):
             else init_dual
         )
 
-        context_manager = (
-            contextlib.nullcontext() if self.with_grad else torch.no_grad()
-        )
+        context_manager = contextlib.nullcontext() if self.with_grad else torch.no_grad()
         with context_manager:
             # Sinkhorn iterations
             for k in range(self.max_iter):
@@ -717,9 +703,7 @@ class SinkhornAffinity(LogAffinity):
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
                 self.dual_ = 0.5 * (self.dual_ + reduction)
 
-                check_NaNs(
-                    self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}."
-                )
+                check_NaNs(self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}.")
 
                 if torch.norm(self.dual_ - reduction) < self.tol:
                     if self.verbose:
@@ -806,9 +790,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         log_affinity_matrix = -C / self.sigma
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                log_affinity_matrix, self.normalization_dim
-            )
+            self.log_normalization_ = logsumexp_red(log_affinity_matrix, self.normalization_dim)
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         if isinstance(self.normalization_dim, int):
@@ -886,15 +868,11 @@ class NormalizedStudentAffinity(LogAffinity):
         C, _ = self._distance_matrix(X)
 
         log_affinity_matrix = (
-            -0.5
-            * (self.degrees_of_freedom + 1)
-            * (C / self.degrees_of_freedom + 1).log()
+            -0.5 * (self.degrees_of_freedom + 1) * (C / self.degrees_of_freedom + 1).log()
         )
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
-                log_affinity_matrix, self.normalization_dim
-            )
+            self.log_normalization_ = logsumexp_red(log_affinity_matrix, self.normalization_dim)
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         if isinstance(self.normalization_dim, int):

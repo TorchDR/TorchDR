@@ -5,7 +5,7 @@
 # License: BSD 3-Clause License
 
 from abc import ABC
-from typing import Union, Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -153,9 +153,7 @@ class LogAffinity(Affinity):
             verbose=verbose,
         )
 
-    def __call__(
-        self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
-    ):
+    def __call__(self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any):
         r"""Compute the affinity matrix from the input data.
 
         Parameters
@@ -298,8 +296,7 @@ class SparseLogAffinity(LogAffinity):
             the subclass, a NotImplementedError is raised.
         """
         raise NotImplementedError(
-            "[TorchDR] ERROR : `_compute_sparse_log_affinity` method is "
-            "not implemented."
+            "[TorchDR] ERROR : `_compute_sparse_log_affinity` method is not implemented."
         )
 
 
@@ -431,9 +428,7 @@ class UnnormalizedAffinity(Affinity):
             )
 
         elif indices is not None:
-            return symmetric_pairwise_distances_indices(
-                X, indices=indices, metric=self.metric
-            )
+            return symmetric_pairwise_distances_indices(X, indices=indices, metric=self.metric)
 
         elif Y is not None:
             return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)

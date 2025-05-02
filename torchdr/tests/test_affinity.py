@@ -271,12 +271,8 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     # -- check bounds on the root of entropic affinities --
     C, _ = affinity._distance_matrix(to_torch(X, device=DEVICE))
     begin, end = _bounds_entropic_affinity(C, perplexity=perp)
-    assert (entropy_gap(begin, C) < 0).all(), (
-        "Lower bound of entropic affinity root is not valid."
-    )
-    assert (entropy_gap(end, C) > 0).all(), (
-        "Lower bound of entropic affinity root is not valid."
-    )
+    assert (entropy_gap(begin, C) < 0).all(), "Lower bound of entropic affinity root is not valid."
+    assert (entropy_gap(end, C) > 0).all(), "Lower bound of entropic affinity root is not valid."
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -311,9 +307,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
     check_shape(log_P, (n, n))
     check_symmetry(log_P)
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
-    check_entropy(
-        log_P + math.log(n), np.log(perp) * ones + 1, dim=1, tol=tol, log=True
-    )
+    check_entropy(log_P + math.log(n), np.log(perp) * ones + 1, dim=1, tol=tol, log=True)
 
 
 @pytest.mark.parametrize("dtype", lst_types)

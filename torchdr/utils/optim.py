@@ -199,9 +199,6 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
         eval_counter += 1
 
     if eval_counter > 1 and verbose:
-        print(
-            f"[TorchDR] {eval_counter} evaluation(s) to set the bounds "
-            "of the root search."
-        )
+        print(f"[TorchDR] {eval_counter} evaluation(s) to set the bounds of the root search.")
 
     return begin, end

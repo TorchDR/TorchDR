@@ -4,7 +4,8 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Dict, Optional, Union, Type
+from typing import Dict, Optional, Type, Union
+
 import torch
 
 from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
@@ -101,9 +102,7 @@ class UMAP(SampledNeighborEmbedding):
         lr: float = 1e-1,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,

@@ -73,9 +73,7 @@ sphinx_gallery_conf = {
 }
 
 # how to define macros: https://docs.mathjax.org/en/latest/input/tex/macros.html
-mathjax3_config = {
-    "tex": {"equationNumbers": {"autoNumber": "AMS", "useLabelIds": True}}
-}
+mathjax3_config = {"tex": {"equationNumbers": {"autoNumber": "AMS", "useLabelIds": True}}}
 
 math_numfig = True
 numfig = True

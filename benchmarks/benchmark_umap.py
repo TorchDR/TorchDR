@@ -97,9 +97,7 @@ def main():
 
     # Torchdr UMAP (GPU accelerated)
     torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
-        torchdr_umap, x_macosko, device=device
-    )
+    time_torchdr, emb_torchdr, mem_torchdr = time_umap(torchdr_umap, x_macosko, device=device)
     print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
     print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
 
@@ -116,9 +114,7 @@ def main():
 
     # Torchdr UMAP on 10x dataset
     torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
-        torchdr_umap, x_10x, device=device
-    )
+    time_torchdr, emb_torchdr, mem_torchdr = time_umap(torchdr_umap, x_10x, device=device)
     print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
     print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
 

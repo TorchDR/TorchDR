@@ -5,14 +5,13 @@
 # License: BSD 3-Clause License
 
 from abc import ABC, abstractmethod
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
 from torchdr.utils import seed_everything
-
-from typing import Union, Optional, Any
 
 
 class DRModule(BaseEstimator, ABC):
@@ -55,9 +54,7 @@ class DRModule(BaseEstimator, ABC):
             print(f"[TorchDR] Initializing DR model {self.__class__.__name__}. ")
 
     @abstractmethod
-    def fit_transform(
-        self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
-    ):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the dimensionality reduction model and transform the input data.
 
         Parameters
@@ -73,6 +70,4 @@ class DRModule(BaseEstimator, ABC):
         NotImplementedError
             This method should be overridden by subclasses.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : fit_transform method is not implemented."
-        )
+        raise NotImplementedError("[TorchDR] ERROR : fit_transform method is not implemented.")

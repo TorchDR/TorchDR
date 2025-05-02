@@ -26,9 +26,7 @@ DEVICE = "cpu"
     ],
 )
 def test_check_estimator(estimator, kwargs):
-    check_estimator(
-        estimator(verbose=False, device=DEVICE, backend=None, max_iter=1, **kwargs)
-    )
+    check_estimator(estimator(verbose=False, device=DEVICE, backend=None, max_iter=1, **kwargs))
 
 
 def test_init_verbose(capfd):

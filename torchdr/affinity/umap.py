@@ -6,7 +6,7 @@
 
 import math
 import warnings
-from typing import Union, Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -46,9 +46,7 @@ def find_ab_params(spread, min_dist):
 def _check_n_neighbors(n_neighbors, n, verbose=True):
     r"""Check the n_neighbors parameter and returns a valid value."""
     if n <= 1:
-        raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
-        )
+        raise ValueError(f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}.")
 
     if n_neighbors >= n - 1 or n_neighbors <= 1:
         new_value = n // 2
