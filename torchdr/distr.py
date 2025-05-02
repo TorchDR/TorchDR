@@ -151,7 +151,7 @@ class DistR(AffinityMatcher):
         if self.loss_fn == "square_loss":
             self.Loss = SquareLoss()
         elif self.loss_fn == "kl_loss":
-            self.Loss = KLDivLoss()
+            self.Loss = KLLoss()
         else:
             raise ValueError("[TorchDR] ERROR : loss_fn must be 'square_loss' or 'kl_loss'.")
 
@@ -296,7 +296,7 @@ class SquareLoss(GromovWassersteinDecomposableLoss):
         return 2 * X
 
 
-class KLDivLoss(GromovWassersteinDecomposableLoss):
+class KLLoss(GromovWassersteinDecomposableLoss):
     def f1(self, X):
         if X.is_sparse:  # cannot call .log() on sparse tensors
             vals, idxs, size = X.coalesce().values(), X.coalesce().indices(), X.coalesce().size()
