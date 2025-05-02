@@ -305,13 +305,13 @@ class AffinityMatcher(DRModule):
                 optimizer_class = getattr(torch.optim, self.optimizer)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim."
                 )
         else:
             if not issubclass(self.optimizer, torch.optim.Optimizer):
                 raise ValueError(
                     "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                    "torch.optim) or a subclass of torch.optim.Optimizer."
                 )
             optimizer_class = self.optimizer
 

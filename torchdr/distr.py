@@ -88,6 +88,8 @@ class DistR(AffinityMatcher):
         Number of mirror descent iterations for updating the transport plan. Default is 10.
     epsilon_mirror_descent : float, optional
         Regularization parameter for mirror descent. Default is 1e-1.
+    min_OT_plan_grad_norm : float, optional
+        Tolerance for stopping criterion for the transport plan. Default is 1e-3.
     """
 
     def __init__(
@@ -116,6 +118,7 @@ class DistR(AffinityMatcher):
         init_OT_plan: Union[str, torch.Tensor, np.ndarray] = "random",
         n_iter_mirror_descent: int = 10,
         epsilon_mirror_descent: float = 1e-1,
+        min_OT_plan_grad_norm: float = 1e-3,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -143,6 +146,7 @@ class DistR(AffinityMatcher):
         self.init_OT_plan = init_OT_plan
         self.n_iter_mirror_descent = n_iter_mirror_descent
         self.epsilon_mirror_descent = epsilon_mirror_descent
+        self.min_OT_plan_grad_norm = min_OT_plan_grad_norm
 
         if self.loss_fn == "square_loss":
             self.Loss = SquareLoss()
@@ -207,10 +211,13 @@ class DistR(AffinityMatcher):
             )
 
             gw_loss.backward()
+            grad_OT_plan = OT_plan.grad
+            if grad_OT_plan.norm(2).item() < self.min_OT_plan_grad_norm:
+                break
 
             # Mirror descent update
             with torch.no_grad():
-                log_K = self.epsilon_mirror_descent * OT_plan.log() - OT_plan.grad
+                log_K = self.epsilon_mirror_descent * OT_plan.log() - grad_OT_plan
                 log_OT_plan = log_K - log_K.logsumexp(dim=1, keepdim=True)
                 OT_plan = log_OT_plan.exp()
 
@@ -223,8 +230,8 @@ class DistR(AffinityMatcher):
             embedding_ = to_torch(self.init, device=self.device)
             if embedding_.shape != (self.n_prototypes, self.n_components):
                 raise ValueError(
-                    f"[TorchDR] ERROR : init shape {embedding_.shape} not compatible "
-                    f"with (n, n_components) = ({self.n_prototypes}, {self.n_components})."
+                    f"[TorchDR] ERROR : init shape {embedding_.shape} not compatible with "
+                    f"(n_prototypes, n_components) = ({self.n_prototypes}, {self.n_components})."
                 )
 
         elif self.init == "normal" or self.init == "random":
@@ -292,9 +299,7 @@ class SquareLoss(GromovWassersteinDecomposableLoss):
 class KLDivLoss(GromovWassersteinDecomposableLoss):
     def f1(self, X):
         if X.is_sparse:  # cannot call .log() on sparse tensors
-            vals = X.coalesce().values()
-            idxs = X.coalesce().indices()
-            size = X.coalesce().size()
+            vals, idxs, size = X.coalesce().values(), X.coalesce().indices(), X.coalesce().size()
             computed_values = torch.xlogy(vals, vals) - vals
             return torch.sparse_coo_tensor(idxs, computed_values, size)
         else:
@@ -307,4 +312,8 @@ class KLDivLoss(GromovWassersteinDecomposableLoss):
         return X
 
     def h2(self, X):
-        return X.log()
+        if X.is_sparse:  # cannot call .log() on sparse tensors
+            vals, idxs, size = X.coalesce().values(), X.coalesce().indices(), X.coalesce().size()
+            return torch.sparse_coo_tensor(idxs, vals.log(), size)
+        else:
+            return X.log()
