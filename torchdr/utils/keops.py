@@ -10,7 +10,7 @@ try:
 
     LazyTensorType = LazyTensor
 
-except ImportError:  # pykeops is not installed
+except Exception:  # Catch any error during pykeops import
     pykeops = False
     LazyTensor = None
     LazyTensorType = type(None)

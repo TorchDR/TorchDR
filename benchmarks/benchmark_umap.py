@@ -7,7 +7,6 @@ import os
 
 import torch
 import psutil
-from sklearn.preprocessing import LabelEncoder
 
 # Import UMAP implementations
 from torchdr import UMAP as TorchdrUMAP  # GPU-accelerated UMAP from torchdr
@@ -27,17 +26,13 @@ def load_datasets():
     url_macosko = "http://file.biolab.si/opentsne/benchmark/macosko_2015.pkl.gz"
     data_macosko = download_and_load_dataset(url_macosko)
     x_macosko = data_macosko["pca_50"].astype("float32")
-    y_macosko = data_macosko["CellType1"].astype(str)
-    y_macosko_encoded = LabelEncoder().fit_transform(y_macosko)
 
     # --- Download 10x mouse Zheng data ---
     url_10x = "http://file.biolab.si/opentsne/benchmark/10x_mouse_zheng.pkl.gz"
     data_10x = download_and_load_dataset(url_10x)
     x_10x = data_10x["pca_50"].astype("float32")
-    y_10x = data_10x["CellType1"].astype(str)
-    y_10x_encoded = LabelEncoder().fit_transform(y_10x)
 
-    return (x_macosko, y_macosko_encoded), (x_10x, y_10x_encoded)
+    return x_macosko, x_10x
 
 
 def time_umap(model, X, device=None):
@@ -72,13 +67,13 @@ def time_umap(model, X, device=None):
 
 def main():
     # Load the datasets.
-    (x_macosko, y_macosko), (x_10x, y_10x) = load_datasets()
+    x_macosko, x_10x = load_datasets()
 
     max_iter = 500
     kwargs_torchdr = {
         "max_iter": max_iter,
         "verbose": True,
-        "backend": "keops",
+        "backend": "faiss",
         "device": "cuda",
     }
     kwargs_umap = {
