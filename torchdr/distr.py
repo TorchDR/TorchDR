@@ -86,8 +86,8 @@ class DistR(AffinityMatcher):
         Initialization method for the transport plan. Default is "random".
     n_iter_mirror_descent : int, optional
         Number of mirror descent iterations for updating the transport plan. Default is 10.
-    epsilon_mirror_descent : float, optional
-        Regularization parameter for mirror descent. Default is 1e-1.
+    lr_mirror_descent : float, optional
+        Learning rate for the transport plan used in the mirror descent. Default is 1e-1.
     min_OT_plan_grad_norm : float, optional
         Tolerance for stopping criterion for the transport plan. Default is 1e-3.
     """
@@ -117,7 +117,7 @@ class DistR(AffinityMatcher):
         n_prototypes: int = 10,
         init_OT_plan: Union[str, torch.Tensor, np.ndarray] = "random",
         n_iter_mirror_descent: int = 10,
-        lr_ot: float = 1e-1,
+        lr_mirror_descent: float = 1e-1,
         min_OT_plan_grad_norm: float = 1e-3,
     ):
         super().__init__(
@@ -145,7 +145,7 @@ class DistR(AffinityMatcher):
         self.n_prototypes = n_prototypes
         self.init_OT_plan = init_OT_plan
         self.n_iter_mirror_descent = n_iter_mirror_descent
-        self.lr_ot = lr_ot
+        self.lr_mirror_descent = lr_mirror_descent
         self.min_OT_plan_grad_norm = min_OT_plan_grad_norm
 
         if self.loss_fn == "square_loss":
@@ -197,12 +197,11 @@ class DistR(AffinityMatcher):
         Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
         Q_detached = Q.detach()  # Detach Q to prevent gradients flowing to the embeddings
 
-        OT_plan = self.OT_plan_.clone()
         for step in range(self.n_iter_mirror_descent):
-            OT_plan.requires_grad_(True)
+            self.OT_plan_.requires_grad_(True)
 
-            q = OT_plan.sum(dim=0, keepdim=False)
-            gw_loss = self.Loss(self.PX_, Q_detached, one_N, q, OT_plan)
+            q = self.OT_plan_.sum(dim=0, keepdim=False)
+            gw_loss = self.Loss(self.PX_, Q_detached, one_N, q, self.OT_plan_)
 
             check_NaNs(
                 gw_loss,
@@ -211,18 +210,17 @@ class DistR(AffinityMatcher):
             )
 
             gw_loss.backward()
-            grad_OT_plan = OT_plan.grad
-            if grad_OT_plan.norm(2).item() < self.min_OT_plan_grad_norm:
+            if self.OT_plan_.grad.norm(2).item() < self.min_OT_plan_grad_norm:
                 break
 
             # Mirror descent update
             with torch.no_grad():
-                grad_OT_plan.mul_(-self.lr_ot)
-                torch.exp_(grad_OT_plan)
-                OT_plan.mul_(grad_OT_plan)
-                OT_plan.div_(OT_plan.sum(dim=1, keepdim=True))
+                self.OT_plan_.grad.mul_(-self.lr_mirror_descent)
+                torch.exp_(self.OT_plan_.grad)
+                self.OT_plan_.mul_(self.OT_plan_.grad)
+                self.OT_plan_.div_(self.OT_plan_.sum(dim=1, keepdim=True))
 
-        self.OT_plan_ = OT_plan
+        self.OT_plan_.detach_()
         q_converged = self.OT_plan_.sum(dim=0, keepdim=False)
         return self.Loss(self.PX_, Q, one_N, q_converged, self.OT_plan_)
 
