@@ -17,8 +17,14 @@ from .wrappers import sum_output, wrap_vectors
 
 def seed_everything(seed, fast=True):
     """Seed all random number generators."""
-    if seed is None:
+
+    print(f"Random state is {seed}")
+
+    if seed is None or not isinstance(seed, int) or seed < 0:
         seed = int(time.time())
+    else:
+        seed = int(seed)
+
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
@@ -292,3 +298,15 @@ def batch_transpose(arg):
         raise ValueError(
             "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
         )
+
+
+def bool_arg(arg):
+    """Convert a boolean argument to a boolean value.
+
+    If the argument is a list or numpy array, return True if any element is True.
+    Otherwise, return the argument itself.
+    """
+    if isinstance(arg, (list, np.ndarray)):
+        return bool(np.asarray(arg).any())
+    else:
+        return bool(arg)
