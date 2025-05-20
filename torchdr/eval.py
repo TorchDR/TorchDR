@@ -7,13 +7,12 @@
 
 import warnings
 from random import sample, seed
+from typing import Optional, Union
 
 import numpy as np
 import torch
 
 from torchdr.utils import pairwise_distances, prod_matrix_vector, to_torch
-
-from typing import Union, Optional
 
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
 
@@ -73,8 +72,7 @@ def silhouette_samples(
             raise ValueError("X must be a square matrix with metric = 'precomputed'")
         if backend == "keops" and warn:
             warnings.warn(
-                "[TorchDR] WARNING : backend 'keops' not supported "
-                "with metric = 'precomputed'.",
+                "[TorchDR] WARNING : backend 'keops' not supported with metric = 'precomputed'.",
                 stacklevel=2,
             )
 
@@ -97,19 +95,13 @@ def silhouette_samples(
             if metric == "precomputed":
                 intra_cluster_dists = X[pos_i, :][:, pos_i]
             else:
-                intra_cluster_dists, _ = pairwise_distances(
-                    X[pos_i], X[pos_i], metric, backend
-                )
+                intra_cluster_dists, _ = pairwise_distances(X[pos_i], X[pos_i], metric, backend)
 
             if weights is None:
-                intra_cluster_dists = intra_cluster_dists.sum(1).squeeze(-1) / (
-                    pos_i.shape[0] - 1
-                )
+                intra_cluster_dists = intra_cluster_dists.sum(1).squeeze(-1) / (pos_i.shape[0] - 1)
             else:
                 intra_cluster_dists = (
-                    prod_matrix_vector(intra_cluster_dists, weights[pos_i])
-                    .sum(dim=1)
-                    .squeeze(-1)
+                    prod_matrix_vector(intra_cluster_dists, weights[pos_i]).sum(dim=1).squeeze(-1)
                 )
                 sub_weights_i = (
                     torch.full(
@@ -136,23 +128,17 @@ def silhouette_samples(
             if metric == "precomputed":
                 inter_cluster_dists = X[pos_i, :][:, pos_j]
             else:
-                inter_cluster_dists, _ = pairwise_distances(
-                    X[pos_i], X[pos_j], metric, backend
-                )
+                inter_cluster_dists, _ = pairwise_distances(X[pos_i], X[pos_j], metric, backend)
 
             if weights is None:
                 dist_pos_i = inter_cluster_dists.sum(1).squeeze(-1) / pos_j.shape[0]
                 dist_pos_j = inter_cluster_dists.sum(0).squeeze(-1) / pos_i.shape[0]
             else:
                 dist_pos_i = (
-                    prod_matrix_vector(inter_cluster_dists, weights[pos_j], True)
-                    .sum(1)
-                    .squeeze(-1)
+                    prod_matrix_vector(inter_cluster_dists, weights[pos_j], True).sum(1).squeeze(-1)
                 )
                 dist_pos_j = (
-                    prod_matrix_vector(inter_cluster_dists, weights[pos_i])
-                    .sum(0)
-                    .squeeze(-1)
+                    prod_matrix_vector(inter_cluster_dists, weights[pos_i]).sum(0).squeeze(-1)
                 )
                 dist_pos_i = dist_pos_i / weights[pos_j].sum()
                 dist_pos_j = dist_pos_j / weights[pos_i].sum()
@@ -220,9 +206,7 @@ def silhouette_score(
         mean silhouette coefficients for all samples.
     """
     if sample_size is None:
-        coefficients = silhouette_samples(
-            X, labels, weights, metric, device, backend, warn
-        )
+        coefficients = silhouette_samples(X, labels, weights, metric, device, backend, warn)
     else:
         seed(random_state)
         indices = sample(range(X.shape[0]), sample_size)
@@ -230,9 +214,7 @@ def silhouette_score(
 
         if metric == "precomputed":
             if X.shape[0] != X.shape[1]:
-                raise ValueError(
-                    "X must be a square matrix with metric = 'precomputed'"
-                )
+                raise ValueError("X must be a square matrix with metric = 'precomputed'")
 
             sub_X = X[indices, :][:, indices]
         else:

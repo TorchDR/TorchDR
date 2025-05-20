@@ -6,6 +6,7 @@
 # License: BSD 3-Clause License
 
 import warnings
+from typing import Any, Dict, Optional, Type, Union
 
 import numpy as np
 import torch
@@ -27,12 +28,11 @@ from torchdr.utils import (
     square_loss,
     to_torch,
 )
-from typing import Union, Dict, Optional, Any, Type
-
 
 LOSS_DICT = {
     "square_loss": square_loss,
     "cross_entropy_loss": cross_entropy_loss,
+    "kl_loss": cross_entropy_loss,
 }
 
 
@@ -109,9 +109,7 @@ class AffinityMatcher(DRModule):
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Optional[Dict] = None,
         lr: float = 1e0,
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_kwargs: Optional[Dict] = None,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
@@ -142,28 +140,25 @@ class AffinityMatcher(DRModule):
         self.scheduler_kwargs = scheduler_kwargs
 
         if loss_fn not in LOSS_DICT:
-            raise ValueError(
-                f"[TorchDR] ERROR : Loss function {loss_fn} not supported."
-            )
+            raise ValueError(f"[TorchDR] ERROR : Loss function {loss_fn} not supported.")
         self.loss_fn = loss_fn
         self.kwargs_loss = kwargs_loss
 
         self.init = init
         self.init_scaling = init_scaling
 
+        self._check_affinities(affinity_in, affinity_out, kwargs_affinity_out)
+
+    def _check_affinities(self, affinity_in, affinity_out, kwargs_affinity_out):
         # --- check affinity_out ---
         if not isinstance(affinity_out, Affinity):
-            raise ValueError(
-                "[TorchDR] ERROR : affinity_out must be an Affinity instance."
-            )
+            raise ValueError("[TorchDR] ERROR : affinity_out must be an Affinity instance.")
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
-            raise ValueError(
-                '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
-            )
+            raise ValueError('[TorchDR] affinity_in must be an Affinity instance or "precomputed".')
         if getattr(affinity_in, "sparsity", False) and not isinstance(
             self.affinity_out, UnnormalizedAffinity
         ):
@@ -175,9 +170,7 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
 
     @handle_type
-    def fit_transform(
-        self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None
-    ):
+    def fit_transform(self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None):
         """Fit the model to the provided data and returns the transformed data.
 
         Parameters
@@ -215,10 +208,7 @@ class AffinityMatcher(DRModule):
         self.fit_transform(X)
         return self
 
-    def _fit(self, X: torch.Tensor):
-        self.n_samples_in_, self.n_features_in_ = X.shape
-
-        # --- check if affinity_in is precomputed else compute it ---
+    def _set_input_affinity(self, X: torch.Tensor):
         if self.affinity_in == "precomputed":
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
@@ -234,6 +224,10 @@ class AffinityMatcher(DRModule):
             else:
                 self.PX_ = self.affinity_in(X)
 
+    def _fit(self, X: torch.Tensor):
+        self.n_samples_in_, self.n_features_in_ = X.shape
+
+        self._set_input_affinity(X)
         self._init_embedding(X)
         self._set_params()
         self._set_learning_rate()
@@ -265,14 +259,12 @@ class AffinityMatcher(DRModule):
 
             check_NaNs(
                 self.embedding_,
-                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
-                f"at iter {step}.",
+                msg=f"[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings at iter {step}.",
             )
 
             if self.verbose:
                 pbar.set_description(
-                    f"[TorchDR] DR Loss : {loss.item():.2e} | "
-                    f"Grad norm : {grad_norm:.2e} "
+                    f"[TorchDR] DR Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e} "
                 )
 
             self._additional_updates()
@@ -280,9 +272,7 @@ class AffinityMatcher(DRModule):
         return self
 
     def _loss(self):
-        if (self.loss_fn == "cross_entropy_loss") and isinstance(
-            self.affinity_out, LogAffinity
-        ):
+        if (self.loss_fn == "cross_entropy_loss") and isinstance(self.affinity_out, LogAffinity):
             if self.kwargs_affinity_out is None:
                 self.kwargs_affinity_out = {}
             self.kwargs_affinity_out.setdefault("log", True)
@@ -315,13 +305,13 @@ class AffinityMatcher(DRModule):
                 optimizer_class = getattr(torch.optim, self.optimizer)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim."
                 )
         else:
             if not issubclass(self.optimizer, torch.optim.Optimizer):
                 raise ValueError(
                     "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                    "torch.optim) or a subclass of torch.optim.Optimizer."
                 )
             optimizer_class = self.optimizer
 
@@ -364,14 +354,16 @@ class AffinityMatcher(DRModule):
                 self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' "
+                    "not found in torch.optim.lr_scheduler."
                 )
         else:
             # Check if the scheduler is a subclass of LRScheduler
             if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
                 raise ValueError(
-                    "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
-                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler"
+                    "[TorchDR] ERROR: scheduler must be a string "
+                    "(name of a scheduler in torch.optim.lr_scheduler) "
+                    "or a subclass of torch.optim.lr_scheduler.LRScheduler."
                 )
             self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 
@@ -382,6 +374,11 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init, device=self.device)
+            if embedding_.shape != (n, self.n_components):
+                raise ValueError(
+                    f"[TorchDR] ERROR : init shape {embedding_.shape} not compatible "
+                    f"with (n, n_components) = ({n}, {self.n_components})."
+                )
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
@@ -391,14 +388,11 @@ class AffinityMatcher(DRModule):
             )
 
         elif self.init == "pca":
-            embedding_ = PCA(
-                n_components=self.n_components, device=self.device
-            ).fit_transform(X)
+            embedding_ = PCA(n_components=self.n_components, device=self.device).fit_transform(X)
 
         else:
             raise ValueError(
-                f"[TorchDR] ERROR : init {self.init} not supported in "
-                f"{self.__class__.__name__}."
+                f"[TorchDR] ERROR : init {self.init} not supported in {self.__class__.__name__}."
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()

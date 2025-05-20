@@ -4,8 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Optional, Union
+
 import torch
-from typing import Union, Optional
 
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 from torchdr.utils import LazyTensorType
@@ -103,11 +104,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         self.degrees_of_freedom = degrees_of_freedom
 
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        return (
-            -0.5
-            * (self.degrees_of_freedom + 1)
-            * (C / self.degrees_of_freedom + 1).log()
-        )
+        return -0.5 * (self.degrees_of_freedom + 1) * (C / self.degrees_of_freedom + 1).log()
 
 
 class ScalarProductAffinity(UnnormalizedAffinity):
