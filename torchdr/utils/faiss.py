@@ -7,5 +7,5 @@
 try:
     import faiss
 
-except ImportError:  # faiss is not installed
+except Exception:
     faiss = False
