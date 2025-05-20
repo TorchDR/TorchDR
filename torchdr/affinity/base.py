@@ -16,6 +16,7 @@ from torchdr.utils import (
     pairwise_distances,
     symmetric_pairwise_distances_indices,
     to_torch,
+    bool_arg,
 )
 
 
@@ -48,11 +49,10 @@ class Affinity(ABC):
     ):
         self.log = {}
         self.metric = metric
-        self.zero_diag = zero_diag
+        self.zero_diag = bool_arg(zero_diag)
         self.device = device
         self.backend = backend
-        self.verbose = verbose
-        self.zero_diag = zero_diag
+        self.verbose = bool_arg(verbose)
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
@@ -242,7 +242,7 @@ class SparseLogAffinity(LogAffinity):
             backend=backend,
             verbose=verbose,
         )
-        self.sparsity = sparsity
+        self.sparsity = bool_arg(sparsity)
 
     def __call__(
         self,

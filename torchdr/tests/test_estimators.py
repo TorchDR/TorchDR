@@ -27,7 +27,14 @@ DEVICE = "cpu"
 )
 def test_check_estimator(estimator, kwargs):
     check_estimator(
-        estimator(verbose=False, device=DEVICE, backend=None, max_iter=1, **kwargs)
+        estimator(
+            verbose=False,
+            device=DEVICE,
+            backend=None,
+            max_iter=1,
+            random_state=42,
+            **kwargs,
+        )
     )
 
 

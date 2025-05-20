@@ -14,7 +14,7 @@ readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.7"
 dependencies = [
     "numpy",
-    "scikit-learn<1.5",
+    "scikit-learn",
     "torch",
     "tqdm",
 ]

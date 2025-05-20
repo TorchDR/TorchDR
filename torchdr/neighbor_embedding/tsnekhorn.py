@@ -13,7 +13,7 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
 )
 from torchdr.neighbor_embedding.base import NeighborEmbedding
-from torchdr.utils import cross_entropy_loss, logsumexp_red
+from torchdr.utils import cross_entropy_loss, logsumexp_red, bool_arg
 
 
 class TSNEkhorn(NeighborEmbedding):
@@ -138,11 +138,11 @@ class TSNEkhorn(NeighborEmbedding):
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.lr_affinity_in = lr_affinity_in
-        self.eps_square_affinity_in = eps_square_affinity_in
+        self.eps_square_affinity_in = bool_arg(eps_square_affinity_in)
         self.max_iter_affinity_in = max_iter_affinity_in
         self.tol_affinity_in = tol_affinity_in
-        self.unrolling = unrolling
-        self.symmetric_affinity = symmetric_affinity
+        self.unrolling = bool_arg(unrolling)
+        self.symmetric_affinity = bool_arg(symmetric_affinity)
 
         if self.symmetric_affinity:
             affinity_in = SymmetricEntropicAffinity(

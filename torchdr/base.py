@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import seed_everything
+from torchdr.utils import seed_everything, bool_arg
 
 from typing import Union, Optional, Any
 
@@ -50,7 +50,7 @@ class DRModule(BaseEstimator, ABC):
         self.random_state = random_state
         seed_everything(self.random_state)
 
-        self.verbose = verbose
+        self.verbose = bool_arg(verbose)
         if self.verbose:
             print(f"[TorchDR] Initializing DR model {self.__class__.__name__}. ")
 
