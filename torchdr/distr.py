@@ -117,7 +117,7 @@ class DistR(AffinityMatcher):
         n_prototypes: int = 10,
         init_OT_plan: Union[str, torch.Tensor, np.ndarray] = "random",
         n_iter_mirror_descent: int = 10,
-        epsilon_mirror_descent: float = 1e-1,
+        lr_ot: float = 1e-1,
         min_OT_plan_grad_norm: float = 1e-3,
     ):
         super().__init__(
@@ -145,7 +145,7 @@ class DistR(AffinityMatcher):
         self.n_prototypes = n_prototypes
         self.init_OT_plan = init_OT_plan
         self.n_iter_mirror_descent = n_iter_mirror_descent
-        self.epsilon_mirror_descent = epsilon_mirror_descent
+        self.lr_ot = lr_ot
         self.min_OT_plan_grad_norm = min_OT_plan_grad_norm
 
         if self.loss_fn == "square_loss":
@@ -217,9 +217,10 @@ class DistR(AffinityMatcher):
 
             # Mirror descent update
             with torch.no_grad():
-                log_K = self.epsilon_mirror_descent * OT_plan.log() - grad_OT_plan
-                log_OT_plan = log_K - log_K.logsumexp(dim=1, keepdim=True)
-                OT_plan = log_OT_plan.exp()
+                grad_OT_plan.mul_(-self.lr_ot)
+                torch.exp_(grad_OT_plan)
+                OT_plan.mul_(grad_OT_plan)
+                OT_plan.div_(OT_plan.sum(dim=1, keepdim=True))
 
         self.OT_plan_ = OT_plan
         q_converged = self.OT_plan_.sum(dim=0, keepdim=False)
