@@ -1,8 +1,13 @@
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
+from .manifold import (
+    geoopt,
+    is_geoopt_available
+)
 
 from .geometry import (
     LIST_METRICS_KEOPS,
@@ -99,4 +104,6 @@ __all__ = [
     "handle_keops",
     "faiss",
     "bool_arg",
+    "geoopt",
+    "is_geoopt_available"
 ]

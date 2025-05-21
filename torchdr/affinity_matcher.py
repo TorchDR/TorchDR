@@ -2,6 +2,7 @@
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -26,6 +27,8 @@ from torchdr.utils import (
     handle_type,
     square_loss,
     to_torch,
+    geoopt,
+    is_geoopt_available
 )
 from typing import Union, Dict, Optional, Any, Type
 
@@ -395,6 +398,14 @@ class AffinityMatcher(DRModule):
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
 
+        elif self.init == "hyperbolic":
+            if is_geoopt_available():
+                embedding_ = torch.tensor(
+                    self.generator_.standard_normal(size=(n, self.n_components)),
+                    device=X.device if self.device == "auto" else self.device,
+                    dtype=X.dtype,
+                )
+
         else:
             raise ValueError(
                 f"[TorchDR] ERROR : init {self.init} not supported in "
@@ -402,4 +413,10 @@ class AffinityMatcher(DRModule):
             )
 
         self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
+
+        if self.init == "hyperbolic":
+            poincare_ball = geoopt.PoincareBall()
+            self.embedding_ = geoopt.ManifoldTensor(poincare_ball.expmap0(self.embedding_),
+                                                    manifold=poincare_ball)
+
         return self.embedding_.requires_grad_()

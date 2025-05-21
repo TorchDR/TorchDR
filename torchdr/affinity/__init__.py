@@ -1,4 +1,5 @@
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -20,7 +21,7 @@ from .entropic import (
 from .knn_normalized import MAGICAffinity, SelfTuningAffinity
 from .quadratic import DoublyStochasticQuadraticAffinity
 from .umap import UMAPAffinityIn, UMAPAffinityOut
-from .unnormalized import GaussianAffinity, ScalarProductAffinity, StudentAffinity
+from .unnormalized import GaussianAffinity, ScalarProductAffinity, StudentAffinity, CauchyAffinity
 
 __all__ = [
     "Affinity",
@@ -35,6 +36,7 @@ __all__ = [
     "SelfTuningAffinity",
     "MAGICAffinity",
     "StudentAffinity",
+    "CauchyAffinity",
     "EntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
