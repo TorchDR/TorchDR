@@ -400,8 +400,8 @@ class AffinityMatcher(DRModule):
 
         elif self.init == "hyperbolic":
             if is_geoopt_available():
-                embedding_ = torch.tensor(
-                    self.generator_.standard_normal(size=(n, self.n_components)),
+                embedding_ = torch.randn(
+                    (n, self.n_components),
                     device=X.device if self.device == "auto" else self.device,
                     dtype=X.dtype,
                 )

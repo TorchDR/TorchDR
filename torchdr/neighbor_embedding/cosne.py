@@ -42,8 +42,6 @@ class COSNE(SparseNeighborEmbedding):
         Dimension of the embedding space.
     lr : float, optional
         Learning rate for the algorithm, by default 1.0.
-    optimizer : {'SGD', 'Adam', 'NAdam'}, optional
-        Which pytorch optimizer to use, by default 'Adam'.
     optimizer_kwargs : dict, optional
         Arguments for the optimizer, by default None.
     scheduler : {'constant', 'linear'}, optional
@@ -80,8 +78,6 @@ class COSNE(SparseNeighborEmbedding):
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
 
     References
     ----------
@@ -100,33 +96,29 @@ class COSNE(SparseNeighborEmbedding):
         gamma: float = 2,
         n_components: int = 2,
         lr: Union[float, str] = "auto",
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "RAdam",
-        optimizer_kwargs: Union[Dict, str] = "auto",
+        optimizer_kwargs: Union[Dict, str] = {},
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "hyperbolic",
-        init_scaling: float = 1e-1,
+        init_scaling: float = 1,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: Optional[str] = None,
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        coeff_attraction: float = 10.0,
-        coeff_repulsion: float = 1.0,
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
-        metric_out: str = "sqhyperbolic",
         sparsity: bool = True,
     ):
         if is_geoopt_available():
             self.metric_in = metric_in
-            self.metric_out = metric_out
+            self.metric_out = "sqhyperbolic"
             self.perplexity = perplexity
             self.lambda1 = lambda1
             self.gamma = gamma
@@ -156,7 +148,7 @@ class COSNE(SparseNeighborEmbedding):
                 affinity_in=affinity_in,
                 affinity_out=affinity_out,
                 n_components=n_components,
-                optimizer=optimizer,
+                optimizer=geoopt.optim.RiemannianAdam,
                 optimizer_kwargs=optimizer_kwargs,
                 min_grad_norm=min_grad_norm,
                 max_iter=max_iter,

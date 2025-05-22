@@ -105,7 +105,7 @@ Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
 `TorchDR` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
-- Usual affinities: [`ScalarProductAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.ScalarProductAffinity.html), [`GaussianAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.GaussianAffinity.html), [`StudentAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.StudentAffinity.html).
+- Usual affinities: [`ScalarProductAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.ScalarProductAffinity.html), [`GaussianAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.GaussianAffinity.html), [`StudentAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.StudentAffinity.html) [`CauchyAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.CauchyAffinity.html).
 - Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html).
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
 - Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).
@@ -115,7 +115,7 @@ Visualizing the CIFAR100 dataset using DINO features and TSNE.
 
 **Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
 
-**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
+**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
 
 ### Evaluation Metric
