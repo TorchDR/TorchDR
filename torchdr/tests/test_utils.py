@@ -93,8 +93,8 @@ def test_pairwise_distances(dtype, metric):
     x = torch.randn(n, p, dtype=dtype)
     y = torch.randn(m, p, dtype=dtype)
 
-    x = x/x.max()-0.1
-    y = y/y.max()-0.1
+    x = x / x.max() - 0.1
+    y = y / y.max() - 0.1
 
     # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
