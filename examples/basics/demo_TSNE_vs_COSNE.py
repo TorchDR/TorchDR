@@ -13,16 +13,18 @@ model.
 """
 
 # %%
-# Desiging the synthetic hierarchical dataset
+# Designing the synthetic hierarchical dataset
 # ---------------
 #
 # We first construct a synthetic hierarchical dataset with the following class
 
+import numpy as np
 from torchdr.utils.visu import plotGrid
 from torchdr import TSNE, COSNE
 from torchdr import pairwise_distances
 import torch
 import itertools
+import urllib.request
 import matplotlib.pylab as plt
 import geoopt
 
