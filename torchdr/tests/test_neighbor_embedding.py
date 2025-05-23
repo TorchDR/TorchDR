@@ -13,7 +13,7 @@ import torch
 from sklearn.metrics import silhouette_score
 
 from torchdr.neighbor_embedding import SNE, TSNE, COSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
-from torchdr.tests.utils import toy_dataset
+from torchdr.tests.utils import toy_dataset, iris_dataset
 from torchdr.utils import check_shape, pykeops
 
 if pykeops:
@@ -65,20 +65,20 @@ def test_NE(DRModel, kwargs, dtype, backend):
 
 @pytest.mark.parametrize("dtype", lst_types)
 def test_COSNE(dtype):
-    n = 100
-    X, y = toy_dataset(n, dtype)
+    X, y = iris_dataset(dtype)
 
     model = COSNE(
+        lr=1e-1,
         n_components=2,
         device=DEVICE,
-        init="hyperbolic",
-        max_iter=100,
+        max_iter=1000,
         random_state=0,
-        min_grad_norm=1e-10,
+        gamma=1,
+        lambda1=.01
     )
     Z = model.fit_transform(X)
 
-    check_shape(Z, (n, 2))
+    check_shape(Z, (X.shape[0], 2))
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 
