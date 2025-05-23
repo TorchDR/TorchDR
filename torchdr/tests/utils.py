@@ -7,6 +7,7 @@ def toy_dataset(n=300, dtype="float32"):
     X, y = make_moons(n_samples=n, noise=0.05, random_state=0)
     return X.astype(dtype), y
 
+
 def iris_dataset(dtype="float32"):
     r"""Iris dataset for testing purposes."""
     iris = load_iris()

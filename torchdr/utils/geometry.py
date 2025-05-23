@@ -11,7 +11,13 @@ from torchdr.utils.utils import identity_matrix, kmin
 from .keops import LazyTensor, pykeops
 from .faiss import faiss
 
-LIST_METRICS_TORCH = ["euclidean", "sqeuclidean", "manhattan", "angular", "sqhyperbolic"]
+LIST_METRICS_TORCH = [
+    "euclidean",
+    "sqeuclidean",
+    "manhattan",
+    "angular",
+    "sqhyperbolic",
+]
 LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular"]
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
@@ -150,9 +156,10 @@ def _pairwise_distances_torch(
         C = -(X @ Y.transpose(-1, -2))
     elif metric == "sqhyperbolic":
         denom = (1 - X_norm).unsqueeze(-1) * (1 - Y_norm).unsqueeze(-2)
-        C = torch.relu(X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2)
-                       - 2 * X @ Y.transpose(-1, -2))
-        C = torch.arccosh(1+2*(C / denom)+1e-8)**2
+        C = torch.relu(
+            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+        )
+        C = torch.arccosh(1 + 2 * (C / denom) + 1e-8) ** 2
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
@@ -416,7 +423,7 @@ def symmetric_pairwise_distances_indices(
         X_norm = (X**2).sum(-1)
         C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
         denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
-        C_indices = torch.arccosh(1 + 2 * (C_indices / denom) + 1e-8)**2
+        C_indices = torch.arccosh(1 + 2 * (C_indices / denom) + 1e-8) ** 2
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 

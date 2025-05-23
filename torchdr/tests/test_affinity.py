@@ -236,6 +236,7 @@ def test_student_affinity(dtype, metric):
     if len(lst_backend) > 1:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 def test_cauchy_affinity(dtype, metric):
@@ -256,6 +257,7 @@ def test_cauchy_affinity(dtype, metric):
     # --- check consistency between torch and keops ---
     if len(lst_backend) > 1:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)

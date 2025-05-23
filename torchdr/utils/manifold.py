@@ -7,10 +7,10 @@ Robust handling of geoopt as optional dependency
 #
 # License: BSD 3-Clause License
 
-#from .optim import OPTIMIZERS
+# from .optim import OPTIMIZERS
 try:
     import geoopt
-    #OPTIMIZERS["RAdam"] = geoopt.optim.RiemannianAdam
+    # OPTIMIZERS["RAdam"] = geoopt.optim.RiemannianAdam
 
 except Exception:  # geoopt is not installed
     geoopt = False
@@ -19,8 +19,8 @@ except Exception:  # geoopt is not installed
 def is_geoopt_available():
     if not geoopt:
         raise ValueError(
-                "[TorchDR] ERROR : geoopt is not installed. Please install it to use "
-                "`manifold=true`."
-            )
+            "[TorchDR] ERROR : geoopt is not installed. Please install it to use "
+            "`manifold=true`."
+        )
     else:
         return True

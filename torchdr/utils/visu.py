@@ -10,10 +10,7 @@ Useful functions to draw Hyperbolic outputs of TorchDr
 import torch
 import numpy as np
 import matplotlib.pylab as plt
-from torchdr.utils import (
-    geoopt,
-    is_geoopt_available
-)
+from torchdr.utils import geoopt, is_geoopt_available
 
 
 def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0.1):
@@ -54,7 +51,7 @@ def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0
     if K < 0:
         min_t = -1.2 * max_dist_0
     else:
-        min_t = - circumference / 2.0
+        min_t = -circumference / 2.0
     t = torch.linspace(min_t, -min_t, N_EVALS_PER_GEODESIC)[:, None]
 
     # define a function to plot the geodesics
@@ -83,8 +80,8 @@ def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0
     for i in range(1, n_geodesics_per_quadrant):
         i = torch.as_tensor(float(i))
         # determine start of geodesic on x/y-crosshair
-        x = manifold.geodesic_unit(i*grid_interval_size, o, u_y)
-        y = manifold.geodesic_unit(i*grid_interval_size, o, u_x)
+        x = manifold.geodesic_unit(i * grid_interval_size, o, u_y)
+        y = manifold.geodesic_unit(i * grid_interval_size, o, u_x)
 
         # compute point on geodesics
         x_geodesic = manifold.geodesic_unit(t, x, u_x)

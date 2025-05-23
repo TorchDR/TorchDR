@@ -28,7 +28,7 @@ from torchdr.utils import (
     square_loss,
     to_torch,
     geoopt,
-    is_geoopt_available
+    is_geoopt_available,
 )
 from typing import Union, Dict, Optional, Any, Type
 
@@ -407,8 +407,9 @@ class AffinityMatcher(DRModule):
                 )
                 poincare_ball = geoopt.PoincareBall()
                 embedding_ = self.init_scaling * embedding_
-                self.embedding_ = geoopt.ManifoldTensor(poincare_ball.expmap0(embedding_),
-                                                        manifold=poincare_ball)
+                self.embedding_ = geoopt.ManifoldTensor(
+                    poincare_ball.expmap0(embedding_), manifold=poincare_ball
+                )
 
         else:
             raise ValueError(

@@ -156,9 +156,7 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         self.gamma = gamma
 
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        return (
-            (self.gamma/(C + self.gamma**2)).log()
-        )
+        return (self.gamma / (C + self.gamma**2)).log()
 
 
 class ScalarProductAffinity(UnnormalizedAffinity):

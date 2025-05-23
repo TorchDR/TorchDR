@@ -4,10 +4,7 @@
 #
 # License: BSD 3-Clause License
 
-from .manifold import (
-    geoopt,
-    is_geoopt_available
-)
+from .manifold import geoopt, is_geoopt_available
 
 from .geometry import (
     LIST_METRICS_KEOPS,
@@ -105,5 +102,5 @@ __all__ = [
     "faiss",
     "bool_arg",
     "geoopt",
-    "is_geoopt_available"
+    "is_geoopt_available",
 ]
