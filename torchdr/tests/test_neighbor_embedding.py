@@ -14,7 +14,7 @@ from sklearn.metrics import silhouette_score
 
 from torchdr.neighbor_embedding import SNE, TSNE, COSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
 from torchdr.tests.utils import toy_dataset, iris_dataset
-from torchdr.utils import check_shape, pykeops
+from torchdr.utils import check_shape, pykeops, geoopt
 
 if pykeops:
     lst_backend = ["keops", None]
@@ -63,6 +63,7 @@ def test_NE(DRModel, kwargs, dtype, backend):
     check_shape(Z, (n, 2))
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
+@pytest.mark.skipif(not geoopt, reason="geoopt is not available")
 @pytest.mark.parametrize("dtype", lst_types)
 def test_COSNE(dtype):
     X, y = iris_dataset(dtype)

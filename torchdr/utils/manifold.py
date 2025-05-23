@@ -12,7 +12,7 @@ try:
     import geoopt
     #OPTIMIZERS["RAdam"] = geoopt.optim.RiemannianAdam
 
-except ImportError:  # geoopt is not installed
+except Exception:  # geoopt is not installed
     geoopt = False
 
 
