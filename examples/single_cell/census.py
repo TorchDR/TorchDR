@@ -1,10 +1,8 @@
-import warnings
 from typing import List
 
 import anndata
 import cellxgene_census
 import numpy as np
-import scanpy as sc
 import datamapplot
 import matplotlib.pyplot as plt
 
