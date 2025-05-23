@@ -7,6 +7,7 @@
 from .manifold import geoopt, is_geoopt_available
 
 from .geometry import (
+    LIST_METRICS_TORCH,
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
     pairwise_distances,

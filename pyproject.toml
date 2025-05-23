@@ -101,6 +101,7 @@ doc = [
     "memory_profiler",
     "myst-parser",
     "pandas",
+    "geoopt>=0.5"
 ]
 
 examples = [
@@ -111,6 +112,7 @@ examples = [
     "datasets",
     "datamapplot",
     "scipy",
+    "geoopt>=0.5"
 ]
 
 benchmarks = [

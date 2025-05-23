@@ -26,7 +26,7 @@ import torch
 import itertools
 import urllib.request
 import matplotlib.pylab as plt
-import geoopt
+from torchdr.utils import geoopt
 
 
 class SyntheticDataset(torch.utils.data.Dataset):
@@ -196,7 +196,7 @@ colors = dataset.labels.max(-1).values
 # We can observe the hierarchical nature of the input data by examining the
 # pairwaise distance matrix in the input space
 
-D = pairwise_distances(HXs, HXs, metric="sqeuclidean")
+D,_ = pairwise_distances(HXs, HXs, metric="sqeuclidean")
 
 plt.figure()
 plt.imshow(D)
@@ -245,7 +245,7 @@ def load_numpy_from_url(url, delimiter="\t"):
 
 
 url_x = "https://rsinghlab.github.io/SCOT/data/snare_rna.txt"
-X = load_numpy_from_url(url_x)
+X = load_numpy_from_url(url_x) /100
 
 url_y = "https://rsinghlab.github.io/SCOT/data/SNAREseq_types.txt"
 Y = load_numpy_from_url(url_y)
