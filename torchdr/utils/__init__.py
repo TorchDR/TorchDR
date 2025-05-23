@@ -80,6 +80,7 @@ __all__ = [
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
     "LIST_METRICS_FAISS",
+    "LIST_METRICS_TORCH",
     "check_marginal",
     "relative_similarity",
     "check_similarity",
