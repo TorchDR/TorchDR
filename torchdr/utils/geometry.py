@@ -411,16 +411,12 @@ def symmetric_pairwise_distances_indices(
         C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
     elif metric == "angular":
         C_indices = -torch.sum(X.unsqueeze(1) * X_indices, dim=-1)
-    elif metric == "hyperbolic":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1) / (
-            X[:, 0].unsqueeze(1) * X_indices[:, :, 0]
-        )
     elif metric == "sqhyperbolic":
         X_indices_norm = (X_indices**2).sum(-1)
         X_norm = (X**2).sum(-1)
         C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
         denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
-        C_indices = torch.arccosh(1 + 2 * C_indices / denom + 1e-8)**2
+        C_indices = torch.arccosh(1 + 2 * (C_indices / denom) + 1e-8)**2
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 

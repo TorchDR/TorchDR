@@ -250,7 +250,6 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
-
             check_convergence = self.n_iter_ % self.n_iter_check == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
@@ -261,11 +260,9 @@ class AffinityMatcher(DRModule):
                             f"{grad_norm:.2e}."
                         )
                     break
-
             self.optimizer_.step()
             if self.scheduler_ is not None:
                 self.scheduler_.step()
-
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
@@ -385,6 +382,7 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init, device=self.device)
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
@@ -392,11 +390,13 @@ class AffinityMatcher(DRModule):
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
             if is_geoopt_available():
@@ -405,18 +405,15 @@ class AffinityMatcher(DRModule):
                     device=X.device if self.device == "auto" else self.device,
                     dtype=X.dtype,
                 )
+                poincare_ball = geoopt.PoincareBall()
+                embedding_ = self.init_scaling * embedding_
+                self.embedding_ = geoopt.ManifoldTensor(poincare_ball.expmap0(embedding_),
+                                                        manifold=poincare_ball)
 
         else:
             raise ValueError(
                 f"[TorchDR] ERROR : init {self.init} not supported in "
                 f"{self.__class__.__name__}."
             )
-
-        self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
-
-        if self.init == "hyperbolic":
-            poincare_ball = geoopt.PoincareBall()
-            self.embedding_ = geoopt.ManifoldTensor(poincare_ball.expmap0(self.embedding_),
-                                                    manifold=poincare_ball)
 
         return self.embedding_.requires_grad_()

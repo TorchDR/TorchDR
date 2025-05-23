@@ -3,6 +3,7 @@ Tests for neighbor embedding methods.
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -11,7 +12,7 @@ import pytest
 import torch
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import SNE, TSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
+from torchdr.neighbor_embedding import SNE, TSNE, COSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
 from torchdr.tests.utils import toy_dataset
 from torchdr.utils import check_shape, pykeops
 
@@ -56,6 +57,24 @@ def test_NE(DRModel, kwargs, dtype, backend):
         random_state=0,
         min_grad_norm=1e-10,
         **{**param_optim, **kwargs},
+    )
+    Z = model.fit_transform(X)
+
+    check_shape(Z, (n, 2))
+    assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_COSNE(dtype):
+    n = 100
+    X, y = toy_dataset(n, dtype)
+
+    model = COSNE(
+        n_components=2,
+        device=DEVICE,
+        init="hyperbolic",
+        max_iter=100,
+        random_state=0,
+        min_grad_norm=1e-10,
     )
     Z = model.fit_transform(X)
 

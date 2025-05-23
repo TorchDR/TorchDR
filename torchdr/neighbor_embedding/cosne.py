@@ -102,7 +102,7 @@ class COSNE(SparseNeighborEmbedding):
         ] = None,
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "hyperbolic",
-        init_scaling: float = 1,
+        init_scaling: float = .5,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: Optional[str] = None,
@@ -141,7 +141,7 @@ class COSNE(SparseNeighborEmbedding):
                 gamma=self.gamma,
                 device=device,
                 backend=backend,
-                verbose=False,
+                verbose=verbose,
             )
 
             super().__init__(
@@ -168,13 +168,14 @@ class COSNE(SparseNeighborEmbedding):
     def _fit(self, X: torch.Tensor):
         # We compute once for all the norms of X data samples
         self.X_norm = (X**2).sum(-1)
-        super()._fit(X)
+        super()._fit(X.double()) # better to work on double precision
 
     def _repulsive_loss(self):
         ball = geoopt.PoincareBall()
         ball.assert_check_point_on_manifold(self.embedding_)
         log_Q = self.affinity_out(self.embedding_, log=True)
-        rep_loss = logsumexp_red(log_Q, dim=(0, 1))
+        rep_loss = logsumexp_red(log_Q, dim=(0, 1))#torch.tensor([0])
         Y_norm = (self.embedding_**2).sum(-1)
-        distance_term = ((self.X_norm - Y_norm)**2).sum()
+        Y_norm = torch.arccosh(1+2*(Y_norm / (1-Y_norm))+1e-8)**2
+        distance_term = ((self.X_norm - Y_norm)**2).mean()
         return rep_loss + self.lambda1 * distance_term

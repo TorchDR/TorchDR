@@ -3,6 +3,7 @@ Tests for affinity matrices.
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -33,6 +34,7 @@ from torchdr.affinity import (
     SelfTuningAffinity,
     SinkhornAffinity,
     StudentAffinity,
+    CauchyAffinity,
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
@@ -234,6 +236,26 @@ def test_student_affinity(dtype, metric):
     if len(lst_backend) > 1:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_cauchy_affinity(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+
+    list_P = []
+    for backend in lst_backend:
+        affinity = CauchyAffinity(device=DEVICE, backend=backend, metric=metric)
+        P = affinity(X)
+        list_P.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+
+    # --- check consistency between torch and keops ---
+    if len(lst_backend) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
