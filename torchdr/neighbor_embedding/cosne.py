@@ -158,7 +158,7 @@ class COSNE(SparseNeighborEmbedding):
     def _fit(self, X: torch.Tensor):
         # We compute once and for all the norms of X data samples
         self.X_norm = (X**2).sum(-1)
-        super()._fit(X.double())  # better to work with double precision
+        super()._fit(X)
 
     def _repulsive_loss(self):
         ball = geoopt.PoincareBall()

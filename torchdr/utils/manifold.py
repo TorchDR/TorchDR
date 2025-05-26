@@ -10,7 +10,6 @@ Robust handling of geoopt as optional dependency
 # from .optim import OPTIMIZERS
 try:
     import geoopt
-    # OPTIMIZERS["RAdam"] = geoopt.optim.RiemannianAdam
 
 except Exception:  # geoopt is not installed
     geoopt = False

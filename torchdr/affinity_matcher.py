@@ -403,7 +403,7 @@ class AffinityMatcher(DRModule):
                 embedding_ = torch.randn(
                     (n, self.n_components),
                     device=X.device if self.device == "auto" else self.device,
-                    dtype=X.dtype,
+                    dtype=torch.float64,  # double precision for geoopt
                 )
                 poincare_ball = geoopt.PoincareBall()
                 embedding_ = self.init_scaling * embedding_

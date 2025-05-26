@@ -220,7 +220,7 @@ ball = geoopt.PoincareBall()
 dataset = SyntheticDataset(
     ball, 50, 2, num_siblings=100, sigma_sibling=0.05, dist_children=0.7
 )
-data_points = dataset.data.double()
+data_points = dataset.data
 data_points = data_points - data_points.mean(axis=0)
 
 labels = dataset.labels
@@ -249,10 +249,10 @@ plt.show()
 # the results
 
 
-tsne_model = TSNE(lr=1e-1, verbose=True)
+tsne_model = TSNE(verbose=True, max_iter=500)
 out_tsne = tsne_model.fit_transform(data_points)
 
-cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=2000)
+cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=500)
 out_cosne = cosne_model.fit_transform(data_points)
 
 
@@ -266,6 +266,7 @@ axes[1].scatter(*out_cosne.T, c=colors, cmap=plt.get_cmap("rainbow"))
 axes[1].axis("off")
 axes[1].set_title("CO-SNE", fontsize=24)
 plt.show()
+
 
 # %%
 # Load the SNARE-seq dataset (gene expression) with cell type labels
@@ -309,10 +310,10 @@ snare_labels = load_numpy_from_url(url_y)
 # We can now proceed to computing the two DR methods and visualizing
 # the results on the SNARE-seq dataset
 
-tsne_model = TSNE(lr=1e-1, verbose=True)
+tsne_model = TSNE(verbose=True, max_iter=200)
 out_tsne = tsne_model.fit_transform(snare_data)
 
-cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01)
+cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=500)
 out_cosne = cosne_model.fit_transform(snare_data)
 
 
