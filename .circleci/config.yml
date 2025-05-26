@@ -59,6 +59,7 @@ jobs:
           command: |
             which python
             python -c "import torchdr"
+            python -c "import geoopt"
             which sphinx-build
 
       # - run:
