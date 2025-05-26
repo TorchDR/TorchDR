@@ -1,6 +1,5 @@
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
-#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -40,7 +39,6 @@ from .eval import silhouette_samples, silhouette_score
 from .neighbor_embedding import (
     SNE,
     TSNE,
-    COSNE,
     UMAP,
     InfoTSNE,
     LargeVis,
@@ -88,7 +86,6 @@ __all__ = [
     "SampledNeighborEmbedding",
     "SNE",
     "TSNE",
-    "COSNE",
     "InfoTSNE",
     "TSNEkhorn",
     "LargeVis",

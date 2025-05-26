@@ -3,7 +3,6 @@ Tests for neighbor embedding methods.
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
-#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -12,17 +11,9 @@ import pytest
 import torch
 from sklearn.metrics import silhouette_score
 
-from torchdr.neighbor_embedding import (
-    SNE,
-    TSNE,
-    COSNE,
-    UMAP,
-    InfoTSNE,
-    LargeVis,
-    TSNEkhorn,
-)
-from torchdr.tests.utils import toy_dataset, iris_dataset
-from torchdr.utils import check_shape, pykeops, geoopt
+from torchdr.neighbor_embedding import SNE, TSNE, UMAP, InfoTSNE, LargeVis, TSNEkhorn
+from torchdr.tests.utils import toy_dataset
+from torchdr.utils import check_shape, pykeops
 
 if pykeops:
     lst_backend = ["keops", None]
@@ -69,26 +60,6 @@ def test_NE(DRModel, kwargs, dtype, backend):
     Z = model.fit_transform(X)
 
     check_shape(Z, (n, 2))
-    assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
-
-
-@pytest.mark.skipif(not geoopt, reason="geoopt is not available")
-@pytest.mark.parametrize("dtype", lst_types)
-def test_COSNE(dtype):
-    X, y = iris_dataset(dtype)
-
-    model = COSNE(
-        lr=1e-1,
-        n_components=2,
-        device=DEVICE,
-        max_iter=1000,
-        random_state=0,
-        gamma=1,
-        lambda1=0.01,
-    )
-    Z = model.fit_transform(X)
-
-    check_shape(Z, (X.shape[0], 2))
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 
