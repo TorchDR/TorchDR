@@ -1,10 +1,13 @@
 # Author: Rémi Flamary <remi.flamary@polytechnique.edu>
 #         Hugues Van Assel <vanasselhugues@gmail.com>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
+from .manifold import geoopt, is_geoopt_available
 
 from .geometry import (
+    LIST_METRICS_TORCH,
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
     pairwise_distances,
@@ -77,6 +80,7 @@ __all__ = [
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
     "LIST_METRICS_FAISS",
+    "LIST_METRICS_TORCH",
     "check_marginal",
     "relative_similarity",
     "check_similarity",
@@ -99,4 +103,6 @@ __all__ = [
     "handle_keops",
     "faiss",
     "bool_arg",
+    "geoopt",
+    "is_geoopt_available",
 ]

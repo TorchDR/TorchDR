@@ -2,6 +2,7 @@
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
+#         Nicolas Courty <ncourty@irisa.fr>
 #
 # License: BSD 3-Clause License
 
@@ -26,6 +27,8 @@ from torchdr.utils import (
     handle_type,
     square_loss,
     to_torch,
+    geoopt,
+    is_geoopt_available,
 )
 from typing import Union, Dict, Optional, Any, Type
 
@@ -247,7 +250,6 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
-
             check_convergence = self.n_iter_ % self.n_iter_check == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
@@ -258,11 +260,9 @@ class AffinityMatcher(DRModule):
                             f"{grad_norm:.2e}."
                         )
                     break
-
             self.optimizer_.step()
             if self.scheduler_ is not None:
                 self.scheduler_.step()
-
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
@@ -382,6 +382,7 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init, device=self.device)
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
@@ -389,11 +390,26 @@ class AffinityMatcher(DRModule):
                 device=X.device if self.device == "auto" else self.device,
                 dtype=X.dtype,
             )
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
+            self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
+
+        elif self.init == "hyperbolic":
+            if is_geoopt_available():
+                embedding_ = torch.randn(
+                    (n, self.n_components),
+                    device=X.device if self.device == "auto" else self.device,
+                    dtype=torch.float64,  # double precision for geoopt
+                )
+                poincare_ball = geoopt.PoincareBall()
+                embedding_ = self.init_scaling * embedding_
+                self.embedding_ = geoopt.ManifoldTensor(
+                    poincare_ball.expmap0(embedding_), manifold=poincare_ball
+                )
 
         else:
             raise ValueError(
@@ -401,5 +417,4 @@ class AffinityMatcher(DRModule):
                 f"{self.__class__.__name__}."
             )
 
-        self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
         return self.embedding_.requires_grad_()

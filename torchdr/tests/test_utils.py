@@ -9,6 +9,7 @@ import torch
 from torch.testing import assert_close
 
 from torchdr.utils import (
+    LIST_METRICS_TORCH,
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
     binary_search,
@@ -86,11 +87,14 @@ def test_false_position(dtype):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
+@pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_pairwise_distances(dtype, metric):
     n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
     y = torch.randn(m, p, dtype=dtype)
+
+    x = x / x.max() - 0.1
+    y = y / y.max() - 0.1
 
     # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
@@ -139,7 +143,7 @@ def test_pairwise_distances_faiss(dtype, metric):
 
 
 @pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_KEOPS)
+@pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_symmetric_pairwise_distances_indices(dtype, metric):
     n, p = 100, 10
     x = torch.randn(n, p, dtype=dtype)

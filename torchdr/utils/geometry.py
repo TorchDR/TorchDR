@@ -11,7 +11,14 @@ from torchdr.utils.utils import identity_matrix, kmin
 from .keops import LazyTensor, pykeops
 from .faiss import faiss
 
-LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular", "hyperbolic"]
+LIST_METRICS_TORCH = [
+    "euclidean",
+    "sqeuclidean",
+    "manhattan",
+    "angular",
+    "sqhyperbolic",
+]
+LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular"]
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
@@ -115,7 +122,7 @@ def _pairwise_distances_torch(
         If k is provided, indices is of shape (n_samples, k) containing the indices of the k nearest neighbors.
         Otherwise, None.
     """
-    if metric not in LIST_METRICS_KEOPS:
+    if metric not in LIST_METRICS_TORCH:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
 
     # If Y is not provided, use X (and reuse its memory).
@@ -126,7 +133,7 @@ def _pairwise_distances_torch(
         do_exclude = False  # Only exclude self when Y is not provided.
 
     # For metrics that require norms, compute once and reuse if Y is X.
-    if metric in {"sqeuclidean", "euclidean", "hyperbolic"}:
+    if metric in {"sqeuclidean", "euclidean", "sqhyperbolic"}:
         X_norm = (X**2).sum(dim=-1)
         if Y is X:
             Y_norm = X_norm
@@ -147,10 +154,12 @@ def _pairwise_distances_torch(
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(dim=-1)
     elif metric == "angular":
         C = -(X @ Y.transpose(-1, -2))
-    elif metric == "hyperbolic":
-        C = (
-            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
-        ) / (X[..., 0].unsqueeze(-1) * Y[..., 0].unsqueeze(-2))
+    elif metric == "sqhyperbolic":
+        denom = (1 - X_norm).unsqueeze(-1) * (1 - Y_norm).unsqueeze(-2)
+        C = torch.relu(
+            X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * X @ Y.transpose(-1, -2)
+        )
+        C = torch.arccosh(1 + 2 * (C / denom) + 1e-8) ** 2
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
@@ -229,8 +238,6 @@ def _pairwise_distances_keops(
         C = (X_i - Y_j).abs().sum(-1)
     elif metric == "angular":
         C = -(X_i | Y_j)
-    elif metric == "hyperbolic":
-        C = ((X_i - Y_j) ** 2).sum(-1) / (X_i[0] * Y_j[0])
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
@@ -411,10 +418,12 @@ def symmetric_pairwise_distances_indices(
         C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
     elif metric == "angular":
         C_indices = -torch.sum(X.unsqueeze(1) * X_indices, dim=-1)
-    elif metric == "hyperbolic":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1) / (
-            X[:, 0].unsqueeze(1) * X_indices[:, :, 0]
-        )
+    elif metric == "sqhyperbolic":
+        X_indices_norm = (X_indices**2).sum(-1)
+        X_norm = (X**2).sum(-1)
+        C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
+        denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
+        C_indices = torch.arccosh(1 + 2 * (C_indices / denom) + 1e-8) ** 2
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 

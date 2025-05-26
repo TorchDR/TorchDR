@@ -5,7 +5,6 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
 import datamapplot
 
 import torchdr
