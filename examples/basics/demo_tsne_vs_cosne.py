@@ -310,7 +310,7 @@ snare_labels = load_numpy_from_url(url_y)
 # We can now proceed to computing the two DR methods and visualizing
 # the results on the SNARE-seq dataset
 
-tsne_model = TSNE(verbose=True, max_iter=200)
+tsne_model = TSNE(verbose=True, max_iter=500)
 out_tsne = tsne_model.fit_transform(snare_data)
 
 cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=500)
