@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Hyperbolic Stochastic Neighbor embedding (CO-SNE) algorithm
-"""
+"""Hyperbolic Stochastic Neighbor embedding (CO-SNE) algorithm."""
 
 # Author: Nicolas Courty <ncourty@irisa.fr>
 #
@@ -19,9 +17,9 @@ from torchdr.utils import logsumexp_red, geoopt, is_geoopt_available
 
 
 class COSNE(SparseNeighborEmbedding):
-    """
-    Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) algorithm
-    for embedding in hyperbolic space, introduced in [23]_.
+    """Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) introduced in :cite:`guo2022co`.
+
+    This algorithm is a variant of SNE that uses a hyperbolic space for the embedding.
 
     Parameters
     ----------
@@ -74,15 +72,6 @@ class COSNE(SparseNeighborEmbedding):
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-
-    References
-    ----------
-
-    .. [23]  Guo, Y., Guo, H. & Yu, S. (2022).
-            `CO-SNE: Dimensionality Reduction and Visualization for Hyperbolic Data`_.
-            International Conference on Computer Vision and Pattern Recognition (CVPR).
-
-
     """  # noqa: E501
 
     def __init__(
@@ -159,6 +148,11 @@ class COSNE(SparseNeighborEmbedding):
                 random_state=random_state,
                 early_exaggeration_coeff=early_exaggeration_coeff,
                 early_exaggeration_iter=early_exaggeration_iter,
+            )
+        else:
+            raise ValueError(
+                "[TorchDR] ERROR: geoopt is not installed. "
+                "Please install it to use CO-SNE."
             )
 
     def _fit(self, X: torch.Tensor):

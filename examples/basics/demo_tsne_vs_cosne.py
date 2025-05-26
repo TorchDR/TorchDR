@@ -1,15 +1,12 @@
 r"""
-TSNE and COSNE  via AffinityMatcher
-===================================
+TSNE and COSNE via AffinityMatcher
+==================================
 
 We compare in this example two dimensionalty reduction methods:
 T-SNE and CO-SNE on a synthetic hierarchical toy dataset and on
-singlecell data
-The first method computes an emebdding in a 2D Euclidean space
-while the second one operates in the Hyperbolic Poincaré Ball
-model.
-
-
+singlecell data. The first method computes an embedding in a 2D
+Euclidean space while the second one operates in the Hyperbolic
+Poincaré Ball model.
 """
 
 # %%
@@ -31,18 +28,26 @@ from torchdr.utils import geoopt
 
 class SyntheticDataset(torch.utils.data.Dataset):
     """
+    Implementation of a synthetic dataset by hierarchical diffusion.
+
     Adopted from https://github.com/emilemathieu/pvae/
 
-    Implementation of a synthetic dataset by hierarchical diffusion.
-    Args:
-    :param int dim: dimension of the input sample
-    :param int depth: depth of the tree; the root corresponds to the depth 0
-    :param int :numberOfChildren: Number of children of each node in the tree
-    :param int :numberOfsiblings: Number of noisy observations obtained from the
-    nodes of the tree
-    :param float sigma_children: noise
-    :param int param: integer by which :math:`\\sigma_children` is divided at each
-    deeper level of the tree
+    Parameters
+    ----------
+    ball : torchdr.utils.geoopt.PoincareBall
+        The Poincaré ball used for generating the dataset.
+    dim : int
+        Dimension of the input sample.
+    depth : int
+        Depth of the tree; the root corresponds to the depth 0.
+    num_children : int
+        Number of children of each node in the tree.
+    dist_children : float
+        Distance parameter for children nodes.
+    sigma_sibling : float
+        Noise parameter for sibling nodes.
+    num_siblings : int
+        Number of noisy observations obtained from the nodes of the tree.
     """
 
     def __init__(
@@ -50,21 +55,20 @@ class SyntheticDataset(torch.utils.data.Dataset):
         ball,
         dim,
         depth,
-        numberOfChildren=2,
+        num_children=2,
         dist_children=1,
         sigma_sibling=2,
-        param=1,
-        numberOfsiblings=1,
+        num_siblings=1,
     ):
-        assert numberOfChildren == 2
+        assert num_children == 2
         self.dim = int(dim)
         self.ball = ball
         self.root = ball.origin(self.dim)
         self.sigma_sibling = sigma_sibling
         self.depth = int(depth)
         self.dist_children = dist_children
-        self.numberOfChildren = int(numberOfChildren)
-        self.numberOfsiblings = int(numberOfsiblings)
+        self.num_children = int(num_children)
+        self.num_siblings = int(num_siblings)
         self.__class_counter = itertools.count()
         self.origin_data, self.origin_labels, self.data, self.labels = map(
             torch.detach, self.bst()
@@ -73,34 +77,59 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         """
-        this method returns the total number of samples/nodes
+        Return the total number of samples/nodes.
+
+        Returns
+        -------
+        int
+            Number of samples in the dataset.
         """
         return len(self.data)
 
     def __getitem__(self, idx):
         """
-        Generates one sample
+        Generate one sample.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        tuple
+            Contains (data, labels, max_label) for the requested index.
         """
         data, labels = self.data[idx], self.labels[idx]
         return data, labels, labels.max(-1).values
 
     def get_children(self, parent_value, parent_label, current_depth, offspring=True):
         """
-        :param 1d-array parent_value
-        :param 1d-array parent_label
-        :param int current_depth
-        :param  Boolean offspring:
-        if True the parent node gives birth to numberOfChildren nodes
-        if False the parent node gives birth to numberOfsiblings noisy observations
-        :return: list of 2-tuples containing the value and label of each child of a
-        parent node
-        :rtype: list of length numberOfChildren
+        Generate children nodes or noisy observations from a parent node.
+
+        Parameters
+        ----------
+        parent_value : torch.Tensor
+            1D array representing the parent node value.
+        parent_label : torch.Tensor
+            1D array representing the parent node label.
+        current_depth : int
+            Current depth in the tree.
+        offspring : bool, default=True
+            If True, the parent node gives birth to num_children nodes.
+            If False, the parent node gives birth to num_siblings noisy observations.
+
+        Returns
+        -------
+        list
+            List of 2-tuples containing the value and label of each child of the
+            parent node. Length depends on offspring parameter.
         """
         if offspring:
-            numberOfChildren = self.numberOfChildren
+            num_children = self.num_children
             sigma = self.dist_children
         else:
-            numberOfChildren = self.numberOfsiblings
+            num_children = self.num_siblings
             sigma = self.sigma_sibling
         if offspring:
             direction = torch.randn_like(parent_value)
@@ -119,7 +148,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
             children = [(child_value_1, child_label_1), (child_value_2, child_label_2)]
         else:
             children = []
-            for i in range(numberOfChildren):
+            for i in range(num_children):
                 child_value = self.ball.random(
                     self.dim, mean=parent_value, std=sigma**0.5
                 )
@@ -129,7 +158,16 @@ class SyntheticDataset(torch.utils.data.Dataset):
 
     def bst(self):
         """
-        This method generates all the nodes of a level before going to the next level
+        Generate all nodes of a level before proceeding to the next level.
+
+        This method builds the hierarchical tree structure level by level.
+
+        Returns
+        -------
+        tuple
+            Contains (images, labels_visited, values_clones, labels_clones)
+            representing the original data points, their labels, and the
+            noisy observations with their labels.
         """
         label = -torch.ones(self.depth + 1, dtype=torch.long)
         label[0] = next(self.__class_counter)
@@ -154,18 +192,17 @@ class SyntheticDataset(torch.utils.data.Dataset):
                     values_clones.append(clone[0])
                     labels_clones.append(clone[1])
         length = int(
-            ((self.numberOfChildren) ** (self.depth + 1) - 1)
-            / (self.numberOfChildren - 1)
+            ((self.num_children) ** (self.depth + 1) - 1) / (self.num_children - 1)
         )
         images = torch.cat([i for i in visited]).reshape(length, self.dim)
         labels_visited = torch.cat([i for i in labels_visited]).reshape(
             length, self.depth + 1
         )[:, : self.depth]
         values_clones = torch.cat([i for i in values_clones]).reshape(
-            self.numberOfsiblings * length, self.dim
+            self.num_siblings * length, self.dim
         )
         labels_clones = torch.cat([i for i in labels_clones]).reshape(
-            self.numberOfsiblings * length, self.depth + 1
+            self.num_siblings * length, self.depth + 1
         )
         return images, labels_visited, values_clones, labels_clones
 
@@ -181,12 +218,12 @@ class SyntheticDataset(torch.utils.data.Dataset):
 ball = geoopt.PoincareBall()
 
 dataset = SyntheticDataset(
-    ball, 50, 2, numberOfsiblings=100, sigma_sibling=0.05, dist_children=0.7
+    ball, 50, 2, num_siblings=100, sigma_sibling=0.05, dist_children=0.7
 )
-HXs = dataset.data.double()
-HXs = HXs - HXs.mean(axis=0)
+data_points = dataset.data.double()
+data_points = data_points - data_points.mean(axis=0)
 
-ys = dataset.labels
+labels = dataset.labels
 colors = dataset.labels.max(-1).values
 
 # %%
@@ -196,10 +233,10 @@ colors = dataset.labels.max(-1).values
 # We can observe the hierarchical nature of the input data by examining the
 # pairwaise distance matrix in the input space
 
-D, _ = pairwise_distances(HXs, HXs, metric="sqeuclidean")
+dist_matrix, _ = pairwise_distances(data_points, data_points, metric="sqeuclidean")
 
 plt.figure()
-plt.imshow(D)
+plt.imshow(dist_matrix)
 plt.title("Distance matrix in the input space")
 plt.show()
 
@@ -212,11 +249,11 @@ plt.show()
 # the results
 
 
-myTSNE = TSNE(lr=1e-1, verbose=True)
-out_tsne = myTSNE.fit_transform(HXs)
+tsne_model = TSNE(lr=1e-1, verbose=True)
+out_tsne = tsne_model.fit_transform(data_points)
 
-myCOSNE = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=2000)
-out_cosne = myCOSNE.fit_transform(HXs)
+cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01, max_iter=2000)
+out_cosne = cosne_model.fit_transform(data_points)
 
 
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4))
@@ -236,6 +273,21 @@ plt.show()
 
 
 def load_numpy_from_url(url, delimiter="\t"):
+    """
+    Load a numpy array from a URL.
+
+    Parameters
+    ----------
+    url : str
+        URL to load data from.
+    delimiter : str, default="\t"
+        Delimiter used in the data file.
+
+    Returns
+    -------
+    numpy.ndarray
+        Loaded data as a numpy array.
+    """
     response = urllib.request.urlopen(url)
     data = response.read().decode("utf-8")
     data = data.split("\n")
@@ -245,32 +297,32 @@ def load_numpy_from_url(url, delimiter="\t"):
 
 
 url_x = "https://rsinghlab.github.io/SCOT/data/snare_rna.txt"
-X = load_numpy_from_url(url_x) / 100
+snare_data = load_numpy_from_url(url_x) / 100
 
 url_y = "https://rsinghlab.github.io/SCOT/data/SNAREseq_types.txt"
-Y = load_numpy_from_url(url_y)
+snare_labels = load_numpy_from_url(url_y)
 
 # %%
-# Computing TSNE and COSNE
-# -----------------------
+# Computing TSNE and COSNE on SNARE-seq data
+# -----------------------------------------
 #
 # We can now proceed to computing the two DR methods and visualizing
-# the results
+# the results on the SNARE-seq dataset
 
-myTSNE = TSNE(lr=1e-1, verbose=True)
-out_tsne = myTSNE.fit_transform(X)
+tsne_model = TSNE(lr=1e-1, verbose=True)
+out_tsne = tsne_model.fit_transform(snare_data)
 
-myCOSNE = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01)
-out_cosne = myCOSNE.fit_transform(X)
+cosne_model = COSNE(lr=1e-1, verbose=True, gamma=0.5, lambda1=0.01)
+out_cosne = cosne_model.fit_transform(snare_data)
 
 
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
-axes[0].scatter(*out_tsne.T, c=Y.squeeze(1), cmap=plt.get_cmap("rainbow"))
+axes[0].scatter(*out_tsne.T, c=snare_labels.squeeze(1), cmap=plt.get_cmap("rainbow"))
 axes[0].set_xticks([])
 axes[0].set_yticks([])
 axes[0].set_title("T-SNE", fontsize=24)
 plotGrid(axes[1])
-axes[1].scatter(*out_cosne.T, c=Y.squeeze(1), cmap=plt.get_cmap("rainbow"))
+axes[1].scatter(*out_cosne.T, c=snare_labels.squeeze(1), cmap=plt.get_cmap("rainbow"))
 axes[1].axis("off")
 axes[1].set_title("CO-SNE", fontsize=24)
 plt.show()
