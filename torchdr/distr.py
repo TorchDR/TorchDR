@@ -206,7 +206,8 @@ class DistR(AffinityMatcher):
             check_NaNs(
                 gw_loss,
                 msg="[TorchDR] ERROR : NaNs in the Mirror Descent for Gromov-Wasserstein "
-                f"loss at iter {step}.",
+                f"loss at iter {step}. Try lowering the lr_mirror_descent parameter."
+                f"Current value is {self.lr_mirror_descent}.",
             )
 
             gw_loss.backward()
