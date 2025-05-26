@@ -112,9 +112,9 @@ class StudentAffinity(UnnormalizedLogAffinity):
 
 
 class CauchyAffinity(UnnormalizedLogAffinity):
-    r"""
-    Computes the Cauchy affinity matrix based on the Cauchy distribution:
+    r"""Computes the Cauchy affinity matrix based on the Cauchy distribution.
 
+    Its expression is given by:
     .. math::
         \frac{1}{\pi \gamma} \left[\frac{\gamma^2}{\mathbf{C}+\gamma^2}\right]
 

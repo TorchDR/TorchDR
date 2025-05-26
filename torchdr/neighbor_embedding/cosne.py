@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Hyperbolic Stochastic Neighbor embedding (CO-SNE) algorithm."""
+"""Hyperbolic Stochastic Neighbor Embedding (CO-SNE) algorithm."""
 
 # Author: Nicolas Courty <ncourty@irisa.fr>
 #
@@ -29,9 +29,9 @@ class COSNE(SparseNeighborEmbedding):
         Different values can result in significantly different results.
     lambda1 : float
         Coefficient for the loss enforcing equal norms between input samples
-        and embedded samples
+        and embedded samples.
     gamma : float
-        gamma parameter of the Cauchy distribution used for affinity, by default 2
+        Gamma parameter of the Cauchy distribution used for affinity, by default 2.
     n_components : int, optional
         Dimension of the embedding space.
     lr : float, optional
@@ -42,36 +42,36 @@ class COSNE(SparseNeighborEmbedding):
         Learning rate scheduler.
     scheduler_kwargs : dict, optional
         Arguments for the scheduler, by default None.
-    init : {'random', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z, default 'pca'.
+    init : {'hyperbolic'} or torch.Tensor of shape (n_samples, output_dim), optional
+        Initialization for the embedding Z, default 'hyperbolic'.
     init_scaling : float, optional
-        Scaling factor for the initialization, by default 1e-4.
+        Scaling factor for the initialization, by default 0.5.
     tol : float, optional
         Precision threshold at which the algorithm stops, by default 1e-4.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 100.
-    tolog : bool, optional
-        Whether to store intermediate results in a dictionary, by default False.
+        Number of maximum iterations for the descent algorithm, by default 2000.
     device : str, optional
         Device to use, by default "auto".
-    keops : bool, optional
-        Whether to use KeOps, by default False.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
-        Verbosity, by default True.
+        Verbosity, by default False.
     random_state : float, optional
-        Random seed for reproducibility, by default 0.
-    coeff_attraction : float, optional
-        Coefficient for the attraction term, by default 10.0 for early exaggeration.
-    coeff_repulsion : float, optional
-        Coefficient for the repulsion term, by default 1.0.
+        Random seed for reproducibility, by default None.
+    early_exaggeration_coeff : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        By default 12.0 for early exaggeration.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : _type_, optional
+    tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
+    sparsity : bool, optional
+        Whether to use sparsity mode for the input affinity. Default is True.
     """  # noqa: E501
 
     def __init__(
@@ -156,9 +156,9 @@ class COSNE(SparseNeighborEmbedding):
             )
 
     def _fit(self, X: torch.Tensor):
-        # We compute once for all the norms of X data samples
+        # We compute once and for all the norms of X data samples
         self.X_norm = (X**2).sum(-1)
-        super()._fit(X.double())  # better to work on double precision
+        super()._fit(X.double())  # better to work with double precision
 
     def _repulsive_loss(self):
         ball = geoopt.PoincareBall()

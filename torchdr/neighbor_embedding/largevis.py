@@ -70,7 +70,7 @@ class LargeVis(SampledNeighborEmbedding):
         By default 12.0 for early exaggeration.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : _type_, optional
+    tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.

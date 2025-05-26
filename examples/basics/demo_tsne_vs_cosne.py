@@ -1,6 +1,6 @@
 r"""
-TSNE and COSNE via AffinityMatcher
-==================================
+TSNE vs COSNE : Euclidean vs Hyperbolic
+=======================================
 
 We compare in this example two dimensionalty reduction methods:
 T-SNE and CO-SNE on a synthetic hierarchical toy dataset and on
