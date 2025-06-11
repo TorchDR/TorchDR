@@ -53,14 +53,14 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ### Neighbor Embedding
 
-`TorchDR` provides a suite of **neighbor embedding methods**.
+`TorchDR` provides a suite of **neighbor embedding** methods.
 
 **Linear-time (Contrastive Learning).** State-of-the-art speed on large datasets: [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
 **Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html).
 
 > *Remark.* For quadratic-time algorithms, `TorchDR` provides exact implementations that scale linearly in memory using `backend=keops`.
-> For `TSNE` specifically, one can also explore fast approximations, such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
+> For `TSNE` specifically, one can also explore fast approximations, such as `FIt-SNE` implemented in [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
 
 
 ### Spectral Embedding
@@ -146,6 +146,7 @@ To get the latest version, you can install it from the source code as follows:
 ```bash
 pip install git+https://github.com/torchdr/torchdr
 ```
+
 
 ## Finding Help
 
