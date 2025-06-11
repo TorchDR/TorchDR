@@ -51,29 +51,31 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ## Methods
 
-**Neighbor Embedding.** `TorchDR` provides a suite of **neighbor embedding methods**.
+### Neighbor Embedding
 
-### Linear-time (Contrastive Learning)
-State-of-the-art speed on large datasets:
+`TorchDR` provides a suite of **neighbor embedding methods**.
+
+**Linear-time (Contrastive Learning).** State-of-the-art speed on large datasets:
 - [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html)
 - [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html)
 - [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html)
 
-### Quadratic-time (Exact Repulsion)
-Compute the full pairwise repulsion:
+**Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion:
 - [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html)
 - [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html)
 - [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html)
 - [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html)
 
-**Remark.** `TorchDR` provides exact implementations of quadratic-time algorithms that scale linearly in memory using `backend=keops`.
+*Remark.* `TorchDR` provides exact implementations of quadratic-time algorithms that scale linearly in memory using `backend=keops`.
 For `TSNE` specifically, one can also explore fast approximations—such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda) which bypass full pairwise repulsion.
 
 
-**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition:
-- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html)
-- [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html)
-- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html): can use any `TorchDR` *Affinity* (see the [Affinities](#affinities) subsection below).
+### Spectral Embedding
+
+`TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition:
+- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html).
+- [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html) to handle massive datasets
+- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html) to leverage any `TorchDR` *Affinity* (see the [Affinities](#affinities) subsection below)
 
 
 ## Benchmarks
