@@ -60,7 +60,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
+        Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
@@ -100,7 +100,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 12.0,

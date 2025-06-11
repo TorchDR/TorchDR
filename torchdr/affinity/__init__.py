@@ -23,10 +23,12 @@ from .quadratic import DoublyStochasticQuadraticAffinity
 from .umap import UMAPAffinityIn, UMAPAffinityOut
 from .unnormalized import (
     GaussianAffinity,
+    NegativeCostAffinity,
     ScalarProductAffinity,
     StudentAffinity,
     CauchyAffinity,
 )
+from .pacmap import PACMAPAffinity
 
 __all__ = [
     "Affinity",
@@ -34,6 +36,7 @@ __all__ = [
     "UnnormalizedAffinity",
     "UnnormalizedLogAffinity",
     "SparseLogAffinity",
+    "NegativeCostAffinity",
     "ScalarProductAffinity",
     "GaussianAffinity",
     "NormalizedGaussianAffinity",
@@ -48,4 +51,5 @@ __all__ = [
     "DoublyStochasticQuadraticAffinity",
     "UMAPAffinityIn",
     "UMAPAffinityOut",
+    "PACMAPAffinity",
 ]

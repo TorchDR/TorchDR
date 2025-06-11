@@ -28,6 +28,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     GaussianAffinity,
     MAGICAffinity,
+    NegativeCostAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
     ScalarProductAffinity,
@@ -444,3 +445,25 @@ def test_umap_embedding_affinity(dtype, metric, backend, a, b):
     check_shape(P, (n, n))
     check_nonnegativity(P)
     check_symmetry(P)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_negative_cost_affinity(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+
+    list_P = []
+    for backend in lst_backend:
+        affinity = NegativeCostAffinity(device=DEVICE, backend=backend, metric=metric)
+        P = affinity(X)
+        list_P.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
+        check_symmetry(P)
+
+    # --- check consistency between torch and keops ---
+    if len(lst_backend) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
