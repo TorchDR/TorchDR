@@ -15,38 +15,42 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/TorchDR/TorchDR/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main)
 [![codecov](https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg)](https://codecov.io/gh/torchdr/torchdr)
 
-TorchDR is an open-source **dimensionality reduction (DR)** library using PyTorch. Its goal is to provide **fast GPU-compatible** implementations of DR algorithms, as well as to accelerate the development of new DR methods by providing a **common simplified framework**.
+`TorchDR` is an open-source **dimensionality reduction (DR)** library using PyTorch. It provides **GPU-accelerated** implementations of popular DR algorithms in a single unified framework.
 
-DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix**. To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. TorchDR provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
+DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix**. To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. `TorchDR` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for both input and embedding as well as an objective function.
 
 
 ## Benefits of TorchDR
 
-- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **sampling** strategies with **contrastive learning** techniques.
+- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **contrastive learning** techniques.
 - **Modularity**: all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
 - **Memory efficiency**: relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
-- **Compatibility**: implemented methods are fully **compatible** with the sklearn API and torch ecosystem.
+- **Compatibility**: implemented methods are fully **compatible** with the `sklearn` and `torch` ecosystems.
 
 
 ## Getting Started
 
-`TorchDR` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
+`TorchDR` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both `NumPy` arrays and `PyTorch` tensors as input, ensuring that the output matches the type and backend of the input.
 
 ```python
 from sklearn.datasets import fetch_openml
-from torchdr import PCA, TSNE
+from torchdr import PCA, UMAP
 
 x = fetch_openml("mnist_784").data.astype("float32")
 
 x_ = PCA(n_components=50).fit_transform(x)
-z = TSNE(perplexity=30).fit_transform(x_)
+z = UMAP(n_neighbors=30).fit_transform(x_)
 ```
 
 `TorchDR` is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
 
 ```python
-z_gpu = TSNE(perplexity=30, device="cuda").fit_transform(x_)
+z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 ```
+
+## Methods
+
+
 
 
 ## Backends
@@ -92,14 +96,14 @@ Visualizing cells using `LargeVis` from `TorchDR`.
 
 
 **CIFAR100.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py))
-Visualizing the CIFAR100 dataset using DINO features and TSNE.
+Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 
 <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/cifar100_tsne.png" width="1024" alt="TSNE on CIFAR100 DINO features">
 </p>
 
 
-## Implemented Features (to date)
+## Advanced Features
 
 ### Affinities
 
