@@ -59,8 +59,8 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 **Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html).
 
-*Remark.* `TorchDR` provides exact implementations of quadratic-time algorithms that scale linearly in memory using `backend=keops`.
-For `TSNE` specifically, one can also explore fast approximations, such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
+> *Remark.* For quadratic-time algorithms, `TorchDR` provides exact implementations that scale linearly in memory using `backend=keops`.
+> For `TSNE` specifically, one can also explore fast approximations, such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
 
 
 ### Spectral Embedding
