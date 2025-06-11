@@ -22,7 +22,7 @@ DR aims to construct a **low-dimensional representation (or embedding)** of an i
 
 ## Benefits of TorchDR
 
-- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **contrastive learning** techniques.
+- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **contrastive learning** / **negative sampling** techniques.
 - **Modularity**: all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
 - **Memory efficiency**: relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
 - **Compatibility**: implemented methods are fully **compatible** with the `sklearn` and `torch` ecosystems.
@@ -51,12 +51,29 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ## Methods
 
-**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
+**Neighbor Embedding.** `TorchDR` provides a suite of **neighbor embedding methods**.
 
-**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition.
+### Linear-time (Contrastive Learning)
+State-of-the-art speed on large datasets:
+- [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html)
+- [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html)
+- [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html)
+
+### Quadratic-time (Exact Repulsion)
+Compute the full pairwise repulsion:
+- [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html)
+- [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html)
+- [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html)
+- [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html)
+
+**Remark.** `TorchDR` provides exact implementations of quadratic-time algorithms that scale linearly in memory using `backend=keops`.
+For `TSNE` specifically, one can also explore fast approximations—such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda) which bypass full pairwise repulsion.
+
+
+**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition:
 - [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html)
 - [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html)
-- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html) which can use any 'TorchDR' *Affinity* (see the [Affinities](#affinities) subsection below).
+- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html): can use any `TorchDR` *Affinity* (see the [Affinities](#affinities) subsection below).
 
 
 ## Benchmarks
