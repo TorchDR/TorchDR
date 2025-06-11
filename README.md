@@ -55,39 +55,29 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 `TorchDR` provides a suite of **neighbor embedding methods**.
 
-**Linear-time (Contrastive Learning).** State-of-the-art speed on large datasets:
-- [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html)
-- [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html)
-- [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html)
+**Linear-time (Contrastive Learning).** State-of-the-art speed on large datasets: [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
-**Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion:
-- [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html)
-- [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html)
-- [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html)
-- [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html)
+**Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html).
 
 *Remark.* `TorchDR` provides exact implementations of quadratic-time algorithms that scale linearly in memory using `backend=keops`.
-For `TSNE` specifically, one can also explore fast approximations—such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda) which bypass full pairwise repulsion.
+For `TSNE` specifically, one can also explore fast approximations, such as [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
 
 
 ### Spectral Embedding
 
 `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition:
-- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html).
+- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html)
 - [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html) to handle massive datasets
 - [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html) to leverage any `TorchDR` *Affinity* (see the [Affinities](#affinities) subsection below)
 
 
 ## Benchmarks
 
-Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py). Stay tuned for additional benchmarks.
+Relying on `TorchDR` enables an order-of-magnitude improvement in runtime performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py).
 
-| Dataset         | Samples   | Method            | Runtime (sec) | Memory (MB) |
-|-----------------|-----------|-------------------|---------------|-------------|
-| Macosko         | 44,808    | Classic UMAP (CPU)| 61.3          | 410.9       |
-|                 |           | TorchDR UMAP (GPU)| **7.7**       | **100.4**   |
-| 10x Mouse Zheng | 1,306,127 | Classic UMAP (CPU)| 1910.4        | 11278.1     |
-|                 |           | TorchDR UMAP (GPU)| **184.4**     | **2699.7**  |
+<p align="center">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark.png" width="1024" alt="UMAP benchmark on single cell data">
+</p>
 
 
 ## Examples
@@ -103,12 +93,12 @@ A comparison of various neighbor embedding methods on the MNIST digits dataset.
 </p>
 
 
-**Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
+<!-- **Single-cell genomics.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/single_cell/single_cell_readme.py))
 Visualizing cells using `LargeVis` from `TorchDR`.
 
 <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/single_cell.gif" width="700" alt="single cell embeddings">
-</p>
+</p> -->
 
 
 **CIFAR100.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/cifar100.py))
