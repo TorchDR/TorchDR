@@ -53,16 +53,10 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 **Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
-**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities (see the [Affinities](#affinities) subsection below): [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
-
-
-## Backends
-
-The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
-
-- To perform symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps Library](https://www.kernel-operations.io/keops/index.html). This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
-- Alternatively, you can use `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations.
-- Finally, setting `backend=None` will use raw PyTorch for all computations.
+**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition.
+- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html)
+- [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html)
+- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html) which can use any 'TorchDR' *Affinity* (see the [Affinities](#affinities) subsection below).
 
 
 ## Benchmarks
@@ -120,6 +114,14 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 ### Evaluation Metric
 
 `TorchDR` provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
+
+### Backends
+
+The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
+
+- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations.
+- To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
+- Finally, setting `backend=None` will use raw PyTorch for all computations.
 
 
 ## Installation
