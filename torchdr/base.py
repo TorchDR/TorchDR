@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import seed_everything, bool_arg
+from torchdr.utils import bool_arg
 
 from typing import Union, Optional, Any
 
@@ -46,9 +46,7 @@ class DRModule(BaseEstimator, ABC):
         self.n_components = n_components
         self.device = device
         self.backend = backend
-
         self.random_state = random_state
-        seed_everything(self.random_state)
 
         self.verbose = bool_arg(verbose)
         if self.verbose:

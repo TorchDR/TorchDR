@@ -145,7 +145,7 @@ def test_pairwise_distances_faiss(dtype, metric):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_symmetric_pairwise_distances_indices(dtype, metric):
-    n, p = 100, 10
+    n, p = 100, 20
     x = torch.randn(n, p, dtype=dtype)
     indices = torch.randint(0, n, (n, 10))
 
