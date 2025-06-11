@@ -48,9 +48,12 @@ z = UMAP(n_neighbors=30).fit_transform(x_)
 z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 ```
 
+
 ## Methods
 
+**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
+**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities (see the [Affinities subsection](#advanced-features-affinities)) or their Laplacian: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
 
 
 ## Backends
@@ -114,17 +117,10 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
 - Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).
 
-
-### Dimensionality Reduction Algorithms
-
-**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities or their Laplacian: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
-
-**Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
-
-
 ### Evaluation Metric
 
 `TorchDR` provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
+
 
 ## Installation
 
