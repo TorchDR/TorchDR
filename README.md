@@ -76,7 +76,7 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 Relying on `TorchDR` enables an order-of-magnitude improvement in runtime performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py).
 
 <p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark.png" width="1024" alt="UMAP benchmark on single cell data">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark_single_cell.png" width="1024" alt="UMAP benchmark on single cell data">
 </p>
 
 
