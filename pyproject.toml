@@ -69,7 +69,7 @@ test = [
     "numpydoc",
     "pytest-cov",
     "codecov",
-    "scipy<=1.13",
+    "scikit-learn>=1.6"
 ]
 
 keops = [
