@@ -68,8 +68,7 @@ test = [
     "coverage",
     "numpydoc",
     "pytest-cov",
-    "codecov",
-    "scikit-learn>=1.6"
+    "codecov"
 ]
 
 keops = [
