@@ -4,9 +4,10 @@ from io import BytesIO
 import time
 import requests
 import os
+import matplotlib.pyplot as plt
+import numpy as np
 
 import torch
-import psutil
 
 # Import UMAP implementations
 from torchdr import UMAP as TorchdrUMAP  # GPU-accelerated UMAP from torchdr
@@ -37,36 +38,45 @@ def load_datasets():
 
 def time_umap(model, X, device=None):
     """
-    Fit the UMAP model on X and measure both runtime and memory usage.
-
-    For torchdr UMAP (GPU-accelerated), we measure peak GPU memory usage.
-    For classic UMAP (umap-learn), we measure the additional CPU memory used.
+    Fit the UMAP model on X and measure runtime.
     """
-    # For torchdr UMAP, reset GPU memory statistics if a CUDA device is used.
-    if device is not None and device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
-
-    # For classic UMAP, measure CPU memory before fitting.
-    process = psutil.Process(os.getpid())
-    mem_before = process.memory_info().rss
-
     start = time.perf_counter()
     embedding = model.fit_transform(X)
     elapsed = time.perf_counter() - start
 
-    if device is not None and device.type == "cuda":
-        # Get peak GPU memory allocated in MB.
-        mem_used = torch.cuda.max_memory_allocated(device) / (1024**2)
-    else:
-        # For classic UMAP, measure the difference in CPU memory usage in MB.
-        mem_after = process.memory_info().rss
-        mem_used = (mem_after - mem_before) / (1024**2)
+    return elapsed, embedding
 
-    return elapsed, embedding, mem_used
+
+def plot_results(runtime_data, sample_counts):
+    datasets = ["Single-cell : Macosko et al.", "Single-cell : 10x Mouse Zheng al. "]
+    methods = ["UMAP (CPU)", "TorchDR UMAP (GPU)"]
+    colors = ["#1f77b4", "#ff7f0e"]
+
+    x = np.arange(len(methods)) * 1.5
+    bar_width = 0.6
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    for ax, ds in zip(axes, datasets):
+        ax.bar(x, runtime_data[ds], width=bar_width, color=colors)
+
+        for spine in ["top", "right"]:
+            ax.spines[spine].set_visible(False)
+        ax.xaxis.set_ticks_position("bottom")
+        ax.yaxis.set_ticks_position("left")
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(methods, fontsize=20, fontweight="bold", ha="center")
+
+        ax.set_ylabel("Runtime (sec)", fontsize=18)
+
+        ax.set_title(f"{ds} ({sample_counts[ds]:,} samples)", fontsize=16, pad=20)
+
+    plt.tight_layout()
+    plt.savefig("umap_benchmark.png", dpi=300)
+    plt.show()
 
 
 def main():
-    # Load the datasets.
     x_macosko, x_10x = load_datasets()
 
     max_iter = 500
@@ -81,47 +91,43 @@ def main():
         "verbose": True,
     }
 
-    # Set device for torchdr UMAP: use GPU if available.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}\n")
 
-    # --- Run on Macosko dataset ---
     print("=== Macosko dataset ===")
     print(f"Number of samples: {x_macosko.shape[0]}")
     print(f"Number of features: {x_macosko.shape[1]}")
 
-    # Torchdr UMAP (GPU accelerated)
+    classic_umap = umap.UMAP(**kwargs_umap)
+    time_classic_macosko, emb_classic = time_umap(classic_umap, x_macosko)
+    print(f"Classic UMAP runtime: {time_classic_macosko:.4f} seconds\n")
+
     torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
+    time_torchdr_macosko, emb_torchdr = time_umap(
         torchdr_umap, x_macosko, device=device
     )
-    print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
-    print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
+    print(f"Torchdr UMAP runtime: {time_torchdr_macosko:.4f} seconds")
 
-    # Classic UMAP (umap-learn)
-    classic_umap = umap.UMAP(**kwargs_umap)
-    time_classic, emb_classic, mem_classic = time_umap(classic_umap, x_macosko)
-    print(f"Classic UMAP runtime: {time_classic:.4f} seconds")
-    print(f"Classic UMAP additional CPU memory usage: {mem_classic:.2f} MB\n")
-
-    # --- Optionally: Run on 10x Mouse Zheng dataset ---
     print("=== 10x Mouse Zheng dataset ===")
     print(f"Number of samples: {x_10x.shape[0]}")
     print(f"Number of features: {x_10x.shape[1]}")
 
-    # Torchdr UMAP on 10x dataset
-    torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
-    time_torchdr, emb_torchdr, mem_torchdr = time_umap(
-        torchdr_umap, x_10x, device=device
-    )
-    print(f"Torchdr UMAP runtime: {time_torchdr:.4f} seconds")
-    print(f"Torchdr UMAP peak GPU memory usage: {mem_torchdr:.2f} MB")
-
-    # Classic UMAP on 10x dataset
     classic_umap = umap.UMAP(**kwargs_umap)
-    time_classic, emb_classic, mem_classic = time_umap(classic_umap, x_10x)
-    print(f"Classic UMAP runtime: {time_classic:.4f} seconds")
-    print(f"Classic UMAP additional CPU memory usage: {mem_classic:.2f} MB")
+    time_classic_10x, emb_classic = time_umap(classic_umap, x_10x)
+    print(f"Classic UMAP runtime: {time_classic_10x:.4f} seconds")
+
+    torchdr_umap = TorchdrUMAP(**kwargs_torchdr)
+    time_torchdr_10x, emb_torchdr = time_umap(torchdr_umap, x_10x, device=device)
+    print(f"Torchdr UMAP runtime: {time_torchdr_10x:.4f} seconds")
+
+    runtime_data = {
+        "Macosko": [time_classic_macosko, time_torchdr_macosko],
+        "10x Mouse Zheng": [time_classic_10x, time_torchdr_10x],
+    }
+
+    sample_counts = {"Macosko": x_macosko.shape[0], "10x Mouse Zheng": x_10x.shape[0]}
+
+    plot_results(runtime_data, sample_counts)
 
 
 if __name__ == "__main__":

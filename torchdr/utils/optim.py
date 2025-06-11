@@ -21,6 +21,7 @@ def binary_search(
     tol=1e-9,
     verbose=False,
     dtype=DTYPE,
+    device=DEVICE,
 ):
     r"""Implement the binary search root finding method.
 
@@ -51,7 +52,9 @@ def binary_search(
     m : torch.Tensor of shape (n)
         root of f.
     """
-    begin, end = init_bounds(f=f, n=n, begin=begin, end=end, dtype=dtype)
+    begin, end = init_bounds(
+        f=f, n=n, begin=begin, end=end, dtype=dtype, device=device, verbose=verbose
+    )
 
     m = (begin + end) / 2
     fm = f(m)
