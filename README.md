@@ -53,7 +53,7 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 **Neighbor Embedding.** `TorchDR` includes various **neighbor embedding methods**: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html).
 
-**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities (see the [Affinities subsection](#advanced-features-affinities)) or their Laplacian: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
+**Spectral.** `TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition of the affinities (see the [Affinities](#affinities) subsection below): [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html).
 
 
 ## Backends
