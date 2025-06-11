@@ -60,7 +60,7 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ## Benchmarks
 
-Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap.py). Stay tuned for additional benchmarks.
+Relying on `TorchDR` enables an order-of-magnitude improvement in both runtime and memory performance compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py). Stay tuned for additional benchmarks.
 
 | Dataset         | Samples   | Method            | Runtime (sec) | Memory (MB) |
 |-----------------|-----------|-------------------|---------------|-------------|

@@ -72,7 +72,7 @@ def plot_results(runtime_data, sample_counts):
         ax.set_title(f"{ds} ({sample_counts[ds]:,} samples)", fontsize=16, pad=20)
 
     plt.tight_layout()
-    plt.savefig("umap_benchmark.png", dpi=300)
+    plt.savefig("umap_benchmark_single_cell.png", dpi=300)
     plt.show()
 
 
