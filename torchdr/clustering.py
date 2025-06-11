@@ -10,7 +10,14 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import kmin, pairwise_distances, pykeops, to_torch, faiss
+from torchdr.utils import (
+    kmin,
+    pairwise_distances,
+    pykeops,
+    to_torch,
+    faiss,
+    seed_everything,
+)
 
 from typing import Union, Optional, Any
 
@@ -96,6 +103,7 @@ class ClusteringModule(BaseEstimator, ABC):
         labels : torch.Tensor of shape (n_samples,)
             Cluster labels.
         """
+        seed_everything(self.random_state)
         self.fit(X)
         return self.labels_
 

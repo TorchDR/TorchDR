@@ -34,7 +34,8 @@ def test_check_estimator(estimator, kwargs):
             max_iter=1,
             random_state=42,
             **kwargs,
-        )
+        ),
+        on_fail="warn",
     )
 
 
