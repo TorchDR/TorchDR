@@ -13,7 +13,7 @@ import torch
 from scipy.optimize import curve_fit
 
 from torchdr.affinity.base import SparseLogAffinity, UnnormalizedLogAffinity
-from torchdr.utils import false_position, kmin, wrap_vectors
+from torchdr.utils import binary_search, kmin, wrap_vectors
 
 
 @wrap_vectors
@@ -162,7 +162,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             marg = _log_Pumap(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
             return marg - math.log(n_neighbors)
 
-        self.eps_ = false_position(
+        self.eps_ = binary_search(
             f=marginal_gap,
             n=n_samples_in,
             tol=self.tol,
