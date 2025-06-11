@@ -48,7 +48,7 @@ def time_umap(model, X, device=None):
 
 
 def plot_results(runtime_data, sample_counts):
-    datasets = ["Single-cell : Macosko et al.", "Single-cell : 10x Mouse Zheng al. "]
+    datasets = ["Single-cell : Macosko et al.", "Single-cell : 10x Mouse Zheng et al."]
     methods = ["UMAP (CPU)", "TorchDR UMAP (GPU)"]
     colors = ["#1f77b4", "#ff7f0e"]
 
@@ -121,11 +121,14 @@ def main():
     print(f"Torchdr UMAP runtime: {time_torchdr_10x:.4f} seconds")
 
     runtime_data = {
-        "Macosko": [time_classic_macosko, time_torchdr_macosko],
-        "10x Mouse Zheng": [time_classic_10x, time_torchdr_10x],
+        "Single-cell : Macosko et al.": [time_classic_macosko, time_torchdr_macosko],
+        "Single-cell : 10x Mouse Zheng et al.": [time_classic_10x, time_torchdr_10x],
     }
 
-    sample_counts = {"Macosko": x_macosko.shape[0], "10x Mouse Zheng": x_10x.shape[0]}
+    sample_counts = {
+        "Single-cell : Macosko et al.": x_macosko.shape[0],
+        "Single-cell : 10x Mouse Zheng et al.": x_10x.shape[0],
+    }
 
     plot_results(runtime_data, sample_counts)
 
