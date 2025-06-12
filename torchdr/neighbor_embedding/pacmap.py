@@ -8,13 +8,11 @@ import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
 from torchdr.affinity import PACMAPAffinity, NegativeCostAffinity
-from torchdr.utils import cross_entropy_loss
-from torchdr.utils import sum_output
+from torchdr.utils import kmax, sum_red
 
 
 class PACMAP(SampledNeighborEmbedding):
     r"""PACMAP algorithm introduced in :cite:`wang2021understanding`.
-
 
     Parameters
     ----------
@@ -147,25 +145,63 @@ class PACMAP(SampledNeighborEmbedding):
             metric=metric_in,
             device=device,
             verbose=False,
-        )  # used to compute the mid-near points
+        )  # To compute 2nd closest when finding mid-near points
+
+    def _fit(self, X: torch.Tensor):
+        self.X_ = X  # Keep input data to compute mid-near loss
+        super()._fit(X)
 
     def _attractive_loss(self):
-        D_tilde_neighbors = 1 - self.affinity_out(  # distance is negative affinity
+        # Attractive loss with nearest neighbors
+        D_tilde_near = 1 - self.affinity_out(  # Distance is negative affinity
             self.embedding_, indices=self.NN_indices_
         )
-        Q_neighbors = D_tilde_neighbors / (10 + D_tilde_neighbors)
-        near_loss = cross_entropy_loss(self.PX_, Q_neighbors, log=False)
+        Q_near = D_tilde_near / (10 + D_tilde_near)
+        near_loss = sum_red(Q_near, dim=(0, 1))
 
-        mid_near_loss = cross_entropy_loss(
-            self.mid_near_input_affinity(self.embedding_, indices=self.NN_indices_),
-            Q_neighbors,
-            log=False,
+        # Attractive loss with mid-near points :
+        # we sample 6 mid-near points for each sample
+        # and keep the second closest in terms of input space distance
+        device = getattr(self.NN_indices_, "device", "cpu")
+        mid_near_indices = torch.empty(
+            self.n_samples_in_, self.n_mid_near, device=device
         )
+        self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
+        n_possible_idxs = self.n_samples_in_ - 1
+
+        if n_possible_idxs < 6:
+            raise ValueError(
+                "[TorchDR] ERROR : Not enough points to sample 6 mid-near points."
+            )
+
+        for i in range(self.n_mid_near):  # to do: broadcast
+            mid_near_candidates_indices = torch.randint(
+                0,
+                n_possible_idxs,
+                (self.n_samples_in_, 6),
+                device=device,
+            )
+            shifts = torch.searchsorted(
+                self_idxs, mid_near_candidates_indices, right=False
+            )
+            mid_near_candidates_indices += shifts
+            A_mid_near_candidates = self.mid_near_input_affinity(
+                self.X_, indices=mid_near_candidates_indices
+            )
+            _, idxs = kmax(A_mid_near_candidates, k=2, dim=1)
+            mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
+
+        D_tilde_mid_near = 1 - self.affinity_out(  # Distance is negative affinity
+            self.embedding_, indices=self.NN_indices_
+        )
+        Q_mid_near = D_tilde_mid_near / (1e5 + D_tilde_mid_near)
+        mid_near_loss = sum_red(Q_mid_near, dim=(0, 1))
+
         return self.w_NB * near_loss + self.w_MN * mid_near_loss
 
-    @sum_output
     def _repulsive_loss(self):
-        indices = self._sample_negatives()
+        indices = self._sample_negatives(discard_NNs=True)
         D_tilde_further = 1 - self.affinity_out(self.embedding_, indices=indices)
         Q_further = D_tilde_further / (1 + D_tilde_further)
-        return self.w_FP * Q_further
+        further_loss = sum_red(Q_further, dim=(0, 1))
+        return self.w_FP * further_loss

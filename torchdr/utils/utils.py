@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from .keops import LazyTensor, is_lazy_tensor
-from .wrappers import sum_output, wrap_vectors
+from .wrappers import wrap_vectors
 
 
 def seed_everything(seed, fast=True):
@@ -39,22 +39,20 @@ def seed_everything(seed, fast=True):
         torch.backends.cudnn.benchmark = False
 
 
-@sum_output
 def cross_entropy_loss(P, Q, log=False):
     r"""Compute the cross-entropy between P and Q.
 
     Support log domain input for Q.
     """
     if log:
-        return -P * Q
+        return -sum_red(P * Q, dim=(0, 1))
     else:
-        return -P * Q.log()
+        return -sum_red(P * Q.log(), dim=(0, 1))
 
 
-@sum_output
 def square_loss(P, Q):
     r"""Compute the square loss between P and Q."""
-    return (P - Q) ** 2
+    return sum_red((P - Q) ** 2, dim=(0, 1))
 
 
 def entropy(P, log=True, dim=1):

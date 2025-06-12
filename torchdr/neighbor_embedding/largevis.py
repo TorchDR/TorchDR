@@ -9,7 +9,7 @@ import torch
 
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_output
+from torchdr.utils import cross_entropy_loss, sum_red
 
 
 class LargeVis(SampledNeighborEmbedding):
@@ -161,12 +161,11 @@ class LargeVis(SampledNeighborEmbedding):
             check_interval=check_interval,
         )
 
-    @sum_output
     def _repulsive_loss(self):
         indices = self._sample_negatives()
         Q = self.affinity_out(self.embedding_, indices=indices)
         Q = Q / (Q + 1)
-        return -(1 - Q).log() / self.n_samples_in_
+        return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 
     def _attractive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
