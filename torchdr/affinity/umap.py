@@ -67,7 +67,7 @@ class UMAPAffinityIn(SparseLogAffinity):
     :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
-        \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors}) \quad \text{where} \quad \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i)
+        \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i) \quad \text{where} \quad \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors})
 
     and :math:`\rho_i = \min_j C_{ij}`.
 

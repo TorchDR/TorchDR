@@ -9,6 +9,7 @@ from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
 from torchdr.affinity import PACMAPAffinity, NegativeCostAffinity
 from torchdr.utils import cross_entropy_loss
+from torchdr.utils import sum_output
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -64,8 +65,6 @@ class PACMAP(SampledNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
-    n_negatives : int, optional
-        Number of negative samples for the repulsive loss.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
     """  # noqa: E501
@@ -105,6 +104,10 @@ class PACMAP(SampledNeighborEmbedding):
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
 
+        self.MN_ratio = MN_ratio
+        self.FP_ratio = FP_ratio
+        self.n_mid_near = int(MN_ratio * n_neighbors)
+
         affinity_in = PACMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
@@ -138,11 +141,31 @@ class PACMAP(SampledNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            n_negatives=int(FP_ratio * n_neighbors),
         )
+        self.mid_near_input_affinity = NegativeCostAffinity(
+            metric=metric_in,
+            device=device,
+            verbose=False,
+        )  # used to compute the mid-near points
 
     def _attractive_loss(self):
-        D_tilde_neighbors = 1 - self.affinity_out(
+        D_tilde_neighbors = 1 - self.affinity_out(  # distance is negative affinity
             self.embedding_, indices=self.NN_indices_
         )
         Q_neighbors = D_tilde_neighbors / (10 + D_tilde_neighbors)
-        return cross_entropy_loss(self.PX_, Q_neighbors, log=False)
+        near_loss = cross_entropy_loss(self.PX_, Q_neighbors, log=False)
+
+        mid_near_loss = cross_entropy_loss(
+            self.mid_near_input_affinity(self.embedding_, indices=self.NN_indices_),
+            Q_neighbors,
+            log=False,
+        )
+        return self.w_NB * near_loss + self.w_MN * mid_near_loss
+
+    @sum_output
+    def _repulsive_loss(self):
+        indices = self._sample_negatives()
+        D_tilde_further = 1 - self.affinity_out(self.embedding_, indices=indices)
+        Q_further = D_tilde_further / (1 + D_tilde_further)
+        return self.w_FP * Q_further
