@@ -98,7 +98,7 @@ class AffinityMatcher(DRModule):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is None.
-    n_iter_check : int, optional
+    check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
@@ -125,7 +125,7 @@ class AffinityMatcher(DRModule):
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        n_iter_check: int = 50,
+        check_interval: int = 50,
     ):
         super().__init__(
             n_components=n_components,
@@ -139,7 +139,7 @@ class AffinityMatcher(DRModule):
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
         self.min_grad_norm = min_grad_norm
-        self.n_iter_check = n_iter_check
+        self.check_interval = check_interval
         self.verbose = verbose
         self.max_iter = max_iter
         self.scheduler = scheduler
@@ -252,7 +252,8 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
-            check_convergence = self.n_iter_ % self.n_iter_check == 0
+
+            check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
@@ -262,9 +263,11 @@ class AffinityMatcher(DRModule):
                             f"{grad_norm:.2e}."
                         )
                     break
+
             self.optimizer_.step()
             if self.scheduler_ is not None:
                 self.scheduler_.step()
+
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "

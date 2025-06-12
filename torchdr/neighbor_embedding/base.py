@@ -82,8 +82,6 @@ class NeighborEmbedding(AffinityMatcher):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    learning_rate : float, optional
-        Alias for lr parameter for sklearn API compatibility.
     """  # noqa: E501
 
     def __init__(
@@ -162,15 +160,10 @@ class NeighborEmbedding(AffinityMatcher):
             if hasattr(self, param_name):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
-                    if self.verbose:
-                        warnings.warn(
-                            "[TorchDR] WARNING : Number of samples is smaller than "
-                            f"{param_name} ({n} <= {param_value}), setting "
-                            f"{param_name} to {n // 2} (which corresponds to n//2)."
-                        )
-                    new_value = n // 2
-                    setattr(self, param_name + "_", new_value)
-                    setattr(self.affinity_in, param_name, new_value)
+                    raise ValueError(
+                        f"[TorchDR] ERROR : Number of samples is smaller than {param_name} "
+                        f"({n} <= {param_value})."
+                    )
 
         return self
 
