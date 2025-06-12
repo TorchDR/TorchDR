@@ -150,7 +150,6 @@ class UMAP(SampledNeighborEmbedding):
             b=b,
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 

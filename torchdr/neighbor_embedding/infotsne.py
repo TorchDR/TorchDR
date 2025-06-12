@@ -132,7 +132,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         affinity_out = StudentAffinity(
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 

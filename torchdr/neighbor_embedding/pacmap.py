@@ -8,6 +8,7 @@ import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
 from torchdr.affinity import PACMAPAffinity, NegativeCostAffinity
+from torchdr.utils import cross_entropy_loss
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -92,7 +93,8 @@ class PACMAP(SampledNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 5,
+        MN_ratio: float = 0.5,
+        FP_ratio: float = 2,
     ):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
@@ -110,7 +112,6 @@ class PACMAP(SampledNeighborEmbedding):
         affinity_out = NegativeCostAffinity(
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 
@@ -133,5 +134,11 @@ class PACMAP(SampledNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
-            n_negatives=n_negatives,
         )
+
+    def _attractive_loss(self):
+        D_tilde_neighbors = 1 - self.affinity_out(
+            self.embedding_, indices=self.NN_indices_
+        )
+        Q_neighbors = D_tilde_neighbors / (10 + D_tilde_neighbors)
+        return cross_entropy_loss(self.PX_, Q_neighbors, log=False)
