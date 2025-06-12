@@ -7,96 +7,51 @@ Useful functions to draw Hyperbolic outputs of TorchDr
 #
 # License: BSD 3-Clause License
 
-import torch
 import numpy as np
 import matplotlib.pylab as plt
-from torchdr.utils import geoopt, is_geoopt_available
 
 
-def add_geodesic_grid(ax: plt.Axes, manifold: geoopt.Stereographic, line_width=0.1):
-    # define geodesic grid parameters
-    N_EVALS_PER_GEODESIC = 10000
-    STYLE = "--"
-    COLOR = "gray"
-    LINE_WIDTH = line_width
+def plot_poincare_disk(ax, alpha=0.1):
+    """
+    Plot a Poincaré disk model with shading based on hyperbolic distance.
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes on which to plot the Poincaré disk.
+    alpha : float, optional
+        The transparency level of the shading, by default 0.1.
+    """
+    # Create a grid of points
+    x = np.linspace(-1, 1, 1000)
+    y = np.linspace(-1, 1, 1000)
+    X, Y = np.meshgrid(x, y)
 
-    # get manifold properties
-    K = manifold.k.item()
-    R = manifold.radius.item()
-
-    # get maximal numerical distance to origin on manifold
-    if K < 0:
-        # create point on R
-        r = torch.tensor((R, 0.0), dtype=manifold.dtype)
-        # project point on R into valid range (epsilon border)
-        r = manifold.projx(r)
-        # determine distance from origin
-        max_dist_0 = manifold.dist0(r).item()
-    else:
-        max_dist_0 = np.pi * R
-    # adjust line interval for spherical geometry
-    circumference = 2 * np.pi * R
-
-    # determine reasonable number of geodesics
-    # choose the grid interval size always as if we'd be in spherical
-    # geometry, such that the grid interpolates smoothly and evenly
-    # divides the sphere circumference
-    n_geodesics_per_circumference = 4 * 6  # multiple of 4!
-    n_geodesics_per_quadrant = n_geodesics_per_circumference // 2
-    grid_interval_size = circumference / n_geodesics_per_circumference
-    if K < 0:
-        n_geodesics_per_quadrant = int(max_dist_0 / grid_interval_size)
-
-    # create time evaluation array for geodesics
-    if K < 0:
-        min_t = -1.2 * max_dist_0
-    else:
-        min_t = -circumference / 2.0
-    t = torch.linspace(min_t, -min_t, N_EVALS_PER_GEODESIC)[:, None]
-
-    # define a function to plot the geodesics
-    def plot_geodesic(gv):
-        ax.plot(*gv.t().numpy(), STYLE, color=COLOR, linewidth=LINE_WIDTH)
-
-    # define geodesic directions
-    u_x = torch.tensor((0.0, 1.0))
-    u_y = torch.tensor((1.0, 0.0))
-
-    # add origin x/y-crosshair
-    o = torch.tensor((0.0, 0.0))
-    if K < 0:
-        x_geodesic = manifold.geodesic_unit(t, o, u_x)
-        y_geodesic = manifold.geodesic_unit(t, o, u_y)
-        plot_geodesic(x_geodesic)
-        plot_geodesic(y_geodesic)
-    else:
-        # add the crosshair manually for the sproj of sphere
-        # because the lines tend to get thicker if plotted
-        # as done for K<0
-        ax.axvline(0, linestyle=STYLE, color=COLOR, linewidth=LINE_WIDTH)
-        ax.axhline(0, linestyle=STYLE, color=COLOR, linewidth=LINE_WIDTH)
-
-    # add geodesics per quadrant
-    for i in range(1, n_geodesics_per_quadrant):
-        i = torch.as_tensor(float(i))
-        # determine start of geodesic on x/y-crosshair
-        x = manifold.geodesic_unit(i * grid_interval_size, o, u_y)
-        y = manifold.geodesic_unit(i * grid_interval_size, o, u_x)
-
-        # compute point on geodesics
-        x_geodesic = manifold.geodesic_unit(t, x, u_x)
-        y_geodesic = manifold.geodesic_unit(t, y, u_y)
-
-        # plot geodesics
-        plot_geodesic(x_geodesic)
-        plot_geodesic(y_geodesic)
-        if K < 0:
-            plot_geodesic(-x_geodesic)
-            plot_geodesic(-y_geodesic)
+    # Calculate the distance from the origin
+    distance = np.sqrt(X**2 + Y**2)
+    hypDistance = np.arccosh(1 + 2 * (distance) / (1 - distance + 1e-10))
+    # Define a shading function based on distance for the interior only
+    radius = 1.0  # Radius of the disk
+    interior = distance <= radius
+    shading = np.zeros_like(distance)
+    shading[interior] = hypDistance[interior]  # Shading based on distance
+    ax.imshow(shading, extent=[-1, 1, -1, 1], cmap='Greys', alpha=alpha)
 
 
-def plotGrid(ax, lw=0.3):
-    if is_geoopt_available():
-        add_geodesic_grid(ax, geoopt.PoincareBall(c=1), line_width=lw)
-        circle = plt.Circle((0, 0), 1, color="k", linewidth=3, fill=False)
-        ax.add_patch(circle)
+def plot_disk(ax, alpha=0.5):
+    """
+    Plot a grid on the Poincaré disk.
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes on which to plot the grid.
+    alpha : float, optional
+        The transparency level of the shaded distance background, by default 0.5.
+    """
+    ax.set_aspect('equal')
+    ax.set_xlim([-1.05, 1.05])
+    ax.set_ylim([-1.05, 1.05])
+    ax.axis('off')
+
+    plot_poincare_disk(ax, alpha=alpha)
+    circle = plt.Circle((0, 0), 1, color="k", linewidth=1, fill=False)
+    ax.add_patch(circle)

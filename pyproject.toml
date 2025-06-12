@@ -75,12 +75,6 @@ keops = [
     "pykeops",
 ]
 
-manifold = [
-    "scipy",
-    "geoopt>=0.5",
-    "matplotlib"
-]
-
 dev = [
     "pytest",
     "coverage",
@@ -123,5 +117,5 @@ benchmarks = [
 ]
 
 all = [
-    "torchdr[test,keops,manifold,dev,doc,examples,benchmarks]",
+    "torchdr[test,keops,dev,doc,examples,benchmarks]",
 ]

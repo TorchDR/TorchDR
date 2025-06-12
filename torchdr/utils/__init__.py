@@ -4,7 +4,6 @@
 #
 # License: BSD 3-Clause License
 
-from .manifold import geoopt, is_geoopt_available
 
 from .geometry import (
     LIST_METRICS_TORCH,
@@ -64,7 +63,6 @@ __all__ = [
     "pykeops",
     "binary_search",
     "false_position",
-    "OPTIMIZERS",
     "cross_entropy_loss",
     "square_loss",
     "wrap_vectors",
@@ -102,7 +100,5 @@ __all__ = [
     "batch_transpose",
     "handle_keops",
     "faiss",
-    "bool_arg",
-    "geoopt",
-    "is_geoopt_available",
+    "bool_arg"
 ]

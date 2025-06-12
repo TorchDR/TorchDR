@@ -22,7 +22,7 @@ from torchdr.neighbor_embedding import (
     TSNEkhorn,
 )
 from torchdr.tests.utils import toy_dataset, iris_dataset
-from torchdr.utils import check_shape, pykeops, geoopt
+from torchdr.utils import check_shape, pykeops
 
 if pykeops:
     lst_backend = ["keops", None]
@@ -72,7 +72,6 @@ def test_NE(DRModel, kwargs, dtype, backend):
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 
-@pytest.mark.skipif(not geoopt, reason="geoopt is not available")
 @pytest.mark.parametrize("dtype", lst_types)
 def test_COSNE(dtype):
     X, y = iris_dataset(dtype)
