@@ -26,7 +26,7 @@ class PACMAP(SampledNeighborEmbedding):
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "Adam".
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
+        Additional keyword arguments for the optimizer. Default is None,
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
@@ -40,7 +40,7 @@ class PACMAP(SampledNeighborEmbedding):
     min_grad_norm : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 3000.
+        Number of maximum iterations for the descent algorithm, by default 1000.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -75,7 +75,7 @@ class PACMAP(SampledNeighborEmbedding):
         n_components: int = 2,
         lr: Union[float, str] = "auto",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
-        optimizer_kwargs: Union[Dict, str] = "auto",
+        optimizer_kwargs: Optional[Union[Dict, str]] = None,
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
@@ -83,7 +83,7 @@ class PACMAP(SampledNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
-        max_iter: int = 3000,
+        max_iter: int = 1000,
         device: Optional[str] = None,
         backend: Optional[str] = "faiss",
         verbose: bool = False,
@@ -153,9 +153,13 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _fit(self, X: torch.Tensor):
         self.X_ = X  # Keep input data to compute mid-near loss
+        self._set_weights()
         super()._fit(X)
 
-    def _after_step(self):
+    def _set_weights(self):
+        if not hasattr(self, "n_iter_"):
+            self.n_iter_ = 0
+
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
             self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
@@ -168,6 +172,9 @@ class PACMAP(SampledNeighborEmbedding):
             self.w_NB = 1
             self.w_MN = 0
             self.w_FP = 1
+
+    def _after_step(self):
+        self._set_weights()
 
     def _attractive_loss(self):
         # Attractive loss with nearest neighbors
@@ -195,13 +202,13 @@ class PACMAP(SampledNeighborEmbedding):
 
             for i in range(self.n_mid_near):  # to do: broadcast
                 mid_near_candidates_indices = torch.randint(
-                    0,
+                    1,
                     n_possible_idxs,
                     (self.n_samples_in_, 6),
                     device=device,
                 )
                 shifts = torch.searchsorted(
-                    self_idxs, mid_near_candidates_indices, right=False
+                    self_idxs, mid_near_candidates_indices, right=True
                 )
                 mid_near_candidates_indices += shifts
                 A_mid_near_candidates = self.mid_near_input_affinity(

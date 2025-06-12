@@ -214,11 +214,14 @@ class NeighborEmbedding(AffinityMatcher):
             optimizer_class = self.optimizer
 
         # If 'auto' and SGD, set momentum based on early exaggeration phase
-        if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
-            if self.early_exaggeration_coeff_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
+        if self.optimizer_kwargs == "auto":
+            if self.optimizer == "SGD":
+                if self.early_exaggeration_coeff_ > 1:
+                    optimizer_kwargs = {"momentum": 0.5}
+                else:
+                    optimizer_kwargs = {"momentum": 0.8}
             else:
-                optimizer_kwargs = {"momentum": 0.8}
+                optimizer_kwargs = {}
         else:
             optimizer_kwargs = self.optimizer_kwargs or {}
 
@@ -533,13 +536,13 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             )
 
         negatives = torch.randint(
-            0,
+            1,
             n_possible,
             (self.n_samples_in_, self.n_negatives),
             device=device,
         )
 
         exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
-        shifts = torch.searchsorted(exclude, negatives, right=False)
+        shifts = torch.searchsorted(exclude, negatives, right=True)
         negatives += shifts
         return negatives

@@ -18,8 +18,6 @@ from .wrappers import wrap_vectors
 def seed_everything(seed, fast=True):
     """Seed all random number generators."""
 
-    print(f"Random state is {seed}")
-
     if seed is None or not isinstance(seed, int) or seed < 0:
         seed = int(time.time())
     else:

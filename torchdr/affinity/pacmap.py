@@ -9,7 +9,7 @@ from typing import Union, Optional
 import numpy as np
 import torch
 
-from torchdr.affinity.base import SparseLogAffinity
+from torchdr.affinity.base import SparseAffinity
 from torchdr.utils import kmin
 
 
@@ -31,7 +31,7 @@ def _check_n_neighbors(n_neighbors, n):
         return n_neighbors
 
 
-class PACMAPAffinity(SparseLogAffinity):
+class PACMAPAffinity(SparseAffinity):
     r"""Compute the input affinity used in PACMAP :cite:`wang2021understanding`.
 
     Parameters
@@ -109,7 +109,6 @@ class PACMAPAffinity(SparseLogAffinity):
         normalized_C = C_ / (rho_i * rho_j)
 
         # Compute final NN indices
-        _, final_indices = kmin(normalized_C, k=n_neighbors)
-        all_one_affinity = torch.ones_like(normalized_C)
+        _, final_indices = kmin(normalized_C, k=n_neighbors, dim=1)
 
-        return all_one_affinity, final_indices
+        return None, final_indices  # PACMAP only uses the NN indices
