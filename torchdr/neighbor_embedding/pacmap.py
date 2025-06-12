@@ -24,7 +24,7 @@ class PACMAP(SampledNeighborEmbedding):
         Learning rate for the algorithm, by default 'auto'.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
-        Default is "SGD".
+        Default is "Adam".
     optimizer_kwargs : dict or 'auto', optional
         Additional keyword arguments for the optimizer. Default is 'auto',
         which sets appropriate momentum values for SGD based on early exaggeration phase.
@@ -72,7 +72,7 @@ class PACMAP(SampledNeighborEmbedding):
         n_neighbors: float = 10,
         n_components: int = 2,
         lr: Union[float, str] = "auto",
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
@@ -192,7 +192,7 @@ class PACMAP(SampledNeighborEmbedding):
             mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
 
         D_tilde_mid_near = 1 - self.affinity_out(  # Distance is negative affinity
-            self.embedding_, indices=self.NN_indices_
+            self.embedding_, indices=mid_near_indices
         )
         Q_mid_near = D_tilde_mid_near / (1e5 + D_tilde_mid_near)
         mid_near_loss = sum_red(Q_mid_near, dim=(0, 1))

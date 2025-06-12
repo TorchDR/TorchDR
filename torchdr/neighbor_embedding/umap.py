@@ -47,7 +47,7 @@ class UMAP(SampledNeighborEmbedding):
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
+        Additional keyword arguments for the optimizer. Default is 'auto'.
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.

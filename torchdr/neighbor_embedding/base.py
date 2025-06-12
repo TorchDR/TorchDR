@@ -196,7 +196,6 @@ class NeighborEmbedding(AffinityMatcher):
             self.lr_ = self.lr
 
     def _set_optimizer(self):
-        # Special case for 'auto' - convert to 'SGD'
         if isinstance(self.optimizer, str):
             # Get optimizer directly from torch.optim
             try:
@@ -214,7 +213,7 @@ class NeighborEmbedding(AffinityMatcher):
             # Assume it's already an optimizer class
             optimizer_class = self.optimizer
 
-        # Handle 'auto' for optimizer_kwargs
+        # If 'auto' and SGD, set momentum based on early exaggeration phase
         if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
             if self.early_exaggeration_coeff_ > 1:
                 optimizer_kwargs = {"momentum": 0.5}
@@ -514,9 +513,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         # Negatives are all other points except NNs (if discard_NNs) and point itself
         device = getattr(self.NN_indices_, "device", "cpu")
 
-        self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(
-            1
-        )  # [0,1,2,...,n-1]^T
+        self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
         if discard_NNs and (self.NN_indices_ is not None):
             exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
@@ -541,102 +538,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             (self.n_samples_in_, self.n_negatives),
             device=device,
         )
-        # Sort exclude rows so searchsorted works
-        exclude, _ = exclude.sort(dim=1)
-        # For each sample s_ij, count how many excluded indices <= s_ij
+
+        exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
         shifts = torch.searchsorted(exclude, negatives, right=False)
         negatives += shifts
         return negatives
-
-    def _additional_updates(self):
-        if (  # stop early exaggeration phase
-            self.early_exaggeration_coeff_ > 1
-            and self.n_iter_ == self.early_exaggeration_iter
-        ):
-            self.early_exaggeration_coeff_ = 1
-            # reinitialize optim
-            self._set_learning_rate()
-            self._set_optimizer()
-            self._set_scheduler()
-
-        return self
-
-    def _check_n_neighbors(self, n):
-        param_list = ["perplexity", "n_neighbors"]
-
-        for param_name in param_list:
-            if hasattr(self, param_name):
-                param_value = getattr(self, param_name)
-                if n <= param_value:
-                    raise ValueError(
-                        f"[TorchDR] ERROR : Number of samples is smaller than {param_name} "
-                        f"({n} <= {param_value})."
-                    )
-
-        return self
-
-    def _fit(self, X: torch.Tensor):
-        self._check_n_neighbors(X.shape[0])
-        self.early_exaggeration_coeff_ = (
-            self.early_exaggeration_coeff
-        )  # early_exaggeration_ may change during the optimization
-
-        super()._fit(X)
-
-    def _loss(self):
-        loss = (
-            self.early_exaggeration_coeff_ * self._attractive_loss()
-            + self._repulsive_loss()
-        )
-        return loss
-
-    def _set_learning_rate(self):
-        if self.lr == "auto":
-            if self.optimizer != "SGD":
-                if self.verbose:
-                    warnings.warn(
-                        "[TorchDR] WARNING : when 'auto' is used for the learning "
-                        "rate, the optimizer should be 'SGD'."
-                    )
-            # from the sklearn TSNE implementation
-            self.lr_ = max(self.n_samples_in_ / self.early_exaggeration_coeff_ / 4, 50)
-        else:
-            self.lr_ = self.lr
-
-    def _set_optimizer(self):
-        # Special case for 'auto' - convert to 'SGD'
-        if isinstance(self.optimizer, str):
-            # Get optimizer directly from torch.optim
-            try:
-                optimizer_class = getattr(torch.optim, self.optimizer)
-            except AttributeError:
-                raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
-                )
-        else:
-            if not issubclass(self.optimizer, torch.optim.Optimizer):
-                raise ValueError(
-                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
-                )
-            # Assume it's already an optimizer class
-            optimizer_class = self.optimizer
-
-        # Handle 'auto' for optimizer_kwargs
-        if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
-            if self.early_exaggeration_coeff_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
-            else:
-                optimizer_kwargs = {"momentum": 0.8}
-        else:
-            optimizer_kwargs = self.optimizer_kwargs or {}
-
-        self.optimizer_ = optimizer_class(self.params_, lr=self.lr_, **optimizer_kwargs)
-        return self.optimizer_
-
-    def _set_scheduler(self):
-        if self.early_exaggeration_coeff_ > 1:
-            n_iter = min(self.early_exaggeration_iter, self.max_iter)
-        else:
-            n_iter = self.max_iter - self.early_exaggeration_iter
-        super()._set_scheduler(n_iter)
