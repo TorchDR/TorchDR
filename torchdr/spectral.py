@@ -26,6 +26,7 @@ from torchdr.utils import (
     sum_red,
     svd_flip,
     to_torch,
+    seed_everything,
 )
 
 from typing import Union
@@ -119,6 +120,7 @@ class PCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
+        seed_everything(self.random_state)
         self.fit(X)
         return self.embedding_
 
