@@ -72,6 +72,8 @@ class COSNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Interval for checking the convergence of the algorithm, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -100,6 +102,7 @@ class COSNE(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         if is_geoopt_available():
             self.metric_in = metric_in
@@ -148,6 +151,7 @@ class COSNE(SparseNeighborEmbedding):
                 random_state=random_state,
                 early_exaggeration_coeff=early_exaggeration_coeff,
                 early_exaggeration_iter=early_exaggeration_iter,
+                check_interval=check_interval,
             )
         else:
             raise ValueError(

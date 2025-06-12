@@ -66,6 +66,8 @@ class PACMAP(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
+    check_interval : int, optional
+        Interval for checking convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -95,6 +97,7 @@ class PACMAP(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         MN_ratio: float = 0.5,
         FP_ratio: float = 2,
+        check_interval: int = 50,
     ):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
@@ -134,6 +137,7 @@ class PACMAP(SampledNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _attractive_loss(self):

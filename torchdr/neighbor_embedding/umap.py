@@ -88,6 +88,8 @@ class UMAP(SampledNeighborEmbedding):
         Number of negative samples for the noise-contrastive loss, by default 10.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Check interval for the algorithm, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -121,6 +123,7 @@ class UMAP(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         n_negatives: int = 10,
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
@@ -173,6 +176,7 @@ class UMAP(SampledNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
+            check_interval=check_interval,
         )
 
     @sum_output

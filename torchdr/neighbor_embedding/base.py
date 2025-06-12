@@ -82,6 +82,8 @@ class NeighborEmbedding(AffinityMatcher):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -107,6 +109,7 @@ class NeighborEmbedding(AffinityMatcher):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        check_interval: int = 50,
         **kwargs: Any,
     ):
         super().__init__(
@@ -127,6 +130,7 @@ class NeighborEmbedding(AffinityMatcher):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            check_interval=check_interval,
         )
 
         self.early_exaggeration_coeff = early_exaggeration_coeff
@@ -291,6 +295,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -316,6 +322,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        check_interval: int = 50,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -351,6 +358,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _attractive_loss(self):
@@ -447,6 +455,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Number of iterations for early exaggeration. Default is None.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -473,6 +483,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
+        check_interval: int = 50,
     ):
         self.n_negatives = n_negatives
 
@@ -496,6 +507,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _sample_negatives(self, discard_NNs=False):

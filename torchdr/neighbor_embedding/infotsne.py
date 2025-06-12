@@ -82,6 +82,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         Number of negative samples for the noise-contrastive loss, by default 5.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Interval for checking convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -111,6 +113,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         n_negatives: int = 50,
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -155,6 +158,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
+            check_interval=check_interval,
         )
 
     def _repulsive_loss(self):
