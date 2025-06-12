@@ -31,7 +31,7 @@ def _check_n_neighbors(n_neighbors, n):
         return n_neighbors
 
 
-class PACMAPAffinityIn(SparseLogAffinity):
+class PACMAPAffinity(SparseLogAffinity):
     r"""Compute the input affinity used in PACMAP :cite:`wang2021understanding`.
 
     Parameters
