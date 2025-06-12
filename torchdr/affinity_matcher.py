@@ -280,7 +280,7 @@ class AffinityMatcher(DRModule):
                     f"Grad norm : {grad_norm:.2e} "
                 )
 
-            self._additional_updates()
+            self._after_step()
 
         return self
 
@@ -306,7 +306,7 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
         return loss
 
-    def _additional_updates(self):
+    def _after_step(self):
         pass
 
     def _set_params(self):
