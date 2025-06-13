@@ -9,7 +9,7 @@ from typing import Union, Optional
 import numpy as np
 import torch
 
-from torchdr.affinity.base import SparseAffinity
+from torchdr.affinity.base import SparseLogAffinity
 from torchdr.utils import kmin
 
 
@@ -31,7 +31,7 @@ def _check_n_neighbors(n_neighbors, n):
         return n_neighbors
 
 
-class PACMAPAffinity(SparseAffinity):
+class PACMAPAffinity(SparseLogAffinity):
     r"""Compute the input affinity used in PACMAP :cite:`wang2021understanding`.
 
     Parameters
