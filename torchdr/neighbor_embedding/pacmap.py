@@ -7,7 +7,7 @@
 import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
-from torchdr.affinity import PACMAPAffinity, NegativeCostAffinity
+from torchdr.affinity import NegativeCostAffinity, EntropicAffinity
 from torchdr.utils import kmax, sum_red
 
 
@@ -63,6 +63,10 @@ class PACMAP(SampledNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
+    MN_ratio : float, optional
+        Ratio of mid-near pairs to nearest neighbor pairs, by default 0.5.
+    FP_ratio : float, optional
+        Ratio of far pairs to nearest neighbor pairs, by default 2.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
     iter_per_phase : int, optional
@@ -110,13 +114,20 @@ class PACMAP(SampledNeighborEmbedding):
         self.n_mid_near = int(MN_ratio * n_neighbors)
         self.iter_per_phase = iter_per_phase
 
-        affinity_in = PACMAPAffinity(
-            n_neighbors=n_neighbors,
+        affinity_in = EntropicAffinity(
+            perplexity=n_neighbors,
             metric=metric_in,
             device=device,
             backend=backend,
             verbose=verbose,
         )
+        # affinity_in = PACMAPAffinity(
+        #     n_neighbors=n_neighbors,
+        #     metric=metric_in,
+        #     device=device,
+        #     backend=backend,
+        #     verbose=verbose,
+        # )
         affinity_out = NegativeCostAffinity(
             metric=metric_out,
             device=device,
@@ -162,8 +173,7 @@ class PACMAP(SampledNeighborEmbedding):
 
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
-            # self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
-            self.w_MN = 0
+            self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
             self.w_FP = 1
         elif self.n_iter_ < 2 * self.iter_per_phase:
             self.w_NB = 3

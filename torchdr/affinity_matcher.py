@@ -285,25 +285,25 @@ class AffinityMatcher(DRModule):
         return self
 
     def _loss(self):
+        if self.kwargs_affinity_out is None:
+            self.kwargs_affinity_out = {}
+        if self.kwargs_loss is None:
+            self.kwargs_loss = {}
+
+        # If cross entropy loss and affinity_out is LogAffinity, use log domain
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
-            if self.kwargs_affinity_out is None:
-                self.kwargs_affinity_out = {}
             self.kwargs_affinity_out.setdefault("log", True)
-            if self.kwargs_loss is None:
-                self.kwargs_loss = {}
             self.kwargs_loss.setdefault("log", True)
 
+        # If NN indices are available, restrict output affinity to NNs
         if getattr(self, "NN_indices_", None) is not None:
-            Q = self.affinity_out(
-                self.embedding_,
-                indices=self.NN_indices_,
-                **(self.kwargs_affinity_out or {}),
-            )
-        else:
-            Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
+            self.kwargs_affinity_out.setdefault("indices", self.NN_indices_)
+
+        Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
+
+        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 
     def _after_step(self):
