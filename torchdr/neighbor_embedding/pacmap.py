@@ -14,6 +14,15 @@ from torchdr.utils import kmax, sum_red
 class PACMAP(SampledNeighborEmbedding):
     r"""PACMAP algorithm introduced in :cite:`wang2021understanding`.
 
+    It uses a :class:`~torchdr.PACMAPAffinity` as input affinity.
+    The loss function is defined as:
+
+    .. math::
+
+        w_{\mathrm{NN}} \sum_{i, j \in \mathrm{NB}(i)} \frac{d_{ij}}{10 + d_{ij}} + w_{\mathrm{MN}} \sum_{i,j \in \mathrm{MN}(i)} \frac{d_{ij}}{10^4 + d_{ij}} + w_{\mathrm{FP}} \sum_{i,j \in \mathrm{FP}(i)} \frac{1}{1 + d_{ij}}
+
+    where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively (more details in :cite:`wang2021understanding`).
+
     Parameters
     ----------
     n_neighbors : int, optional

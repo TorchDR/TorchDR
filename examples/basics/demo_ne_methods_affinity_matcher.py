@@ -61,7 +61,7 @@ params = {
 
 sne = SNE(early_exaggeration_coeff=1, **params)
 
-umap = UMAP(early_exaggeration_coeff=1, **params)
+umap = UMAP(**params)
 
 tsne = TSNE(early_exaggeration_coeff=1, **params)
 

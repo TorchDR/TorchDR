@@ -55,13 +55,14 @@ TorchDR supports the following neighbor embedding methods.
    :toctree: gen_modules/
    :template: myclass_template.rst
 
+   UMAP
+   LargeVis
+   PACMAP
+   InfoTSNE
    SNE
    TSNE
    TSNEkhorn
-   InfoTSNE
-   LargeVis
-   UMAP
-
+   COSNE
 
 
 Advanced Dimensionality Reduction with TorchDR
@@ -151,24 +152,19 @@ Entropic Affinities
    EntropicAffinity
    SymmetricEntropicAffinity
 
-Quadratic Affinities
-"""""""""""""""""""""
+
+Other Affinities
+""""""""""""""""
 
 .. autosummary::
    :toctree: gen_modules/
    :template: myclass_template.rst
 
    DoublyStochasticQuadraticAffinity
-
-UMAP Affinities
-"""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
    UMAPAffinityIn
    UMAPAffinityOut
+   PACMAPAffinity
+
 
 Scores
 ^^^^^^
