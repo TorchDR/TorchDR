@@ -162,7 +162,8 @@ class PACMAP(SampledNeighborEmbedding):
 
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
-            self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
+            # self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
+            self.w_MN = 0
             self.w_FP = 1
         elif self.n_iter_ < 2 * self.iter_per_phase:
             self.w_NB = 3
@@ -181,7 +182,7 @@ class PACMAP(SampledNeighborEmbedding):
         D_tilde_near = 1 - self.affinity_out(  # Distance is negative affinity
             self.embedding_, indices=self.NN_indices_
         )
-        Q_near = D_tilde_near / (10 + D_tilde_near)
+        Q_near = D_tilde_near / (1e1 + D_tilde_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
 
         if self.w_MN > 0:
@@ -220,7 +221,7 @@ class PACMAP(SampledNeighborEmbedding):
             D_tilde_mid_near = 1 - self.affinity_out(  # Distance is negative affinity
                 self.embedding_, indices=mid_near_indices
             )
-            Q_mid_near = D_tilde_mid_near / (1e5 + D_tilde_mid_near)
+            Q_mid_near = D_tilde_mid_near / (1e4 + D_tilde_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
         else:
             mid_near_loss = 0
@@ -230,5 +231,5 @@ class PACMAP(SampledNeighborEmbedding):
     def _repulsive_loss(self):
         indices = self._sample_negatives(discard_NNs=True)
         D_tilde_further = 1 - self.affinity_out(self.embedding_, indices=indices)
-        Q_further = D_tilde_further / (1 + D_tilde_further)
+        Q_further = 1 / (1 + D_tilde_further)
         return self.w_FP * sum_red(Q_further, dim=(0, 1))
