@@ -168,9 +168,6 @@ class PACMAP(SampledNeighborEmbedding):
         super()._fit(X)
 
     def _set_weights(self):
-        if not hasattr(self, "n_iter_"):
-            self.n_iter_ = 0
-
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
             self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
@@ -211,7 +208,7 @@ class PACMAP(SampledNeighborEmbedding):
                     "[TorchDR] ERROR : Not enough points to sample 6 mid-near points."
                 )
 
-            for i in range(self.n_mid_near):  # to do: broadcast
+            for i in range(self.n_mid_near):  # to do: broadcast for efficiency
                 mid_near_candidates_indices = torch.randint(
                     1,
                     n_possible_idxs,

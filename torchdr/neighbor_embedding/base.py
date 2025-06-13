@@ -26,7 +26,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
@@ -531,7 +531,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
 
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
-                f"[TorchDR] WARNING: requested {self.n_negatives} negatives but "
+                f"[TorchDR] ERROR : requested {self.n_negatives} negatives but "
                 f"only {n_possible} available."
             )
 

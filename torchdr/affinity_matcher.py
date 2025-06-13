@@ -178,6 +178,8 @@ class AffinityMatcher(DRModule):
             affinity_in._sparsity = False  # turn off sparsity
         self.affinity_in = affinity_in
 
+        self.n_iter_ = -1
+
     @handle_type
     def fit_transform(
         self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None
@@ -320,13 +322,13 @@ class AffinityMatcher(DRModule):
                 optimizer_class = getattr(torch.optim, self.optimizer)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim."
                 )
         else:
             if not issubclass(self.optimizer, torch.optim.Optimizer):
                 raise ValueError(
                     "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                    "torch.optim) or a subclass of torch.optim.Optimizer."
                 )
             optimizer_class = self.optimizer
 
@@ -369,14 +371,14 @@ class AffinityMatcher(DRModule):
                 self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler."
                 )
         else:
             # Check if the scheduler is a subclass of LRScheduler
             if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
                 raise ValueError(
                     "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
-                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler"
+                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler."
                 )
             self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 
