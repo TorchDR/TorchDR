@@ -26,6 +26,7 @@ from torchdr.utils import (
     logsumexp_red,
     sum_matrix_vector,
     wrap_vectors,
+    check_neighbor_param,
 )
 
 
@@ -155,24 +156,6 @@ def _bounds_entropic_affinity(C, perplexity):
     return begin, end
 
 
-def _check_perplexity(perplexity, n):
-    r"""Check the perplexity parameter and return a valid value."""
-    if n <= 1:
-        raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
-        )
-
-    elif perplexity >= n or perplexity <= 1:
-        raise ValueError(
-            "[TorchDR] ERROR: The perplexity parameter must be "
-            "greater than 1 and smaller than the number of samples "
-            f"(here n = {n}). Got perplexity = {perplexity}. "
-        )
-
-    else:
-        return perplexity
-
-
 class EntropicAffinity(SparseLogAffinity):
     r"""Solve the directed entropic affinity problem introduced in :cite:`hinton2002stochastic`.
 
@@ -287,7 +270,7 @@ class EntropicAffinity(SparseLogAffinity):
             print("[TorchDR] Affinity : computing the Entropic Affinity matrix.")
 
         n_samples_in = X.shape[0]
-        perplexity = _check_perplexity(self.perplexity, n_samples_in)
+        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = np.log(perplexity) + 1
 
         k = 3 * perplexity
@@ -297,6 +280,7 @@ class EntropicAffinity(SparseLogAffinity):
                     f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
                     "nearest neighbors."
                 )
+            k = check_neighbor_param(k, n_samples_in)
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k)
             C_, indices = self._distance_matrix(X, k=k)
@@ -453,7 +437,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         C, _ = self._distance_matrix(X)
 
         n_samples_in = X.shape[0]
-        perplexity = _check_perplexity(self.perplexity, n_samples_in)
+        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = np.log(perplexity) + 1
 
         one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)

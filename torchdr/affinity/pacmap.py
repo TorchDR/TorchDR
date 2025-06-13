@@ -10,25 +10,7 @@ import numpy as np
 import torch
 
 from torchdr.affinity.base import SparseLogAffinity
-from torchdr.utils import kmin
-
-
-def _check_n_neighbors(n_neighbors, n):
-    r"""Check the n_neighbors parameter and returns a valid value."""
-    if n <= 1:
-        raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
-        )
-
-    elif n_neighbors >= n - 1 or n_neighbors <= 1:
-        raise ValueError(
-            "[TorchDR] ERROR : The n_neighbors parameter must be greater than "
-            f"1 and smaller than the number of samples - 1 (here {n - 1}). "
-            f"Got n_neighbors = {n_neighbors}."
-        )
-
-    else:
-        return n_neighbors
+from torchdr.utils import kmin, check_neighbor_param
 
 
 class PACMAPAffinity(SparseLogAffinity):
@@ -90,8 +72,8 @@ class PACMAPAffinity(SparseLogAffinity):
             print("[TorchDR] Affinity : computing the input affinity matrix of PACMAP.")
 
         n_samples_in = X.shape[0]
-        n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in)
-        k = min(n_neighbors + 50, n_samples_in)
+        k = min(self.n_neighbors + 50, n_samples_in)
+        k = check_neighbor_param(k, n_samples_in)
 
         if self.verbose:
             print(
@@ -109,7 +91,7 @@ class PACMAPAffinity(SparseLogAffinity):
         normalized_C = C_ / rho_i * rho_j
 
         # Compute final NN indices
-        _, local_indices = kmin(normalized_C, k=n_neighbors, dim=1)
+        _, local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)
         final_indices = torch.gather(temp_indices, 1, local_indices.to(torch.int64))
 
         return None, final_indices  # PACMAP only uses the NN indices

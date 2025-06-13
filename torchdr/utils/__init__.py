@@ -45,6 +45,7 @@ from .validation import (
     check_symmetry,
     check_total_sum,
     check_type,
+    check_neighbor_param,
     relative_similarity,
 )
 from .wrappers import (
@@ -103,4 +104,5 @@ __all__ = [
     "bool_arg",
     "geoopt",
     "is_geoopt_available",
+    "check_neighbor_param",
 ]

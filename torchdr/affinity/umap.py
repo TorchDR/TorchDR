@@ -12,7 +12,7 @@ import torch
 from scipy.optimize import curve_fit
 
 from torchdr.affinity.base import SparseLogAffinity, UnnormalizedLogAffinity
-from torchdr.utils import binary_search, kmin, wrap_vectors
+from torchdr.utils import binary_search, kmin, wrap_vectors, check_neighbor_param
 
 
 @wrap_vectors
@@ -40,24 +40,6 @@ def find_ab_params(spread, min_dist):
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, covar = curve_fit(curve, xv, yv)
     return params[0], params[1]
-
-
-def _check_n_neighbors(n_neighbors, n):
-    r"""Check the n_neighbors parameter and returns a valid value."""
-    if n <= 1:
-        raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
-        )
-
-    elif n_neighbors >= n - 1 or n_neighbors <= 1:
-        raise ValueError(
-            "[TorchDR] ERROR : The n_neighbors parameter must be greater than "
-            f"1 and smaller than the number of samples - 1 (here {n - 1}). "
-            f"Got n_neighbors = {n_neighbors}."
-        )
-
-    else:
-        return n_neighbors
 
 
 class UMAPAffinityIn(SparseLogAffinity):
@@ -137,7 +119,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             print("[TorchDR] Affinity : computing the input affinity matrix of UMAP.")
 
         n_samples_in = X.shape[0]
-        n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in)
+        n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
             if self.verbose:
