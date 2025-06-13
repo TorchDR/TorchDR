@@ -71,11 +71,6 @@ class UMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 1.0.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     tol_affinity : float, optional
         Precision threshold for the input affinity computation.
     max_iter_affinity : int, optional
@@ -115,8 +110,7 @@ class UMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = 0,
+        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -173,8 +167,6 @@ class UMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
         )

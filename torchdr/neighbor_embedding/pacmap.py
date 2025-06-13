@@ -7,7 +7,7 @@
 import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
-from torchdr.affinity import NegativeCostAffinity, EntropicAffinity
+from torchdr.affinity import NegativeCostAffinity, PACMAPAffinity
 from torchdr.utils import kmax, sum_red
 
 
@@ -40,7 +40,7 @@ class PACMAP(SampledNeighborEmbedding):
     min_grad_norm : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 1000.
+        Number of maximum iterations for the descent algorithm, by default 450.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -50,11 +50,6 @@ class PACMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 12.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -87,13 +82,11 @@ class PACMAP(SampledNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
-        max_iter: int = 1000,
+        max_iter: int = 450,
         device: Optional[str] = None,
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -112,22 +105,16 @@ class PACMAP(SampledNeighborEmbedding):
         self.MN_ratio = MN_ratio
         self.FP_ratio = FP_ratio
         self.n_mid_near = int(MN_ratio * n_neighbors)
+        self.n_further = int(FP_ratio * n_neighbors)
         self.iter_per_phase = iter_per_phase
 
-        affinity_in = EntropicAffinity(
-            perplexity=n_neighbors,
+        affinity_in = PACMAPAffinity(
+            n_neighbors=n_neighbors,
             metric=metric_in,
             device=device,
             backend=backend,
             verbose=verbose,
         )
-        # affinity_in = PACMAPAffinity(
-        #     n_neighbors=n_neighbors,
-        #     metric=metric_in,
-        #     device=device,
-        #     backend=backend,
-        #     verbose=verbose,
-        # )
         affinity_out = NegativeCostAffinity(
             metric=metric_out,
             device=device,
@@ -151,10 +138,8 @@ class PACMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
-            n_negatives=int(FP_ratio * n_neighbors),
+            n_negatives=self.n_further,
         )
         self.mid_near_input_affinity = NegativeCostAffinity(
             metric=metric_in,
@@ -170,7 +155,10 @@ class PACMAP(SampledNeighborEmbedding):
     def _set_weights(self):
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
-            self.w_MN = 1000 * (1 - self.n_iter_ / self.iter_per_phase) + 3
+            self.w_MN = (
+                1000 * (1 - self.n_iter_ / self.iter_per_phase)
+                + 3 * self.n_iter_ / self.iter_per_phase
+            )
             self.w_FP = 1
         elif self.n_iter_ < 2 * self.iter_per_phase:
             self.w_NB = 3

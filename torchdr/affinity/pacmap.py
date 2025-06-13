@@ -101,14 +101,15 @@ class PACMAPAffinity(SparseLogAffinity):
         C_, temp_indices = self._distance_matrix(X, k=k)
 
         # Compute rho as the average distance between the 4th to 6th neighbors
-        neighbor_distances, _ = kmin(C_, k=6, dim=1)
-        self.rho_ = neighbor_distances[:, 3:6].mean(dim=1).contiguous()
+        sq_neighbor_distances, _ = kmin(C_, k=6, dim=1)
+        self.rho_ = torch.sqrt(sq_neighbor_distances)[:, 3:6].mean(dim=1).contiguous()
 
         rho_i = self.rho_.unsqueeze(1)  # Shape: (n_samples, 1)
         rho_j = self.rho_[temp_indices]  # Shape: (n_samples, k)
-        normalized_C = C_ / (rho_i * rho_j)
+        normalized_C = C_ / rho_i * rho_j
 
         # Compute final NN indices
-        _, final_indices = kmin(normalized_C, k=n_neighbors, dim=1)
+        _, local_indices = kmin(normalized_C, k=n_neighbors, dim=1)
+        final_indices = torch.gather(temp_indices, 1, local_indices.to(torch.int64))
 
         return None, final_indices  # PACMAP only uses the NN indices

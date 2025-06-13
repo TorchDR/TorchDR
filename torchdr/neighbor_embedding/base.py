@@ -112,6 +112,21 @@ class NeighborEmbedding(AffinityMatcher):
         check_interval: int = 50,
         **kwargs: Any,
     ):
+        self.early_exaggeration_iter = early_exaggeration_iter
+        if self.early_exaggeration_iter is None:
+            self.early_exaggeration_iter = 0
+        self.early_exaggeration_coeff = early_exaggeration_coeff
+        if self.early_exaggeration_coeff is None:
+            self.early_exaggeration_coeff = 1
+
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.min_grad_norm = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
+
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -132,17 +147,6 @@ class NeighborEmbedding(AffinityMatcher):
             random_state=random_state,
             check_interval=check_interval,
         )
-
-        self.early_exaggeration_coeff = early_exaggeration_coeff
-        self.early_exaggeration_iter = early_exaggeration_iter
-
-        # improve consistency with the sklearn API
-        if "learning_rate" in kwargs:
-            self.lr = kwargs["learning_rate"]
-        if "min_grad_norm" in kwargs:
-            self.min_grad_norm = kwargs["min_grad_norm"]
-        if "early_exaggeration" in kwargs:
-            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
     def _after_step(self):
         if (  # stop early exaggeration phase
