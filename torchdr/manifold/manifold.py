@@ -65,7 +65,7 @@ class Manifold:
         raise NotImplementedError
 
     def init_weights(self, w, c, irange=1e-5):
-        """Initializes random weigths on the manifold."""
+        """Initializes random weights on the manifold."""
         raise NotImplementedError
 
     def inner(self, p, c, u, v=None, keepdim=False):
@@ -85,9 +85,9 @@ class ManifoldParameter(Parameter):
     """
     Subclass of torch.nn.Parameter for Riemannian optimization.
     """
+
     def __new__(cls, data, requires_grad, manifold, c):
-        """ Create a new instance of ManifoldParameter.
-        """
+        """Create a new instance of ManifoldParameter."""
         return Parameter.__new__(cls, data, requires_grad)
 
     def __init__(self, data, requires_grad, manifold, c):
@@ -95,4 +95,7 @@ class ManifoldParameter(Parameter):
         self.manifold = manifold
 
     def __repr__(self):
-        return '{} Parameter containing:\n'.format(self.manifold.name) + super(Parameter, self).__repr__()
+        return (
+            "{} Parameter containing:\n".format(self.manifold.name)
+            + super(Parameter, self).__repr__()
+        )
