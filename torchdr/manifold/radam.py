@@ -1,4 +1,5 @@
 """Riemannian adam optimizer geoopt implementation (https://github.com/geoopt/)."""
+
 import torch.optim
 from torchdr.manifold import Euclidean, ManifoldParameter
 
@@ -15,8 +16,7 @@ class OptimMixin(object):
         pass
 
     def stabilize(self):
-        """Stabilize parameters if they are off-manifold due to numerical reasons
-        """
+        """Stabilize parameters if they are off-manifold due to numerical reasons"""
         for group in self.param_groups:
             self.stabilize_group(group)
 
@@ -104,7 +104,7 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
                         c = None
                     if grad.is_sparse:
                         raise RuntimeError(
-                                "Riemannian Adam does not support sparse gradients yet (PR is welcome)"
+                            "Riemannian Adam does not support sparse gradients yet (PR is welcome)"
                         )
 
                     state = self.state[point]
@@ -127,8 +127,7 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
                     grad = manifold.egrad2rgrad(point, grad, c)
                     exp_avg.mul_(betas[0]).add_(grad, alpha=1 - betas[0])
                     exp_avg_sq.mul_(betas[1]).add_(
-                            manifold.inner(point, c, grad, keepdim=True),
-                            alpha=1 - betas[1]
+                        manifold.inner(point, c, grad, keepdim=True), alpha=1 - betas[1]
                     )
                     if amsgrad:
                         max_exp_avg_sq = state["max_exp_avg_sq"]
@@ -141,15 +140,15 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
                     group["step"] += 1
                     bias_correction1 = 1 - betas[0] ** group["step"]
                     bias_correction2 = 1 - betas[1] ** group["step"]
-                    step_size = (
-                        learning_rate * bias_correction2 ** 0.5 / bias_correction1
-                    )
+                    step_size = learning_rate * bias_correction2**0.5 / bias_correction1
 
                     # copy the state, we need it for retraction
                     # get the direction for ascend
                     direction = exp_avg / denom
                     # transport the exponential averaging to the new point
-                    new_point = manifold.proj(manifold.expmap(-step_size * direction, point, c), c)
+                    new_point = manifold.proj(
+                        manifold.expmap(-step_size * direction, point, c), c
+                    )
                     exp_avg_new = manifold.ptransp(point, new_point, exp_avg, c)
                     # use copy only for user facing point
                     copy_or_set_(point, new_point)
@@ -160,16 +159,16 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
                     self.stabilize_group(group)
         return loss
 
-    @torch.no_grad()
-    def stabilize_group(self, group):
-        for p in group["params"]:
-            if not isinstance(p, ManifoldParameter):
-                continue
-            state = self.state[p]
-            if not state:  # due to None grads
-                continue
-            manifold = p.manifold
-            c = p.c
-            exp_avg = state["exp_avg"]
-            copy_or_set_(p, manifold.proj(p, c))
-            exp_avg.set_(manifold.proj_tan(exp_avg, u, c))
+    # @torch.no_grad()
+    # def stabilize_group(self, group):
+    #     for p in group["params"]:
+    #         if not isinstance(p, ManifoldParameter):
+    #             continue
+    #         state = self.state[p]
+    #         if not state:  # due to None grads
+    #             continue
+    #         manifold = p.manifold
+    #         c = p.c
+    #         exp_avg = state["exp_avg"]
+    #         copy_or_set_(p, manifold.proj(p, c))
+    #         exp_avg.set_(manifold.proj_tan(exp_avg, u, c))
