@@ -20,6 +20,7 @@ from torchdr.neighbor_embedding import (
     InfoTSNE,
     LargeVis,
     TSNEkhorn,
+    PACMAP,
 )
 from torchdr.tests.utils import toy_dataset, iris_dataset
 from torchdr.utils import check_shape, pykeops
@@ -48,6 +49,7 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
         (LargeVis, {}),
         (InfoTSNE, {}),
         (UMAP, {}),
+        (PACMAP, {}),
     ],
 )
 @pytest.mark.parametrize("dtype", lst_types)

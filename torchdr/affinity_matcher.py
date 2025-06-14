@@ -102,7 +102,7 @@ class AffinityMatcher(DRModule):
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is None.
-    n_iter_check : int, optional
+    check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
@@ -129,7 +129,7 @@ class AffinityMatcher(DRModule):
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        n_iter_check: int = 50,
+        check_interval: int = 50,
     ):
         super().__init__(
             n_components=n_components,
@@ -143,7 +143,7 @@ class AffinityMatcher(DRModule):
         self.optimizer_kwargs = optimizer_kwargs
         self.lr = lr
         self.min_grad_norm = min_grad_norm
-        self.n_iter_check = n_iter_check
+        self.check_interval = check_interval
         self.verbose = verbose
         self.max_iter = max_iter
         self.scheduler = scheduler
@@ -181,6 +181,8 @@ class AffinityMatcher(DRModule):
             )
             affinity_in._sparsity = False  # turn off sparsity
         self.affinity_in = affinity_in
+
+        self.n_iter_ = -1
 
     @handle_type
     def fit_transform(
@@ -256,7 +258,8 @@ class AffinityMatcher(DRModule):
             self.optimizer_.zero_grad()
             loss = self._loss()
             loss.backward()
-            check_convergence = self.n_iter_ % self.n_iter_check == 0
+
+            check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
                 grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
@@ -266,9 +269,11 @@ class AffinityMatcher(DRModule):
                             f"{grad_norm:.2e}."
                         )
                     break
+
             self.optimizer_.step()
             if self.scheduler_ is not None:
                 self.scheduler_.step()
+
             check_NaNs(
                 self.embedding_,
                 msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
@@ -281,33 +286,33 @@ class AffinityMatcher(DRModule):
                     f"Grad norm : {grad_norm:.2e} "
                 )
 
-            self._additional_updates()
+            self._after_step()
 
         return self
 
     def _loss(self):
+        if self.kwargs_affinity_out is None:
+            self.kwargs_affinity_out = {}
+        if self.kwargs_loss is None:
+            self.kwargs_loss = {}
+
+        # If cross entropy loss and affinity_out is LogAffinity, use log domain
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
-            if self.kwargs_affinity_out is None:
-                self.kwargs_affinity_out = {}
             self.kwargs_affinity_out.setdefault("log", True)
-            if self.kwargs_loss is None:
-                self.kwargs_loss = {}
             self.kwargs_loss.setdefault("log", True)
 
+        # If NN indices are available, restrict output affinity to NNs
         if getattr(self, "NN_indices_", None) is not None:
-            Q = self.affinity_out(
-                self.embedding_,
-                indices=self.NN_indices_,
-                **(self.kwargs_affinity_out or {}),
-            )
-        else:
-            Q = self.affinity_out(self.embedding_, **(self.kwargs_affinity_out or {}))
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **(self.kwargs_loss or {}))
+            self.kwargs_affinity_out.setdefault("indices", self.NN_indices_)
+
+        Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
+
+        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
         return loss
 
-    def _additional_updates(self):
+    def _after_step(self):
         pass
 
     def _set_params(self):
@@ -321,13 +326,13 @@ class AffinityMatcher(DRModule):
                 optimizer_class = getattr(torch.optim, self.optimizer)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim."
                 )
         else:
             if not issubclass(self.optimizer, torch.optim.Optimizer):
                 raise ValueError(
                     "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                    "torch.optim) or a subclass of torch.optim.Optimizer."
                 )
             optimizer_class = self.optimizer
 
@@ -370,14 +375,14 @@ class AffinityMatcher(DRModule):
                 self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
             except AttributeError:
                 raise ValueError(
-                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler"
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler."
                 )
         else:
             # Check if the scheduler is a subclass of LRScheduler
             if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
                 raise ValueError(
                     "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
-                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler"
+                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler."
                 )
             self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
 
@@ -413,8 +418,10 @@ class AffinityMatcher(DRModule):
             poincare_ball = PoincareBall()
             embedding_ = self.init_scaling * embedding_
             self.embedding_ = ManifoldParameter(
-                poincare_ball.expmap0(embedding_, c=1), requires_grad=True,
-                manifold=poincare_ball, c=1
+                poincare_ball.expmap0(embedding_, c=1),
+                requires_grad=True,
+                manifold=poincare_ball,
+                c=1,
             )
 
         else:

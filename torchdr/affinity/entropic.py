@@ -26,6 +26,7 @@ from torchdr.utils import (
     logsumexp_red,
     sum_matrix_vector,
     wrap_vectors,
+    check_neighbor_param,
 )
 
 
@@ -155,28 +156,6 @@ def _bounds_entropic_affinity(C, perplexity):
     return begin, end
 
 
-def _check_perplexity(perplexity, n, verbose=True):
-    r"""Check the perplexity parameter and return a valid value."""
-    if n <= 1:
-        raise ValueError(
-            "[TorchDR] ERROR Affinity: Input has less than one sample : "
-            f"n_samples = {n}."
-        )
-
-    if perplexity >= n or perplexity <= 1:
-        new_value = 50
-        if verbose:
-            warnings.warn(
-                "[TorchDR] WARNING Affinity: The perplexity parameter must be "
-                "greater than 1 and smaller than the number of samples "
-                f"(here n = {n}). Got perplexity = {perplexity}. "
-                "Setting perplexity to {50}."
-            )
-        return new_value
-    else:
-        return perplexity
-
-
 class EntropicAffinity(SparseLogAffinity):
     r"""Solve the directed entropic affinity problem introduced in :cite:`hinton2002stochastic`.
 
@@ -184,7 +163,7 @@ class EntropicAffinity(SparseLogAffinity):
     :math:`\mathbf{\varepsilon}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
-        \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \quad \text{where} \quad \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)}   \:.
+        \forall (i,j), \: P^{\mathrm{e}}_{ij} = \frac{\exp(- C_{ij} / \varepsilon_i^\star)}{\sum_{\ell} \exp(- C_{i\ell} / \varepsilon_i^\star)} \quad \text{where} \quad \forall i, \: \mathrm{h}(\mathbf{P}^{\mathrm{e}}_{i:}) = \log (\xi) + 1 \:.
 
     where :
 
@@ -291,7 +270,7 @@ class EntropicAffinity(SparseLogAffinity):
             print("[TorchDR] Affinity : computing the Entropic Affinity matrix.")
 
         n_samples_in = X.shape[0]
-        perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
+        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = np.log(perplexity) + 1
 
         k = 3 * perplexity
@@ -299,9 +278,9 @@ class EntropicAffinity(SparseLogAffinity):
             if self.verbose:
                 print(
                     f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
-                    "nearest neighbors. If this step is too slow, consider "
-                    "reducing the dimensionality of the data or disabling sparsity."
+                    "nearest neighbors."
                 )
+            k = check_neighbor_param(k, n_samples_in)
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k)
             C_, indices = self._distance_matrix(X, k=k)
@@ -458,7 +437,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         C, _ = self._distance_matrix(X)
 
         n_samples_in = X.shape[0]
-        perplexity = _check_perplexity(self.perplexity, n_samples_in, self.verbose)
+        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = np.log(perplexity) + 1
 
         one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)

@@ -16,7 +16,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
+    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
     affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
@@ -60,16 +60,11 @@ class InfoTSNE(SampledNeighborEmbedding):
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
+        Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 12.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -82,6 +77,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         Number of negative samples for the noise-contrastive loss, by default 5.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Interval for checking convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -100,17 +97,16 @@ class InfoTSNE(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 50,
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -132,7 +128,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         affinity_out = StudentAffinity(
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 
@@ -153,9 +148,8 @@ class InfoTSNE(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
+            check_interval=check_interval,
         )
 
     def _repulsive_loss(self):

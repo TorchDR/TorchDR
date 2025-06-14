@@ -278,7 +278,10 @@ class SparseLogAffinity(LogAffinity):
         """
         X = to_torch(X, device=self.device)
         log_affinity, indices = self._compute_sparse_log_affinity(X, **kwargs)
-        affinity_to_return = log_affinity if log else log_affinity.exp()
+        if log_affinity is None:
+            affinity_to_return = None
+        else:
+            affinity_to_return = log_affinity if log else log_affinity.exp()
         return (affinity_to_return, indices) if return_indices else affinity_to_return
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):

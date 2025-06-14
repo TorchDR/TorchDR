@@ -73,6 +73,8 @@ class COSNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Number of iterations between checks for convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -101,8 +103,8 @@ class COSNE(SparseNeighborEmbedding):
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
-
         self.metric_in = metric_in
         self.metric_out = "sqhyperbolic"
         self.perplexity = perplexity
@@ -149,7 +151,8 @@ class COSNE(SparseNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
-            )
+            check_interval=check_interval,
+        )
 
     def _fit(self, X: torch.Tensor):
         # We compute once and for all the norms of X data samples

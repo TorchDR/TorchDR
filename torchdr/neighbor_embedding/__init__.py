@@ -11,6 +11,7 @@ from .tsne import TSNE
 from .cosne import COSNE
 from .tsnekhorn import TSNEkhorn
 from .umap import UMAP
+from .pacmap import PACMAP
 
 __all__ = [
     "NeighborEmbedding",
@@ -23,4 +24,5 @@ __all__ = [
     "TSNEkhorn",
     "LargeVis",
     "UMAP",
+    "PACMAP",
 ]

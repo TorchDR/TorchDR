@@ -28,6 +28,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     GaussianAffinity,
     MAGICAffinity,
+    NegativeCostAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
     ScalarProductAffinity,
@@ -38,6 +39,7 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
+    PACMAPAffinity,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
@@ -444,3 +446,62 @@ def test_umap_embedding_affinity(dtype, metric, backend, a, b):
     check_shape(P, (n, n))
     check_nonnegativity(P)
     check_symmetry(P)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_negative_cost_affinity(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+
+    list_P = []
+    for backend in lst_backend:
+        affinity = NegativeCostAffinity(device=DEVICE, backend=backend, metric=metric)
+        P = affinity(X)
+        list_P.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
+        check_symmetry(P)
+
+    # --- check consistency between torch and keops ---
+    if len(lst_backend) > 1:
+        check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+@pytest.mark.parametrize("backend", lst_backend)
+def test_pacmap_affinity(dtype, metric, backend):
+    n = 300
+    X, _ = toy_dataset(n, dtype)
+    n_neighbors = 30
+
+    affinity = PACMAPAffinity(
+        n_neighbors=n_neighbors,
+        device=DEVICE,
+        backend=backend,
+        metric=metric,
+        verbose=True,
+    )
+
+    # PACMAPAffinity returns None for affinities and only indices
+    _, indices = affinity(X, return_indices=True)
+
+    # -- check properties of the neighborhood indices --
+    assert isinstance(indices, torch.Tensor), "Indices should be a torch.Tensor"
+    assert indices.shape == (n, n_neighbors), (
+        f"Expected shape {(n, n_neighbors)}, got {indices.shape}"
+    )
+    assert indices.dtype == torch.int, f"Expected dtype torch.int, got {indices.dtype}"
+
+    # Check that no index exceeds the number of samples
+    assert torch.all(indices >= 0) and torch.all(indices < n), "Indices out of bounds"
+
+    # Check that rho_ was correctly computed
+    assert hasattr(affinity, "rho_"), "rho_ attribute not found"
+    assert affinity.rho_.shape == (n,), (
+        f"Expected rho_ shape {(n,)}, got {affinity.rho_.shape}"
+    )
+    assert torch.all(affinity.rho_ > 0), "rho_ values should be positive"
