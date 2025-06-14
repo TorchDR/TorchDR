@@ -48,6 +48,7 @@ from .neighbor_embedding import (
     SampledNeighborEmbedding,
     SparseNeighborEmbedding,
     TSNEkhorn,
+    PACMAP,
 )
 from .spectral import PCA, IncrementalPCA, KernelPCA
 
@@ -93,6 +94,7 @@ __all__ = [
     "TSNEkhorn",
     "LargeVis",
     "UMAP",
+    "PACMAP",
     "pairwise_distances",
     "binary_search",
     "false_position",

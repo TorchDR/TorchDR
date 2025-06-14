@@ -75,7 +75,7 @@ def binary_search(
             std_f = fm.abs().std().item()
             pbar.set_description(
                 "[TorchDR] Root search : "
-                f"mean abs value = {float(mean_f): .2e} (std = {float(std_f): .2e}) "
+                f"Mean |diff.| = {float(mean_f): .2e} (std = {float(std_f): .2e}) "
             )
 
     return m
@@ -153,7 +153,7 @@ def false_position(
             std_f = fm.abs().std().item()
             pbar.set_description(
                 "[TorchDR] Root search : "
-                f"mean abs value = {float(mean_f): .2e} (std = {float(std_f): .2e}) "
+                f"Mean |diff.| = {float(mean_f): .2e} (std = {float(std_f): .2e}). "
             )
 
     return m

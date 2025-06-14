@@ -26,7 +26,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
     output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
@@ -82,8 +82,8 @@ class NeighborEmbedding(AffinityMatcher):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    learning_rate : float, optional
-        Alias for lr parameter for sklearn API compatibility.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -109,8 +109,24 @@ class NeighborEmbedding(AffinityMatcher):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        check_interval: int = 50,
         **kwargs: Any,
     ):
+        self.early_exaggeration_iter = early_exaggeration_iter
+        if self.early_exaggeration_iter is None:
+            self.early_exaggeration_iter = 0
+        self.early_exaggeration_coeff = early_exaggeration_coeff
+        if self.early_exaggeration_coeff is None:
+            self.early_exaggeration_coeff = 1
+
+        # improve consistency with the sklearn API
+        if "learning_rate" in kwargs:
+            self.lr = kwargs["learning_rate"]
+        if "min_grad_norm" in kwargs:
+            self.min_grad_norm = kwargs["min_grad_norm"]
+        if "early_exaggeration" in kwargs:
+            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
+
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -129,20 +145,10 @@ class NeighborEmbedding(AffinityMatcher):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            check_interval=check_interval,
         )
 
-        self.early_exaggeration_coeff = early_exaggeration_coeff
-        self.early_exaggeration_iter = early_exaggeration_iter
-
-        # improve consistency with the sklearn API
-        if "learning_rate" in kwargs:
-            self.lr = kwargs["learning_rate"]
-        if "min_grad_norm" in kwargs:
-            self.min_grad_norm = kwargs["min_grad_norm"]
-        if "early_exaggeration" in kwargs:
-            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
-
-    def _additional_updates(self):
+    def _after_step(self):
         if (  # stop early exaggeration phase
             self.early_exaggeration_coeff_ > 1
             and self.n_iter_ == self.early_exaggeration_iter
@@ -162,15 +168,10 @@ class NeighborEmbedding(AffinityMatcher):
             if hasattr(self, param_name):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
-                    if self.verbose:
-                        warnings.warn(
-                            "[TorchDR] WARNING : Number of samples is smaller than "
-                            f"{param_name} ({n} <= {param_value}), setting "
-                            f"{param_name} to {n // 2} (which corresponds to n//2)."
-                        )
-                    new_value = n // 2
-                    setattr(self, param_name + "_", new_value)
-                    setattr(self.affinity_in, param_name, new_value)
+                    raise ValueError(
+                        f"[TorchDR] ERROR : Number of samples is smaller than {param_name} "
+                        f"({n} <= {param_value})."
+                    )
 
         return self
 
@@ -199,7 +200,6 @@ class NeighborEmbedding(AffinityMatcher):
             self.lr_ = self.lr
 
     def _set_optimizer(self):
-        # Special case for 'auto' - convert to 'SGD'
         if isinstance(self.optimizer, str):
             # Get optimizer directly from torch.optim
             try:
@@ -217,12 +217,15 @@ class NeighborEmbedding(AffinityMatcher):
             # Assume it's already an optimizer class
             optimizer_class = self.optimizer
 
-        # Handle 'auto' for optimizer_kwargs
-        if self.optimizer_kwargs == "auto" and self.optimizer == "SGD":
-            if self.early_exaggeration_coeff_ > 1:
-                optimizer_kwargs = {"momentum": 0.5}
+        # If 'auto' and SGD, set momentum based on early exaggeration phase
+        if self.optimizer_kwargs == "auto":
+            if self.optimizer == "SGD":
+                if self.early_exaggeration_coeff_ > 1:
+                    optimizer_kwargs = {"momentum": 0.5}
+                else:
+                    optimizer_kwargs = {"momentum": 0.8}
             else:
-                optimizer_kwargs = {"momentum": 0.8}
+                optimizer_kwargs = {}
         else:
             optimizer_kwargs = self.optimizer_kwargs or {}
 
@@ -298,6 +301,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -323,6 +328,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        check_interval: int = 50,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -358,6 +364,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _attractive_loss(self):
@@ -454,6 +461,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Number of iterations for early exaggeration. Default is None.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
+    check_interval : int, optional
+        Number of iterations between two checks for convergence. Default is 50.
     """  # noqa: E501
 
     def __init__(
@@ -480,6 +489,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
+        check_interval: int = 50,
     ):
         self.n_negatives = n_negatives
 
@@ -503,50 +513,40 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _sample_negatives(self, discard_NNs=False):
         # Negatives are all other points except NNs (if discard_NNs) and point itself
-        n_possible_negatives = self.n_samples_in_ - 1  # Exclude the self-index
-        discard_NNs_ = discard_NNs and self.NN_indices_ is not None
-        if discard_NNs_:
-            n_possible_negatives -= self.NN_indices_.shape[-1]  # Exclude the NNs
-
-        if not hasattr(self, "n_negatives_"):
-            if self.n_negatives > n_possible_negatives:
-                if self.verbose:
-                    warnings.warn(
-                        "[TorchDR] WARNING: n_negatives is too large. "
-                        "Setting n_negatives to the difference between the number of "
-                        "samples and the number of neighbors."
-                    )
-                self.n_negatives_ = n_possible_negatives
-            else:
-                self.n_negatives_ = self.n_negatives
-
         device = getattr(self.NN_indices_, "device", "cpu")
-        indices = torch.randint(
+
+        self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
+        if discard_NNs and (self.NN_indices_ is not None):
+            exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
+        else:
+            exclude = self_idxs
+
+        k = exclude.size(1)
+        n_possible = self.n_samples_in_ - k
+        if n_possible <= 0:
+            raise ValueError(
+                f"[TorchDR] ERROR : No possible negatives (n={self.n_samples_in_}, k_excluded={k})."
+            )
+
+        if self.n_negatives > n_possible and self.verbose:
+            raise ValueError(
+                f"[TorchDR] ERROR : requested {self.n_negatives} negatives but "
+                f"only {n_possible} available."
+            )
+
+        negatives = torch.randint(
             1,
-            n_possible_negatives,
-            (self.n_samples_in_, self.n_negatives_),
+            n_possible,
+            (self.n_samples_in_, self.n_negatives),
             device=device,
         )
 
-        exclude_indices = (
-            torch.arange(self.n_samples_in_).unsqueeze(1).to(device=device)
-        )  # Self indices
-        if discard_NNs_:
-            exclude_indices = torch.cat(
-                (
-                    exclude_indices,
-                    self.NN_indices_,
-                ),  # Concatenate self and NNs
-                dim=1,
-            )
-
-        # Adjusts sampled indices to take into account excluded indices
-        exclude_indices.sort(axis=1)
-        adjustments = torch.searchsorted(exclude_indices, indices, right=True)
-        indices += adjustments
-
-        return indices
+        exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
+        shifts = torch.searchsorted(exclude, negatives, right=True)
+        negatives += shifts
+        return negatives

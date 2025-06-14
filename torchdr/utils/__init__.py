@@ -45,12 +45,12 @@ from .validation import (
     check_symmetry,
     check_total_sum,
     check_type,
+    check_neighbor_param,
     relative_similarity,
 )
 from .wrappers import (
     handle_type,
     handle_keops,
-    sum_output,
     to_torch,
     torch_to_backend,
     wrap_vectors,
@@ -73,7 +73,6 @@ __all__ = [
     "sum_matrix_vector",
     "prod_matrix_vector",
     "sum_red",
-    "sum_output",
     "logsumexp_red",
     "check_NaNs",
     "pairwise_distances",
@@ -105,4 +104,5 @@ __all__ = [
     "bool_arg",
     "geoopt",
     "is_geoopt_available",
+    "check_neighbor_param",
 ]

@@ -9,7 +9,7 @@ import torch
 
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_output
+from torchdr.utils import cross_entropy_loss, sum_red
 
 
 class LargeVis(SampledNeighborEmbedding):
@@ -60,16 +60,16 @@ class LargeVis(SampledNeighborEmbedding):
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
+        Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
-        By default 12.0 for early exaggeration.
+        By default 1.
     early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
+        Number of iterations for early exaggeration, by default None.
     tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -82,6 +82,8 @@ class LargeVis(SampledNeighborEmbedding):
         Number of negative samples for the repulsive loss.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Interval for checking convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -100,17 +102,18 @@ class LargeVis(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 3000,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: Optional[int] = 250,
+        early_exaggeration_coeff: float = 1,
+        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 5,
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -132,7 +135,6 @@ class LargeVis(SampledNeighborEmbedding):
         affinity_out = StudentAffinity(
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 
@@ -156,14 +158,14 @@ class LargeVis(SampledNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
+            check_interval=check_interval,
         )
 
-    @sum_output
     def _repulsive_loss(self):
         indices = self._sample_negatives()
         Q = self.affinity_out(self.embedding_, indices=indices)
         Q = Q / (Q + 1)
-        return -(1 - Q).log() / self.n_samples_in_
+        return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 
     def _attractive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)

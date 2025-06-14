@@ -5,7 +5,6 @@
 # License: BSD 3-Clause License
 
 import math
-import warnings
 from typing import Union, Any, Optional
 
 import numpy as np
@@ -13,7 +12,7 @@ import torch
 from scipy.optimize import curve_fit
 
 from torchdr.affinity.base import SparseLogAffinity, UnnormalizedLogAffinity
-from torchdr.utils import binary_search, kmin, wrap_vectors
+from torchdr.utils import binary_search, kmin, wrap_vectors, check_neighbor_param
 
 
 @wrap_vectors
@@ -43,26 +42,6 @@ def find_ab_params(spread, min_dist):
     return params[0], params[1]
 
 
-def _check_n_neighbors(n_neighbors, n, verbose=True):
-    r"""Check the n_neighbors parameter and returns a valid value."""
-    if n <= 1:
-        raise ValueError(
-            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n}."
-        )
-
-    if n_neighbors >= n - 1 or n_neighbors <= 1:
-        new_value = n // 2
-        if verbose:
-            warnings.warn(
-                "[TorchDR] WARNING : The n_neighbors parameter must be greater than "
-                f"1 and smaller than the number of samples - 1 (here {n - 1}). "
-                f"Got n_neighbors = {n_neighbors}. Setting n_neighbors to {new_value}."
-            )
-        return new_value
-    else:
-        return n_neighbors
-
-
 class UMAPAffinityIn(SparseLogAffinity):
     r"""Compute the input affinity used in UMAP :cite:`mcinnes2018umap`.
 
@@ -70,7 +49,7 @@ class UMAPAffinityIn(SparseLogAffinity):
     :math:`\mathbf{\sigma}^* \in \mathbb{R}^n_{>0}` such that
 
     .. math::
-        \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors}) \quad \text{where} \quad \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i)
+        \forall (i,j), \: P_{ij} = \exp(- (C_{ij} - \rho_i) / \sigma^\star_i) \quad \text{where} \quad \forall i, \: \sum_j P_{ij} = \log (\mathrm{n_neighbors})
 
     and :math:`\rho_i = \min_j C_{ij}`.
 
@@ -100,7 +79,7 @@ class UMAPAffinityIn(SparseLogAffinity):
 
     def __init__(
         self,
-        n_neighbors: float = 30,  # analog of the perplexity parameter of SNE / TSNE
+        n_neighbors: float = 30,
         tol: float = 1e-5,
         max_iter: int = 1000,
         sparsity: bool = True,
@@ -133,22 +112,20 @@ class UMAPAffinityIn(SparseLogAffinity):
 
         Returns
         -------
-        self : UMAPAffinityData
+        self : UMAPAffinityIn
             The fitted instance.
         """
         if self.verbose:
             print("[TorchDR] Affinity : computing the input affinity matrix of UMAP.")
 
         n_samples_in = X.shape[0]
-        n_neighbors = _check_n_neighbors(self.n_neighbors, n_samples_in, self.verbose)
+        n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
             if self.verbose:
                 print(
                     "[TorchDR] Affinity : sparsity mode enabled, computing "
-                    f"{n_neighbors} nearest neighbors. If this step is too slow, "
-                    "consider reducing the dimensionality of the data using PCA "
-                    "or disabling sparsity."
+                    f"{n_neighbors} nearest neighbors."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)

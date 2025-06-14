@@ -358,11 +358,11 @@ def test_sparse_affinity_with_indices():
     assert isinstance(loss, torch.Tensor)
 
 
-def test_additional_updates():
+def test_after_step():
     # This is a placeholder test for _additional_updates method
     # which currently does nothing in the base class
     model = AffinityMatcher(
         affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
     )
     # Just ensure it doesn't raise an error
-    model._additional_updates()
+    model._after_step()

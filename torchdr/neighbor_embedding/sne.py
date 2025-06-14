@@ -76,6 +76,10 @@ class SNE(SparseNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output computation, by default 'sqeuclidean'.
+    sparsity : bool, optional
+        Whether to use sparsity in the algorithm.
+    check_interval : int, optional
+        Interval for checking the convergence of the algorithm.
     """  # noqa: E501
 
     def __init__(
@@ -97,12 +101,14 @@ class SNE(SparseNeighborEmbedding):
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 10.0,
+        early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: Optional[int] = 250,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
+        sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -145,6 +151,7 @@ class SNE(SparseNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
         )
 
     def _repulsive_loss(self):

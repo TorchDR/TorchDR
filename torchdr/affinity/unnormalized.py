@@ -159,7 +159,48 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         return (self.gamma / (C + self.gamma**2)).log()
 
 
-class ScalarProductAffinity(UnnormalizedAffinity):
+class NegativeCostAffinity(UnnormalizedAffinity):
+    r"""Compute the negative cost affinity matrix.
+
+    Its expression is given by :math:`-\mathbf{C}`
+    where :math:`\mathbf{C}` is the pairwise distance matrix.
+
+    Parameters
+    ----------
+    metric : str, optional
+        Metric to use for pairwise distances computation. Default is "sqeuclidean".
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+    device : str, optional
+        Device to use for computations. Default is "cuda".
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    verbose : bool, optional
+        Verbosity. Default is False.
+    """
+
+    def __init__(
+        self,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        backend: Optional[str] = None,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            metric=metric,
+            device=device,
+            backend=backend,
+            verbose=verbose,
+            zero_diag=zero_diag,
+        )
+
+    def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
+        return -C
+
+
+class ScalarProductAffinity(NegativeCostAffinity):
     r"""Compute the scalar product affinity matrix.
 
     Its expression is given by :math:`\mathbf{X} \mathbf{X}^\top`
@@ -190,6 +231,3 @@ class ScalarProductAffinity(UnnormalizedAffinity):
             verbose=verbose,
             zero_diag=False,
         )
-
-    def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        return -C

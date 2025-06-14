@@ -9,7 +9,7 @@ import torch
 
 from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_output
+from torchdr.utils import cross_entropy_loss, sum_red
 
 
 class UMAP(SampledNeighborEmbedding):
@@ -29,7 +29,7 @@ class UMAP(SampledNeighborEmbedding):
 
     Parameters
     ----------
-    n_neighbors : int
+    n_neighbors : float, optional
         Number of nearest neighbors.
     n_components : int, optional
         Dimension of the embedding space.
@@ -47,7 +47,7 @@ class UMAP(SampledNeighborEmbedding):
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
     optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
+        Additional keyword arguments for the optimizer. Default is 'auto'.
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
@@ -66,16 +66,11 @@ class UMAP(SampledNeighborEmbedding):
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
+        Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 1.0.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     tol_affinity : float, optional
         Precision threshold for the input affinity computation.
     max_iter_affinity : int, optional
@@ -88,6 +83,8 @@ class UMAP(SampledNeighborEmbedding):
         Number of negative samples for the noise-contrastive loss, by default 10.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
+    check_interval : int, optional
+        Check interval for the algorithm, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -110,17 +107,17 @@ class UMAP(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: int = 0,
+        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 10,
         sparsity: bool = True,
+        check_interval: int = 50,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
@@ -150,7 +147,6 @@ class UMAP(SampledNeighborEmbedding):
             b=b,
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 
@@ -171,17 +167,15 @@ class UMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
+            check_interval=check_interval,
         )
 
-    @sum_output
     def _repulsive_loss(self):
         indices = self._sample_negatives(discard_NNs=False)
         Q = self.affinity_out(self.embedding_, indices=indices)
         Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
-        return -(1 - Q).log()
+        return -sum_red((1 - Q).log(), dim=(0, 1))
 
     def _attractive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)

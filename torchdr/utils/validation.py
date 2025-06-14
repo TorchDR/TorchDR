@@ -209,3 +209,21 @@ def check_nonnegativity_eigenvalues(lambdas, tol_neg_ratio=1e-3, small_pos_ratio
         lambdas[too_small_lambdas] = 0
 
     return lambdas
+
+
+def check_neighbor_param(n_neighbors, n_samples):
+    r"""Check the n_neighbors parameter and returns a valid value."""
+    if n_samples <= 1:
+        raise ValueError(
+            f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n_samples}."
+        )
+
+    elif n_neighbors >= n_samples - 1 or n_neighbors <= 1:
+        raise ValueError(
+            f"[TorchDR] ERROR : Number of requested neighbors must be greater than "
+            f"1 and smaller than the number of samples - 1 (here {n_samples - 1}). "
+            f"Got {n_neighbors}."
+        )
+
+    else:
+        return n_neighbors
