@@ -9,12 +9,6 @@ Euclidean space while the second one operates in the Hyperbolic
 Poincaré Ball model.
 """
 
-# %%
-# Designing the synthetic hierarchical dataset
-# --------------------------------------------
-#
-# We first construct a synthetic hierarchical dataset with the following class.
-
 import numpy as np
 from torchdr.utils.visu import plot_disk
 from torchdr import TSNE, COSNE
