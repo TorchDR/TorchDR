@@ -253,7 +253,7 @@ class MAGICAffinity(Affinity):
 
 
 class AlphaDecayAffinity(Affinity):
-    r"""Compute the alpha-decay affinity.
+    r"""Compute the alpha-decay affinity introduced in :cite:`moon2019visualizing`.
 
     The affinity has a sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
 
