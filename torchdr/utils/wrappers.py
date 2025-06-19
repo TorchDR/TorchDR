@@ -161,7 +161,7 @@ def handle_keops(func):
     If backend is set to 'keops', backend_ is also set to 'keops' and nothing is done.
     Otherwise, the function is called and if an OutOfMemoryError is encountered,
     backend_ is set to 'keops' and the function is called again.
-    """  # noqa: RST306
+    """
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):

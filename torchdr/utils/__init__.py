@@ -4,7 +4,6 @@
 #
 # License: BSD 3-Clause License
 
-from .manifold import geoopt, is_geoopt_available
 
 from .geometry import (
     LIST_METRICS_TORCH,
@@ -15,7 +14,7 @@ from .geometry import (
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
 from .faiss import faiss
-from .optim import binary_search, false_position
+from .root_search import binary_search, false_position
 from .utils import (
     seed_everything,
     batch_transpose,
@@ -56,6 +55,14 @@ from .wrappers import (
     wrap_vectors,
 )
 
+from .manifold import (
+    Manifold,
+    ManifoldParameter,
+    EuclideanManifold,
+    PoincareBallManifold,
+)
+from .radam import RiemannianAdam
+
 __all__ = [
     "seed_everything",
     "LazyTensor",
@@ -64,7 +71,6 @@ __all__ = [
     "pykeops",
     "binary_search",
     "false_position",
-    "OPTIMIZERS",
     "cross_entropy_loss",
     "square_loss",
     "wrap_vectors",
@@ -102,7 +108,10 @@ __all__ = [
     "handle_keops",
     "faiss",
     "bool_arg",
-    "geoopt",
-    "is_geoopt_available",
     "check_neighbor_param",
+    "Manifold",
+    "ManifoldParameter",
+    "EuclideanManifold",
+    "PoincareBallManifold",
+    "RiemannianAdam",
 ]
