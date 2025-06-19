@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Useful functions to draw Hyperbolic outputs of TorchDr
-"""
+"""Useful functions for plotting."""
 
 # Author: Nicolas Courty <ncourty@irisa.fr>
 #
@@ -12,8 +10,8 @@ import matplotlib.pylab as plt
 
 
 def plot_poincare_disk(ax, alpha=0.1):
-    """
-    Plot a Poincaré disk model with shading based on hyperbolic distance.
+    """Plot a Poincaré disk model with shading based on hyperbolic distance.
+
     Parameters
     ----------
     ax : matplotlib.axes.Axes
@@ -38,8 +36,8 @@ def plot_poincare_disk(ax, alpha=0.1):
 
 
 def plot_disk(ax, alpha=0.5):
-    """
-    Plot a grid on the Poincaré disk.
+    """Plot a grid on the Poincaré disk.
+
     Parameters
     ----------
     ax : matplotlib.axes.Axes

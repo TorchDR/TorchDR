@@ -11,17 +11,13 @@ Poincaré Ball model.
 
 # %%
 # Designing the synthetic hierarchical dataset
-# ---------------
+# --------------------------------------------
 #
-# We first construct a synthetic hierarchical dataset with the following class
+# We first construct a synthetic hierarchical dataset with the following class.
 
 import numpy as np
 from torchdr.utils.visu import plot_disk
-from torchdr.manifold import PoincareBall
 from torchdr import TSNE, COSNE
-from torchdr import pairwise_distances
-import torch
-import itertools
 import urllib.request
 import matplotlib.pylab as plt
 
@@ -66,7 +62,7 @@ snare_labels = load_numpy_from_url(url_y)
 # -----------------------------------------
 #
 # We can now proceed to computing the two DR methods and visualizing
-# the results on the SNARE-seq dataset
+# the results on the SNARE-seq dataset.
 
 tsne_model = TSNE(verbose=True, max_iter=500)
 out_tsne = tsne_model.fit_transform(snare_data)
