@@ -10,8 +10,17 @@ from typing import Tuple, Union, Optional
 import torch
 
 from torchdr.affinity.base import Affinity, LogAffinity
-from torchdr.utils import batch_transpose, kmin, logsumexp_red, sum_red, wrap_vectors, symmetric_pairwise_distances, LazyTensorType
+from torchdr.utils import (
+    batch_transpose,
+    kmin,
+    logsumexp_red,
+    sum_red,
+    wrap_vectors,
+    symmetric_pairwise_distances,
+    LazyTensorType,
+)
 from torchdr.utils.utils import identity_matrix
+
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
@@ -55,10 +64,11 @@ def _log_MAGIC(C, sigma):
     """
     return -C / sigma
 
+
 @wrap_vectors
 def _log_AlphaDecay(C, sigma, alpha):
     r"""Return the alpha-decay affinity matrix with sample-wise bandwidth.
-    
+
     The bandwidth is determined by the distance from a point
     to its K-th neirest neighbor in log domain.
 
@@ -70,12 +80,13 @@ def _log_AlphaDecay(C, sigma, alpha):
         Sample-wise bandwidth parameter.
     alpha : float, optional
         Exponent for the alpha-decay kernel.
-    
+
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
-    return - (C / sigma).pow(alpha)
+    return -(C / sigma).pow(alpha)
+
 
 class SelfTuningAffinity(LogAffinity):
     r"""Self-tuning affinity introduced in :cite:`zelnik2004self`.
@@ -240,6 +251,7 @@ class MAGICAffinity(Affinity):
 
         return affinity_matrix
 
+
 class AlphaDecayAffinity(Affinity):
     r"""Compute the alpha-decay affinity.
 
@@ -269,6 +281,7 @@ class AlphaDecayAffinity(Affinity):
     verbose : bool, optional
         Verbosity. Default is False.
     """
+
     def __init__(
         self,
         K: int = 7,
@@ -288,7 +301,7 @@ class AlphaDecayAffinity(Affinity):
         )
         self.K = K
         self.alpha = alpha
-    
+
     def _compute_affinity(self, X: torch.Tensor):
         C = self._distance_matrix(X)
         minK_values, _ = kmin(C, k=self.K, dim=1)
@@ -322,13 +335,17 @@ class NegPotentialAffinity(Affinity):
             verbose=verbose,
             zero_diag=False,
         )
-        self.base_affinity = AlphaDecayAffinity(K=K, alpha=alpha, metric=metric, device=device, keops=keops, verbose=verbose)
+        self.base_affinity = AlphaDecayAffinity(
+            K=K, alpha=alpha, metric=metric, device=device, keops=keops, verbose=verbose
+        )
         self.sigma = sigma
         self.anisotropy = anisotropy
         self.t = t
 
     @staticmethod
-    def potential_dist(affinity: LazyTensorType, eps: float = 1e-5, keops:bool = False) -> LazyTensorType:
+    def potential_dist(
+        affinity: LazyTensorType, eps: float = 1e-5, keops: bool = False
+    ) -> LazyTensorType:
         r"""Compute the potential distance matrix from the affinity matrix.
 
         Parameters
@@ -345,13 +362,15 @@ class NegPotentialAffinity(Affinity):
         potential_dist : torch.Tensor or pykeops.torch.LazyTensor
         """
         log_affinity = -(affinity + eps).log()
-        potential_dist = symmetric_pairwise_distances(log_affinity, metric="euclidean", keops=keops)
+        potential_dist = symmetric_pairwise_distances(
+            log_affinity, metric="euclidean", keops=keops
+        )
         return potential_dist
-    
+
     def _compute_affinity(self, X: torch.Tensor):
         affinity = self.base_affinity(X)
         affinity = apply_anisotropy(affinity, self.anisotropy)
-        diffusion = diffusion_from_affinity(affinity)    
+        diffusion = diffusion_from_affinity(affinity)
         diffusion = matrix_power(diffusion, self.t, self.keops)
         dist = self.potential_dist(diffusion)
         # symetrize
@@ -360,12 +379,14 @@ class NegPotentialAffinity(Affinity):
         identity = identity_matrix(dist.shape[-1], self.keops, X.device, X.dtype)
         dist = dist - identity * dist.diag()
         return -1.0 * dist
-    
+
+
 def diffusion_from_affinity(affinity: LazyTensorType):
     deg = sum_red(affinity, 1)
     inv_deg = deg.pow(-1)
     diffusion = affinity * inv_deg
     return diffusion
+
 
 def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
     assert anisotropy >= 0.0 and anisotropy <= 1.0
@@ -379,7 +400,8 @@ def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
     affinity = affinity * inv_outer
     return affinity
 
-def matrix_power(matrix: LazyTensorType, power: float, keops:bool):
+
+def matrix_power(matrix: LazyTensorType, power: float, keops: bool):
     if keops:
         # (GH) find better way
         # to compute matrix power in KeOps.

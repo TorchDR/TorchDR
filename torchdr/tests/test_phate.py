@@ -12,6 +12,7 @@ USE_KEOPS = [False]
 if pykeops:
     USE_KEOPS.append(True)
 
+
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("keops", USE_KEOPS)
 def test_potential_dist(device, keops):
@@ -23,6 +24,7 @@ def test_potential_dist(device, keops):
     neg_affinity.sum().backward()
     assert data.grad is not None
 
+
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("keops", USE_KEOPS)
 def test_phate(device, keops):
@@ -32,7 +34,6 @@ def test_phate(device, keops):
     phate = PHATE(keops=keops, device=device)
     embedding = phate.fit_transform(data)
     assert embedding.shape == (data.shape[0], 2)
-
 
 
 if __name__ == "__main__":
