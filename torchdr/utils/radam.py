@@ -1,13 +1,21 @@
-"""Riemannian adam optimizer geoopt implementation (https://github.com/geoopt/)."""
+"""Riemannian adam optimizer."""
+
+# Author: Nicolas Courty <ncourty@irisa.fr>
+#
+# License: BSD 3-Clause License
+
+# inspired by geoopt implementation (https://github.com/geoopt/)
 
 import torch.optim
-from torchdr.manifold import Euclidean, ManifoldParameter
+from torchdr.utils import EuclideanManifold, ManifoldParameter
 
 # in order not to create it at each iteration
-_default_manifold = Euclidean()
+_default_manifold = EuclideanManifold()
 
 
 class OptimMixin(object):
+    """Mixin for Riemannian optimizer."""
+
     def __init__(self, *args, stabilize=None, **kwargs):
         self._stabilize = stabilize
         super().__init__(*args, **kwargs)
@@ -16,25 +24,27 @@ class OptimMixin(object):
         pass
 
     def stabilize(self):
-        """Stabilize parameters if they are off-manifold due to numerical reasons"""
+        """Stabilize parameters if they are off-manifold due to numerical reasons."""
         for group in self.param_groups:
             self.stabilize_group(group)
 
 
 def copy_or_set_(dest, source):
-    """
-    A workaround to respect strides of :code:`dest` when copying :code:`source`
+    """A workaround to respect strides of :code:`dest` when copying :code:`source`.
+
     (https://github.com/geoopt/geoopt/issues/70)
+
     Parameters
     ----------
     dest : torch.Tensor
-        Destination tensor where to store new data
+        Destination tensor where to store new data.
     source : torch.Tensor
-        Source data to put in the new tensor
+        Source data to put in the new tensor.
+
     Returns
     -------
     dest
-        torch.Tensor, modified inplace
+        torch.Tensor, modified inplace.
     """
     if dest.stride() != source.stride():
         return dest.copy_(source)
@@ -43,7 +53,8 @@ def copy_or_set_(dest, source):
 
 
 class RiemannianAdam(OptimMixin, torch.optim.Adam):
-    r"""Riemannian Adam with the same API as :class:`torch.optim.Adam`
+    r"""Riemannian Adam with the same API as :class:`torch.optim.Adam`.
+
     Parameters
     ----------
     params : iterable
@@ -63,6 +74,7 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
         whether to use the AMSGrad variant of this
         algorithm from the paper `On the Convergence of Adam and Beyond`_
         (default: False)
+
     Other Parameters
     ----------------
     stabilize : int
@@ -159,16 +171,16 @@ class RiemannianAdam(OptimMixin, torch.optim.Adam):
                     self.stabilize_group(group)
         return loss
 
-    # @torch.no_grad()
-    # def stabilize_group(self, group):
-    #     for p in group["params"]:
-    #         if not isinstance(p, ManifoldParameter):
-    #             continue
-    #         state = self.state[p]
-    #         if not state:  # due to None grads
-    #             continue
-    #         manifold = p.manifold
-    #         c = p.c
-    #         exp_avg = state["exp_avg"]
-    #         copy_or_set_(p, manifold.proj(p, c))
-    #         exp_avg.set_(manifold.proj_tan(exp_avg, u, c))
+    @torch.no_grad()
+    def stabilize_group(self, group):
+        for p in group["params"]:
+            if not isinstance(p, ManifoldParameter):
+                continue
+            state = self.state[p]
+            if not state:  # due to None grads
+                continue
+            manifold = p.manifold
+            c = p.c
+            exp_avg = state["exp_avg"]
+            copy_or_set_(p, manifold.proj(p, c))
+            exp_avg.set_(manifold.proj_tan(exp_avg, p, c))

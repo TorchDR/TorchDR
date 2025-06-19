@@ -13,8 +13,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     CauchyAffinity,
 )
-from torchdr.utils import logsumexp_red
-from torchdr.manifold import RiemannianAdam
+from torchdr.utils import logsumexp_red, RiemannianAdam
 
 
 class COSNE(SparseNeighborEmbedding):

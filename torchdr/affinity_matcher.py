@@ -28,11 +28,8 @@ from torchdr.utils import (
     square_loss,
     to_torch,
     seed_everything,
-)
-
-from torchdr.manifold import (
     ManifoldParameter,
-    PoincareBall,
+    PoincareBallManifold,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -415,7 +412,7 @@ class AffinityMatcher(DRModule):
                 device=X.device if self.device == "auto" else self.device,
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
-            poincare_ball = PoincareBall()
+            poincare_ball = PoincareBallManifold()
             embedding_ = self.init_scaling * embedding_
             self.embedding_ = ManifoldParameter(
                 poincare_ball.expmap0(embedding_, c=1),

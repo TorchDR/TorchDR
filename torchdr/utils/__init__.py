@@ -14,7 +14,7 @@ from .geometry import (
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
 from .faiss import faiss
-from .optim import binary_search, false_position
+from .root_search import binary_search, false_position
 from .utils import (
     seed_everything,
     batch_transpose,
@@ -54,6 +54,14 @@ from .wrappers import (
     torch_to_backend,
     wrap_vectors,
 )
+
+from .manifold import (
+    Manifold,
+    ManifoldParameter,
+    EuclideanManifold,
+    PoincareBallManifold,
+)
+from .radam import RiemannianAdam
 
 __all__ = [
     "seed_everything",
@@ -101,4 +109,9 @@ __all__ = [
     "faiss",
     "bool_arg",
     "check_neighbor_param",
+    "Manifold",
+    "ManifoldParameter",
+    "EuclideanManifold",
+    "PoincareBallManifold",
+    "RiemannianAdam",
 ]
