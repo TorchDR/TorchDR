@@ -52,6 +52,9 @@ def square_loss(P, Q):
     r"""Compute the square loss between P and Q."""
     return sum_red((P - Q) ** 2, dim=(0, 1))
 
+def l2_loss(P, Q):
+    r"""Compute the L2 loss between P and Q."""
+    return (square_loss(P, Q)).sqrt()
 
 def entropy(P, log=True, dim=1):
     r"""Compute the entropy of P along axis dim.

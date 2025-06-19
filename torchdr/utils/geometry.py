@@ -4,6 +4,8 @@
 #
 # License: BSD 3-Clause License
 
+from typing import Optional
+
 import torch
 import numpy as np
 
@@ -84,6 +86,39 @@ def pairwise_distances(
 
     return C, indices
 
+def symmetric_pairwise_distances(
+    X: torch.Tensor, metric: str, backend: Optional[str] = None, add_diag: float = None
+):
+    r"""Compute pairwise distances matrix between points in a dataset.
+
+    Return the pairwise distance matrix as torch tensor or KeOps lazy tensor
+    (if keops is True). Supports batched input. The batch dimension should be the first.
+
+    Parameters
+    ----------
+    X : torch.Tensor of shape (n_samples, n_features) or (n_batch, n_samples_batch, n_features)
+        Input dataset.
+    metric : str, optional
+        Metric to use for computing distances. The default is "sqeuclidean".
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    add_diag : float, optional
+        If not None, adds weight on the diagonal of the distance matrix.
+
+    Returns
+    -------
+    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True) of shape (n_samples, n_samples) or (n_batch, n_samples_batch, n_samples_batch)
+        Pairwise distances matrix.
+    """  # noqa E501
+    C, _ = pairwise_distances(X, metric=metric, backend=backend)
+
+    if add_diag is not None:  # add mass on the diagonal
+        keops = backend == "keops"
+        I = identity_matrix(C.shape[-1], keops, X.device, X.dtype)
+        C = C + add_diag * I
+
+    return C
 
 def _pairwise_distances_torch(
     X: torch.Tensor,

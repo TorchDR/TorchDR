@@ -26,6 +26,7 @@ from torchdr.utils import (
     cross_entropy_loss,
     handle_type,
     square_loss,
+    l2_loss,
     to_torch,
     geoopt,
     is_geoopt_available,
@@ -36,6 +37,7 @@ from typing import Union, Dict, Optional, Any, Type
 
 LOSS_DICT = {
     "square_loss": square_loss,
+    "l2_loss": l2_loss,
     "cross_entropy_loss": cross_entropy_loss,
 }
 

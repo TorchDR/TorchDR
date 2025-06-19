@@ -276,8 +276,9 @@ class AlphaDecayAffinity(Affinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    keops : bool, optional
-        Whether to use KeOps for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
     """
@@ -289,21 +290,21 @@ class AlphaDecayAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = None,
-        keops: bool = True,
+        backend: Optional[str] = None,
         verbose: bool = False,
     ):
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
         )
         self.K = K
         self.alpha = alpha
 
     def _compute_affinity(self, X: torch.Tensor):
-        C = self._distance_matrix(X)
+        C, _ = self._distance_matrix(X)
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         affinity_matrix = _log_AlphaDecay(C, self.sigma_, self.alpha).exp()
@@ -320,31 +321,34 @@ class NegPotentialAffinity(Affinity):
         self,
         metric: str = "sqeuclidean",
         device: str = None,
-        keops: bool = True,
+        backend: Optional[str] = None,
         verbose: bool = False,
         sigma: float = 2.0,
         anisotropy: float = 0.0,
         K: int = 7,
         alpha: float = 2.0,
         t: int = 5,
+        eps: float = 1e-5,
     ):
         super().__init__(
             metric=metric,
             device=device,
-            keops=keops,
+            backend=backend,
             verbose=verbose,
             zero_diag=False,
         )
         self.base_affinity = AlphaDecayAffinity(
-            K=K, alpha=alpha, metric=metric, device=device, keops=keops, verbose=verbose
+            K=K, alpha=alpha, metric=metric, device=device, backend=backend, verbose=verbose
         )
         self.sigma = sigma
         self.anisotropy = anisotropy
         self.t = t
+        self.eps = eps
+        self.keops = backend == "keops"
 
     @staticmethod
     def potential_dist(
-        affinity: LazyTensorType, eps: float = 1e-5, keops: bool = False
+        affinity: LazyTensorType, eps: float = 1e-5, backend: Optional[str] = None
     ) -> LazyTensorType:
         r"""Compute the potential distance matrix from the affinity matrix.
 
@@ -354,8 +358,9 @@ class NegPotentialAffinity(Affinity):
             Affinity matrix.
         eps : float, optional
             Small value to avoid numerical issues.
-        keops : bool, optional
-            Whether to use KeOps for computations
+        backend : {"keops", "faiss", None}, optional
+            Which backend to use for handling sparsity and memory efficiency.
+            Default is None.
 
         Returns
         -------
@@ -363,7 +368,7 @@ class NegPotentialAffinity(Affinity):
         """
         log_affinity = -(affinity + eps).log()
         potential_dist = symmetric_pairwise_distances(
-            log_affinity, metric="euclidean", keops=keops
+            log_affinity, metric="euclidean", backend=backend
         )
         return potential_dist
 

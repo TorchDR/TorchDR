@@ -14,11 +14,12 @@ if pykeops:
 
 
 @pytest.mark.parametrize("device", DEVICES)
-@pytest.mark.parametrize("keops", USE_KEOPS)
-def test_potential_dist(device, keops):
-    data, _ = toy_dataset(return_tensor=True, dtype=torch.float32)
+@pytest.mark.parametrize("backend", ["keops", "faiss", None] if pykeops else ["faiss", None])
+def test_potential_dist(device, backend):
+    data, _ = toy_dataset()
+    data = torch.tensor(data, dtype=torch.float32)
     data.requires_grad = True
-    neg_affinity = NegPotentialAffinity(keops=keops, device=device)(data)
+    neg_affinity = NegPotentialAffinity(backend=backend, device=device)(data)
     assert neg_affinity.shape == (data.shape[0], data.shape[0])
     assert neg_affinity.min() < 0
     neg_affinity.sum().backward()
@@ -26,12 +27,13 @@ def test_potential_dist(device, keops):
 
 
 @pytest.mark.parametrize("device", DEVICES)
-@pytest.mark.parametrize("keops", USE_KEOPS)
-def test_phate(device, keops):
+@pytest.mark.parametrize("backend", ["keops", "faiss", None] if pykeops else ["faiss", None])
+def test_phate(device, backend):
     torch.autograd.set_detect_anomaly(True)
-    data, _ = toy_dataset(return_tensor=True, dtype=torch.float32)
+    data, _ = toy_dataset()
+    data = torch.tensor(data, dtype=torch.float32)
     data = data.to(device)
-    phate = PHATE(keops=keops, device=device)
+    phate = PHATE(backend=backend, device=device)
     embedding = phate.fit_transform(data)
     assert embedding.shape == (data.shape[0], 2)
 

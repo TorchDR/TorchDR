@@ -11,6 +11,7 @@ from .geometry import (
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
     pairwise_distances,
+    symmetric_pairwise_distances,
     symmetric_pairwise_distances_indices,
 )
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
@@ -25,6 +26,7 @@ from .utils import (
     kmax,
     kmin,
     logsumexp_red,
+    l2_loss,
     prod_matrix_vector,
     square_loss,
     sum_matrix_vector,
@@ -74,8 +76,10 @@ __all__ = [
     "prod_matrix_vector",
     "sum_red",
     "logsumexp_red",
+    "l2_loss",
     "check_NaNs",
     "pairwise_distances",
+    "symmetric_pairwise_distances",
     "symmetric_pairwise_distances_indices",
     "LIST_METRICS_KEOPS",
     "LIST_METRICS_FAISS",

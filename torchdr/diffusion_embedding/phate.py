@@ -1,3 +1,5 @@
+from typing import Optional
+
 from torchdr.affinity.unnormalized import NegativeCostAffinity
 from torchdr.affinity.knn_normalized import NegPotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
@@ -11,7 +13,8 @@ class PHATE(AffinityMatcher):
         n_neighbors: int = 10,
         n_components: int = 2,
         t: int = 5,
-        keops: bool = False,
+        eps: float = 1e-5,
+        backend: Optional[str] = None,
         device: str = "cpu",
         **kwargs,
     ):
@@ -28,16 +31,19 @@ class PHATE(AffinityMatcher):
             Dimension of the embedding space.
         t : int
             Diffusion time parameter.
-        keops : bool, optional
-            Whether to use KeOps for efficient computation of pairwise distances.
-            Default is False.
+        eps : float, optional
+            Small value to avoid division by zero in the affinity matrix.
+            Default is 1e-5.
+        backend : {"keops", "faiss", None}, optional
+            Which backend to use for handling sparsity and memory efficiency.
+            Default is None.
         device : str
             Device to use for computations. Default is "cpu".
         """
         affinity_in = NegPotentialAffinity(
-            keops=keops, device=device, t=t, eps=self._SAFE_LOG, K=n_neighbors
+            backend=backend, device=device, eps=self._SAFE_LOG, t=t, K=n_neighbors
         )
-        affinity_out = NegativeCostAffinity(keops=keops, device=device)
+        affinity_out = NegativeCostAffinity(backend=backend, device=device)
         loss_fn = "l2_loss"
         init_scaling = 1.0
         init = "pca"
