@@ -32,6 +32,10 @@ from .utils import (
     sum_red,
     svd_flip,
     bool_arg,
+    diffusion_from_affinity,
+    apply_anisotropy,
+    matrix_power,
+    identity_matrix,
 )
 from .validation import (
     check_entropy,
@@ -118,4 +122,8 @@ __all__ = [
     "EuclideanManifold",
     "PoincareBallManifold",
     "RiemannianAdam",
+    "diffusion_from_affinity",
+    "apply_anisotropy",
+    "matrix_power",
+    "identity_matrix",
 ]

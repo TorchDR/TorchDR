@@ -1056,3 +1056,138 @@ class TestPoincareBallManifold:
         torch.testing.assert_close(
             constraint, expected_constraint, rtol=1e-4, atol=1e-5
         )
+
+
+# ====== test matrix_power function ======
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_matrix_power_integer(dtype):
+    """Test matrix_power function with integer powers."""
+    from torchdr.utils.utils import matrix_power
+
+    # Create a symmetric positive definite matrix
+    A = torch.randn(3, 3, dtype=dtype)
+    A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1  # Make it positive definite
+
+    # Test integer power without KeOps
+    power = 3
+    result = matrix_power(A, power, keops=False)
+    expected = torch.linalg.matrix_power(A, power)
+    torch.testing.assert_close(result, expected)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_matrix_power_float(dtype):
+    """Test matrix_power function with non-integer powers."""
+    from torchdr.utils.utils import matrix_power
+
+    # Create a symmetric positive definite matrix
+    A = torch.randn(3, 3, dtype=dtype)
+    A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1  # Make it positive definite
+
+    # Test non-integer power without KeOps
+    power = 2.5
+    result = matrix_power(A, power, keops=False)
+
+    # Verify using eigendecomposition manually
+    eigenvalues, eigenvectors = torch.linalg.eigh(A)
+    eigenvalues = torch.clamp(eigenvalues, min=1e-12)
+    powered_eigenvalues = eigenvalues**power
+    expected = (
+        eigenvectors
+        @ torch.diag_embed(powered_eigenvalues)
+        @ eigenvectors.transpose(-2, -1)
+    )
+
+    torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-6)
+
+
+@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
+@pytest.mark.parametrize("dtype", lst_types)
+def test_matrix_power_keops_integer(dtype):
+    """Test matrix_power function with KeOps backend and integer powers."""
+    from torchdr.utils.utils import matrix_power
+    from torchdr.utils.geometry import pairwise_distances
+
+    X = torch.randn(3, 2, dtype=dtype)
+    C_lazy, _ = pairwise_distances(X, metric="sqeuclidean", backend="keops")
+    # Transform to a symmetric positive definite matrix for testing
+    # Add identity to ensure positive definiteness
+    n = X.shape[0]
+    from torchdr.utils.utils import identity_matrix
+
+    I_lazy = identity_matrix(n, keops=True, device=X.device, dtype=dtype)
+    A_lazy = (-C_lazy).exp() + I_lazy * 0.1  # Gaussian kernel + regularization
+
+    # Test integer power with KeOps
+    power = 2
+    result = matrix_power(A_lazy, power, keops=True)
+
+    # For comparison, create the same matrix with regular tensors
+    C_torch, _ = pairwise_distances(X, metric="sqeuclidean", backend=None)
+    I_torch = torch.eye(n, device=X.device, dtype=dtype)
+    A_torch = (-C_torch).exp() + I_torch * 0.1
+    expected = A_torch @ A_torch
+
+    torch.testing.assert_close(result, expected)
+
+
+@pytest.mark.skipif(not pykeops, reason="pykeops is not available")
+def test_matrix_power_keops_float_error():
+    """Test that matrix_power raises error for non-integer powers with KeOps."""
+    from torchdr.utils.utils import matrix_power
+    from torchdr.utils.geometry import pairwise_distances
+
+    # Create a LazyTensor matrix through distance computation
+    X = torch.randn(3, 2)
+    C_lazy, _ = pairwise_distances(X, metric="sqeuclidean", backend="keops")
+
+    # Transform to a symmetric positive definite matrix
+    n = X.shape[0]
+    from torchdr.utils.utils import identity_matrix
+
+    I_lazy = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
+    A_lazy = (-C_lazy).exp() + I_lazy * 0.1
+
+    # Should raise NotImplementedError for non-integer power
+    with pytest.raises(
+        NotImplementedError,
+        match="Non-integer matrix powers are not supported with KeOps",
+    ):
+        matrix_power(A_lazy, 2.5, keops=True)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+def test_matrix_power_properties(dtype):
+    """Test mathematical properties of matrix power."""
+    from torchdr.utils.utils import matrix_power
+
+    # Create a symmetric positive definite matrix
+    A = torch.randn(3, 3, dtype=dtype)
+    A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1
+
+    # Test that A^0 = I (identity matrix)
+    result = matrix_power(A, 0.0, keops=False)
+    expected = torch.eye(3, dtype=dtype)
+    torch.testing.assert_close(result, expected)
+
+    # Test that A^1 = A
+    result = matrix_power(A, 1.0, keops=False)
+    torch.testing.assert_close(result, A)
+
+    # Test that A^0.5 @ A^0.5 ≈ A (square root property)
+    sqrt_A = matrix_power(A, 0.5, keops=False)
+    result = sqrt_A @ sqrt_A
+    torch.testing.assert_close(result, A, rtol=1e-4, atol=1e-5)
+
+
+def test_matrix_power_error_handling():
+    """Test error handling for matrix_power function."""
+    from torchdr.utils.utils import matrix_power
+
+    A = torch.randn(3, 3)
+
+    # Test negative power error
+    with pytest.raises(ValueError, match="Negative matrix powers are not supported"):
+        matrix_power(A, -1.0, keops=False)

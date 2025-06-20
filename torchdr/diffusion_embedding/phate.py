@@ -1,12 +1,32 @@
 from typing import Optional
 
-from torchdr.affinity.unnormalized import NegativeCostAffinity
-from torchdr.affinity.knn_normalized import NegPotentialAffinity
+from torchdr.affinity.unnormalized import NegativeCostAffinity, NegPotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 
 class PHATE(AffinityMatcher):
-    _SAFE_LOG = 1e-5  # Small value to avoid division by zero in the affinity matrix
+    r"""Implementation of PHATE introduced in :cite:`moon2019visualizing`.
+
+    PHATE is a diffusion map-based method that uses a potential distance
+    matrix to embed the data.
+
+    Parameters
+    ----------
+    n_neighbors : int
+        Number of nearest neighbors.
+    n_components : int, optional
+        Dimension of the embedding space.
+    t : int
+        Diffusion time parameter.
+    eps : float, optional
+        Small value to avoid division by zero in the affinity matrix.
+        Default is 1e-5.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    device : str
+        Device to use for computations. Default is "cpu".
+    """
 
     def __init__(
         self,
@@ -18,30 +38,8 @@ class PHATE(AffinityMatcher):
         device: str = "cpu",
         **kwargs,
     ):
-        r"""Implementation of PHATE introduced in :cite:`moon2019visualizing`.
-
-        PHATE is a diffusion map-based method that uses a potential distance
-        matrix to embed the data.
-
-        Parameters
-        ----------
-        n_neighbors : int
-            Number of nearest neighbors.
-        n_components : int, optional
-            Dimension of the embedding space.
-        t : int
-            Diffusion time parameter.
-        eps : float, optional
-            Small value to avoid division by zero in the affinity matrix.
-            Default is 1e-5.
-        backend : {"keops", "faiss", None}, optional
-            Which backend to use for handling sparsity and memory efficiency.
-            Default is None.
-        device : str
-            Device to use for computations. Default is "cpu".
-        """
         affinity_in = NegPotentialAffinity(
-            backend=backend, device=device, eps=self._SAFE_LOG, t=t, K=n_neighbors
+            backend=backend, device=device, eps=eps, t=t, K=n_neighbors
         )
         affinity_out = NegativeCostAffinity(backend=backend, device=device)
         loss_fn = "l2_loss"

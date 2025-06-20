@@ -16,10 +16,15 @@ from torchdr.utils import (
     logsumexp_red,
     sum_red,
     wrap_vectors,
-    symmetric_pairwise_distances,
+    pairwise_distances,
     LazyTensorType,
 )
-from torchdr.utils.utils import identity_matrix
+from torchdr.utils import (
+    identity_matrix,
+    diffusion_from_affinity,
+    apply_anisotropy,
+    matrix_power,
+)
 
 
 @wrap_vectors
@@ -338,7 +343,12 @@ class NegPotentialAffinity(Affinity):
             zero_diag=False,
         )
         self.base_affinity = AlphaDecayAffinity(
-            K=K, alpha=alpha, metric=metric, device=device, backend=backend, verbose=verbose
+            K=K,
+            alpha=alpha,
+            metric=metric,
+            device=device,
+            backend=backend,
+            verbose=verbose,
         )
         self.sigma = sigma
         self.anisotropy = anisotropy
@@ -367,7 +377,7 @@ class NegPotentialAffinity(Affinity):
         potential_dist : torch.Tensor or pykeops.torch.LazyTensor
         """
         log_affinity = -(affinity + eps).log()
-        potential_dist = symmetric_pairwise_distances(
+        potential_dist = pairwise_distances(
             log_affinity, metric="euclidean", backend=backend
         )
         return potential_dist
@@ -384,34 +394,3 @@ class NegPotentialAffinity(Affinity):
         identity = identity_matrix(dist.shape[-1], self.keops, X.device, X.dtype)
         dist = dist - identity * dist.diag()
         return -1.0 * dist
-
-
-def diffusion_from_affinity(affinity: LazyTensorType):
-    deg = sum_red(affinity, 1)
-    inv_deg = deg.pow(-1)
-    diffusion = affinity * inv_deg
-    return diffusion
-
-
-def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
-    assert anisotropy >= 0.0 and anisotropy <= 1.0
-    if anisotropy == 0.0:
-        return affinity
-    deg = sum_red(affinity, 1)
-    # double normalization kij / (di dj) ** anisotropy
-    outer = deg[:, :, None] * deg[:, None, :]
-    # normalize
-    inv_outer = outer.pow(-anisotropy)
-    affinity = affinity * inv_outer
-    return affinity
-
-
-def matrix_power(matrix: LazyTensorType, power: float, keops: bool):
-    if keops:
-        # (GH) find better way
-        # to compute matrix power in KeOps.
-        for _ in range(power):
-            matrix = matrix @ matrix
-    else:
-        matrix = torch.linalg.matrix_power(matrix, power)
-    return matrix
