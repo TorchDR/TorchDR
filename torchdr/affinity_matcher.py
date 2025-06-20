@@ -28,10 +28,11 @@ from torchdr.utils import (
     square_loss,
     l2_loss,
     to_torch,
-    geoopt,
-    is_geoopt_available,
     seed_everything,
+    ManifoldParameter,
+    PoincareBallManifold,
 )
+
 from typing import Union, Dict, Optional, Any, Type
 
 
@@ -408,17 +409,19 @@ class AffinityMatcher(DRModule):
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
-            if is_geoopt_available():
-                embedding_ = torch.randn(
-                    (n, self.n_components),
-                    device=X.device if self.device == "auto" else self.device,
-                    dtype=torch.float64,  # double precision for geoopt
-                )
-                poincare_ball = geoopt.PoincareBall()
-                embedding_ = self.init_scaling * embedding_
-                self.embedding_ = geoopt.ManifoldTensor(
-                    poincare_ball.expmap0(embedding_), manifold=poincare_ball
-                )
+            embedding_ = torch.randn(
+                (n, self.n_components),
+                device=X.device if self.device == "auto" else self.device,
+                dtype=torch.float64,  # better double precision on hyperbolic manifolds
+            )
+            poincare_ball = PoincareBallManifold()
+            embedding_ = self.init_scaling * embedding_
+            self.embedding_ = ManifoldParameter(
+                poincare_ball.expmap0(embedding_, c=1),
+                requires_grad=True,
+                manifold=poincare_ball,
+                c=1,
+            )
 
         else:
             raise ValueError(

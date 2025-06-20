@@ -75,12 +75,6 @@ keops = [
     "pykeops",
 ]
 
-manifold = [
-    "scipy",
-    "geoopt>=0.5",
-    "matplotlib"
-]
-
 dev = [
     "pytest",
     "coverage",
@@ -101,8 +95,6 @@ doc = [
     "memory_profiler",
     "myst-parser",
     "pandas",
-    "scipy<=1.13",
-    "geoopt>=0.5"
 ]
 
 examples = [
@@ -112,8 +104,6 @@ examples = [
     "transformers",
     "datasets",
     "datamapplot",
-    "scipy<=1.13",
-    "geoopt>=0.5"
 ]
 
 benchmarks = [
@@ -123,5 +113,5 @@ benchmarks = [
 ]
 
 all = [
-    "torchdr[test,keops,manifold,dev,doc,examples,benchmarks]",
+    "torchdr[test,keops,dev,doc,examples,benchmarks]",
 ]

@@ -13,7 +13,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     CauchyAffinity,
 )
-from torchdr.utils import logsumexp_red, geoopt, is_geoopt_available
+from torchdr.utils import logsumexp_red, RiemannianAdam
 
 
 class COSNE(SparseNeighborEmbedding):
@@ -73,7 +73,7 @@ class COSNE(SparseNeighborEmbedding):
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
-        Interval for checking the convergence of the algorithm, by default 50.
+        Number of iterations between checks for convergence, by default 50.
     """  # noqa: E501
 
     def __init__(
@@ -104,60 +104,54 @@ class COSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
     ):
-        if is_geoopt_available():
-            self.metric_in = metric_in
-            self.metric_out = "sqhyperbolic"
-            self.perplexity = perplexity
-            self.lambda1 = lambda1
-            self.gamma = gamma
-            self.max_iter_affinity = max_iter_affinity
-            self.tol_affinity = tol_affinity
-            self.sparsity = sparsity
+        self.metric_in = metric_in
+        self.metric_out = "sqhyperbolic"
+        self.perplexity = perplexity
+        self.lambda1 = lambda1
+        self.gamma = gamma
+        self.max_iter_affinity = max_iter_affinity
+        self.tol_affinity = tol_affinity
+        self.sparsity = sparsity
 
-            affinity_in = EntropicAffinity(
-                perplexity=perplexity,
-                metric=metric_in,
-                tol=tol_affinity,
-                max_iter=max_iter_affinity,
-                device=device,
-                backend=backend,
-                verbose=verbose,
-                sparsity=sparsity,
-            )
-            affinity_out = CauchyAffinity(
-                metric=self.metric_out,
-                gamma=self.gamma,
-                device=device,
-                backend=backend,
-                verbose=verbose,
-            )
+        affinity_in = EntropicAffinity(
+            perplexity=perplexity,
+            metric=metric_in,
+            tol=tol_affinity,
+            max_iter=max_iter_affinity,
+            device=device,
+            backend=backend,
+            verbose=verbose,
+            sparsity=sparsity,
+        )
+        affinity_out = CauchyAffinity(
+            metric=self.metric_out,
+            gamma=self.gamma,
+            device=device,
+            backend=backend,
+            verbose=verbose,
+        )
 
-            super().__init__(
-                affinity_in=affinity_in,
-                affinity_out=affinity_out,
-                n_components=n_components,
-                optimizer=geoopt.optim.RiemannianAdam,
-                optimizer_kwargs=optimizer_kwargs,
-                min_grad_norm=min_grad_norm,
-                max_iter=max_iter,
-                lr=lr,
-                scheduler=scheduler,
-                scheduler_kwargs=scheduler_kwargs,
-                init=init,
-                init_scaling=init_scaling,
-                device=device,
-                backend=backend,
-                verbose=verbose,
-                random_state=random_state,
-                early_exaggeration_coeff=early_exaggeration_coeff,
-                early_exaggeration_iter=early_exaggeration_iter,
-                check_interval=check_interval,
-            )
-        else:
-            raise ValueError(
-                "[TorchDR] ERROR: geoopt is not installed. "
-                "Please install it to use CO-SNE."
-            )
+        super().__init__(
+            affinity_in=affinity_in,
+            affinity_out=affinity_out,
+            n_components=n_components,
+            optimizer=RiemannianAdam,
+            optimizer_kwargs=optimizer_kwargs,
+            min_grad_norm=min_grad_norm,
+            max_iter=max_iter,
+            lr=lr,
+            scheduler=scheduler,
+            scheduler_kwargs=scheduler_kwargs,
+            init=init,
+            init_scaling=init_scaling,
+            device=device,
+            backend=backend,
+            verbose=verbose,
+            random_state=random_state,
+            early_exaggeration_coeff=early_exaggeration_coeff,
+            early_exaggeration_iter=early_exaggeration_iter,
+            check_interval=check_interval,
+        )
 
     def _fit(self, X: torch.Tensor):
         # We compute once and for all the norms of X data samples
@@ -165,8 +159,6 @@ class COSNE(SparseNeighborEmbedding):
         super()._fit(X)
 
     def _repulsive_loss(self):
-        ball = geoopt.PoincareBall()
-        ball.assert_check_point_on_manifold(self.embedding_)
         log_Q = self.affinity_out(self.embedding_, log=True)
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))  # torch.tensor([0])
         Y_norm = (self.embedding_**2).sum(-1)
