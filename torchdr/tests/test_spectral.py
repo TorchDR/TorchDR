@@ -8,8 +8,20 @@ import torch
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
 from torchdr.affinity import GaussianAffinity, SinkhornAffinity
-from torchdr.spectral import KernelPCA
 from torchdr.utils import pykeops
+
+from torchdr import KernelPCA, PHATE
+
+from torchdr.tests.utils import toy_dataset
+from torchdr.affinity import NegPotentialAffinity
+
+
+DEVICES = ["cpu"]
+if torch.cuda.is_available():
+    DEVICES.append("cuda")
+USE_KEOPS = [False]
+if pykeops:
+    USE_KEOPS.append(True)
 
 
 @pytest.mark.parametrize("n_components", [3, None])
@@ -66,3 +78,32 @@ def test_KernelPCA_no_transform():
 def test_KernelPCA_keops():
     with pytest.raises(NotImplementedError):
         KernelPCA(backend="keops")
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize(
+    "backend", ["keops", "faiss", None] if pykeops else ["faiss", None]
+)
+def test_potential_dist(device, backend):
+    data, _ = toy_dataset()
+    data = torch.tensor(data, dtype=torch.float32)
+    data.requires_grad = True
+    neg_affinity = NegPotentialAffinity(backend=backend, device=device)(data)
+    assert neg_affinity.shape == (data.shape[0], data.shape[0])
+    assert neg_affinity.min() < 0
+    neg_affinity.sum().backward()
+    assert data.grad is not None
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize(
+    "backend", ["keops", "faiss", None] if pykeops else ["faiss", None]
+)
+def test_phate(device, backend):
+    torch.autograd.set_detect_anomaly(True)
+    data, _ = toy_dataset()
+    data = torch.tensor(data, dtype=torch.float32)
+    data = data.to(device)
+    phate = PHATE(backend=backend, device=device)
+    embedding = phate.fit_transform(data)
+    assert embedding.shape == (data.shape[0], 2)

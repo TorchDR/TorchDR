@@ -322,6 +322,46 @@ class AlphaDecayAffinity(Affinity):
 
 
 class NegPotentialAffinity(Affinity):
+    r"""Compute the negative potential affinity using diffusion and potential distances.
+
+    This affinity method combines alpha-decay affinity with anisotropy correction,
+    diffusion processes, and potential distance computation to create a robust
+    affinity matrix suitable for manifold learning applications.
+
+    The method follows these steps:
+    1. Compute base alpha-decay affinity
+    2. Apply anisotropy correction to reduce high-degree node influence
+    3. Convert to diffusion matrix (row-normalized)
+    4. Raise diffusion matrix to power t (diffusion steps)
+    5. Compute potential distances from the diffused matrix
+    6. Symmetrize and zero-diagonal the result
+    7. Return negative potential distances as affinities
+
+    Parameters
+    ----------
+    metric : str, optional (default="sqeuclidean")
+        Metric to use for pairwise distances computation.
+    device : str, optional (default=None)
+        Device to use for computations. If None, uses the device of input data.
+    backend : {"keops", "faiss", None}, optional (default=None)
+        Which backend to use for handling sparsity and memory efficiency.
+    verbose : bool, optional (default=False)
+        Whether to print verbose output during computation.
+    sigma : float, optional (default=2.0)
+        Bandwidth parameter for the affinity computation.
+    anisotropy : float, optional (default=0.0)
+        Anisotropy parameter between 0 and 1 for degree correction.
+        0 means no correction, 1 means full anisotropy correction.
+    K : int, optional (default=7)
+        Number of nearest neighbors for alpha-decay affinity computation.
+    alpha : float, optional (default=2.0)
+        Exponent for the alpha-decay kernel.
+    t : int, optional (default=5)
+        Number of diffusion steps (power to raise diffusion matrix).
+    eps : float, optional (default=1e-5)
+        Small value to avoid numerical issues in logarithm computation.
+    """
+
     def __init__(
         self,
         metric: str = "sqeuclidean",
@@ -357,25 +397,9 @@ class NegPotentialAffinity(Affinity):
         self.keops = backend == "keops"
 
     @staticmethod
-    def potential_dist(
+    def _potential_dist(
         affinity: LazyTensorType, eps: float = 1e-5, backend: Optional[str] = None
     ) -> LazyTensorType:
-        r"""Compute the potential distance matrix from the affinity matrix.
-
-        Parameters
-        ----------
-        affinity : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-            Affinity matrix.
-        eps : float, optional
-            Small value to avoid numerical issues.
-        backend : {"keops", "faiss", None}, optional
-            Which backend to use for handling sparsity and memory efficiency.
-            Default is None.
-
-        Returns
-        -------
-        potential_dist : torch.Tensor or pykeops.torch.LazyTensor
-        """
         log_affinity = -(affinity + eps).log()
         potential_dist = pairwise_distances(
             log_affinity, metric="euclidean", backend=backend
@@ -387,7 +411,7 @@ class NegPotentialAffinity(Affinity):
         affinity = apply_anisotropy(affinity, self.anisotropy)
         diffusion = diffusion_from_affinity(affinity)
         diffusion = matrix_power(diffusion, self.t, self.keops)
-        dist = self.potential_dist(diffusion)
+        dist = self._potential_dist(diffusion)
         # symetrize
         dist = (dist + batch_transpose(dist)) / 2
         # zero the diagonal
