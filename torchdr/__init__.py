@@ -52,7 +52,8 @@ from .neighbor_embedding import (
     TSNEkhorn,
     PACMAP,
 )
-from .spectral_embedding import PCA, IncrementalPCA, KernelPCA, PHATE
+from .spectral_embedding import IncrementalPCA, KernelPCA, PHATE
+from .pca import PCA
 
 # import utils
 from .utils import binary_search, false_position, pairwise_distances

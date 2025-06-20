@@ -19,7 +19,7 @@ from torchdr.affinity import (
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
-from torchdr.spectral import PCA
+from torchdr.pca import PCA
 from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,

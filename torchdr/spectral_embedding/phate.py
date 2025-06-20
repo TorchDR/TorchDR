@@ -1,6 +1,6 @@
 from typing import Optional
 
-from torchdr.affinity.unnormalized import NegativeCostAffinity, NegPotentialAffinity
+from torchdr.affinity import NegativeCostAffinity, NegPotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 
