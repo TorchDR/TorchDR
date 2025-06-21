@@ -21,7 +21,7 @@ class PHATE(AffinityMatcher):
     eps : float, optional
         Small value to avoid division by zero in the affinity matrix.
         Default is 1e-5.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
     optimizer : str or torch.optim.Optimizer, optional
