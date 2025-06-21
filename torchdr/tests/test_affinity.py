@@ -29,8 +29,10 @@ from torchdr.affinity import (
     GaussianAffinity,
     MAGICAffinity,
     NegativeCostAffinity,
+    NegPotentialAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
+    PACMAPAffinity,
     ScalarProductAffinity,
     SelfTuningAffinity,
     SinkhornAffinity,
@@ -39,7 +41,6 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
-    PACMAPAffinity,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
@@ -203,6 +204,7 @@ def test_magic_affinity(dtype, metric):
 
     list_P = []
     for backend in lst_backend:
+        # Test with default alpha=1.0 (original MAGIC behavior)
         affinity = MAGICAffinity(device=DEVICE, backend=backend, metric=metric)
         P = affinity(X)
         list_P.append(P)
@@ -215,6 +217,15 @@ def test_magic_affinity(dtype, metric):
     # --- check consistency between torch and keops ---
     if len(lst_backend) > 1:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
+
+    # Test that explicit alpha=1.0 produces the same result as default
+    affinity_default = MAGICAffinity(device=DEVICE, backend=None, metric=metric)
+    affinity_explicit = MAGICAffinity(
+        device=DEVICE, backend=None, metric=metric, alpha=1.0
+    )
+    P_default = affinity_default(X)
+    P_explicit = affinity_explicit(X)
+    torch.testing.assert_close(P_default, P_explicit, rtol=1e-6, atol=1e-8)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -505,3 +516,113 @@ def test_pacmap_affinity(dtype, metric, backend):
         f"Expected rho_ shape {(n,)}, got {affinity.rho_.shape}"
     )
     assert torch.all(affinity.rho_ > 0), "rho_ values should be positive"
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_magic_alpha_decay_affinity(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+    one = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
+
+    # Test with different backends using alpha=2.0 (alpha-decay mode)
+    list_P_backends = []
+    for backend in lst_backend:
+        affinity = MAGICAffinity(
+            K=7, alpha=2.0, device=DEVICE, backend=backend, metric=metric
+        )
+        P = affinity(X)
+        list_P_backends.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
+        check_nonnegativity(P)
+        check_marginal(P, one, dim=1)
+
+    # --- check consistency between torch and keops backends ---
+    if len(lst_backend) > 1:
+        check_similarity_torch_keops(list_P_backends[0], list_P_backends[1], K=10)
+
+    # Test with different alpha values to ensure they produce different results
+    list_P_alpha = []
+    for alpha in [1.0, 2.0]:
+        affinity = MAGICAffinity(
+            K=7,
+            alpha=alpha,
+            device=DEVICE,
+            backend=None,  # Use default backend for this test
+            metric=metric,
+        )
+        P = affinity(X)
+        list_P_alpha.append(P)
+
+    # --- check that different alpha values produce different results ---
+    assert not torch.allclose(list_P_alpha[0], list_P_alpha[1], atol=1e-6), (
+        "MAGIC affinities with different alpha should produce different results"
+    )
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_neg_potential_affinity(dtype, metric):
+    n = 30  # Use smaller n for efficiency since this is computationally intensive
+    X, _ = toy_dataset(n, dtype)
+
+    # Test with different backends
+    list_P_backends = []
+    for backend in lst_backend:
+        affinity = NegPotentialAffinity(
+            metric=metric,
+            device=DEVICE,
+            backend=backend,
+            sigma=2.0,
+            anisotropy=0.0,
+            K=7,
+            alpha=2.0,
+            t=2,
+            eps=1e-5,
+        )
+        P = affinity(X)
+        list_P_backends.append(P)
+
+        # -- check properties of the affinity matrix --
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
+        check_symmetry(P)
+
+        # Check that diagonal is zero (as specified in the class)
+        diagonal = P.diag() if hasattr(P, "diag") else torch.diag(P)
+        assert torch.allclose(diagonal, torch.zeros_like(diagonal), atol=1e-6), (
+            "Diagonal should be zero for NegPotentialAffinity"
+        )
+
+        # Check that the matrix contains negative values (negative potential distances)
+        assert P.min() < 0, "NegPotentialAffinity should contain negative values"
+
+    # --- check consistency between torch and keops backends ---
+    if len(lst_backend) > 1:
+        check_similarity_torch_keops(list_P_backends[0], list_P_backends[1], K=5)
+
+    # Test with different parameter combinations to ensure they produce different results
+    list_P_params = []
+    for t, anisotropy in [(2, 0.0), (5, 0.5)]:
+        affinity = NegPotentialAffinity(
+            metric=metric,
+            device=DEVICE,
+            backend=None,  # Use default backend for parameter testing
+            sigma=2.0,
+            anisotropy=anisotropy,
+            K=7,
+            alpha=2.0,
+            t=t,
+            eps=1e-5,
+        )
+        P = affinity(X)
+        list_P_params.append(P)
+
+    # --- check that different parameters produce different results ---
+    if len(list_P_params) > 1:
+        assert not torch.allclose(list_P_params[0], list_P_params[1], atol=1e-6), (
+            "Different parameters should produce different affinity matrices"
+        )

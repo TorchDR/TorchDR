@@ -59,10 +59,6 @@ class PACMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    tol_affinity : float, optional
-        Precision threshold for the entropic affinity root search.
-    max_iter_affinity : int, optional
-        Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
@@ -96,8 +92,6 @@ class PACMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        tol_affinity: float = 1e-3,
-        max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         MN_ratio: float = 0.5,
@@ -108,8 +102,6 @@ class PACMAP(SampledNeighborEmbedding):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
         self.metric_out = metric_out
-        self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
 
         self.MN_ratio = MN_ratio
         self.FP_ratio = FP_ratio
