@@ -1,5 +1,5 @@
 from .kernel_pca import KernelPCA
 from .incremental_pca import IncrementalPCA
-from .phate import PHATE
+from .pca import PCA
 
-__all__ = ["KernelPCA", "IncrementalPCA", "PHATE"]
+__all__ = ["KernelPCA", "IncrementalPCA", "PCA"]

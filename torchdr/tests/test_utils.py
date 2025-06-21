@@ -1070,9 +1070,9 @@ def test_matrix_power_integer(dtype):
     A = torch.randn(3, 3, dtype=dtype)
     A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1  # Make it positive definite
 
-    # Test integer power without KeOps
+    # Test integer power with torch tensors (keops automatically detected)
     power = 3
-    result = matrix_power(A, power, keops=False)
+    result = matrix_power(A, power)
     expected = torch.linalg.matrix_power(A, power)
     torch.testing.assert_close(result, expected)
 
@@ -1086,9 +1086,9 @@ def test_matrix_power_float(dtype):
     A = torch.randn(3, 3, dtype=dtype)
     A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1  # Make it positive definite
 
-    # Test non-integer power without KeOps
+    # Test non-integer power with torch tensors (keops automatically detected)
     power = 2.5
-    result = matrix_power(A, power, keops=False)
+    result = matrix_power(A, power)
 
     # Verify using eigendecomposition manually
     eigenvalues, eigenvectors = torch.linalg.eigh(A)
@@ -1120,9 +1120,9 @@ def test_matrix_power_keops_integer(dtype):
     I_lazy = identity_matrix(n, keops=True, device=X.device, dtype=dtype)
     A_lazy = (-C_lazy).exp() + I_lazy * 0.1  # Gaussian kernel + regularization
 
-    # Test integer power with KeOps
+    # Test integer power with KeOps (automatically detected from LazyTensor input)
     power = 2
-    result = matrix_power(A_lazy, power, keops=True)
+    result = matrix_power(A_lazy, power)
 
     # For comparison, create the same matrix with regular tensors
     C_torch, _ = pairwise_distances(X, metric="sqeuclidean", backend=None)
@@ -1150,12 +1150,12 @@ def test_matrix_power_keops_float_error():
     I_lazy = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
     A_lazy = (-C_lazy).exp() + I_lazy * 0.1
 
-    # Should raise NotImplementedError for non-integer power
+    # Should raise NotImplementedError for non-integer power (KeOps automatically detected)
     with pytest.raises(
         NotImplementedError,
         match="Non-integer matrix powers are not supported with KeOps",
     ):
-        matrix_power(A_lazy, 2.5, keops=True)
+        matrix_power(A_lazy, 2.5)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -1168,16 +1168,16 @@ def test_matrix_power_properties(dtype):
     A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1
 
     # Test that A^0 = I (identity matrix)
-    result = matrix_power(A, 0.0, keops=False)
+    result = matrix_power(A, 0.0)
     expected = torch.eye(3, dtype=dtype)
     torch.testing.assert_close(result, expected)
 
     # Test that A^1 = A
-    result = matrix_power(A, 1.0, keops=False)
+    result = matrix_power(A, 1.0)
     torch.testing.assert_close(result, A)
 
     # Test that A^0.5 @ A^0.5 ≈ A (square root property)
-    sqrt_A = matrix_power(A, 0.5, keops=False)
+    sqrt_A = matrix_power(A, 0.5)
     result = sqrt_A @ sqrt_A
     torch.testing.assert_close(result, A, rtol=1e-4, atol=1e-5)
 
@@ -1190,4 +1190,4 @@ def test_matrix_power_error_handling():
 
     # Test negative power error
     with pytest.raises(ValueError, match="Negative matrix powers are not supported"):
-        matrix_power(A, -1.0, keops=False)
+        matrix_power(A, -1.0)

@@ -19,7 +19,7 @@ from torchdr.affinity import (
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
-from torchdr.pca import PCA
+from torchdr.spectral_embedding import PCA
 from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
@@ -88,7 +88,7 @@ class AffinityMatcher(DRModule):
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
-    init : str | torch.Tensor | np.ndarray, optional
+    init : str, torch.Tensor, or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.

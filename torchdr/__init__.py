@@ -30,7 +30,6 @@ from .affinity import (
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
-    AlphaDecayAffinity,
     NegPotentialAffinity,
 )
 from .affinity_matcher import AffinityMatcher
@@ -52,8 +51,8 @@ from .neighbor_embedding import (
     TSNEkhorn,
     PACMAP,
 )
-from .spectral_embedding import IncrementalPCA, KernelPCA, PHATE
-from .pca import PCA
+from .spectral_embedding import IncrementalPCA, KernelPCA, PCA
+from .diffusion_embedding import PHATE
 
 # import utils
 from .utils import binary_search, false_position, pairwise_distances
@@ -104,6 +103,5 @@ __all__ = [
     "silhouette_samples",
     "silhouette_score",
     "PHATE",
-    "AlphaDecayAffinity",
     "NegPotentialAffinity",
 ]

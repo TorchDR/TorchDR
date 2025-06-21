@@ -50,29 +50,8 @@ def _log_SelfTuning(C, sigma):
 
 
 @wrap_vectors
-def _log_MAGIC(C, sigma):
-    r"""Return the MAGIC affinity matrix with sample-wise bandwidth.
-
-    The bandwidth is determined by the distance from a point
-    to its K-th neirest neighbor in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
-    return -C / sigma
-
-
-@wrap_vectors
-def _log_AlphaDecay(C, sigma, alpha):
-    r"""Return the alpha-decay affinity matrix with sample-wise bandwidth.
+def _log_MAGIC(C, sigma, alpha=1.0):
+    r"""Return the MAGIC affinity matrix with sample-wise bandwidth and alpha decay.
 
     The bandwidth is determined by the distance from a point
     to its K-th neirest neighbor in log domain.
@@ -84,13 +63,15 @@ def _log_AlphaDecay(C, sigma, alpha):
     sigma : torch.Tensor of shape (n,)
         Sample-wise bandwidth parameter.
     alpha : float, optional
-        Exponent for the alpha-decay kernel.
+        Exponent for the alpha-decay kernel. Default is 1.0 (original MAGIC).
+        When alpha=1.0, equivalent to original MAGIC kernel.
+        When alpha=2.0, equivalent to alpha-decay kernel.
 
     Returns
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
-    return -(C / sigma).pow(alpha)
+    return -alpha * C / sigma
 
 
 class SelfTuningAffinity(LogAffinity):
@@ -159,7 +140,7 @@ class SelfTuningAffinity(LogAffinity):
         """
         C, _ = self._distance_matrix(X)
 
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
 
@@ -173,10 +154,15 @@ class SelfTuningAffinity(LogAffinity):
 
 
 class MAGICAffinity(Affinity):
-    r"""Compute the MAGIC affinity introduced in :cite:`van2018recovering`.
+    r"""Compute the MAGIC affinity with alpha-decay kernel introduced in :cite:`van2018recovering`.
 
-    The construction is as follows. First, it computes a Gaussian
-    kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+    The construction is as follows. First, it computes a generalized
+    kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`:
+
+    .. math::
+        P_{ij} \leftarrow \exp \left( - \left( \frac{C_{ij}}{\sigma_i} \right)^\alpha \right)
+
+    When :math:`\alpha = 1`, this reduces to the original MAGIC kernel:
 
     .. math::
         P_{ij} \leftarrow \exp \left( - \frac{C_{ij}}{\sigma_i} \right)
@@ -199,7 +185,10 @@ class MAGICAffinity(Affinity):
     Parameters
     ----------
     K : int, optional
-        K-th neirest neighbor .
+        K-th neirest neighbor. Default is 7.
+    alpha : float, optional
+        Exponent for the alpha-decay kernel. Default is 1.0 (original MAGIC).
+        When alpha=2.0, equivalent to alpha-decay kernel from :cite:`moon2019visualizing`.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -216,6 +205,7 @@ class MAGICAffinity(Affinity):
     def __init__(
         self,
         K: int = 7,
+        alpha: float = 1.0,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: Optional[str] = None,
@@ -230,6 +220,7 @@ class MAGICAffinity(Affinity):
             verbose=verbose,
         )
         self.K = K
+        self.alpha = alpha
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""Fit the MAGIC affinity model to the provided data.
@@ -246,76 +237,12 @@ class MAGICAffinity(Affinity):
         """
         C, _ = self._distance_matrix(X)
 
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
-        self.sigma_ = minK_values[:, -1]
-        affinity_matrix = _log_MAGIC(C, self.sigma_).exp()
-        affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
-
-        self.normalization_ = sum_red(affinity_matrix, 1)
-        affinity_matrix = affinity_matrix / self.normalization_
-
-        return affinity_matrix
-
-
-class AlphaDecayAffinity(Affinity):
-    r"""Compute the alpha-decay affinity introduced in :cite:`moon2019visualizing`.
-
-    The affinity has a sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
-
-    .. math::
-        P_{ij} \leftarrow \exp \left( - \left( \frac{C_{ij}}{\sigma_i} \right)^\alpha \right)
-
-    In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
-    :math:`\sigma_i` is the distance from the K'th nearest neighbor of data point
-    :math:`\mathbf{x}_i`.
-
-    Parameters
-    ----------
-    K : int, optional
-        K-th neirest neighbor .
-    alpha : float, optional
-        Exponent for the alpha-decay kernel.
-    metric : str, optional
-        Metric to use for pairwise distances computation.
-    zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero.
-    device : str, optional
-        Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
-    verbose : bool, optional
-        Verbosity. Default is False.
-    """
-
-    def __init__(
-        self,
-        K: int = 7,
-        alpha: float = 2.0,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = None,
-        backend: Optional[str] = None,
-        verbose: bool = False,
-    ):
-        super().__init__(
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-        )
-        self.K = K
-        self.alpha = alpha
-
-    def _compute_affinity(self, X: torch.Tensor):
-        C, _ = self._distance_matrix(X)
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        affinity_matrix = _log_AlphaDecay(C, self.sigma_, self.alpha).exp()
+        affinity_matrix = _log_MAGIC(C, self.sigma_, self.alpha).exp()
         affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
 
-        self.normalization_ = sum_red(affinity_matrix, 1)
+        self.normalization_ = sum_red(affinity_matrix, dim=1)
         affinity_matrix = affinity_matrix / self.normalization_
 
         return affinity_matrix
@@ -329,7 +256,7 @@ class NegPotentialAffinity(Affinity):
     affinity matrix suitable for manifold learning applications.
 
     The method follows these steps:
-    1. Compute base alpha-decay affinity
+    1. Compute base MAGIC affinity with alpha-decay kernel
     2. Apply anisotropy correction to reduce high-degree node influence
     3. Convert to diffusion matrix (row-normalized)
     4. Raise diffusion matrix to power t (diffusion steps)
@@ -353,9 +280,9 @@ class NegPotentialAffinity(Affinity):
         Anisotropy parameter between 0 and 1 for degree correction.
         0 means no correction, 1 means full anisotropy correction.
     K : int, optional (default=7)
-        Number of nearest neighbors for alpha-decay affinity computation.
+        Number of nearest neighbors for MAGIC affinity computation.
     alpha : float, optional (default=2.0)
-        Exponent for the alpha-decay kernel.
+        Exponent for the alpha-decay kernel in MAGIC affinity.
     t : int, optional (default=5)
         Number of diffusion steps (power to raise diffusion matrix).
     eps : float, optional (default=1e-5)
@@ -375,6 +302,13 @@ class NegPotentialAffinity(Affinity):
         t: int = 5,
         eps: float = 1e-5,
     ):
+        if backend == "faiss":
+            raise ValueError(
+                "[TorchDR] ERROR : FAISS backend is not supported for NegPotentialAffinity. "
+                f"The {self.__class__.__name__} class does not support sparsity. "
+                "Please use backend None or 'keops' instead."
+            )
+
         super().__init__(
             metric=metric,
             device=device,
@@ -382,7 +316,7 @@ class NegPotentialAffinity(Affinity):
             verbose=verbose,
             zero_diag=False,
         )
-        self.base_affinity = AlphaDecayAffinity(
+        self.base_affinity = MAGICAffinity(
             K=K,
             alpha=alpha,
             metric=metric,
@@ -394,14 +328,15 @@ class NegPotentialAffinity(Affinity):
         self.anisotropy = anisotropy
         self.t = t
         self.eps = eps
-        self.keops = backend == "keops"
 
     @staticmethod
     def _potential_dist(
-        affinity: LazyTensorType, eps: float = 1e-5, backend: Optional[str] = None
-    ) -> LazyTensorType:
+        affinity: Union[torch.Tensor, LazyTensorType],
+        eps: float = 1e-5,
+        backend: Optional[str] = None,
+    ):
         log_affinity = -(affinity + eps).log()
-        potential_dist = pairwise_distances(
+        potential_dist, _ = pairwise_distances(
             log_affinity, metric="euclidean", backend=backend
         )
         return potential_dist
@@ -410,11 +345,15 @@ class NegPotentialAffinity(Affinity):
         affinity = self.base_affinity(X)
         affinity = apply_anisotropy(affinity, self.anisotropy)
         diffusion = diffusion_from_affinity(affinity)
-        diffusion = matrix_power(diffusion, self.t, self.keops)
+        diffusion = matrix_power(diffusion, self.t)
         dist = self._potential_dist(diffusion)
-        # symetrize
+        # Symmetrize
         dist = (dist + batch_transpose(dist)) / 2
-        # zero the diagonal
-        identity = identity_matrix(dist.shape[-1], self.keops, X.device, X.dtype)
-        dist = dist - identity * dist.diag()
-        return -1.0 * dist
+        # Zero the diagonal
+        identity = identity_matrix(
+            dist.shape[-1], self.backend == "keops", X.device, X.dtype
+        )
+        dist = dist * (
+            1 - identity
+        )  # KeOps-compatible: multiply by (1-I) to zero diagonal
+        return -dist

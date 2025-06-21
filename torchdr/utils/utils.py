@@ -10,9 +10,10 @@ import random
 import time
 import numpy as np
 import torch
+from typing import Union
 
 from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
-from .wrappers import wrap_vectors
+from .wrappers import wrap_vectors, keops_unsqueeze
 
 
 def seed_everything(seed, fast=True):
@@ -524,7 +525,7 @@ def batch_transpose(arg):
         return arg.transpose(-2, -1)
     else:
         raise ValueError(
-            "[TorchDR] ERROR : Unsupported input shape for batch_transpose function."
+            f"[TorchDR] ERROR : Unsupported input type for batch_transpose function: {type(arg)}."
         )
 
 
@@ -552,7 +553,7 @@ def bool_arg(arg):
         return bool(arg)
 
 
-def diffusion_from_affinity(affinity: LazyTensorType):
+def diffusion_from_affinity(affinity: Union[torch.Tensor, LazyTensorType]):
     """Convert an affinity matrix to a diffusion matrix.
 
     Computes the row-normalized version of the affinity matrix,
@@ -560,21 +561,29 @@ def diffusion_from_affinity(affinity: LazyTensorType):
 
     Parameters
     ----------
-    affinity : LazyTensor
+    affinity : torch.Tensor or LazyTensor
         Affinity matrix of shape ``(n, n)``.
 
     Returns
     -------
-    LazyTensor
+    torch.Tensor or LazyTensor
         Diffusion matrix of shape ``(n, n)`` with row sums equal to 1.
     """
-    deg = sum_red(affinity, 1)
+    deg = sum_red(affinity, dim=1).squeeze()
     inv_deg = deg.pow(-1)
+
+    if is_lazy_tensor(affinity):
+        # For KeOps LazyTensors, use keops_unsqueeze for proper broadcasting
+        inv_deg = keops_unsqueeze(inv_deg)
+    else:
+        # For torch tensors, use standard unsqueeze for row-wise broadcasting
+        inv_deg = inv_deg.unsqueeze(-1)
+
     diffusion = affinity * inv_deg
     return diffusion
 
 
-def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
+def apply_anisotropy(affinity: Union[torch.Tensor, LazyTensorType], anisotropy: float):
     """Apply anisotropy correction to an affinity matrix.
 
     Applies double normalization to reduce the influence of high-degree nodes:
@@ -599,18 +608,34 @@ def apply_anisotropy(affinity: LazyTensorType, anisotropy: float):
     AssertionError
         If anisotropy is not between 0 and 1.
     """
-    assert anisotropy >= 0.0 and anisotropy <= 1.0
+    if not (anisotropy >= 0.0 and anisotropy <= 1.0):
+        raise ValueError(
+            f"[TorchDR] ERROR : anisotropy should be between 0 and 1, got {anisotropy}."
+        )
     if anisotropy == 0.0:
         return affinity
-    deg = sum_red(affinity, 1)
+
+    deg = sum_red(affinity, 1).squeeze()
     # Double normalization kij / (di dj) ** anisotropy
-    outer = deg[:, :, None] * deg[:, None, :]
-    inv_outer = outer.pow(-anisotropy)
+    # Apply power to individual degrees before outer product: deg^(-anisotropy)
+    inv_deg = deg.pow(-anisotropy)
+
+    if is_lazy_tensor(affinity):
+        # For KeOps LazyTensors, use keops_unsqueeze to properly handle broadcasting
+        inv_deg_i = keops_unsqueeze(inv_deg)
+        inv_deg_j = batch_transpose(inv_deg_i)
+        inv_outer = inv_deg_i * inv_deg_j
+    else:
+        # For torch tensors, use standard broadcasting
+        inv_deg_i = inv_deg.unsqueeze(-1)
+        inv_deg_j = inv_deg.unsqueeze(0)
+        inv_outer = inv_deg_i * inv_deg_j
+
     affinity = affinity * inv_outer
     return affinity
 
 
-def matrix_power(matrix: LazyTensorType, power: float, keops: bool):
+def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
     r"""Compute the matrix power A^p for symmetric positive definite matrices.
 
     Supports both integer and non-integer powers for torch tensors.
@@ -626,8 +651,6 @@ def matrix_power(matrix: LazyTensorType, power: float, keops: bool):
         Should be symmetric positive definite for non-integer powers.
     power : float
         The power to raise the matrix to. Must be non-negative.
-    keops : bool
-        Whether to use KeOps backend. If True, only integer powers are supported.
 
     Returns
     -------
@@ -653,7 +676,7 @@ def matrix_power(matrix: LazyTensorType, power: float, keops: bool):
     if power < 0:
         raise ValueError("[TorchDR] ERROR: Negative matrix powers are not supported.")
 
-    if keops:
+    if is_lazy_tensor(matrix):
         if power == int(power):
             power = int(power)
             if power == 0:
