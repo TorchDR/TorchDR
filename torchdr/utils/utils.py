@@ -690,7 +690,9 @@ def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
                 # Integer power: use repeated multiplication
                 result = matrix
                 for _ in range(power - 1):
-                    result = result @ matrix
+                    result = (result[:, :, None] * matrix[None, :, :]).sum_reduction(
+                        dim=1
+                    )
                 return result
         else:
             raise NotImplementedError(
