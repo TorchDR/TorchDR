@@ -24,8 +24,9 @@ def test_invalid_loss_fn():
 
 
 def test_invalid_affinity_out():
+    # Test that affinity_out must be an Affinity instance when not None
     with pytest.raises(ValueError):
-        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out="invalid_affinity")
 
 
 def test_invalid_affinity_in():
@@ -247,7 +248,7 @@ def test_loss_with_different_functions():
         loss_fn="square_loss",
     )
     model_square._init_embedding(X)
-    model_square.PX_ = torch.rand(5, 5)
+    model_square.affinity_in_ = torch.rand(5, 5)
     loss = model_square._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -258,7 +259,7 @@ def test_loss_with_different_functions():
         loss_fn="cross_entropy_loss",
     )
     model_ce._init_embedding(X)
-    model_ce.PX_ = torch.rand(5, 5)
+    model_ce.affinity_in_ = torch.rand(5, 5)
     loss = model_ce._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -269,7 +270,7 @@ def test_loss_with_different_functions():
         loss_fn="cross_entropy_loss",
     )
     model_ce_log._init_embedding(X)
-    model_ce_log.PX_ = torch.rand(5, 5)
+    model_ce_log.affinity_in_ = torch.rand(5, 5)
     loss = model_ce_log._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -283,17 +284,22 @@ def test_sparse_affinity_warning():
         def _compute_affinity(self, X):
             return torch.rand(X.shape[0], X.shape[0])
 
+    # Warning should occur when using sparse affinity_in with non-UnnormalizedAffinity affinity_out
     with pytest.warns(UserWarning):
         AffinityMatcher(
             affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity()
         )
 
-    # No warning when using UnnormalizedAffinity
+    # No warning when using UnnormalizedAffinity (GaussianAffinity is an UnnormalizedLogAffinity)
     sparse_affinity = TestSparseAffinity()
     sparse_affinity._sparsity = True
-    # Just construct the affinity matcher without assigning to unused variable
+    # Just construct the affinity matcher without warning
     AffinityMatcher(affinity_in=sparse_affinity, affinity_out=GaussianAffinity())
-    assert sparse_affinity._sparsity  # Use truth value directly instead of == True
+    # The sparsity should still be True since no warning was triggered
+    assert sparse_affinity._sparsity
+
+    # No warning when affinity_out is None
+    AffinityMatcher(affinity_in=TestSparseAffinity(), affinity_out=None)
 
 
 def test_fit_and_transform():
@@ -329,8 +335,8 @@ def test_precomputed_affinity():
         max_iter=2,  # Small value for quick test
     )
     model.fit_transform(X_affinity)
-    assert hasattr(model, "PX_")
-    assert model.PX_ is X_affinity
+    assert hasattr(model, "affinity_in_")
+    assert model.affinity_in_ is X_affinity
 
 
 def test_sparse_affinity_with_indices():
@@ -366,3 +372,52 @@ def test_after_step():
     )
     # Just ensure it doesn't raise an error
     model._after_step()
+
+
+def test_affinity_out_none_requires_custom_loss():
+    # Test that affinity_out=None requires a custom _loss method
+    model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+    X = torch.rand(5, 2)
+    # Just do minimal setup needed for _loss() to be callable
+    model._init_embedding(X)
+    model.affinity_in_ = torch.rand(5, 5)  # Mock the fitted affinity
+    with pytest.raises(ValueError, match="affinity_out is not set"):
+        model._loss()
+
+
+def test_affinity_out_none_with_custom_loss():
+    # Test that affinity_out=None works with custom _loss method
+    class CustomAffinityMatcher(AffinityMatcher):
+        def _loss(self):
+            # Simple custom loss that uses the embedding
+            return (self.embedding_**2).sum()
+
+    model = CustomAffinityMatcher(
+        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=2
+    )
+    X = torch.rand(5, 2)
+    embedding = model.fit_transform(X)
+    assert isinstance(embedding, torch.Tensor)
+    assert embedding.shape == (5, 2)
+
+
+def test_affinity_out_none_default():
+    # Test that affinity_out defaults to None when not specified
+    model = AffinityMatcher(affinity_in=GaussianAffinity())
+    assert model.affinity_out is None
+
+
+def test_affinity_out_invalid_type():
+    # Test that affinity_out must be an Affinity instance when not None
+    with pytest.raises(ValueError, match="affinity_out must be an Affinity instance"):
+        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=42)
+
+
+def test_affinity_out_none_fit_without_custom_loss():
+    # Test that fitting with affinity_out=None fails if no custom _loss is provided
+    model = AffinityMatcher(
+        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=1
+    )
+    X = torch.rand(5, 2)
+    with pytest.raises(ValueError, match="affinity_out is not set"):
+        model.fit_transform(X)

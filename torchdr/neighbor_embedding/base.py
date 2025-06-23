@@ -41,8 +41,8 @@ class NeighborEmbedding(AffinityMatcher):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity
-        The affinity object for the output embedding space.
+    affinity_out : Affinity, optional
+        The affinity object for the output embedding space. Default is None.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
@@ -89,7 +89,7 @@ class NeighborEmbedding(AffinityMatcher):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Affinity,
+        affinity_out: Optional[Affinity] = None,
         kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         lr: Union[float, str] = 1e0,
@@ -260,8 +260,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity
-        The affinity object for the output embedding space.
+    affinity_out : Affinity, optional
+        The affinity object for the output embedding space. Default is None.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
@@ -308,7 +308,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Affinity,
+        affinity_out: Optional[Affinity] = None,
         kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         lr: Union[float, str] = 1e0,
@@ -337,11 +337,13 @@ class SparseNeighborEmbedding(NeighborEmbedding):
                 "must be a sparse affinity."
             )
 
-        # check affinity affinity_out
-        if not isinstance(affinity_out, UnnormalizedAffinity):
+        # check affinity affinity_out (only if not None)
+        if affinity_out is not None and not isinstance(
+            affinity_out, UnnormalizedAffinity
+        ):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
-                "must be an UnnormalizedAffinity object."
+                "must be an UnnormalizedAffinity object or None."
             )
 
         super().__init__(
@@ -372,10 +374,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             log_Q = self.affinity_out(
                 self.embedding_, log=True, indices=self.NN_indices_
             )
-            return cross_entropy_loss(self.PX_, log_Q, log=True)
+            return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
         else:
             Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
-            return cross_entropy_loss(self.PX_, Q)
+            return cross_entropy_loss(self.affinity_in_, Q)
 
     def _repulsive_loss(self):
         raise NotImplementedError(
@@ -418,8 +420,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity
-        The affinity object for the output embedding space.
+    affinity_out : Affinity, optional
+        The affinity object for the output embedding space. Default is None.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
@@ -468,7 +470,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Affinity,
+        affinity_out: Optional[Affinity] = None,
         kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         lr: Union[float, str] = 1e0,

@@ -60,8 +60,9 @@ class AffinityMatcher(DRModule):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity
-        The affinity object for the output embedding space.
+    affinity_out : Affinity, optional
+        The affinity object for the output embedding space. Default is None.
+        When None, a custom _loss method must be implemented.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
@@ -106,7 +107,7 @@ class AffinityMatcher(DRModule):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Affinity,
+        affinity_out: Optional[Affinity] = None,
         kwargs_affinity_out: Optional[Dict] = None,
         n_components: int = 2,
         loss_fn: str = "square_loss",
@@ -156,28 +157,30 @@ class AffinityMatcher(DRModule):
         self.init = init
         self.init_scaling = init_scaling
 
-        # --- check affinity_out ---
-        if not isinstance(affinity_out, Affinity):
-            raise ValueError(
-                "[TorchDR] ERROR : affinity_out must be an Affinity instance."
-            )
-        self.affinity_out = affinity_out
-        self.kwargs_affinity_out = kwargs_affinity_out
-
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
                 '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
             )
-        if getattr(affinity_in, "sparsity", False) and not isinstance(
-            self.affinity_out, UnnormalizedAffinity
-        ):
-            warnings.warn(
-                "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
-                "when affinity_in is sparse. Setting sparsity = False in affinity_in."
-            )
-            affinity_in._sparsity = False  # turn off sparsity
         self.affinity_in = affinity_in
+
+        # --- check affinity_out ---
+        if affinity_out is not None:
+            if not isinstance(affinity_out, Affinity):
+                raise ValueError(
+                    "[TorchDR] ERROR : affinity_out must be an Affinity instance when not None."
+                )
+            if getattr(self.affinity_in, "sparsity", False) and not isinstance(
+                affinity_out, UnnormalizedAffinity
+            ):
+                warnings.warn(
+                    "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
+                    "when affinity_in is sparse. Setting sparsity = False in affinity_in."
+                )
+                self.affinity_in._sparsity = False  # turn off sparsity
+
+        self.affinity_out = affinity_out
+        self.kwargs_affinity_out = kwargs_affinity_out
 
         self.n_iter_ = -1
 
@@ -235,12 +238,14 @@ class AffinityMatcher(DRModule):
                     "(n_samples, n_samples)."
                 )
             check_nonnegativity(X)
-            self.PX_ = X
+            self.affinity_in_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.NN_indices_ = self.affinity_in(X, return_indices=True)
+                self.affinity_in_, self.NN_indices_ = self.affinity_in(
+                    X, return_indices=True
+                )
             else:
-                self.PX_ = self.affinity_in(X)
+                self.affinity_in_ = self.affinity_in(X)
 
         self._init_embedding(X)
         self._set_params()
@@ -288,6 +293,11 @@ class AffinityMatcher(DRModule):
         return self
 
     def _loss(self):
+        if self.affinity_out is None:
+            raise ValueError(
+                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _loss method."
+            )
+
         if self.kwargs_affinity_out is None:
             self.kwargs_affinity_out = {}
         if self.kwargs_loss is None:
@@ -306,7 +316,7 @@ class AffinityMatcher(DRModule):
 
         Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
 
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
+        loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
 
     def _after_step(self):

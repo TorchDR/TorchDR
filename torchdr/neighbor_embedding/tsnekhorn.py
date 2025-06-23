@@ -210,9 +210,8 @@ class TSNEkhorn(NeighborEmbedding):
             self.embedding_, log=True, init_dual=self.dual_sinkhorn_
         )
         self.dual_sinkhorn_ = self.affinity_out.dual_.detach()
-        P = self.PX_
 
-        attractive_term = cross_entropy_loss(P, log_Q, log=True)
+        attractive_term = cross_entropy_loss(self.affinity_in_, log_Q, log=True)
         if self.unrolling:
             repulsive_term = 0
         else:
