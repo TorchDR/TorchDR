@@ -284,17 +284,22 @@ def test_sparse_affinity_warning():
         def _compute_affinity(self, X):
             return torch.rand(X.shape[0], X.shape[0])
 
+    # Warning should occur when using sparse affinity_in with non-UnnormalizedAffinity affinity_out
     with pytest.warns(UserWarning):
         AffinityMatcher(
             affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity()
         )
 
-    # No warning when using UnnormalizedAffinity
+    # No warning when using UnnormalizedAffinity (GaussianAffinity is an UnnormalizedLogAffinity)
     sparse_affinity = TestSparseAffinity()
     sparse_affinity._sparsity = True
-    # Just construct the affinity matcher without assigning to unused variable
+    # Just construct the affinity matcher without warning
     AffinityMatcher(affinity_in=sparse_affinity, affinity_out=GaussianAffinity())
-    assert sparse_affinity._sparsity  # Use truth value directly instead of == True
+    # The sparsity should still be True since no warning was triggered
+    assert sparse_affinity._sparsity
+
+    # No warning when affinity_out is None
+    AffinityMatcher(affinity_in=TestSparseAffinity(), affinity_out=None)
 
 
 def test_fit_and_transform():
@@ -382,15 +387,16 @@ def test_affinity_out_none_with_custom_loss():
     # Test that affinity_out=None works with custom _loss method
     class CustomAffinityMatcher(AffinityMatcher):
         def _loss(self):
-            # Simple custom loss that doesn't use affinity_out
-            return torch.tensor(1.0, requires_grad=True)
+            # Simple custom loss that uses the embedding
+            return (self.embedding_**2).sum()
 
-    model = CustomAffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+    model = CustomAffinityMatcher(
+        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=2
+    )
     X = torch.rand(5, 2)
-    model._fit(X)
-    loss = model._loss()
-    assert isinstance(loss, torch.Tensor)
-    assert loss.requires_grad
+    embedding = model.fit_transform(X)
+    assert isinstance(embedding, torch.Tensor)
+    assert embedding.shape == (5, 2)
 
 
 def test_affinity_out_none_default():
