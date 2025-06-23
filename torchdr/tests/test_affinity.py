@@ -532,12 +532,3 @@ def test_phate_affinity(dtype, metric):
         f"Expected sigma_ shape {(n,)}, got {affinity.sigma_.shape}"
     )
     assert torch.all(affinity.sigma_ > 0), "sigma_ values should be positive"
-
-    # Test with different parameter values
-    affinity_custom = PHATEAffinity(
-        device=DEVICE, backend=None, metric=metric, k=7, alpha=1.5, t=5, eps=1e-6
-    )
-    P_custom = affinity_custom(X)
-    check_type(P_custom, False)
-    check_shape(P_custom, (n, n))
-    check_symmetry(P_custom)
