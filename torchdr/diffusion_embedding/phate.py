@@ -21,6 +21,8 @@ class PHATE(AffinityMatcher):
     eps : float, optional
         Small value to avoid division by zero in the affinity matrix.
         Default is 1e-5.
+    alpha : float, optional
+        Exponent for the alpha-decay kernel. Default is 1.0.
     backend : {"keops", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
@@ -63,6 +65,7 @@ class PHATE(AffinityMatcher):
         n_components: int = 2,
         t: int = 5,
         eps: float = 1e-5,
+        alpha: float = 1.0,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = {},
         lr: float = 1e0,
@@ -90,6 +93,7 @@ class PHATE(AffinityMatcher):
         self.n_neighbors = n_neighbors
         self.t = t
         self.eps = eps
+        self.alpha = alpha
 
         affinity_in = PotentialAffinity(
             backend=backend,
@@ -98,6 +102,7 @@ class PHATE(AffinityMatcher):
             t=t,
             K=n_neighbors,
             metric=metric_in,
+            alpha=alpha,
         )
         affinity_out = NegativeCostAffinity(
             backend=backend, device=device, metric=metric_out
