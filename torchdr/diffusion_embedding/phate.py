@@ -1,6 +1,6 @@
 from typing import Optional
 
-from torchdr.affinity import NegativeCostAffinity, PotentialAffinity
+from torchdr.affinity import NegativeCostAffinity, PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 
@@ -12,17 +12,14 @@ class PHATE(AffinityMatcher):
 
     Parameters
     ----------
-    n_neighbors : int, optional
-        Number of nearest neighbors. Default is 10.
+    k : int, optional
+        Number of nearest neighbors. Default is 5.
     n_components : int, optional
         Dimension of the embedding space. Default is 2.
     t : int, optional
         Diffusion time parameter. Default is 5.
-    eps : float, optional
-        Small value to avoid division by zero in the affinity matrix.
-        Default is 1e-5.
     alpha : float, optional
-        Exponent for the alpha-decay kernel. Default is 1.0.
+        Exponent for the alpha-decay kernel. Default is 10.0.
     backend : {"keops", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
@@ -61,11 +58,10 @@ class PHATE(AffinityMatcher):
 
     def __init__(
         self,
-        n_neighbors: int = 10,
+        k: int = 5,
         n_components: int = 2,
         t: int = 5,
-        eps: float = 1e-5,
-        alpha: float = 1.0,
+        alpha: float = 10.0,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = {},
         lr: float = 1e0,
@@ -80,7 +76,7 @@ class PHATE(AffinityMatcher):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
-        metric_in: str = "sqeuclidean",
+        metric_in: str = "euclidean",
         metric_out: str = "sqeuclidean",
     ):
         if backend == "faiss" or backend == "keops":
@@ -90,19 +86,17 @@ class PHATE(AffinityMatcher):
 
         self.metric_in = metric_in
         self.metric_out = metric_out
-        self.n_neighbors = n_neighbors
+        self.k = k
         self.t = t
-        self.eps = eps
         self.alpha = alpha
 
-        affinity_in = PotentialAffinity(
+        affinity_in = PHATEAffinity(
+            k=k,
+            t=t,
+            alpha=alpha,
+            metric=metric_in,
             backend=backend,
             device=device,
-            eps=eps,
-            t=t,
-            K=n_neighbors,
-            metric=metric_in,
-            alpha=alpha,
         )
         affinity_out = NegativeCostAffinity(
             backend=backend, device=device, metric=metric_out

@@ -31,7 +31,6 @@ from .utils import (
     sum_red,
     svd_flip,
     bool_arg,
-    apply_anisotropy,
     matrix_power,
     identity_matrix,
 )
@@ -119,7 +118,6 @@ __all__ = [
     "EuclideanManifold",
     "PoincareBallManifold",
     "RiemannianAdam",
-    "apply_anisotropy",
     "matrix_power",
     "identity_matrix",
 ]

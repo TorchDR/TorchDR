@@ -13,7 +13,7 @@ import torch
 from typing import Union
 
 from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
-from .wrappers import wrap_vectors, keops_unsqueeze
+from .wrappers import wrap_vectors
 
 
 def seed_everything(seed, fast=True):
@@ -553,58 +553,6 @@ def bool_arg(arg):
         return bool(arg)
 
 
-def apply_anisotropy(affinity: Union[torch.Tensor, LazyTensorType], anisotropy: float):
-    """Apply anisotropy correction to an affinity matrix.
-
-    Applies double normalization to reduce the influence of high-degree nodes:
-    A_ij -> A_ij / (d_i * d_j)^anisotropy, where d_i is the degree of node i.
-
-    Parameters
-    ----------
-    affinity : LazyTensor
-        Affinity matrix of shape ``(n, n)``.
-    anisotropy : float
-        Anisotropy parameter between 0 and 1.
-        - 0: no anisotropy correction (original affinity)
-        - 1: full anisotropy correction (double normalization)
-
-    Returns
-    -------
-    LazyTensor
-        Anisotropy-corrected affinity matrix of shape ``(n, n)``.
-
-    Raises
-    ------
-    AssertionError
-        If anisotropy is not between 0 and 1.
-    """
-    if not (anisotropy >= 0.0 and anisotropy <= 1.0):
-        raise ValueError(
-            f"[TorchDR] ERROR : anisotropy should be between 0 and 1, got {anisotropy}."
-        )
-    if anisotropy == 0.0:
-        return affinity
-
-    deg = sum_red(affinity, 1).squeeze()
-    # Double normalization kij / (di dj) ** anisotropy
-    # Apply power to individual degrees before outer product: deg^(-anisotropy)
-    inv_deg = deg.pow(-anisotropy)
-
-    if is_lazy_tensor(affinity):
-        # For KeOps LazyTensors, use keops_unsqueeze to properly handle broadcasting
-        inv_deg_i = keops_unsqueeze(inv_deg)
-        inv_deg_j = matrix_transpose(inv_deg_i)
-        inv_outer = inv_deg_i * inv_deg_j
-    else:
-        # For torch tensors, use standard broadcasting
-        inv_deg_i = inv_deg.unsqueeze(-1)
-        inv_deg_j = inv_deg.unsqueeze(0)
-        inv_outer = inv_deg_i * inv_deg_j
-
-    affinity = affinity * inv_outer
-    return affinity
-
-
 def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
     r"""Compute the matrix power A^p for symmetric positive definite matrices.
 
@@ -661,13 +609,9 @@ def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
             elif power == 1:
                 return matrix
             else:
-                # Integer power: use torch.linalg.matrix_power
                 return torch.linalg.matrix_power(matrix, power)
         else:
-            # Non-integer power: use eigendecomposition
-            # A^p = Q * diag(λ^p) * Q^T for symmetric matrix
             eigenvalues, eigenvectors = torch.linalg.eigh(matrix)
-            # Clamp eigenvalues to avoid issues with negative values
             eigenvalues = torch.clamp(eigenvalues, min=1e-12)
             powered_eigenvalues = eigenvalues**power
             return (

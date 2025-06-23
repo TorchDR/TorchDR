@@ -16,61 +16,18 @@ from torchdr.utils import (
     logsumexp_red,
     sum_red,
     wrap_vectors,
-    pairwise_distances,
-    LazyTensorType,
-)
-from torchdr.utils import (
-    identity_matrix,
-    apply_anisotropy,
-    matrix_power,
 )
 
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
-    r"""Return the self-tuning affinity matrix with sample-wise bandwidth.
-
-    The bandwidth is determined by the distance from a point
-    to its K-th neirest neighbor in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
     sigma_t = matrix_transpose(sigma)
     return -C / (sigma * sigma_t)
 
 
 @wrap_vectors
-def _log_MAGIC(C, sigma, alpha=1.0):
-    r"""Return the MAGIC affinity matrix with sample-wise bandwidth and alpha decay.
-
-    The bandwidth is determined by the distance from a point
-    to its K-th neirest neighbor in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-    alpha : float, optional
-        Exponent for the alpha-decay kernel. Default is 1.0 (original MAGIC).
-        When alpha=1.0, equivalent to original MAGIC kernel.
-        When alpha=2.0, equivalent to alpha-decay kernel.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
-    return -((C / sigma) ** alpha)
+def _log_MAGIC(C, sigma):
+    return -C / sigma
 
 
 class SelfTuningAffinity(LogAffinity):
@@ -159,11 +116,6 @@ class MAGICAffinity(Affinity):
     kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`:
 
     .. math::
-        P_{ij} \leftarrow \exp \left( - \left( \frac{C_{ij}}{\sigma_i} \right)^\alpha \right)
-
-    When :math:`\alpha = 1`, this reduces to the original MAGIC kernel:
-
-    .. math::
         P_{ij} \leftarrow \exp \left( - \frac{C_{ij}}{\sigma_i} \right)
 
     In the above, :math:`\mathbf{C}` is the pairwise distance matrix and
@@ -185,9 +137,6 @@ class MAGICAffinity(Affinity):
     ----------
     K : int, optional
         K-th neirest neighbor. Default is 7.
-    alpha : float, optional
-        Exponent for the alpha-decay kernel. Default is 1.0 (original MAGIC).
-        When alpha=2.0, equivalent to alpha-decay kernel from :cite:`moon2019visualizing`.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -204,7 +153,6 @@ class MAGICAffinity(Affinity):
     def __init__(
         self,
         K: int = 7,
-        alpha: float = 1.0,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: Optional[str] = None,
@@ -219,7 +167,6 @@ class MAGICAffinity(Affinity):
             verbose=verbose,
         )
         self.K = K
-        self.alpha = alpha
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""Fit the MAGIC affinity model to the provided data.
@@ -238,113 +185,8 @@ class MAGICAffinity(Affinity):
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        affinity_matrix = _log_MAGIC(C, self.sigma_, self.alpha).exp()
+        affinity_matrix = _log_MAGIC(C, self.sigma_).exp()
         affinity_matrix = (affinity_matrix + matrix_transpose(affinity_matrix)) / 2
         affinity_matrix = affinity_matrix / sum_red(affinity_matrix, dim=1)
 
         return affinity_matrix
-
-
-class PotentialAffinity(Affinity):
-    r"""Compute the negative potential affinity using diffusion and potential distances.
-
-    This affinity method combines alpha-decay affinity with anisotropy correction,
-    diffusion processes, and potential distance computation to create a robust
-    affinity matrix suitable for manifold learning applications.
-
-    The method follows these steps:
-    1. Compute base MAGIC affinity with alpha-decay kernel
-    2. Apply anisotropy correction to reduce high-degree node influence
-    3. Convert to diffusion matrix (row-normalized)
-    4. Raise diffusion matrix to power t (diffusion steps)
-    5. Compute potential distances from the diffused matrix
-    6. Symmetrize and zero-diagonal the result
-    7. Return negative potential distances as affinities
-
-    Parameters
-    ----------
-    metric : str, optional (default="sqeuclidean")
-        Metric to use for pairwise distances computation.
-    device : str, optional (default=None)
-        Device to use for computations. If None, uses the device of input data.
-    backend : {"keops", "faiss", None}, optional (default=None)
-        Which backend to use for handling sparsity and memory efficiency.
-    verbose : bool, optional (default=False)
-        Whether to print verbose output during computation.
-    sigma : float, optional (default=2.0)
-        Bandwidth parameter for the affinity computation.
-    anisotropy : float, optional (default=0.0)
-        Anisotropy parameter between 0 and 1 for degree correction.
-        0 means no correction, 1 means full anisotropy correction.
-    K : int, optional (default=7)
-        Number of nearest neighbors for MAGIC affinity computation.
-    alpha : float, optional (default=2.0)
-        Exponent for the alpha-decay kernel in MAGIC affinity.
-    t : int, optional (default=5)
-        Number of diffusion steps (power to raise diffusion matrix).
-    eps : float, optional (default=1e-5)
-        Small value to avoid numerical issues in logarithm computation.
-    """
-
-    def __init__(
-        self,
-        metric: str = "sqeuclidean",
-        device: str = None,
-        backend: Optional[str] = None,
-        verbose: bool = False,
-        sigma: float = 2.0,
-        anisotropy: float = 0.0,
-        K: int = 7,
-        alpha: float = 2.0,
-        t: int = 5,
-        eps: float = 1e-5,
-    ):
-        if backend == "faiss" or backend == "keops":
-            raise ValueError(
-                f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
-            )
-
-        super().__init__(
-            metric=metric,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            zero_diag=False,
-        )
-        self.base_affinity = MAGICAffinity(
-            K=K,
-            alpha=alpha,
-            metric=metric,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-        )
-        self.sigma = sigma
-        self.anisotropy = anisotropy
-        self.t = t
-        self.eps = eps
-
-    @staticmethod
-    def _potential_dist(
-        affinity: Union[torch.Tensor, LazyTensorType],
-        eps: float = 1e-5,
-        backend: Optional[str] = None,
-    ):
-        log_affinity = -(affinity + eps).log()
-        potential_dist, _ = pairwise_distances(
-            log_affinity, metric="euclidean", backend=backend
-        )
-        return potential_dist
-
-    def _compute_affinity(self, X: torch.Tensor):
-        affinity = self.base_affinity(X)
-        affinity = apply_anisotropy(affinity, self.anisotropy)
-        affinity = affinity / sum_red(affinity, dim=1)
-        affinity = matrix_power(affinity, self.t)
-        affinity = -self._potential_dist(affinity)
-        affinity = (affinity + matrix_transpose(affinity)) / 2
-        identity = identity_matrix(
-            affinity.shape[-1], self.backend == "keops", X.device, X.dtype
-        )
-        affinity = affinity * (1 - identity)
-        return affinity

@@ -30,7 +30,7 @@ from .affinity import (
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
-    PotentialAffinity,
+    PHATEAffinity,
 )
 from .affinity_matcher import AffinityMatcher
 
@@ -103,5 +103,5 @@ __all__ = [
     "silhouette_samples",
     "silhouette_score",
     "PHATE",
-    "PotentialAffinity",
+    "PHATEAffinity",
 ]
