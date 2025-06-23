@@ -170,4 +170,4 @@ class LargeVis(SampledNeighborEmbedding):
     def _attractive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
         Q = Q / (Q + 1)
-        return cross_entropy_loss(self.PX_, Q)
+        return cross_entropy_loss(self.affinity_in_, Q)

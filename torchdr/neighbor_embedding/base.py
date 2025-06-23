@@ -374,10 +374,10 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             log_Q = self.affinity_out(
                 self.embedding_, log=True, indices=self.NN_indices_
             )
-            return cross_entropy_loss(self.PX_, log_Q, log=True)
+            return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
         else:
             Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
-            return cross_entropy_loss(self.PX_, Q)
+            return cross_entropy_loss(self.affinity_in_, Q)
 
     def _repulsive_loss(self):
         raise NotImplementedError(

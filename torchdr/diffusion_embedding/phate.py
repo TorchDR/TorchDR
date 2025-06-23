@@ -130,5 +130,5 @@ class PHATE(AffinityMatcher):
             .clamp(min=1e-12)
             .sqrt()
         )  # for numerical stability
-        loss = square_loss(self.PX_, Q) / (self.PX_**2).sum()
+        loss = square_loss(self.affinity_in_, Q) / (self.affinity_in_**2).sum()
         return loss.sqrt()

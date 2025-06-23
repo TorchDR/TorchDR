@@ -236,12 +236,14 @@ class AffinityMatcher(DRModule):
                     "(n_samples, n_samples)."
                 )
             check_nonnegativity(X)
-            self.PX_ = X
+            self.affinity_in_ = X
         else:
             if isinstance(self.affinity_in, SparseLogAffinity):
-                self.PX_, self.NN_indices_ = self.affinity_in(X, return_indices=True)
+                self.affinity_in_, self.NN_indices_ = self.affinity_in(
+                    X, return_indices=True
+                )
             else:
-                self.PX_ = self.affinity_in(X)
+                self.affinity_in_ = self.affinity_in(X)
 
         self._init_embedding(X)
         self._set_params()
@@ -312,7 +314,7 @@ class AffinityMatcher(DRModule):
 
         Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
 
-        loss = LOSS_DICT[self.loss_fn](self.PX_, Q, **self.kwargs_loss)
+        loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
 
     def _after_step(self):
