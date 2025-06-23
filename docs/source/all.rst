@@ -43,6 +43,7 @@ eigendecomposition of the affinity matrix.
    PCA
    KernelPCA
    IncrementalPCA
+   PHATE
 
 
 Neighbor Embedding
@@ -139,6 +140,7 @@ Affinities Normalized by kNN Distances
 
    SelfTuningAffinity
    MAGICAffinity
+   PotentialAffinity
 
 
 Entropic Affinities
