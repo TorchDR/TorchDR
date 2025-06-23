@@ -1075,27 +1075,23 @@ cases = [
         (ValueError, r"Negative matrix powers are not supported"),
         id="dense_neg",
     ),
-    # KeOps‐lazy backend (LazyTensor)
+    # KeOps‐lazy backend (LazyTensor) - not supported
     pytest.param(
         True,
         0,
-        None,
+        (
+            NotImplementedError,
+            r"matrix powers are not supported with KeOps backend",
+        ),
         marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
         id="lazy_pow0",
-    ),
-    pytest.param(
-        True,
-        1,
-        None,
-        marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
-        id="lazy_pow1",
     ),
     pytest.param(
         True,
         2,
         (
             NotImplementedError,
-            r"Non-integer matrix powers are not supported with KeOps backend",
+            r"matrix powers are not supported with KeOps backend",
         ),
         marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
         id="lazy_pow2",
@@ -1105,7 +1101,7 @@ cases = [
         2.5,
         (
             NotImplementedError,
-            r"Non-integer matrix powers are not supported with KeOps backend",
+            r"matrix powers are not supported with KeOps backend",
         ),
         marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
         id="lazy_pow2.5",
@@ -1147,10 +1143,3 @@ def test_matrix_power(use_lazy, power, exc):
             vals = torch.clamp(vals, min=1e-12) ** power
             expected = vecs @ torch.diag_embed(vals) @ vecs.transpose(-2, -1)
         torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-6)
-    else:
-        # lazy: only powers 0 or 1 should succeed
-        if power == 0:
-            expected = identity_matrix(3, keops=True, device="cpu", dtype=dtype)
-        else:
-            expected = A
-        torch.testing.assert_close(result, expected)

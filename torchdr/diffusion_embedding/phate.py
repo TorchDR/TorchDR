@@ -1,6 +1,6 @@
 from typing import Optional
 
-from torchdr.affinity import NegativeCostAffinity, NegPotentialAffinity
+from torchdr.affinity import NegativeCostAffinity, PotentialAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 
 
@@ -77,23 +77,30 @@ class PHATE(AffinityMatcher):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
+        metric_in: str = "sqeuclidean",
+        metric_out: str = "sqeuclidean",
     ):
-        if backend == "faiss":
+        if backend == "faiss" or backend == "keops":
             raise ValueError(
-                "[TorchDR] ERROR : FAISS backend is not supported for PHATE. "
-                f"The {self.__class__.__name__} class does not support sparsity. "
-                "Please use backend None or 'keops' instead."
+                f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
             )
 
+        self.metric_in = metric_in
+        self.metric_out = metric_out
         self.n_neighbors = n_neighbors
         self.t = t
         self.eps = eps
 
-        affinity_in = NegPotentialAffinity(
-            backend=backend, device=device, eps=eps, t=t, K=n_neighbors
+        affinity_in = PotentialAffinity(
+            backend=backend,
+            device=device,
+            eps=eps,
+            t=t,
+            K=n_neighbors,
+            metric=metric_in,
         )
         affinity_out = NegativeCostAffinity(
-            backend=backend, device=device, metric="sqeuclidean"
+            backend=backend, device=device, metric=metric_out
         )
         loss_fn = "l2_loss"
         super().__init__(

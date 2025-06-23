@@ -245,7 +245,7 @@ class MAGICAffinity(Affinity):
         return affinity_matrix
 
 
-class NegPotentialAffinity(Affinity):
+class PotentialAffinity(Affinity):
     r"""Compute the negative potential affinity using diffusion and potential distances.
 
     This affinity method combines alpha-decay affinity with anisotropy correction,

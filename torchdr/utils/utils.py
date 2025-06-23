@@ -647,23 +647,9 @@ def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
         raise ValueError("[TorchDR] ERROR: Negative matrix powers are not supported.")
 
     if is_lazy_tensor(matrix):
-        if power == int(power):
-            power = int(power)
-            if power == 0:
-                n = matrix.shape[-1]
-                return identity_matrix(
-                    n, keops=True, device=matrix.device, dtype=matrix.dtype
-                )
-            elif power == 1:
-                return matrix
-            else:
-                raise NotImplementedError(
-                    "[TorchDR] ERROR: Non-integer matrix powers are not supported with KeOps backend."
-                )
-        else:
-            raise NotImplementedError(
-                "[TorchDR] ERROR: Non-integer matrix powers are not supported with KeOps backend."
-            )
+        raise NotImplementedError(
+            "[TorchDR] ERROR: matrix powers are not supported with KeOps backend."
+        )
     else:
         if power == int(power):
             power = int(power)

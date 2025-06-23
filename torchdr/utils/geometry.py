@@ -146,9 +146,8 @@ def _pairwise_distances_torch(
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
     elif metric == "euclidean":
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
-        # In-place clamp and sqrt to reduce memory usage.
-        C.clamp_(min=0.0)
-        C.sqrt_()
+        C = C.clamp(min=0.0)
+        C = C.sqrt()
     elif metric == "manhattan":
         # Note: This will create a large intermediate tensor with shape (n, m, d).
         C = (X.unsqueeze(-2) - Y.unsqueeze(-3)).abs().sum(dim=-1)
@@ -167,7 +166,9 @@ def _pairwise_distances_torch(
     if do_exclude:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
-        C[diag_idx, diag_idx] = 1e12
+        diag_mask = torch.zeros_like(C)
+        diag_mask[diag_idx, diag_idx] = 1e12
+        C = C + diag_mask
 
     # If k is provided, select the k smallest distances per row.
     if k is not None:
@@ -258,7 +259,7 @@ def _pairwise_distances_faiss(
     X: torch.Tensor,
     k: int,
     Y: torch.Tensor = None,
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
     exclude_self: bool = False,
 ):
     r"""Compute the k nearest neighbors using FAISS.
