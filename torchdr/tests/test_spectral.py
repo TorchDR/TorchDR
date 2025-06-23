@@ -16,6 +16,9 @@ from torchdr.tests.utils import toy_dataset
 
 
 DEVICES = ["cpu"]
+USE_KEOPS = [False]
+if pykeops:
+    USE_KEOPS.append(True)
 
 
 @pytest.mark.parametrize("n_components", [3, None])
@@ -75,20 +78,17 @@ def test_KernelPCA_keops():
 
 
 @pytest.mark.parametrize("device", DEVICES)
-@pytest.mark.parametrize("backend", ["keops", None] if pykeops else [None])
-def test_phate(device, backend):
+def test_phate(device):
     torch.autograd.set_detect_anomaly(True)
     data, _ = toy_dataset()
     data = torch.tensor(data, dtype=torch.float32)
     data = data.to(device)
+    # PHATE only supports backend=None since it uses NegPotentialAffinity
+    phate = PHATE(backend=None, device=device)
+    embedding = phate.fit_transform(data)
+    assert embedding.shape == (data.shape[0], 2)
 
-    if backend == "faiss":
-        # PHATE uses NegPotentialAffinity which doesn't support faiss backend
-        with pytest.raises(
-            ValueError, match="FAISS backend is not supported for NegPotentialAffinity"
-        ):
-            phate = PHATE(backend=backend, device=device)
-    else:
-        phate = PHATE(backend=backend, device=device)
-        embedding = phate.fit_transform(data)
-        assert embedding.shape == (data.shape[0], 2)
+    # Test that faiss and keops backend raises an error from PHATE class
+    with pytest.raises(ValueError):
+        PHATE(backend="faiss", device=device)
+        PHATE(backend="keops", device=device)

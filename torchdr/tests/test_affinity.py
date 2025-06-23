@@ -569,40 +569,42 @@ def test_neg_potential_affinity(dtype, metric):
     n = 30  # Use smaller n for efficiency since this is computationally intensive
     X, _ = toy_dataset(n, dtype)
 
-    # Test with different backends
-    list_P_backends = []
-    for backend in lst_backend:
-        affinity = NegPotentialAffinity(
-            metric=metric,
-            device=DEVICE,
-            backend=backend,
-            sigma=2.0,
-            anisotropy=0.0,
-            K=7,
-            alpha=2.0,
-            t=2,
-            eps=1e-5,
-        )
-        P = affinity(X)
-        list_P_backends.append(P)
+    # Test with only None backend since NegPotentialAffinity doesn't support keops or faiss
+    backend = None
+    affinity = NegPotentialAffinity(
+        metric=metric,
+        device=DEVICE,
+        backend=backend,
+        sigma=2.0,
+        anisotropy=0.0,
+        K=7,
+        alpha=2.0,
+        t=2,
+        eps=1e-5,
+    )
+    P = affinity(X)
 
-        # -- check properties of the affinity matrix --
-        check_type(P, backend == "keops")
-        check_shape(P, (n, n))
-        check_symmetry(P)
+    # -- check properties of the affinity matrix --
+    check_type(P, backend == "keops")
+    check_shape(P, (n, n))
+    check_symmetry(P)
 
-        # Check that diagonal is zero (as specified in the class)
-        diagonal = P.diag() if hasattr(P, "diag") else torch.diag(P)
-        assert torch.allclose(diagonal, torch.zeros_like(diagonal), atol=1e-6), (
-            "Diagonal should be zero for NegPotentialAffinity"
-        )
+    # Check that diagonal is zero (as specified in the class)
+    diagonal = P.diag() if hasattr(P, "diag") else torch.diag(P)
+    assert torch.allclose(diagonal, torch.zeros_like(diagonal), atol=1e-6), (
+        "Diagonal should be zero for NegPotentialAffinity"
+    )
 
-        # Check that the matrix contains negative values (negative potential distances)
-        assert P.min() < 0, "NegPotentialAffinity should contain negative values"
+    # Check that the matrix contains negative values (negative potential distances)
+    assert P.min() < 0, "NegPotentialAffinity should contain negative values"
 
-    # --- check consistency between torch and keops backends ---
-    if len(lst_backend) > 1:
-        check_similarity_torch_keops(list_P_backends[0], list_P_backends[1], K=5)
+    # Test that keops backend raises an error
+    with pytest.raises(ValueError, match="class does not support backend keops"):
+        NegPotentialAffinity(backend="keops")
+
+    # Test that faiss backend raises an error
+    with pytest.raises(ValueError, match="class does not support backend faiss"):
+        NegPotentialAffinity(backend="faiss")
 
     # Test with different parameter combinations to ensure they produce different results
     list_P_params = []

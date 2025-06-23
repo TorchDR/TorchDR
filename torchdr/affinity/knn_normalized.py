@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity.base import Affinity, LogAffinity
 from torchdr.utils import (
-    batch_transpose,
+    matrix_transpose,
     kmin,
     logsumexp_red,
     sum_red,
@@ -21,7 +21,6 @@ from torchdr.utils import (
 )
 from torchdr.utils import (
     identity_matrix,
-    diffusion_from_affinity,
     apply_anisotropy,
     matrix_power,
 )
@@ -45,7 +44,7 @@ def _log_SelfTuning(C, sigma):
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
-    sigma_t = batch_transpose(sigma)
+    sigma_t = matrix_transpose(sigma)
     return -C / (sigma * sigma_t)
 
 
@@ -71,7 +70,7 @@ def _log_MAGIC(C, sigma, alpha=1.0):
     -------
     log_P : torch.Tensor or pykeops.torch.LazyTensor
     """
-    return -alpha * C / sigma
+    return -((C / sigma) ** alpha)
 
 
 class SelfTuningAffinity(LogAffinity):
@@ -240,10 +239,8 @@ class MAGICAffinity(Affinity):
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         affinity_matrix = _log_MAGIC(C, self.sigma_, self.alpha).exp()
-        affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
-
-        self.normalization_ = sum_red(affinity_matrix, dim=1)
-        affinity_matrix = affinity_matrix / self.normalization_
+        affinity_matrix = (affinity_matrix + matrix_transpose(affinity_matrix)) / 2
+        affinity_matrix = affinity_matrix / sum_red(affinity_matrix, dim=1)
 
         return affinity_matrix
 
@@ -302,11 +299,9 @@ class NegPotentialAffinity(Affinity):
         t: int = 5,
         eps: float = 1e-5,
     ):
-        if backend == "faiss":
+        if backend == "faiss" or backend == "keops":
             raise ValueError(
-                "[TorchDR] ERROR : FAISS backend is not supported for NegPotentialAffinity. "
-                f"The {self.__class__.__name__} class does not support sparsity. "
-                "Please use backend None or 'keops' instead."
+                f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
             )
 
         super().__init__(
@@ -344,16 +339,12 @@ class NegPotentialAffinity(Affinity):
     def _compute_affinity(self, X: torch.Tensor):
         affinity = self.base_affinity(X)
         affinity = apply_anisotropy(affinity, self.anisotropy)
-        diffusion = diffusion_from_affinity(affinity)
-        diffusion = matrix_power(diffusion, self.t)
-        dist = self._potential_dist(diffusion)
-        # Symmetrize
-        dist = (dist + batch_transpose(dist)) / 2
-        # Zero the diagonal
+        affinity = affinity / sum_red(affinity, dim=1)
+        affinity = matrix_power(affinity, self.t)
+        affinity = -self._potential_dist(affinity)
+        affinity = (affinity + matrix_transpose(affinity)) / 2
         identity = identity_matrix(
-            dist.shape[-1], self.backend == "keops", X.device, X.dtype
+            affinity.shape[-1], self.backend == "keops", X.device, X.dtype
         )
-        dist = dist * (
-            1 - identity
-        )  # KeOps-compatible: multiply by (1-I) to zero diagonal
-        return -dist
+        affinity = affinity * (1 - identity)
+        return affinity

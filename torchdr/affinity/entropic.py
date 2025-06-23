@@ -17,7 +17,7 @@ from tqdm import tqdm
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from typing import Union, Tuple, Optional
 from torchdr.utils import (
-    batch_transpose,
+    matrix_transpose,
     check_NaNs,
     entropy,
     false_position,
@@ -74,8 +74,8 @@ def _log_Pse(C, eps, mu, eps_square=False):
         The log of the unnormalized affinity matrix.
     """
     _eps = eps**2 if eps_square else eps
-    mu_t = batch_transpose(mu)
-    _eps_t = batch_transpose(_eps)
+    mu_t = matrix_transpose(mu)
+    _eps_t = matrix_transpose(_eps)
     return (mu + mu_t - 2 * C) / (_eps + _eps_t)
 
 
@@ -97,7 +97,7 @@ def _log_Pds(log_K, dual):
         or shape (n_batch, batch_size, batch_size)
         The log of the doubly stochastic normalization of log_K.
     """
-    dual_t = batch_transpose(dual)
+    dual_t = matrix_transpose(dual)
     return dual + dual_t + log_K
 
 

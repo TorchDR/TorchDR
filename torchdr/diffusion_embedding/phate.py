@@ -92,7 +92,9 @@ class PHATE(AffinityMatcher):
         affinity_in = NegPotentialAffinity(
             backend=backend, device=device, eps=eps, t=t, K=n_neighbors
         )
-        affinity_out = NegativeCostAffinity(backend=backend, device=device)
+        affinity_out = NegativeCostAffinity(
+            backend=backend, device=device, metric="sqeuclidean"
+        )
         loss_fn = "l2_loss"
         super().__init__(
             affinity_in=affinity_in,

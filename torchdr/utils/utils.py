@@ -438,7 +438,7 @@ def sum_matrix_vector(M, v, transpose=False):
         The sum of the matrix and vector.
     """
     if transpose:
-        v = batch_transpose(v)
+        v = matrix_transpose(v)
     return M + v
 
 
@@ -464,7 +464,7 @@ def prod_matrix_vector(M, v, transpose=False):
         The element-wise product of the matrix and vector.
     """
     if transpose:
-        v = batch_transpose(v)
+        v = matrix_transpose(v)
     return M * v
 
 
@@ -499,8 +499,8 @@ def identity_matrix(n, keops, device, dtype):
         return torch.eye(n, device=device, dtype=dtype)
 
 
-def batch_transpose(arg):
-    r"""Transpose a tensor or lazy tensor that can have a batch dimension.
+def matrix_transpose(arg):
+    r"""Transpose a tensor or lazy tensor matrix that can have a batch dimension.
 
     The batch dimension is the first, thus only the last two axis are transposed.
 
@@ -525,7 +525,7 @@ def batch_transpose(arg):
         return arg.transpose(-2, -1)
     else:
         raise ValueError(
-            f"[TorchDR] ERROR : Unsupported input type for batch_transpose function: {type(arg)}."
+            f"[TorchDR] ERROR : Unsupported input type for matrix_transpose function: {type(arg)}."
         )
 
 
@@ -551,36 +551,6 @@ def bool_arg(arg):
         return bool(np.asarray(arg).any())
     else:
         return bool(arg)
-
-
-def diffusion_from_affinity(affinity: Union[torch.Tensor, LazyTensorType]):
-    """Convert an affinity matrix to a diffusion matrix.
-
-    Computes the row-normalized version of the affinity matrix,
-    creating a diffusion operator where each row sums to 1.
-
-    Parameters
-    ----------
-    affinity : torch.Tensor or LazyTensor
-        Affinity matrix of shape ``(n, n)``.
-
-    Returns
-    -------
-    torch.Tensor or LazyTensor
-        Diffusion matrix of shape ``(n, n)`` with row sums equal to 1.
-    """
-    deg = sum_red(affinity, dim=1).squeeze()
-    inv_deg = deg.pow(-1)
-
-    if is_lazy_tensor(affinity):
-        # For KeOps LazyTensors, use keops_unsqueeze for proper broadcasting
-        inv_deg = keops_unsqueeze(inv_deg)
-    else:
-        # For torch tensors, use standard unsqueeze for row-wise broadcasting
-        inv_deg = inv_deg.unsqueeze(-1)
-
-    diffusion = affinity * inv_deg
-    return diffusion
 
 
 def apply_anisotropy(affinity: Union[torch.Tensor, LazyTensorType], anisotropy: float):
@@ -623,7 +593,7 @@ def apply_anisotropy(affinity: Union[torch.Tensor, LazyTensorType], anisotropy: 
     if is_lazy_tensor(affinity):
         # For KeOps LazyTensors, use keops_unsqueeze to properly handle broadcasting
         inv_deg_i = keops_unsqueeze(inv_deg)
-        inv_deg_j = batch_transpose(inv_deg_i)
+        inv_deg_j = matrix_transpose(inv_deg_i)
         inv_outer = inv_deg_i * inv_deg_j
     else:
         # For torch tensors, use standard broadcasting
@@ -687,13 +657,9 @@ def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
             elif power == 1:
                 return matrix
             else:
-                # Integer power: use repeated multiplication
-                result = matrix
-                for _ in range(power - 1):
-                    result = (result[:, :, None] * matrix[None, :, :]).sum_reduction(
-                        dim=1
-                    )
-                return result
+                raise NotImplementedError(
+                    "[TorchDR] ERROR: Non-integer matrix powers are not supported with KeOps backend."
+                )
         else:
             raise NotImplementedError(
                 "[TorchDR] ERROR: Non-integer matrix powers are not supported with KeOps backend."
