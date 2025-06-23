@@ -378,7 +378,9 @@ def test_affinity_out_none_requires_custom_loss():
     # Test that affinity_out=None requires a custom _loss method
     model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
     X = torch.rand(5, 2)
-    model._fit(X)
+    # Just do minimal setup needed for _loss() to be callable
+    model._init_embedding(X)
+    model.affinity_in_ = torch.rand(5, 5)  # Mock the fitted affinity
     with pytest.raises(ValueError, match="affinity_out is not set"):
         model._loss()
 
