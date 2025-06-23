@@ -169,14 +169,14 @@ class AffinityMatcher(DRModule):
                 raise ValueError(
                     "[TorchDR] ERROR : affinity_out must be an Affinity instance when not None."
                 )
-            if getattr(affinity_in, "sparsity", False) and isinstance(
-                self.affinity_out, UnnormalizedAffinity
+            if getattr(self.affinity_in, "sparsity", False) and isinstance(
+                affinity_out, UnnormalizedAffinity
             ):
                 warnings.warn(
                     "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
                     "when affinity_in is sparse. Setting sparsity = False in affinity_in."
                 )
-                affinity_in._sparsity = False  # turn off sparsity
+                self.affinity_in._sparsity = False  # turn off sparsity
             self.affinity_out = affinity_out
             self.kwargs_affinity_out = kwargs_affinity_out
 
