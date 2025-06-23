@@ -10,49 +10,23 @@ from typing import Tuple, Union, Optional
 import torch
 
 from torchdr.affinity.base import Affinity, LogAffinity
-from torchdr.utils import batch_transpose, kmin, logsumexp_red, sum_red, wrap_vectors
+from torchdr.utils import (
+    matrix_transpose,
+    kmin,
+    logsumexp_red,
+    sum_red,
+    wrap_vectors,
+)
 
 
 @wrap_vectors
 def _log_SelfTuning(C, sigma):
-    r"""Return the self-tuning affinity matrix with sample-wise bandwidth.
-
-    The bandwidth is determined by the distance from a point
-    to its K-th neirest neighbor in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
-    sigma_t = batch_transpose(sigma)
+    sigma_t = matrix_transpose(sigma)
     return -C / (sigma * sigma_t)
 
 
 @wrap_vectors
 def _log_MAGIC(C, sigma):
-    r"""Return the MAGIC affinity matrix with sample-wise bandwidth.
-
-    The bandwidth is determined by the distance from a point
-    to its K-th neirest neighbor in log domain.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        Pairwise distance matrix.
-    sigma : torch.Tensor of shape (n,)
-        Sample-wise bandwidth parameter.
-
-    Returns
-    -------
-    log_P : torch.Tensor or pykeops.torch.LazyTensor
-    """
     return -C / sigma
 
 
@@ -122,7 +96,7 @@ class SelfTuningAffinity(LogAffinity):
         """
         C, _ = self._distance_matrix(X)
 
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
 
@@ -136,10 +110,10 @@ class SelfTuningAffinity(LogAffinity):
 
 
 class MAGICAffinity(Affinity):
-    r"""Compute the MAGIC affinity introduced in :cite:`van2018recovering`.
+    r"""Compute the MAGIC affinity with alpha-decay kernel introduced in :cite:`van2018recovering`.
 
-    The construction is as follows. First, it computes a Gaussian
-    kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`.
+    The construction is as follows. First, it computes a generalized
+    kernel with sample-wise bandwidth :math:`\mathbf{\sigma} \in \mathbb{R}^n`:
 
     .. math::
         P_{ij} \leftarrow \exp \left( - \frac{C_{ij}}{\sigma_i} \right)
@@ -162,7 +136,7 @@ class MAGICAffinity(Affinity):
     Parameters
     ----------
     K : int, optional
-        K-th neirest neighbor .
+        K-th neirest neighbor. Default is 7.
     metric : str, optional
         Metric to use for pairwise distances computation.
     zero_diag : bool, optional
@@ -209,12 +183,10 @@ class MAGICAffinity(Affinity):
         """
         C, _ = self._distance_matrix(X)
 
-        minK_values, minK_indices = kmin(C, k=self.K, dim=1)
+        minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
         affinity_matrix = _log_MAGIC(C, self.sigma_).exp()
-        affinity_matrix = (affinity_matrix + batch_transpose(affinity_matrix)) / 2
-
-        self.normalization_ = sum_red(affinity_matrix, 1)
-        affinity_matrix = affinity_matrix / self.normalization_
+        affinity_matrix = (affinity_matrix + matrix_transpose(affinity_matrix)) / 2
+        affinity_matrix = affinity_matrix / sum_red(affinity_matrix, dim=1)
 
         return affinity_matrix

@@ -92,7 +92,9 @@ def keops_unsqueeze(arg):
             arg.unsqueeze(-1).unsqueeze(-1)
         )  # specifying to KeOps that we have a batch dimension
     else:
-        raise ValueError("Unsupported input shape for keops_unsqueeze function.")
+        raise ValueError(
+            "[TorchDR] ERROR : Unsupported input shape for keops_unsqueeze function."
+        )
 
 
 def wrap_vectors(func):

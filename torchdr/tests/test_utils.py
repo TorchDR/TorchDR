@@ -27,6 +27,8 @@ from torchdr.utils import (
     ManifoldParameter,
     EuclideanManifold,
     PoincareBallManifold,
+    matrix_power,
+    identity_matrix,
 )
 
 lst_types = [torch.double, torch.float]
@@ -1056,3 +1058,88 @@ class TestPoincareBallManifold:
         torch.testing.assert_close(
             constraint, expected_constraint, rtol=1e-4, atol=1e-5
         )
+
+
+# ====== test matrix_power function ======
+
+
+cases = [
+    # Dense backend (torch.Tensor)
+    pytest.param(False, 0, None, id="dense_pow0"),
+    pytest.param(False, 1, None, id="dense_pow1"),
+    pytest.param(False, 3, None, id="dense_pow3"),
+    pytest.param(False, 2.5, None, id="dense_pow2.5"),
+    pytest.param(
+        False,
+        -1,
+        (ValueError, r"Negative matrix powers are not supported"),
+        id="dense_neg",
+    ),
+    # KeOps‐lazy backend (LazyTensor) - not supported
+    pytest.param(
+        True,
+        0,
+        (
+            NotImplementedError,
+            r"matrix powers are not supported with KeOps backend",
+        ),
+        marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
+        id="lazy_pow0",
+    ),
+    pytest.param(
+        True,
+        2,
+        (
+            NotImplementedError,
+            r"matrix powers are not supported with KeOps backend",
+        ),
+        marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
+        id="lazy_pow2",
+    ),
+    pytest.param(
+        True,
+        2.5,
+        (
+            NotImplementedError,
+            r"matrix powers are not supported with KeOps backend",
+        ),
+        marks=pytest.mark.skipif(not pykeops, reason="pykeops is not available"),
+        id="lazy_pow2.5",
+    ),
+]
+
+
+@pytest.mark.parametrize("use_lazy,power,exc", cases)
+def test_matrix_power(use_lazy, power, exc):
+    """Combined float32 tests for dense and KeOps‐lazy matrix_power."""
+    dtype = torch.float32
+
+    if use_lazy:
+        A = identity_matrix(3, keops=True, device="cpu", dtype=dtype)
+    else:
+        A = torch.randn(3, 3, dtype=dtype)
+        A = A @ A.T + torch.eye(3, dtype=dtype) * 0.1
+
+    if exc:
+        err_type, msg = exc
+        with pytest.raises(err_type, match=msg):
+            matrix_power(A, power)
+        return
+
+    result = matrix_power(A, power)
+
+    if not use_lazy:
+        # dense: integer vs float
+        if power == int(power):
+            ip = int(power)
+            if ip == 0:
+                expected = torch.eye(3, dtype=dtype)
+            elif ip == 1:
+                expected = A
+            else:
+                expected = torch.linalg.matrix_power(A, ip)
+        else:
+            vals, vecs = torch.linalg.eigh(A)
+            vals = torch.clamp(vals, min=1e-12) ** power
+            expected = vecs @ torch.diag_embed(vals) @ vecs.transpose(-2, -1)
+        torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-6)

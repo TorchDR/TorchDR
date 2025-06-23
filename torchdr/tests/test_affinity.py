@@ -31,6 +31,8 @@ from torchdr.affinity import (
     NegativeCostAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
+    PACMAPAffinity,
+    PHATEAffinity,
     ScalarProductAffinity,
     SelfTuningAffinity,
     SinkhornAffinity,
@@ -39,7 +41,6 @@ from torchdr.affinity import (
     SymmetricEntropicAffinity,
     UMAPAffinityIn,
     UMAPAffinityOut,
-    PACMAPAffinity,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
@@ -203,6 +204,7 @@ def test_magic_affinity(dtype, metric):
 
     list_P = []
     for backend in lst_backend:
+        # Test MAGIC affinity
         affinity = MAGICAffinity(device=DEVICE, backend=backend, metric=metric)
         P = affinity(X)
         list_P.append(P)
@@ -505,3 +507,28 @@ def test_pacmap_affinity(dtype, metric, backend):
         f"Expected rho_ shape {(n,)}, got {affinity.rho_.shape}"
     )
     assert torch.all(affinity.rho_ > 0), "rho_ values should be positive"
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
+def test_phate_affinity(dtype, metric):
+    n = 50
+    X, _ = toy_dataset(n, dtype)
+
+    # PHATE doesn't support keops/faiss backends, so we only test with None backend
+    affinity = PHATEAffinity(
+        device=DEVICE, backend=None, metric=metric, k=5, alpha=2.0, t=3
+    )
+    P = affinity(X)
+
+    # -- check properties of the affinity matrix --
+    check_type(P, False)  # backend is always None, so LazyTensor is False
+    check_shape(P, (n, n))
+    check_symmetry(P)
+
+    # Check that sigma_ was computed
+    assert hasattr(affinity, "sigma_"), "sigma_ attribute not found"
+    assert affinity.sigma_.shape == (n,), (
+        f"Expected sigma_ shape {(n,)}, got {affinity.sigma_.shape}"
+    )
+    assert torch.all(affinity.sigma_ > 0), "sigma_ values should be positive"

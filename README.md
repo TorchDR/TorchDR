@@ -115,7 +115,6 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 
 `TorchDR` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
-- Usual affinities: [`ScalarProductAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.ScalarProductAffinity.html), [`GaussianAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.GaussianAffinity.html), [`StudentAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.StudentAffinity.html) [`CauchyAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.CauchyAffinity.html).
 - Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html).
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
 - Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).

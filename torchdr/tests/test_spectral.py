@@ -8,8 +8,17 @@ import torch
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
 from torchdr.affinity import GaussianAffinity, SinkhornAffinity
-from torchdr.spectral import KernelPCA
 from torchdr.utils import pykeops
+
+from torchdr import KernelPCA, PHATE
+
+from torchdr.tests.utils import toy_dataset
+
+
+DEVICES = ["cpu"]
+USE_KEOPS = [False]
+if pykeops:
+    USE_KEOPS.append(True)
 
 
 @pytest.mark.parametrize("n_components", [3, None])
@@ -66,3 +75,20 @@ def test_KernelPCA_no_transform():
 def test_KernelPCA_keops():
     with pytest.raises(NotImplementedError):
         KernelPCA(backend="keops")
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_phate(device):
+    torch.autograd.set_detect_anomaly(True)
+    data, _ = toy_dataset()
+    data = torch.tensor(data, dtype=torch.float32)
+    data = data.to(device)
+    # PHATE only supports backend=None since it uses NegPotentialAffinity
+    phate = PHATE(backend=None, device=device)
+    embedding = phate.fit_transform(data)
+    assert embedding.shape == (data.shape[0], 2)
+
+    # Test that faiss and keops backend raises an error from PHATE class
+    with pytest.raises(ValueError):
+        PHATE(backend="faiss", device=device)
+        PHATE(backend="keops", device=device)

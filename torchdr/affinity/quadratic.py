@@ -11,30 +11,12 @@ import torch
 from tqdm import tqdm
 
 from torchdr.affinity import Affinity
-from torchdr.utils import batch_transpose, check_NaNs, wrap_vectors
+from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors
 
 
 @wrap_vectors
 def _Pds(C, dual, eps):
-    r"""Return the quadratic doubly stochastic matrix from dual variable and cost.
-
-    Parameters
-    ----------
-    C : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        or shape (n_batch, batch_size, batch_size)
-        Pairwise distance matrix.
-    dual : torch.Tensor of shape (n) or (n_batch, batch_size)
-        Dual variable of the normalization constraint.
-    eps : float
-        Dual variable of the quadratic constraint.
-
-    Returns
-    -------
-    P : torch.Tensor or pykeops.torch.LazyTensor of shape (n, n)
-        or shape (n_batch, batch_size, batch_size)
-        Quadratic doubly stochastic affinity matrix.
-    """
-    dual_t = batch_transpose(dual)
+    dual_t = matrix_transpose(dual)
     return (dual + dual_t - C).clamp(0, float("inf")) / eps
 
 

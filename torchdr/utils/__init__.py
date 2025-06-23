@@ -17,7 +17,7 @@ from .faiss import faiss
 from .root_search import binary_search, false_position
 from .utils import (
     seed_everything,
-    batch_transpose,
+    matrix_transpose,
     center_kernel,
     cross_entropy_loss,
     entropy,
@@ -30,6 +30,8 @@ from .utils import (
     sum_red,
     svd_flip,
     bool_arg,
+    matrix_power,
+    identity_matrix,
 )
 from .validation import (
     check_entropy,
@@ -104,7 +106,7 @@ __all__ = [
     "to_torch",
     "torch_to_backend",
     "handle_type",
-    "batch_transpose",
+    "matrix_transpose",
     "handle_keops",
     "faiss",
     "bool_arg",
@@ -114,4 +116,6 @@ __all__ = [
     "EuclideanManifold",
     "PoincareBallManifold",
     "RiemannianAdam",
+    "matrix_power",
+    "identity_matrix",
 ]
