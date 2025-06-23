@@ -18,12 +18,9 @@ class PHATE(AffinityMatcher):
     n_components : int, optional
         Dimension of the embedding space. Default is 2.
     t : int, optional
-        Diffusion time parameter. Default is 5.
+        Diffusion time parameter. Default is 100.
     alpha : float, optional
         Exponent for the alpha-decay kernel. Default is 10.0.
-    backend : {"keops", None}, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "Adam".
@@ -37,7 +34,7 @@ class PHATE(AffinityMatcher):
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-7.
+        Tolerance for stopping criterion. Default is 1e-15.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, torch.Tensor, or np.ndarray, optional
@@ -46,7 +43,7 @@ class PHATE(AffinityMatcher):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", None}, optional
+    backend : {"None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
     verbose : bool, optional
@@ -61,24 +58,23 @@ class PHATE(AffinityMatcher):
         self,
         k: int = 5,
         n_components: int = 2,
-        t: int = 5,
+        t: int = 100,
         alpha: float = 10.0,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = {},
         lr: float = 1e0,
         scheduler: Optional[str] = None,
         scheduler_kwargs: dict = {},
-        min_grad_norm: float = 1e-7,
+        min_grad_norm: float = 1e-15,
         max_iter: int = 1000,
         init: str = "pca",
-        init_scaling: float = 1.0,
+        init_scaling: float = 1e-4,
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
         metric_in: str = "euclidean",
-        metric_out: str = "euclidean",
     ):
         if backend == "faiss" or backend == "keops":
             raise ValueError(
@@ -86,7 +82,6 @@ class PHATE(AffinityMatcher):
             )
 
         self.metric_in = metric_in
-        self.metric_out = metric_out
         self.k = k
         self.t = t
         self.alpha = alpha
@@ -100,7 +95,7 @@ class PHATE(AffinityMatcher):
             device=device,
         )
         affinity_out = NegativeCostAffinity(
-            backend=backend, device=device, metric=metric_out
+            backend=backend, device=device, metric="sqeuclidean"
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -123,7 +118,8 @@ class PHATE(AffinityMatcher):
         )
 
     def _loss(self):
-        Q = self.affinity_out(self.embedding_)
-        loss = square_loss(self.PX_, Q)
-        loss = loss / (self.PX_**2).sum()
+        Q = (
+            -(-self.affinity_out(self.embedding_)).clamp(min=1e-12).sqrt()
+        )  # for numerical stability
+        loss = square_loss(self.PX_, Q) / (self.PX_**2).sum()
         return loss.sqrt()

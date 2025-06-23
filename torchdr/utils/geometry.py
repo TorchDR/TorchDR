@@ -146,7 +146,7 @@ def _pairwise_distances_torch(
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
     elif metric == "euclidean":
         C = X_norm.unsqueeze(-1) + Y_norm.unsqueeze(-2) - 2 * (X @ Y.transpose(-1, -2))
-        C = C.clamp(min=1e-12)
+        C = C.clamp(min=0)
         C = C.sqrt()
     elif metric == "manhattan":
         # Note: This will create a large intermediate tensor with shape (n, m, d).
