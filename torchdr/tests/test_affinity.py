@@ -29,7 +29,7 @@ from torchdr.affinity import (
     GaussianAffinity,
     MAGICAffinity,
     NegativeCostAffinity,
-    NegPotentialAffinity,
+    PotentialAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
     PACMAPAffinity,
@@ -569,9 +569,9 @@ def test_neg_potential_affinity(dtype, metric):
     n = 30  # Use smaller n for efficiency since this is computationally intensive
     X, _ = toy_dataset(n, dtype)
 
-    # Test with only None backend since NegPotentialAffinity doesn't support keops or faiss
+    # Test with only None backend since PotentialAffinity doesn't support keops or faiss
     backend = None
-    affinity = NegPotentialAffinity(
+    affinity = PotentialAffinity(
         metric=metric,
         device=DEVICE,
         backend=backend,
@@ -592,24 +592,24 @@ def test_neg_potential_affinity(dtype, metric):
     # Check that diagonal is zero (as specified in the class)
     diagonal = P.diag() if hasattr(P, "diag") else torch.diag(P)
     assert torch.allclose(diagonal, torch.zeros_like(diagonal), atol=1e-6), (
-        "Diagonal should be zero for NegPotentialAffinity"
+        "Diagonal should be zero for PotentialAffinity"
     )
 
     # Check that the matrix contains negative values (negative potential distances)
-    assert P.min() < 0, "NegPotentialAffinity should contain negative values"
+    assert P.min() < 0, "PotentialAffinity should contain negative values"
 
     # Test that keops backend raises an error
     with pytest.raises(ValueError, match="class does not support backend keops"):
-        NegPotentialAffinity(backend="keops")
+        PotentialAffinity(backend="keops")
 
     # Test that faiss backend raises an error
     with pytest.raises(ValueError, match="class does not support backend faiss"):
-        NegPotentialAffinity(backend="faiss")
+        PotentialAffinity(backend="faiss")
 
     # Test with different parameter combinations to ensure they produce different results
     list_P_params = []
     for t, anisotropy in [(2, 0.0), (5, 0.5)]:
-        affinity = NegPotentialAffinity(
+        affinity = PotentialAffinity(
             metric=metric,
             device=DEVICE,
             backend=None,  # Use default backend for parameter testing
