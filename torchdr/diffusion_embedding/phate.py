@@ -1,8 +1,16 @@
+"""PHATE algorithm."""
+
+# Author: Guillaume Huguet @guillaumehu
+#         Danqi Liao @Danqi7
+#         Hugues Van Assel @huguesva
+#
+# License: BSD 3-Clause License
+
 from typing import Optional
 
-from torchdr.affinity import NegativeCostAffinity, PHATEAffinity
+from torchdr.affinity import PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import square_loss
+from torchdr.utils import square_loss, pairwise_distances
 
 
 class PHATE(AffinityMatcher):
@@ -94,12 +102,9 @@ class PHATE(AffinityMatcher):
             backend=backend,
             device=device,
         )
-        affinity_out = NegativeCostAffinity(
-            backend=backend, device=device, metric="sqeuclidean"
-        )
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -119,7 +124,11 @@ class PHATE(AffinityMatcher):
 
     def _loss(self):
         Q = (
-            -(-self.affinity_out(self.embedding_)).clamp(min=1e-12).sqrt()
+            -pairwise_distances(
+                self.embedding_, metric="sqeuclidean", backend=self.backend
+            )[0]
+            .clamp(min=1e-12)
+            .sqrt()
         )  # for numerical stability
         loss = square_loss(self.PX_, Q) / (self.PX_**2).sum()
         return loss.sqrt()

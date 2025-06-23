@@ -7,8 +7,8 @@
 import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type
-from torchdr.affinity import NegativeCostAffinity, PACMAPAffinity
-from torchdr.utils import kmax, sum_red
+from torchdr.affinity import PACMAPAffinity
+from torchdr.utils import kmin, sum_red, symmetric_pairwise_distances_indices
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -116,15 +116,10 @@ class PACMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
         )
-        affinity_out = NegativeCostAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
 
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -142,11 +137,6 @@ class PACMAP(SampledNeighborEmbedding):
             check_interval=check_interval,
             n_negatives=self.n_further,
         )
-        self.mid_near_input_affinity = NegativeCostAffinity(
-            metric=metric_in,
-            device=device,
-            verbose=False,
-        )  # To compute 2nd closest when finding mid-near points
 
     def _fit(self, X: torch.Tensor):
         self.X_ = X  # Keep input data to compute mid-near loss
@@ -175,8 +165,11 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _attractive_loss(self):
         # Attractive loss with nearest neighbors
-        D_tilde_near = 1 - self.affinity_out(  # Distance is negative affinity
-            self.embedding_, indices=self.NN_indices_
+        D_tilde_near = (
+            1
+            + symmetric_pairwise_distances_indices(
+                self.embedding_, indices=self.NN_indices_, metric=self.metric_out
+            )[0]
         )
         Q_near = D_tilde_near / (1e1 + D_tilde_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
@@ -208,14 +201,17 @@ class PACMAP(SampledNeighborEmbedding):
                     self_idxs, mid_near_candidates_indices, right=True
                 )
                 mid_near_candidates_indices += shifts
-                A_mid_near_candidates = self.mid_near_input_affinity(
-                    self.X_, indices=mid_near_candidates_indices
-                )
-                _, idxs = kmax(A_mid_near_candidates, k=2, dim=1)
+                D_mid_near_candidates = symmetric_pairwise_distances_indices(
+                    self.X_, indices=mid_near_candidates_indices, metric=self.metric_in
+                )[0]
+                _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
 
-            D_tilde_mid_near = 1 - self.affinity_out(  # Distance is negative affinity
-                self.embedding_, indices=mid_near_indices
+            D_tilde_mid_near = (
+                1
+                + symmetric_pairwise_distances_indices(
+                    self.embedding_, indices=mid_near_indices, metric=self.metric_out
+                )[0]
             )
             Q_mid_near = D_tilde_mid_near / (1e4 + D_tilde_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
@@ -226,6 +222,11 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _repulsive_loss(self):
         indices = self._sample_negatives(discard_NNs=True)
-        D_tilde_further = 1 - self.affinity_out(self.embedding_, indices=indices)
+        D_tilde_further = (
+            1
+            + symmetric_pairwise_distances_indices(
+                self.embedding_, metric=self.metric_out, indices=indices
+            )[0]
+        )
         Q_further = 1 / (1 + D_tilde_further)
         return self.w_FP * sum_red(Q_further, dim=(0, 1))
