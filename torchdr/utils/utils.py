@@ -100,26 +100,6 @@ def square_loss(P, Q):
     return sum_red((P - Q) ** 2, dim=(0, 1))
 
 
-def l2_loss(P, Q):
-    r"""Compute the L2 (Euclidean) loss between two tensors.
-
-    Computes the square root of the squared Euclidean loss.
-
-    Parameters
-    ----------
-    P : torch.Tensor or LazyTensor
-        First tensor of shape ``(n, m)``.
-    Q : torch.Tensor or LazyTensor
-        Second tensor of shape ``(n, m)``.
-
-    Returns
-    -------
-    torch.Tensor or LazyTensor
-        The L2 loss value.
-    """
-    return (square_loss(P, Q)).sqrt()
-
-
 def entropy(P, log=True, dim=1):
     r"""Compute the Shannon entropy of a probability distribution.
 

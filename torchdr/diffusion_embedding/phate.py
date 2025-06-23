@@ -2,6 +2,7 @@ from typing import Optional
 
 from torchdr.affinity import NegativeCostAffinity, PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.utils import square_loss
 
 
 class PHATE(AffinityMatcher):
@@ -77,7 +78,7 @@ class PHATE(AffinityMatcher):
         random_state: Optional[float] = None,
         check_interval: int = 50,
         metric_in: str = "euclidean",
-        metric_out: str = "sqeuclidean",
+        metric_out: str = "euclidean",
     ):
         if backend == "faiss" or backend == "keops":
             raise ValueError(
@@ -101,12 +102,10 @@ class PHATE(AffinityMatcher):
         affinity_out = NegativeCostAffinity(
             backend=backend, device=device, metric=metric_out
         )
-        loss_fn = "l2_loss"
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
             n_components=n_components,
-            loss_fn=loss_fn,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
             lr=lr,
@@ -122,3 +121,9 @@ class PHATE(AffinityMatcher):
             random_state=random_state,
             check_interval=check_interval,
         )
+
+    def _loss(self):
+        Q = self.affinity_out(self.embedding_)
+        loss = square_loss(self.PX_, Q)
+        loss = loss / (self.PX_**2).sum()
+        return loss.sqrt()
