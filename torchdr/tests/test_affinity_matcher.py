@@ -247,7 +247,7 @@ def test_loss_with_different_functions():
         loss_fn="square_loss",
     )
     model_square._init_embedding(X)
-    model_square.PX_ = torch.rand(5, 5)
+    model_square.affinity_in_ = torch.rand(5, 5)
     loss = model_square._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -258,7 +258,7 @@ def test_loss_with_different_functions():
         loss_fn="cross_entropy_loss",
     )
     model_ce._init_embedding(X)
-    model_ce.PX_ = torch.rand(5, 5)
+    model_ce.affinity_in_ = torch.rand(5, 5)
     loss = model_ce._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -269,7 +269,7 @@ def test_loss_with_different_functions():
         loss_fn="cross_entropy_loss",
     )
     model_ce_log._init_embedding(X)
-    model_ce_log.PX_ = torch.rand(5, 5)
+    model_ce_log.affinity_in_ = torch.rand(5, 5)
     loss = model_ce_log._loss()
     assert isinstance(loss, torch.Tensor)
 
@@ -329,8 +329,8 @@ def test_precomputed_affinity():
         max_iter=2,  # Small value for quick test
     )
     model.fit_transform(X_affinity)
-    assert hasattr(model, "PX_")
-    assert model.PX_ is X_affinity
+    assert hasattr(model, "affinity_in_")
+    assert model.affinity_in_ is X_affinity
 
 
 def test_sparse_affinity_with_indices():
