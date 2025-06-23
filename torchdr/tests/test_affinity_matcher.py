@@ -24,8 +24,9 @@ def test_invalid_loss_fn():
 
 
 def test_invalid_affinity_out():
+    # Test that affinity_out must be an Affinity instance when not None
     with pytest.raises(ValueError):
-        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out="invalid_affinity")
 
 
 def test_invalid_affinity_in():
@@ -366,3 +367,49 @@ def test_after_step():
     )
     # Just ensure it doesn't raise an error
     model._after_step()
+
+
+def test_affinity_out_none_requires_custom_loss():
+    # Test that affinity_out=None requires a custom _loss method
+    model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+    X = torch.rand(5, 2)
+    model._fit(X)
+    with pytest.raises(ValueError, match="affinity_out is not set"):
+        model._loss()
+
+
+def test_affinity_out_none_with_custom_loss():
+    # Test that affinity_out=None works with custom _loss method
+    class CustomAffinityMatcher(AffinityMatcher):
+        def _loss(self):
+            # Simple custom loss that doesn't use affinity_out
+            return torch.tensor(1.0, requires_grad=True)
+
+    model = CustomAffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+    X = torch.rand(5, 2)
+    model._fit(X)
+    loss = model._loss()
+    assert isinstance(loss, torch.Tensor)
+    assert loss.requires_grad
+
+
+def test_affinity_out_none_default():
+    # Test that affinity_out defaults to None when not specified
+    model = AffinityMatcher(affinity_in=GaussianAffinity())
+    assert model.affinity_out is None
+
+
+def test_affinity_out_invalid_type():
+    # Test that affinity_out must be an Affinity instance when not None
+    with pytest.raises(ValueError, match="affinity_out must be an Affinity instance"):
+        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=42)
+
+
+def test_affinity_out_none_fit_without_custom_loss():
+    # Test that fitting with affinity_out=None fails if no custom _loss is provided
+    model = AffinityMatcher(
+        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=1
+    )
+    X = torch.rand(5, 2)
+    with pytest.raises(ValueError, match="affinity_out is not set"):
+        model.fit_transform(X)

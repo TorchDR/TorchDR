@@ -60,8 +60,9 @@ class AffinityMatcher(DRModule):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity
-        The affinity object for the output embedding space.
+    affinity_out : Affinity, optional
+        The affinity object for the output embedding space. Default is None.
+        When None, a custom _loss method must be implemented.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
