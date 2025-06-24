@@ -76,7 +76,7 @@ Affinities
 ----------
 
 Affinities are the essential building blocks of dimensionality reduction methods.
-TorchDR provides a wide range of affinities, including basic ones such as :class:`GaussianAffinity <torchdr.GaussianAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
+TorchDR provides a wide range of affinities. See :ref:`api_and_modules` for a complete list.
 
 Base structure
 ^^^^^^^^^^^^^^
