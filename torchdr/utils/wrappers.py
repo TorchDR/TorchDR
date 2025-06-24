@@ -63,6 +63,9 @@ def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs
 
 def torch_to_backend(x, backend="torch", device="cpu"):
     """Convert a torch tensor to specified backend and device."""
+    if not isinstance(x, torch.Tensor):
+        return x  # Return as is if not a tensor
+
     if backend == "numpy":
         return x.detach().cpu().numpy()
     else:
