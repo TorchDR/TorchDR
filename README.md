@@ -150,7 +150,6 @@ pip install torchdr
     ```bash
     pip install pykeops
     ```
-    You can also install it as an extra with `torchdr`: `pip install torchdr[keops]`.
 
 ### Installation from Source
 
