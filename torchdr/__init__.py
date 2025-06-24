@@ -31,6 +31,7 @@ from .affinity import (
     UMAPAffinityIn,
     UMAPAffinityOut,
     PHATEAffinity,
+    PACMAPAffinity,
 )
 from .affinity_matcher import AffinityMatcher
 
@@ -104,4 +105,5 @@ __all__ = [
     "silhouette_score",
     "PHATE",
     "PHATEAffinity",
+    "PACMAPAffinity",
 ]
