@@ -434,8 +434,3 @@ class AffinityMatcher(DRModule):
             )
 
         return self.embedding_.requires_grad_()
-
-    def _get_init_mock_or_embedding(self, X: torch.Tensor):
-        if isinstance(self.init, (torch.Tensor, np.ndarray)):
-            return self.init
-        return self.init_
