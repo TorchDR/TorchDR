@@ -251,7 +251,17 @@ class SparseLogAffinity(LogAffinity):
             verbose=verbose,
             random_state=random_state,
         )
-        self.sparsity = bool_arg(sparsity)
+        self._sparsity = bool_arg(sparsity)
+
+    @property
+    def sparsity(self):
+        """Return the sparsity of the affinity matrix."""
+        return self._sparsity
+
+    @sparsity.setter
+    def sparsity(self, value):
+        """Set the sparsity of the affinity matrix."""
+        self._sparsity = bool_arg(value)
 
     def __call__(
         self,

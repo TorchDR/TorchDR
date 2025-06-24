@@ -173,7 +173,7 @@ class AffinityMatcher(DRModule):
                     "affinity_out must be a UnnormalizedAffinity "
                     "when affinity_in is sparse. Setting sparsity = False in affinity_in."
                 )
-                self.affinity_in._sparsity = False  # turn off sparsity
+                self.affinity_in.sparsity = False  # turn off sparsity
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
