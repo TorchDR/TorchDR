@@ -68,7 +68,8 @@ test = [
     "coverage",
     "numpydoc",
     "pytest-cov",
-    "codecov"
+    "codecov",
+    "matplotlib"
 ]
 
 keops = [
