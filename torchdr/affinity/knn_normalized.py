@@ -35,6 +35,16 @@ def _log_MAGIC(C, sigma):
     return -C / sigma
 
 
+@wrap_vectors
+def _log_Pumap(C, rho, sigma):
+    return -(C - rho) / sigma
+
+
+@wrap_vectors
+def _log_PHATE(C, sigma, alpha=10.0):
+    return -((C / sigma) ** alpha)
+
+
 class SelfTuningAffinity(LogAffinity):
     r"""Self-tuning affinity introduced in :cite:`zelnik2004self`.
 
@@ -197,11 +207,6 @@ class MAGICAffinity(Affinity):
         return affinity_matrix
 
 
-@wrap_vectors
-def _log_P(C, sigma, alpha=10.0):
-    return -((C / sigma) ** alpha)
-
-
 class PHATEAffinity(Affinity):
     r"""Compute the potential affinity used in PHATE :cite:`moon2019visualizing`.
 
@@ -217,7 +222,7 @@ class PHATEAffinity(Affinity):
 
     Parameters
     ----------
-    metric : str, optional (default="sqeuclidean")
+    metric : str, optional (default="euclidean")
         Metric to use for pairwise distances computation.
     device : str, optional (default=None)
         Device to use for computations. If None, uses the device of input data.
@@ -235,7 +240,7 @@ class PHATEAffinity(Affinity):
 
     def __init__(
         self,
-        metric: str = "sqeuclidean",
+        metric: str = "euclidean",
         device: str = None,
         backend: Optional[str] = None,
         verbose: bool = False,
@@ -265,7 +270,7 @@ class PHATEAffinity(Affinity):
 
         minK_values, _ = kmin(C, k=self.k, dim=1)
         self.sigma_ = minK_values[:, -1]
-        affinity = _log_P(C, self.sigma_, self.alpha).exp()
+        affinity = _log_PHATE(C, self.sigma_, self.alpha).exp()
         affinity = (affinity + matrix_transpose(affinity)) / 2
         affinity = affinity / sum_red(affinity, dim=1)
         affinity = matrix_power(affinity, self.t)
@@ -273,17 +278,6 @@ class PHATEAffinity(Affinity):
             -affinity.clamp(min=1e-12).log(), metric="euclidean", backend=self.backend
         )[0]
         return affinity
-
-
-@wrap_vectors
-def _log_Pumap(C, rho, sigma):
-    r"""Return the log of the input affinity matrix used in UMAP."""
-    return -(C - rho) / sigma
-
-
-@wrap_vectors
-def _log_affinity_to_kernel(log_affinity_matrix: torch.Tensor):
-    return log_affinity_matrix
 
 
 class UMAPAffinityIn(SparseLogAffinity):

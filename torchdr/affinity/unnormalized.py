@@ -78,7 +78,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         self.sigma = sigma
 
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        return -((C / self.sigma) ** 2)
+        return -C / self.sigma
 
 
 class StudentAffinity(UnnormalizedLogAffinity):
