@@ -22,7 +22,7 @@ class PHATE(AffinityMatcher):
 
     .. math::
 
-        \sqrt{\sum_{i,j} (P_{ij} - \|z_i - z_j\|)^2 / \sum_{i,j} P_{ij}^2} \:.
+        \sqrt{\sum_{i,j} (P_{ij} - \|\mathbf{z}_i - \mathbf{z}_j\|)^2 / \sum_{i,j} P_{ij}^2} \:.
 
     Parameters
     ----------
