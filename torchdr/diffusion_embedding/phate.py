@@ -16,8 +16,13 @@ from torchdr.utils import square_loss, pairwise_distances
 class PHATE(AffinityMatcher):
     r"""Implementation of PHATE introduced in :cite:`moon2019visualizing`.
 
-    PHATE is a diffusion map-based method that uses a potential distance
-    matrix to embed the data.
+    PHATE is a diffusion map-based method that uses a potential affinity matrix :math:`\mathbf{P}` implemented in :class:`~torchdr.PHATEAffinity` as input.
+
+    The loss function is defined as:
+
+    .. math::
+
+        \sqrt{\sum_{i,j} (P_{ij} - \|z_i - z_j\|)^2 / \sum_{i,j} P_{ij}^2} \:.
 
     Parameters
     ----------
