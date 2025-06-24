@@ -8,7 +8,6 @@ import torch
 from torch.testing import assert_close
 
 from .keops import is_lazy_tensor, pykeops
-from .utils import entropy
 
 
 def check_NaNs(input, msg=None):
@@ -152,6 +151,8 @@ def check_total_sum(P, total_sum, tol=1e-5):
 
 def check_entropy(P, entropy_target, dim=1, tol=1e-5, log=True):
     """Check if a torch.Tensor or LazyTensor has the correct entropy along axis dim."""
+    from .utils import entropy
+
     assert_close(
         entropy(P, log=log, dim=dim),
         entropy_target,
@@ -163,6 +164,8 @@ def check_entropy(P, entropy_target, dim=1, tol=1e-5, log=True):
 
 def check_entropy_lower_bound(P, entropy_target, dim=1, log=True):
     """Check if a torch.Tensor or LazyTensor has the correct entropy along axis dim."""
+    from .utils import entropy
+
     H = entropy(P, log=log, dim=dim)
     assert ((H - entropy_target) >= 0).all(), "Matrix entropy is lower than the target."
 
@@ -227,3 +230,81 @@ def check_neighbor_param(n_neighbors, n_samples):
 
     else:
         return n_neighbors
+
+
+def check_array(
+    array,
+    accept_sparse=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    ensure_2d=True,
+    to_tensor=True,
+    device=None,
+):
+    """Input validation on an array, list, or tensor.
+
+    This function is a PyTorch-centric equivalent of scikit-learn's
+    check_array utility.
+
+    Parameters
+    ----------
+    array : object
+        Input object to check / convert.
+    accept_sparse : bool, default=False
+        Whether to accept sparse matrices.
+    ensure_min_samples : int, default=1
+        Make sure that the array has at least `ensure_min_samples` samples.
+    ensure_min_features : int, default=1
+        Make sure that the array has at least `ensure_min_features` features.
+    ensure_2d : bool, default=True
+        Whether to raise an error if the array is not 2D.
+    to_tensor : bool, default=True
+        Whether to convert the input to a torch.Tensor.
+    device : str, default=None
+        Device to which the tensor is moved.
+
+    Returns
+    -------
+    array_converted : torch.Tensor
+        The converted and validated array.
+    """
+    if not to_tensor:
+        raise ValueError(
+            "torchdr.utils.validation.check_array only supports tensor output."
+        )
+
+    if not isinstance(array, torch.Tensor):
+        try:
+            array = torch.as_tensor(array)
+        except (TypeError, ValueError):
+            raise ValueError("Input could not be converted to a tensor.")
+
+    if device is not None:
+        array = array.to(device)
+
+    if not accept_sparse and array.is_sparse:
+        raise ValueError("Sparse matrices are not accepted.")
+
+    if ensure_2d:
+        if array.ndim == 0:
+            raise ValueError("Expected 2D array, got scalar array instead.")
+        elif array.ndim == 1:
+            array = array.reshape(-1, 1)
+
+    if array.ndim != 2:
+        raise ValueError(f"Expected 2D array, got {array.ndim}D array instead.")
+
+    n_samples, n_features = array.shape
+    if n_samples < ensure_min_samples:
+        raise ValueError(
+            f"Found array with {n_samples} samples, but a minimum of "
+            f"{ensure_min_samples} is required."
+        )
+
+    if n_features < ensure_min_features:
+        raise ValueError(
+            f"Found array with {n_features} features, but a minimum of "
+            f"{ensure_min_features} is required."
+        )
+
+    return array

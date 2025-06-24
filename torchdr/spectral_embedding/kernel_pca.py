@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Union
+from typing import Union, Any, Optional
 
 import numpy as np
 import torch
@@ -53,6 +53,7 @@ class KernelPCA(DRModule):
         verbose: bool = False,
         random_state: float = None,
         nodiag: bool = False,
+        **kwargs,
     ):
         super().__init__(
             n_components=n_components,
@@ -60,6 +61,7 @@ class KernelPCA(DRModule):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            **kwargs,
         )
 
         self.affinity = affinity
@@ -157,13 +159,15 @@ class KernelPCA(DRModule):
             result[:, zero_eigvals] = 0
         return result
 
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         r"""Fit the KernelPCA model and project the input data onto the components.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which to fit the KernelPCA model and project onto the components.
+        y : Optional[Any], default=None
+            Ignored in this method.
 
         Returns
         -------

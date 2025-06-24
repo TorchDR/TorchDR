@@ -17,7 +17,7 @@ from torchdr.utils import (
     to_torch,
 )
 
-from typing import Union
+from typing import Union, Any
 
 
 class IncrementalPCA(DRModule):
@@ -56,6 +56,10 @@ class IncrementalPCA(DRModule):
         Defaults to 4.
     device : str, optional
         Device on which the computations are performed. Defaults to "auto".
+    random_state : float, optional
+        Random state for reproducibility. Defaults to None.
+    **kwargs : dict
+        Additional keyword arguments.
     """  # noqa: E501
 
     def __init__(
@@ -69,11 +73,15 @@ class IncrementalPCA(DRModule):
         lowrank_niter: int = 4,
         device: str = "auto",
         verbose: bool = False,
+        random_state: float = None,
+        **kwargs,
     ):
         super().__init__(
             n_components=n_components,
             device=device,
             verbose=verbose,
+            random_state=random_state,
+            **kwargs,
         )
         self.copy = copy
         self.batch_size = batch_size
@@ -303,22 +311,25 @@ class IncrementalPCA(DRModule):
         X = X - self.mean_
         return X @ self.components_.T
 
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
-        r"""Fit the model with data `X` and apply the dimensionality reduction.
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
+        """Fit the model with X and apply the dimensionality reduction on X.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which to fit the PCA model and project onto the components.
+            Training data, where `n_samples` is the number of samples and
+            `n_features` is the number of features.
+        y : Optional[Any], optional
+            Ignored. Defaults to None.
 
         Returns
         -------
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
+            Transformed data.
         """
         self.fit(X)
-        self.embedding_ = self.transform(X)
-        return self.embedding_
+        X_transformed = (X - self.mean_) @ self.components_[: self.n_components].T
+        return X_transformed
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):

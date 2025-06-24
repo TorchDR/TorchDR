@@ -49,6 +49,7 @@ from .validation import (
     check_type,
     check_neighbor_param,
     relative_similarity,
+    check_array,
 )
 from .wrappers import (
     handle_type,
@@ -65,6 +66,7 @@ from .manifold import (
     PoincareBallManifold,
 )
 from .radam import RiemannianAdam
+from .visu import plot_disk, plot_poincare_disk
 
 __all__ = [
     "seed_everything",
@@ -120,4 +122,7 @@ __all__ = [
     "matrix_power",
     "identity_matrix",
     "set_logger",
+    "check_array",
+    "plot_disk",
+    "plot_poincare_disk",
 ]

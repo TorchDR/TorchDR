@@ -125,6 +125,7 @@ class AffinityMatcher(DRModule):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
+        **kwargs,
     ):
         super().__init__(
             n_components=n_components,
@@ -132,6 +133,7 @@ class AffinityMatcher(DRModule):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            **kwargs,
         )
 
         self.optimizer = optimizer
@@ -180,15 +182,12 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = -1
 
-    @handle_type
-    def fit_transform(
-        self, X: Union[torch.Tensor, np.ndarray], y: Optional[any] = None
-    ):
-        """Fit the model to the provided data and returns the transformed data.
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
+        """Fit the model from data in X.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             or (n_samples, n_samples) if precomputed is True
             Input data.
         y : None
@@ -202,6 +201,7 @@ class AffinityMatcher(DRModule):
         self._fit(X)
         return self.embedding_
 
+    @handle_type
     def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
         """Fit the model to the provided data.
 
@@ -218,7 +218,7 @@ class AffinityMatcher(DRModule):
         self : AffinityMatcher
             The fitted AffinityMatcher instance.
         """
-        self.fit_transform(X)
+        self._fit(X)
         return self
 
     def _fit(self, X: torch.Tensor):
