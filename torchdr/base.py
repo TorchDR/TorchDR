@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import bool_arg, seed_everything
+from torchdr.utils import bool_arg, seed_everything, set_logger
 
 from typing import Union, Optional, Any
 
@@ -47,17 +47,18 @@ class DRModule(BaseEstimator, ABC):
         self.device = device
         self.backend = backend
         self.random_state = random_state
-
         self.verbose = bool_arg(verbose)
-        if self.verbose:
-            print(f"[TorchDR] Initializing DR model {self.__class__.__name__}. ")
+
+        self.logger = set_logger(self.__class__.__name__, self.verbose)
+        self.logger.info("Initializing DR model.")
 
         if random_state is not None:
             self._actual_seed = seed_everything(
                 random_state, fast=True, deterministic=False
             )
-            if self.verbose:
-                print(f"[TorchDR] Random seed set to: {self._actual_seed}.")
+            self.logger.info(f"Random seed set to: {self._actual_seed}.")
+
+        self.embedding_ = None
 
     @abstractmethod
     def fit_transform(
@@ -80,17 +81,4 @@ class DRModule(BaseEstimator, ABC):
         """
         raise NotImplementedError(
             "[TorchDR] ERROR : fit_transform method is not implemented."
-        )
-
-    @property
-    def embedding_(self) -> torch.Tensor:
-        """Embedding of the data.
-
-        Returns
-        -------
-        torch.Tensor
-            Embedding of the data.
-        """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : embedding_ property is not implemented."
         )

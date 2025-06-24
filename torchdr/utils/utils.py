@@ -8,12 +8,44 @@
 import os
 import random
 import time
+import logging
 import numpy as np
 import torch
 from typing import Union
 
 from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
 from .wrappers import wrap_vectors
+
+
+def set_logger(name: str, verbose: bool = False) -> logging.Logger:
+    """Set up a logger for a given name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the logger.
+    verbose : bool, optional
+        Whether to set the logger level to INFO (if True) or WARNING (if False).
+        Default is False.
+
+    Returns
+    -------
+    logging.Logger
+        The configured logger instance.
+    """
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("[TorchDR] %(name)s: %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    if verbose:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.WARNING)
+
+    return logger
 
 
 def seed_everything(seed, fast=True, deterministic=False):

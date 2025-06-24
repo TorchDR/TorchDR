@@ -69,13 +69,11 @@ class IncrementalPCA(DRModule):
         lowrank_niter: int = 4,
         device: str = "auto",
         verbose: bool = False,
-        random_state: float = None,
     ):
         super().__init__(
             n_components=n_components,
             device=device,
             verbose=verbose,
-            random_state=random_state,
         )
         self.copy = copy
         self.batch_size = batch_size

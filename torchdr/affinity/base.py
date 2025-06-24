@@ -18,6 +18,7 @@ from torchdr.utils import (
     to_torch,
     bool_arg,
 )
+from torchdr.utils import set_logger
 
 
 class Affinity(ABC):
@@ -46,6 +47,7 @@ class Affinity(ABC):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
+        random_state: float = None,
     ):
         self.log = {}
         self.metric = metric
@@ -53,6 +55,10 @@ class Affinity(ABC):
         self.device = device
         self.backend = backend
         self.verbose = bool_arg(verbose)
+        self.random_state = random_state
+
+        self.logger = set_logger(self.__class__.__name__, self.verbose)
+        self.logger.info("Initializing affinity model.")
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
@@ -144,6 +150,7 @@ class LogAffinity(Affinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
+        random_state: float = None,
     ):
         super().__init__(
             metric=metric,
@@ -151,6 +158,7 @@ class LogAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            random_state=random_state,
         )
 
     def __call__(
@@ -234,6 +242,7 @@ class SparseLogAffinity(LogAffinity):
         backend: str = None,
         verbose: bool = False,
         sparsity: bool = True,
+        random_state: float = None,
     ):
         super().__init__(
             metric=metric,
@@ -241,6 +250,7 @@ class SparseLogAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            random_state=random_state,
         )
         self.sparsity = bool_arg(sparsity)
 
@@ -336,6 +346,7 @@ class UnnormalizedAffinity(Affinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
+        random_state: float = None,
     ):
         super().__init__(
             metric=metric,
@@ -343,6 +354,7 @@ class UnnormalizedAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            random_state=random_state,
         )
 
     def __call__(
@@ -481,6 +493,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
+        random_state: float = None,
     ):
         super().__init__(
             metric=metric,
@@ -488,6 +501,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            random_state=random_state,
         )
 
     def __call__(

@@ -6,8 +6,6 @@
 #
 # License: BSD 3-Clause License
 
-import warnings
-
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -172,8 +170,8 @@ class AffinityMatcher(DRModule):
             if getattr(self.affinity_in, "sparsity", False) and not isinstance(
                 affinity_out, UnnormalizedAffinity
             ):
-                warnings.warn(
-                    "[TorchDR] WARNING : affinity_out must be a UnnormalizedAffinity "
+                self.logger.warning(
+                    "affinity_out must be a UnnormalizedAffinity "
                     "when affinity_in is sparse. Setting sparsity = False in affinity_in."
                 )
                 self.affinity_in._sparsity = False  # turn off sparsity
@@ -264,8 +262,8 @@ class AffinityMatcher(DRModule):
                 grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
-                        print(
-                            f"[TorchDR] Convergence reached at iter {self.n_iter_} with grad norm: "
+                        self.logger.info(
+                            f"Convergence reached at iter {self.n_iter_} with grad norm: "
                             f"{grad_norm:.2e}."
                         )
                     break
@@ -349,8 +347,8 @@ class AffinityMatcher(DRModule):
     def _set_learning_rate(self):
         if self.lr == "auto":
             if self.verbose:
-                warnings.warn(
-                    "[TorchDR] WARNING : lr set to 'auto' without "
+                self.logger.warning(
+                    "lr set to 'auto' without "
                     "any implemented rule. Setting lr=1.0 by default."
                 )
             self.lr_ = 1.0

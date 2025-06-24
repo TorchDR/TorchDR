@@ -215,7 +215,7 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         if self.verbose:
-            print("[TorchDR] Affinity : computing the Entropic Affinity matrix.")
+            self.logger.info("Computing the Entropic Affinity matrix.")
 
         n_samples_in = X.shape[0]
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
@@ -224,8 +224,8 @@ class EntropicAffinity(SparseLogAffinity):
         k = 3 * perplexity
         if self.sparsity:
             if self.verbose:
-                print(
-                    f"[TorchDR] Affinity : sparsity mode enabled, computing {k} "
+                self.logger.info(
+                    f"Affinity : sparsity mode enabled, computing {k} "
                     "nearest neighbors."
                 )
             k = check_neighbor_param(k, n_samples_in)
@@ -378,9 +378,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         """
         self.log_ = {}
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : computing the Symmetric Entropic Affinity matrix."
-            )
+            self.logger.info("Computing the Symmetric Entropic Affinity matrix.")
 
         C, _ = self._distance_matrix(X)
 
@@ -464,7 +462,7 @@ class SymmetricEntropicAffinity(LogAffinity):
                     check_NaNs(
                         [self.eps_, self.mu_],
                         msg=(
-                            f"[TorchDR] ERROR Affinity: NaN at iter {k}, "
+                            "[TorchDR] ERROR Affinity: NaN at iter {k}, "
                             "consider decreasing the learning rate."
                         ),
                     )
@@ -483,14 +481,14 @@ class SymmetricEntropicAffinity(LogAffinity):
                         and torch.norm(grad_mu) < self.tol
                     ):
                         if self.verbose:
-                            print(
-                                f"[TorchDR] Affinity : convergence reached at iter {k}."
+                            self.logger.info(
+                                "Affinity : convergence reached at iter {k}."
                             )
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
                         warnings.warn(
-                            "[TorchDR] WARNING Affinity: max iter attained, "
+                            "WARNING Affinity: max iter attained, "
                             "algorithm stops but may not have converged."
                         )
 
@@ -619,8 +617,8 @@ class SinkhornAffinity(LogAffinity):
             C = (1 + C).log()
 
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : computing the (KL) Doubly Stochastic "
+            self.logger.info(
+                "Computing the (KL) Doubly Stochastic "
                 "Affinity matrix (Sinkhorn affinity)."
             )
 
@@ -644,18 +642,16 @@ class SinkhornAffinity(LogAffinity):
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
                 self.dual_ = 0.5 * (self.dual_ + reduction)
 
-                check_NaNs(
-                    self.dual_, msg=f"[TorchDR] ERROR Affinity: NaN at iter {k}."
-                )
+                check_NaNs(self.dual_, msg="ERROR Affinity: NaN at iter {k}.")
 
                 if torch.norm(self.dual_ - reduction) < self.tol:
                     if self.verbose:
-                        print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
+                        self.logger.info(f"Affinity : convergence reached at iter {k}.")
                     break
 
                 if k == self.max_iter - 1 and self.verbose:
                     warnings.warn(
-                        "[TorchDR] WARNING Affinity: max iter attained, algorithm "
+                        "WARNING Affinity: max iter attained, algorithm "
                         "stops but may not have converged."
                     )
 

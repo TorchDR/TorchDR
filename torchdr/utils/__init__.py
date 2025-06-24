@@ -32,6 +32,7 @@ from .utils import (
     bool_arg,
     matrix_power,
     identity_matrix,
+    set_logger,
 )
 from .validation import (
     check_entropy,
@@ -118,4 +119,5 @@ __all__ = [
     "RiemannianAdam",
     "matrix_power",
     "identity_matrix",
+    "set_logger",
 ]

@@ -65,7 +65,6 @@ class KernelPCA(DRModule):
         self.affinity = affinity
         self.affinity.backend = backend
         self.affinity.device = device
-        self.affinity.random_state = random_state
         self.nodiag = nodiag
 
         if backend == "keops":

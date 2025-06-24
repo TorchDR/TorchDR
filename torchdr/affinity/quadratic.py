@@ -4,7 +4,6 @@
 #
 # License: BSD 3-Clause License
 
-import warnings
 from typing import Optional
 
 import torch
@@ -128,9 +127,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             The computed affinity matrix.
         """
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : computing the Doubly Stochastic Quadratic "
-                "Affinity matrix."
+            self.logger.info(
+                "Computing the Doubly Stochastic Quadratic Affinity matrix."
             )
 
         C, _ = self._distance_matrix(X)
@@ -176,13 +174,12 @@ class DoublyStochasticQuadraticAffinity(Affinity):
 
             if torch.norm(grad_dual) < self.tol:
                 if self.verbose:
-                    print(f"[TorchDR] Affinity : convergence reached at iter {k}.")
+                    self.logger.info(f"Convergence reached at iter {k}.")
                 break
 
             if k == self.max_iter - 1 and self.verbose:
-                warnings.warn(
-                    "[TorchDR] Affinity (WARNING) : max iter attained, "
-                    "algorithm stops but may not have converged."
+                self.logger.warning(
+                    "Max iter attained, algorithm stops but may not have converged."
                 )
 
         self.n_iter_ = k

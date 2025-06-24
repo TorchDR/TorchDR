@@ -116,16 +116,15 @@ class UMAPAffinityIn(SparseLogAffinity):
             The fitted instance.
         """
         if self.verbose:
-            print("[TorchDR] Affinity : computing the input affinity matrix of UMAP.")
+            self.logger.info("Computing UMAP affinity.")
 
         n_samples_in = X.shape[0]
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
             if self.verbose:
-                print(
-                    "[TorchDR] Affinity : sparsity mode enabled, computing "
-                    f"{n_neighbors} nearest neighbors."
+                self.logger.info(
+                    f"Affinity : sparsity mode enabled, computing {n_neighbors} nearest neighbors."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)

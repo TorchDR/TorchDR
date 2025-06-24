@@ -69,16 +69,15 @@ class PACMAPAffinity(SparseLogAffinity):
             The fitted instance.
         """
         if self.verbose:
-            print("[TorchDR] Affinity : computing the input affinity matrix of PACMAP.")
+            self.logger.info("Computing PaCMAP affinity.")
 
         n_samples_in = X.shape[0]
         k = min(self.n_neighbors + 50, n_samples_in)
         k = check_neighbor_param(k, n_samples_in)
 
         if self.verbose:
-            print(
-                "[TorchDR] Affinity : sparsity mode enabled, computing "
-                f"{k} nearest neighbors."
+            self.logger.info(
+                f"Affinity : sparsity mode enabled, computing {k} nearest neighbors."
             )
         C_, temp_indices = self._distance_matrix(X, k=k)
 
