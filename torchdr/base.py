@@ -6,13 +6,12 @@
 
 from abc import ABC, abstractmethod
 
-import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import bool_arg, seed_everything, set_logger, to_torch
+from torchdr.utils import bool_arg, seed_everything, set_logger, handle_type
 
-from typing import Union, Optional, Any
+from typing import Optional, Any
 
 
 class DRModule(BaseEstimator, ABC):
@@ -63,9 +62,13 @@ class DRModule(BaseEstimator, ABC):
 
         self.embedding_ = None
 
-    def fit_transform(
-        self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
-    ) -> torch.Tensor:
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=2,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
+    def fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the dimensionality reduction model and transform the input data.
 
         This method handles duplicate data points by default. It performs
@@ -75,7 +78,7 @@ class DRModule(BaseEstimator, ABC):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             or (n_samples, n_samples) if precomputed is True
             Input data or input affinity matrix if it is precomputed.
         y : None
@@ -86,15 +89,6 @@ class DRModule(BaseEstimator, ABC):
         embedding_ : torch.Tensor of shape (n_samples, n_components)
             The embedding of the input data in the lower-dimensional space.
         """
-        X = to_torch(
-            X,
-            device=self.device,
-            accept_sparse=False,
-            ensure_min_samples=2,
-            ensure_min_features=1,
-            ensure_2d=True,
-        )
-
         if self.process_duplicates:
             X_unique, inverse_indices = torch.unique(X, dim=0, return_inverse=True)
             if X_unique.shape[0] < X.shape[0]:
@@ -105,15 +99,15 @@ class DRModule(BaseEstimator, ABC):
                 )
                 embedding_unique = self._fit_transform(X_unique, y=y)
                 self.embedding_ = embedding_unique[inverse_indices]
-                return self.embedding_
+            else:
+                self.embedding_ = self._fit_transform(X, y=y)
+        else:
+            self.embedding_ = self._fit_transform(X, y=y)
 
-        self.embedding_ = self._fit_transform(X, y=y)
         return self.embedding_
 
     @abstractmethod
-    def _fit_transform(
-        self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
-    ):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         """Fit the dimensionality reduction model and transform the input data.
 
         This method should be implemented by subclasses and contains the core
@@ -121,7 +115,7 @@ class DRModule(BaseEstimator, ABC):
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : torch.Tensor of shape (n_samples, n_features)
             or (n_samples, n_samples) if precomputed is True
             Input data or input affinity matrix if it is precomputed.
         y : None

@@ -63,8 +63,10 @@ def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs
 
 def torch_to_backend(x, backend="torch", device="cpu"):
     """Convert a torch tensor to specified backend and device."""
-    x = x.to(device=device)
-    return x.numpy() if backend == "numpy" else x
+    if backend == "numpy":
+        return x.detach().cpu().numpy()
+    else:
+        return x.to(device=device)
 
 
 def keops_unsqueeze(arg):
@@ -110,7 +112,7 @@ def wrap_vectors(func):
     return wrapper
 
 
-def handle_type(_func=None, *, set_device=True):
+def handle_type(_func=None, *, set_device=True, **check_array_kwargs):
     """
     Convert input to torch and optionally set device specified by self.
 
@@ -122,6 +124,8 @@ def handle_type(_func=None, *, set_device=True):
         The function to be wrapped.
     set_device : bool, default=True
         If True, set the device to self.device if it is not None.
+    **check_array_kwargs : dict
+        Keyword arguments to be passed to the check_array function.
     """
 
     def decorator_handle_type(func):
@@ -130,14 +134,17 @@ def handle_type(_func=None, *, set_device=True):
             # Use self.device if set_device is True, else leave device unset (None)
             device = self.device if set_device else "auto"
             X_, input_backend, input_device = to_torch(
-                X, device=device, return_backend_device=True
+                X,
+                device=device,
+                return_backend_device=True,
+                **check_array_kwargs,
             )
-            output = func(self, X_, *args, **kwargs).detach()
+            output = func(self, X_, *args, **kwargs)
             return torch_to_backend(output, backend=input_backend, device=input_device)
 
         return wrapper
 
-    # Support both @handle_type and @handle_type(set_device=...)
+    # Support both @handle_type and @handle_type(...)
     if _func is None:
         return decorator_handle_type
     else:
