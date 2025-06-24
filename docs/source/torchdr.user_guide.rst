@@ -47,7 +47,7 @@ To utilize GPU support, set :attr:`device="cuda"` when initializing any module. 
     DR particularly benefits from GPU acceleration as most computations, including affinity calculations and the DR objective, involve matrix reductions that are highly parallelizable.
 
 
-Avoiding memory overflows with KeOps symbolic (lazy) tensors
+Handling the quadratic cost via sparsity or symbolic tensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Affinities naturally incur a quadratic memory cost, which can be particularly
