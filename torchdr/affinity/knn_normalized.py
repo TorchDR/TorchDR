@@ -25,23 +25,23 @@ from torchdr.utils import (
 
 
 @wrap_vectors
-def _log_SelfTuning(C, sigma):
+def _log_P_SelfTuning(C, sigma):
     sigma_t = matrix_transpose(sigma)
     return -C / (sigma * sigma_t)
 
 
 @wrap_vectors
-def _log_MAGIC(C, sigma):
+def _log_P_MAGIC(C, sigma):
     return -C / sigma
 
 
 @wrap_vectors
-def _log_Pumap(C, rho, sigma):
+def _log_P_UMAP(C, rho, sigma):
     return -(C - rho) / sigma
 
 
 @wrap_vectors
-def _log_PHATE(C, sigma, alpha=10.0):
+def _log_P_PHATE(C, sigma, alpha=10.0):
     return -((C / sigma) ** alpha)
 
 
@@ -113,7 +113,7 @@ class SelfTuningAffinity(LogAffinity):
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        log_affinity_matrix = _log_SelfTuning(C, self.sigma_)
+        log_affinity_matrix = _log_P_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
             self.log_normalization_ = logsumexp_red(
@@ -200,7 +200,7 @@ class MAGICAffinity(Affinity):
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
-        affinity_matrix = _log_MAGIC(C, self.sigma_).exp()
+        affinity_matrix = _log_P_MAGIC(C, self.sigma_).exp()
         affinity_matrix = (affinity_matrix + matrix_transpose(affinity_matrix)) / 2
         affinity_matrix = affinity_matrix / sum_red(affinity_matrix, dim=1)
 
@@ -270,7 +270,7 @@ class PHATEAffinity(Affinity):
 
         minK_values, _ = kmin(C, k=self.k, dim=1)
         self.sigma_ = minK_values[:, -1]
-        affinity = _log_PHATE(C, self.sigma_, self.alpha).exp()
+        affinity = _log_P_PHATE(C, self.sigma_, self.alpha).exp()
         affinity = (affinity + matrix_transpose(affinity)) / 2
         affinity = affinity / sum_red(affinity, dim=1)
         affinity = matrix_power(affinity, self.t)
@@ -371,7 +371,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
         def marginal_gap(eps):  # function to find the root of
-            marg = _log_Pumap(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
+            marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
             return marg - math.log(n_neighbors)
 
         self.eps_ = binary_search(
@@ -385,7 +385,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             logger=self.logger if self.verbose else None,
         )
 
-        log_affinity_matrix = _log_Pumap(C_, self.rho_, self.eps_)
+        log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
 
         return log_affinity_matrix, indices
 
