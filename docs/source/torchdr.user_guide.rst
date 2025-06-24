@@ -55,7 +55,7 @@ problematic when dealing with large numbers of samples, especially when using GP
 
 Many affinity metrics only require computing distances to each point's k nearest neighbors.
 For large datasets (typically when :math:`n > 10^4`) where the full pairwise-distance matrix won't fit in GPU memory,
-TorchDR can offload these computations to the GPU-compatible kNN library ``Faiss <https://github.com/facebookresearch/faiss>``_.
+TorchDR can offload these computations to the GPU-compatible kNN library `Faiss <https://github.com/facebookresearch/faiss>`_.
 Simply set :attr:`backend` to ``faiss`` to leverage Faiss's efficient implementations.
 
 Alternatively, for exact computations or affinities that can't be limited to kNNs, you can use symbolic (lazy) tensors to avoid memory overflows.
