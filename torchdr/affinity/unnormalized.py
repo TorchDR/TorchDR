@@ -7,9 +7,32 @@
 
 import torch
 from typing import Union, Optional
+from scipy.optimize import curve_fit
+import numpy as np
 
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
 from torchdr.utils import LazyTensorType
+
+
+# from umap/umap/umap_.py
+def find_ab_params(spread, min_dist):
+    """Fit a, b params as in UMAP.
+
+    Fit (a, b) for the differentiable curve used in lower
+    dimensional fuzzy simplicial complex construction. We want the
+    smooth curve (from a pre-defined family with simple gradient) that
+    best matches an offset exponential decay.
+    """
+
+    def curve(x, a, b):
+        return 1.0 / (1.0 + a * x ** (2 * b))
+
+    xv = np.linspace(0, spread * 3, 300)
+    yv = np.zeros(xv.shape)
+    yv[xv < min_dist] = 1.0
+    yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+    params, covar = curve_fit(curve, xv, yv)
+    return params[0], params[1]
 
 
 class GaussianAffinity(UnnormalizedLogAffinity):
@@ -55,7 +78,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         self.sigma = sigma
 
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        return -C / self.sigma
+        return -((C / self.sigma) ** 2)
 
 
 class StudentAffinity(UnnormalizedLogAffinity):
@@ -231,3 +254,72 @@ class ScalarProductAffinity(NegativeCostAffinity):
             verbose=verbose,
             zero_diag=False,
         )
+
+
+class UMAPAffinityOut(UnnormalizedLogAffinity):
+    r"""Compute the affinity used in embedding space in UMAP :cite:`mcinnes2018umap`.
+
+    Its :math:`(i,j)` coefficient is as follows:
+
+    .. math::
+        1 / \left(1 + a C_{ij}^{b} \right)
+
+    where parameters a and b are fitted to the spread and min_dist parameters.
+
+    Parameters
+    ----------
+    min_dist : float, optional
+        min_dist parameter from UMAP. Provides the minimum distance apart that
+        points are allowed to be.
+    spread : float, optional
+        spread parameter from UMAP.
+    a : float, optional
+        factor of the cost matrix.
+    b : float, optional
+        exponent of the cost matrix.
+    degrees_of_freedom : int, optional
+        Degrees of freedom for the Student-t distribution.
+    metric : str, optional
+        Metric to use for pairwise distances computation.
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero.
+    device : str, optional
+        Device to use for computations.
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    verbose : bool, optional
+        Verbosity. Default is False.
+    """
+
+    def __init__(
+        self,
+        min_dist: float = 0.1,
+        spread: float = 1,
+        a: Optional[float] = None,
+        b: Optional[float] = None,
+        metric: str = "sqeuclidean",
+        zero_diag: bool = True,
+        device: str = "auto",
+        backend: Optional[str] = None,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            metric=metric,
+            zero_diag=zero_diag,
+            device=device,
+            backend=backend,
+            verbose=verbose,
+        )
+        self.min_dist = min_dist
+        self.spread = spread
+
+        if a is None or b is None:
+            fitted_a, fitted_b = find_ab_params(self.spread, self.min_dist)
+            self._a, self._b = fitted_a.item(), fitted_b.item()
+        else:
+            self._a = a
+            self._b = b
+
+    def _log_affinity_formula(self, C: torch.Tensor):
+        return -(1 + self._a * C**self._b).log()
