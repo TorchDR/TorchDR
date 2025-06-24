@@ -24,7 +24,7 @@ from torchdr.utils import (
 
 
 @wrap_vectors
-def _log_P(C, sigma, alpha=1.0):
+def _log_P(C, sigma, alpha=10.0):
     return -((C / sigma) ** alpha)
 
 
@@ -57,8 +57,6 @@ class PHATEAffinity(Affinity):
         Exponent for the alpha-decay kernel in affinity computation.
     t : int, optional (default=5)
         Number of diffusion steps (power to raise diffusion matrix).
-    eps : float, optional (default=1e-12)
-        Small value to avoid numerical issues in logarithm computation.
     """
 
     def __init__(
@@ -70,7 +68,6 @@ class PHATEAffinity(Affinity):
         k: int = 5,
         alpha: float = 10.0,
         t: int = 5,
-        eps: float = 1e-12,
     ):
         if backend == "faiss" or backend == "keops":
             raise ValueError(
@@ -88,7 +85,6 @@ class PHATEAffinity(Affinity):
         self.alpha = alpha
         self.k = k
         self.t = t
-        self.eps = eps
 
     def _compute_affinity(self, X: torch.Tensor):
         C, _ = self._distance_matrix(X)
@@ -99,7 +95,7 @@ class PHATEAffinity(Affinity):
         affinity = (affinity + matrix_transpose(affinity)) / 2
         affinity = affinity / sum_red(affinity, dim=1)
         affinity = matrix_power(affinity, self.t)
-        potential_dist, _ = pairwise_distances(
-            -(affinity + self.eps).log(), metric="euclidean", backend=self.backend
-        )
-        return -potential_dist
+        affinity = -pairwise_distances(
+            -affinity.clamp(min=1e-12).log(), metric="euclidean", backend=self.backend
+        )[0]
+        return affinity

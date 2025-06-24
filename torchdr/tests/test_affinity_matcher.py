@@ -8,8 +8,9 @@ from torchdr.affinity import (
     Affinity,
     ScalarProductAffinity,
     SparseLogAffinity,
-    NormalizedGaussianAffinity,
     GaussianAffinity,
+    LogAffinity,
+    EntropicAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -40,7 +41,7 @@ def test_affinity_in_precomputed_shape_error():
         model._fit(torch.rand(5, 4))
 
 
-def test_convergence_reached(capfd):
+def test_convergence_reached():
     class TestAffinity(Affinity):
         def __call__(self, X, **kwargs):
             return X @ X.T
@@ -51,13 +52,13 @@ def test_convergence_reached(capfd):
     model = AffinityMatcher(
         affinity_in=TestAffinity(),
         affinity_out=TestAffinity(),
-        min_grad_norm=1e0,
+        min_grad_norm=1e10,  # high value to ensure convergence
         max_iter=3,
-        verbose=True,
+        verbose=False,
+        check_interval=1,
     )
     model._fit(torch.rand(5, 2))
-    captured = capfd.readouterr()
-    assert "Convergence reached" in captured.out
+    assert model.n_iter_ < 2  # should converge in less than 2 iterations
 
 
 def test_scheduler_not_set_optimizer():
@@ -79,14 +80,14 @@ def test_scheduler_invalid_type():
 
 
 def test_lr_auto_warning():
-    with pytest.warns(UserWarning):
-        model = AffinityMatcher(
-            affinity_in=GaussianAffinity(),
-            affinity_out=GaussianAffinity(),
-            lr="auto",
-            verbose=True,
-        )
-        model._set_learning_rate()
+    model = AffinityMatcher(
+        affinity_in=GaussianAffinity(),
+        affinity_out=GaussianAffinity(),
+        lr="auto",
+        verbose=True,
+    )
+    model._set_learning_rate()
+    assert model.lr_ == 1.0
 
 
 def test_init_embedding_invalid():
@@ -276,30 +277,15 @@ def test_loss_with_different_functions():
 
 
 def test_sparse_affinity_warning():
-    class TestSparseAffinity(SparseLogAffinity):
-        def __init__(self):
-            super().__init__()
-            self._sparsity = True
-
-        def _compute_affinity(self, X):
-            return torch.rand(X.shape[0], X.shape[0])
-
-    # Warning should occur when using sparse affinity_in with non-UnnormalizedAffinity affinity_out
-    with pytest.warns(UserWarning):
-        AffinityMatcher(
-            affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity()
-        )
-
-    # No warning when using UnnormalizedAffinity (GaussianAffinity is an UnnormalizedLogAffinity)
-    sparse_affinity = TestSparseAffinity()
-    sparse_affinity._sparsity = True
-    # Just construct the affinity matcher without warning
-    AffinityMatcher(affinity_in=sparse_affinity, affinity_out=GaussianAffinity())
-    # The sparsity should still be True since no warning was triggered
-    assert sparse_affinity._sparsity
-
-    # No warning when affinity_out is None
-    AffinityMatcher(affinity_in=TestSparseAffinity(), affinity_out=None)
+    affinity_in = EntropicAffinity(sparsity=True, verbose=False)
+    assert affinity_in.sparsity
+    AffinityMatcher(
+        affinity_in=affinity_in,
+        affinity_out=LogAffinity(verbose=False),  # Not UnnormalizedAffinity
+        verbose=True,
+    )
+    # The warning is logged, and sparsity is set to False
+    assert not affinity_in.sparsity
 
 
 def test_fit_and_transform():

@@ -69,13 +69,11 @@ class IncrementalPCA(DRModule):
         lowrank_niter: int = 4,
         device: str = "auto",
         verbose: bool = False,
-        random_state: float = None,
     ):
         super().__init__(
             n_components=n_components,
             device=device,
             verbose=verbose,
-            random_state=random_state,
         )
         self.copy = copy
         self.batch_size = batch_size
@@ -319,7 +317,8 @@ class IncrementalPCA(DRModule):
             Projected data.
         """
         self.fit(X)
-        return self.transform(X)
+        self.embedding_ = self.transform(X)
+        return self.embedding_
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):

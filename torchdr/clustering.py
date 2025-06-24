@@ -17,6 +17,8 @@ from torchdr.utils import (
     to_torch,
     faiss,
     seed_everything,
+    set_logger,
+    bool_arg,
 )
 
 from typing import Union, Optional, Any
@@ -66,9 +68,16 @@ class ClusteringModule(BaseEstimator, ABC):
         self.device = device
         self.backend = backend
         self.random_state = random_state
-        self.verbose = verbose
-        if self.verbose:
-            print(f"[TorchDR] Initializing clustering model {self.__class__.__name__} ")
+        self.verbose = bool_arg(verbose)
+
+        # --- Logger setup ---
+        self.logger = set_logger(self.__class__.__name__, self.verbose)
+
+        if random_state is not None:
+            self._actual_seed = seed_everything(
+                random_state, fast=True, deterministic=False
+            )
+            self.logger.info(f"Random seed set to: {self._actual_seed}.")
 
     @abstractmethod
     def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
@@ -103,7 +112,6 @@ class ClusteringModule(BaseEstimator, ABC):
         labels : torch.Tensor of shape (n_samples,)
             Cluster labels.
         """
-        seed_everything(self.random_state)
         self.fit(X)
         return self.labels_
 

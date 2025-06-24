@@ -8,6 +8,7 @@
 import os
 import random
 import time
+import logging
 import numpy as np
 import torch
 from typing import Union
@@ -16,7 +17,38 @@ from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
 from .wrappers import wrap_vectors
 
 
-def seed_everything(seed, fast=True):
+def set_logger(name: str, verbose: bool = False) -> logging.Logger:
+    """Set up a logger for a given name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the logger.
+    verbose : bool, optional
+        Whether to set the logger level to INFO (if True) or WARNING (if False).
+        Default is False.
+
+    Returns
+    -------
+    logging.Logger
+        The configured logger instance.
+    """
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("[TorchDR] %(name)s: %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    if verbose:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.WARNING)
+
+    return logger
+
+
+def seed_everything(seed, fast=True, deterministic=False):
     """Seed all random number generators for reproducibility.
 
     Sets the seed for Python's random module, NumPy, PyTorch (CPU and GPU),
@@ -29,10 +61,14 @@ def seed_everything(seed, fast=True):
     fast : bool, optional (default=True)
         If True, enables fast but non-deterministic cuDNN operations.
         If False, ensures deterministic cuDNN operations but may be slower.
+    deterministic : bool, optional (default=False)
+        If True, enables torch.use_deterministic_algorithms for maximum reproducibility.
+        This may significantly slow down training but ensures deterministic behavior.
 
     Returns
     -------
-    None
+    int
+        The actual seed value used.
     """
     if seed is None or not isinstance(seed, int) or seed < 0:
         seed = int(time.time())
@@ -45,12 +81,20 @@ def seed_everything(seed, fast=True):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
     if fast:
         torch.backends.cudnn.deterministic = False
         torch.backends.cudnn.benchmark = True
     else:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+    if deterministic:
+        torch.use_deterministic_algorithms(True)
+        # Set environment variable for CUBLAS workspace configuration
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+    return seed
 
 
 def cross_entropy_loss(P, Q, log=False):

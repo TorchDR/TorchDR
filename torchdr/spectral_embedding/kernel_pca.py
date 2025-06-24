@@ -65,7 +65,6 @@ class KernelPCA(DRModule):
         self.affinity = affinity
         self.affinity.backend = backend
         self.affinity.device = device
-        self.affinity.random_state = random_state
         self.nodiag = nodiag
 
         if backend == "keops":
@@ -112,6 +111,9 @@ class KernelPCA(DRModule):
 
         self.eigenvectors_ = eigvecs
         self.eigenvalues_ = eigvals
+        self.embedding_ = (
+            self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
+        )
         return self
 
     @handle_type
@@ -169,4 +171,4 @@ class KernelPCA(DRModule):
             Projected data.
         """
         self.fit(X)
-        return self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
+        return self.embedding_

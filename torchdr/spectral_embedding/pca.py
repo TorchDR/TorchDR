@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, seed_everything, to_torch, svd_flip
+from torchdr.utils import handle_type, to_torch, svd_flip
 
 
 class PCA(DRModule):
@@ -101,6 +101,5 @@ class PCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
-        seed_everything(self.random_state)
         self.fit(X)
         return self.embedding_

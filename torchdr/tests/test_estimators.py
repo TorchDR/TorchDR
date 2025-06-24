@@ -37,9 +37,3 @@ def test_check_estimator(estimator, kwargs):
             **kwargs,
         )
     )
-
-
-def test_init_verbose(capfd):
-    TSNE(verbose=True)
-    captured = capfd.readouterr()
-    assert "Initializing" in captured.out
