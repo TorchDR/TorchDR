@@ -4,7 +4,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import numpy as np
 import torch
@@ -40,14 +40,18 @@ class PCA(DRModule):
         verbose: bool = False,
         random_state: float = None,
         svd_driver: Optional[str] = None,
+        **kwargs,
     ):
         super().__init__(
             n_components=n_components,
             device=device,
             verbose=verbose,
             random_state=random_state,
+            **kwargs,
         )
         self.svd_driver = svd_driver
+        self.mean_ = None
+        self.components_ = None
 
     def fit(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the PCA model.
@@ -88,13 +92,15 @@ class PCA(DRModule):
         """
         return (X - self.mean_) @ self.components_.T
 
-    def fit_transform(self, X: Union[torch.Tensor, np.ndarray]):
-        r"""Fit the PCA model and project the input data onto the components.
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
+        """Fit the model with X and apply the dimensionality reduction on X.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Data on which to fit the PCA model and project onto the components.
+        y : Optional[Any], default=None
+            Target values (None for unsupervised transformations).
 
         Returns
         -------

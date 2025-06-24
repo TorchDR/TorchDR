@@ -71,7 +71,9 @@ def test_NE(DRModel, kwargs, dtype, backend):
     Z = model.fit_transform(X)
 
     check_shape(Z, (n, 2))
-    assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
+    assert silhouette_score(Z.detach().cpu().numpy(), y) > 0.15, (
+        "Silhouette score should not be too low."
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -90,7 +92,9 @@ def test_COSNE(dtype):
     Z = model.fit_transform(X)
 
     check_shape(Z, (X.shape[0], 2))
-    assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
+    assert silhouette_score(Z.detach().cpu().numpy(), y) > 0.15, (
+        "Silhouette score should not be too low."
+    )
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -119,7 +123,9 @@ def test_array_init(dtype, backend):
         lst_Z.append(Z)
 
         check_shape(Z, (n, 2))
-        assert silhouette_score(Z, y) > 0.2, "Silhouette score should not be too low."
+        assert silhouette_score(Z.detach().cpu().numpy(), y) > 0.2, (
+            "Silhouette score should not be too low."
+        )
 
     # --- checks that the two inits yield similar results ---
     assert ((lst_Z[0] - lst_Z[1]) ** 2).mean() < 1e-5, (

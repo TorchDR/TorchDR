@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import bool_arg, seed_everything, set_logger
+from torchdr.utils import bool_arg, seed_everything, set_logger, to_torch
 
 from typing import Union, Optional, Any
 
@@ -33,6 +33,8 @@ class DRModule(BaseEstimator, ABC):
         Whether to print information during the computations.
     random_state : float, default=None
         Random seed for reproducibility.
+    process_duplicates : bool, default=True
+        Whether to handle duplicate data points by default.
     """
 
     def __init__(
@@ -42,12 +44,14 @@ class DRModule(BaseEstimator, ABC):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        process_duplicates: bool = True,
     ):
         self.n_components = n_components
         self.device = device
         self.backend = backend
         self.random_state = random_state
         self.verbose = bool_arg(verbose)
+        self.process_duplicates = process_duplicates
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
@@ -59,11 +63,61 @@ class DRModule(BaseEstimator, ABC):
 
         self.embedding_ = None
 
-    @abstractmethod
     def fit_transform(
+        self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
+    ) -> torch.Tensor:
+        """Fit the dimensionality reduction model and transform the input data.
+
+        This method handles duplicate data points by default. It performs
+        dimensionality reduction on unique data points and then maps the
+        results back to the original data structure. This behavior can be
+        controlled by the `process_duplicates` parameter.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        embedding_ : torch.Tensor of shape (n_samples, n_components)
+            The embedding of the input data in the lower-dimensional space.
+        """
+        X = to_torch(
+            X,
+            device=self.device,
+            accept_sparse=False,
+            ensure_min_samples=2,
+            ensure_min_features=1,
+            ensure_2d=True,
+        )
+
+        if self.process_duplicates:
+            X_unique, inverse_indices = torch.unique(X, dim=0, return_inverse=True)
+            if X_unique.shape[0] < X.shape[0]:
+                n_duplicates = X.shape[0] - X_unique.shape[0]
+                self.logger.info(
+                    f"Detected {n_duplicates} duplicate samples, "
+                    "performing DR on unique data."
+                )
+                embedding_unique = self._fit_transform(X_unique, y=y)
+                self.embedding_ = embedding_unique[inverse_indices]
+                return self.embedding_
+
+        self.embedding_ = self._fit_transform(X, y=y)
+        return self.embedding_
+
+    @abstractmethod
+    def _fit_transform(
         self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None
     ):
         """Fit the dimensionality reduction model and transform the input data.
+
+        This method should be implemented by subclasses and contains the core
+        logic for the DR algorithm, assuming unique data points.
 
         Parameters
         ----------
@@ -79,5 +133,5 @@ class DRModule(BaseEstimator, ABC):
             This method should be overridden by subclasses.
         """
         raise NotImplementedError(
-            "[TorchDR] ERROR : fit_transform method is not implemented."
+            "[TorchDR] ERROR : _fit_transform method is not implemented."
         )

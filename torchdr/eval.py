@@ -79,9 +79,9 @@ def silhouette_samples(
             )
 
     X = to_torch(X)
-    labels = to_torch(labels)
+    labels = to_torch(labels).squeeze()
     if weights is not None:
-        weights = to_torch(weights)
+        weights = to_torch(weights).squeeze()
 
     if device is None:
         device = X.device
@@ -145,13 +145,13 @@ def silhouette_samples(
                 dist_pos_j = inter_cluster_dists.sum(0).squeeze(-1) / pos_i.shape[0]
             else:
                 dist_pos_i = (
-                    prod_matrix_vector(inter_cluster_dists, weights[pos_j], True)
-                    .sum(1)
+                    prod_matrix_vector(inter_cluster_dists, weights[pos_j])
+                    .sum(dim=1)
                     .squeeze(-1)
                 )
                 dist_pos_j = (
-                    prod_matrix_vector(inter_cluster_dists, weights[pos_i])
-                    .sum(0)
+                    prod_matrix_vector(inter_cluster_dists.T, weights[pos_i])
+                    .sum(dim=1)
                     .squeeze(-1)
                 )
                 dist_pos_i = dist_pos_i / weights[pos_j].sum()

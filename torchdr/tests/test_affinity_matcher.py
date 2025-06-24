@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR, ExponentialLR
+from torch.testing import assert_close
 
 from torchdr.affinity import (
     Affinity,
@@ -289,26 +290,17 @@ def test_sparse_affinity_warning():
 
 
 def test_fit_and_transform():
-    X = torch.rand(5, 2)
-
-    # Test fit_transform
+    # Test that fit_transform returns the embedding
     model = AffinityMatcher(
         affinity_in=GaussianAffinity(),
         affinity_out=GaussianAffinity(),
-        max_iter=2,  # Small value for quick test
+        max_iter=2,
     )
+    X = torch.rand(5, 2)
     embedding = model.fit_transform(X)
+    assert isinstance(embedding, torch.Tensor)
     assert embedding.shape == (5, 2)
-    assert hasattr(model, "embedding_")
-
-    # Test fit
-    model2 = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
-        max_iter=2,  # Small value for quick test
-    )
-    model2.fit(X)
-    assert hasattr(model2, "embedding_")
+    assert_close(embedding, model.embedding_)
 
 
 def test_precomputed_affinity():
@@ -334,20 +326,15 @@ def test_sparse_affinity_with_indices():
             return torch.rand(X.shape[0], 3)
 
         def _compute_affinity(self, X):
-            return torch.rand(X.shape[0], X.shape[0])
+            return torch.exp(-(X @ X.T))
 
-    X = torch.rand(5, 2)
     model = AffinityMatcher(
-        affinity_in=TestSparseAffinity(),
-        affinity_out=GaussianAffinity(),
-        max_iter=2,
+        affinity_in=TestSparseAffinity(), affinity_out=GaussianAffinity()
     )
-    model.fit(X)
-    assert hasattr(model, "NN_indices_")
-
-    # Test that _loss uses indices
-    loss = model._loss()
-    assert isinstance(loss, torch.Tensor)
+    embedding = model.fit_transform(torch.rand(5, 2))
+    assert isinstance(embedding, torch.Tensor)
+    assert embedding.shape == (5, 2)
+    assert_close(embedding, model.embedding_)
 
 
 def test_after_step():

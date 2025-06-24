@@ -6,11 +6,10 @@
 
 import functools
 
-import numpy as np
 import torch
-from sklearn.utils.validation import check_array
 
 from .keops import LazyTensor, is_lazy_tensor, pykeops
+from .validation import check_array
 
 
 def output_contiguous(func):
@@ -32,38 +31,26 @@ def output_contiguous(func):
 
 
 @output_contiguous
-def to_torch(x, device="auto", return_backend_device=False):
+def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs):
     """Convert input to torch tensor and specified device while performing some checks.
 
     If device="auto", the device is set to the device of the input x.
     """
     if isinstance(x, torch.Tensor):
-        if torch.is_complex(x):
-            raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
-        if not torch.isfinite(x).all():
-            raise ValueError("[TorchDR] ERROR : input contains infinite values.")
-
         input_backend = "torch"
         input_device = x.device
-
-        if device == "auto":
-            x_ = x
-        else:
-            x_ = x.to(device)
-
+        target_device = device if device != "auto" else input_device
     else:
-        # check sparsity and if it contains only finite values
-        if x.ndim == 2:
-            x = check_array(x, accept_sparse=False)
         input_backend = "numpy"
         input_device = "cpu"
+        target_device = device if device != "auto" else "cpu"
 
-        if np.iscomplex(x).any():
-            raise ValueError("[TorchDR] ERROR : complex arrays are not supported.")
+    x_ = check_array(x, device=target_device, **check_array_kwargs)
 
-        x_ = torch.from_numpy(x.copy()).to(
-            torch.device("cpu") if device == "auto" else device
-        )
+    if torch.is_complex(x_):
+        raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
+    if not torch.isfinite(x_).all():
+        raise ValueError("[TorchDR] ERROR : input contains infinite values.")
 
     if not x_.dtype.is_floating_point:
         x_ = x_.float()

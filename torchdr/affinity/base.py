@@ -186,7 +186,7 @@ class LogAffinity(Affinity):
         else:
             return log_affinity.exp()
 
-    def _compute_log_affinity(self, X: torch.Tensor):
+    def _compute_log_affinity(self, X: torch.Tensor, **kwargs):
         r"""Compute the log affinity matrix from the input data.
 
         This method must be overridden by subclasses.
