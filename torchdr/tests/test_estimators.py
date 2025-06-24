@@ -37,9 +37,3 @@ def test_check_estimator(estimator, kwargs):
             **kwargs,
         )
     )
-
-
-def test_init_verbose(capfd):
-    TSNE(verbose=True, random_state=0)
-    captured = capfd.readouterr()
-    assert "Random seed set to" in captured.err

@@ -10,6 +10,7 @@ from torchdr.affinity import (
     SparseLogAffinity,
     GaussianAffinity,
     LogAffinity,
+    EntropicAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -40,7 +41,7 @@ def test_affinity_in_precomputed_shape_error():
         model._fit(torch.rand(5, 4))
 
 
-def test_convergence_reached(capfd):
+def test_convergence_reached():
     class TestAffinity(Affinity):
         def __call__(self, X, **kwargs):
             return X @ X.T
@@ -51,13 +52,13 @@ def test_convergence_reached(capfd):
     model = AffinityMatcher(
         affinity_in=TestAffinity(),
         affinity_out=TestAffinity(),
-        min_grad_norm=1e0,
+        min_grad_norm=1e10,  # high value to ensure convergence
         max_iter=3,
-        verbose=True,
+        verbose=False,
+        check_interval=1,
     )
     model._fit(torch.rand(5, 2))
-    captured = capfd.readouterr()
-    assert "Convergence reached" in captured.err
+    assert model.n_iter_ < 2  # should converge in less than 2 iterations
 
 
 def test_scheduler_not_set_optimizer():
@@ -78,7 +79,7 @@ def test_scheduler_invalid_type():
         model._set_scheduler()
 
 
-def test_lr_auto_warning(capfd):
+def test_lr_auto_warning():
     model = AffinityMatcher(
         affinity_in=GaussianAffinity(),
         affinity_out=GaussianAffinity(),
@@ -86,8 +87,7 @@ def test_lr_auto_warning(capfd):
         verbose=True,
     )
     model._set_learning_rate()
-    captured = capfd.readouterr()
-    assert "Auto LR is not implemented yet" in captured.err
+    assert model.lr_ == 1.0
 
 
 def test_init_embedding_invalid():
@@ -276,21 +276,16 @@ def test_loss_with_different_functions():
     assert isinstance(loss, torch.Tensor)
 
 
-def test_sparse_affinity_warning(capfd):
-    class TestSparseAffinity(SparseLogAffinity):
-        def __init__(self):
-            super().__init__(k=2, sparsity=True)
-
-        def _compute_affinity(self, X):
-            return X
-
+def test_sparse_affinity_warning():
+    affinity_in = EntropicAffinity(sparsity=True, verbose=False)
+    assert affinity_in.sparsity
     AffinityMatcher(
-        affinity_in=TestSparseAffinity(),
-        affinity_out=LogAffinity(verbose=False),
+        affinity_in=affinity_in,
+        affinity_out=LogAffinity(verbose=False),  # Not UnnormalizedAffinity
         verbose=True,
     )
-    captured = capfd.readouterr()
-    assert "affinity_out must be a UnnormalizedAffinity" in captured.err
+    # The warning is logged, and sparsity is set to False
+    assert not affinity_in.sparsity
 
 
 def test_fit_and_transform():
