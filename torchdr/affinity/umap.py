@@ -115,8 +115,6 @@ class UMAPAffinityIn(SparseLogAffinity):
         self : UMAPAffinityIn
             The fitted instance.
         """
-        if self.verbose:
-            self.logger.info("Computing UMAP affinity.")
 
         n_samples_in = X.shape[0]
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
@@ -124,7 +122,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         if self.sparsity:
             if self.verbose:
                 self.logger.info(
-                    f"Affinity : sparsity mode enabled, computing {n_neighbors} nearest neighbors."
+                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
@@ -146,6 +144,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             verbose=self.verbose,
             dtype=X.dtype,
             device=X.device,
+            logger=self.logger if self.verbose else None,
         )
 
         log_affinity_matrix = _log_Pumap(C_, self.rho_, self.eps_)

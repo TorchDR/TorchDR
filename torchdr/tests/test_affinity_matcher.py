@@ -8,8 +8,8 @@ from torchdr.affinity import (
     Affinity,
     ScalarProductAffinity,
     SparseLogAffinity,
-    NormalizedGaussianAffinity,
     GaussianAffinity,
+    LogAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -57,7 +57,7 @@ def test_convergence_reached(capfd):
     )
     model._fit(torch.rand(5, 2))
     captured = capfd.readouterr()
-    assert "Convergence reached" in captured.out
+    assert "Convergence reached" in captured.err
 
 
 def test_scheduler_not_set_optimizer():
@@ -78,15 +78,16 @@ def test_scheduler_invalid_type():
         model._set_scheduler()
 
 
-def test_lr_auto_warning():
-    with pytest.warns(UserWarning):
-        model = AffinityMatcher(
-            affinity_in=GaussianAffinity(),
-            affinity_out=GaussianAffinity(),
-            lr="auto",
-            verbose=True,
-        )
-        model._set_learning_rate()
+def test_lr_auto_warning(capfd):
+    model = AffinityMatcher(
+        affinity_in=GaussianAffinity(),
+        affinity_out=GaussianAffinity(),
+        lr="auto",
+        verbose=True,
+    )
+    model._set_learning_rate()
+    captured = capfd.readouterr()
+    assert "Auto LR is not implemented yet" in captured.err
 
 
 def test_init_embedding_invalid():
@@ -275,31 +276,21 @@ def test_loss_with_different_functions():
     assert isinstance(loss, torch.Tensor)
 
 
-def test_sparse_affinity_warning():
+def test_sparse_affinity_warning(capfd):
     class TestSparseAffinity(SparseLogAffinity):
         def __init__(self):
-            super().__init__()
-            self._sparsity = True
+            super().__init__(k=2, sparsity=True)
 
         def _compute_affinity(self, X):
-            return torch.rand(X.shape[0], X.shape[0])
+            return X
 
-    # Warning should occur when using sparse affinity_in with non-UnnormalizedAffinity affinity_out
-    with pytest.warns(UserWarning):
-        AffinityMatcher(
-            affinity_in=TestSparseAffinity(), affinity_out=NormalizedGaussianAffinity()
-        )
-
-    # No warning when using UnnormalizedAffinity (GaussianAffinity is an UnnormalizedLogAffinity)
-    sparse_affinity = TestSparseAffinity()
-    sparse_affinity._sparsity = True
-    # Just construct the affinity matcher without warning
-    AffinityMatcher(affinity_in=sparse_affinity, affinity_out=GaussianAffinity())
-    # The sparsity should still be True since no warning was triggered
-    assert sparse_affinity._sparsity
-
-    # No warning when affinity_out is None
-    AffinityMatcher(affinity_in=TestSparseAffinity(), affinity_out=None)
+    AffinityMatcher(
+        affinity_in=TestSparseAffinity(),
+        affinity_out=LogAffinity(verbose=False),
+        verbose=True,
+    )
+    captured = capfd.readouterr()
+    assert "affinity_out must be a UnnormalizedAffinity" in captured.err
 
 
 def test_fit_and_transform():

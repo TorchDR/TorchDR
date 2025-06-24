@@ -40,6 +40,6 @@ def test_check_estimator(estimator, kwargs):
 
 
 def test_init_verbose(capfd):
-    TSNE(verbose=True)
+    TSNE(verbose=True, random_state=0)
     captured = capfd.readouterr()
-    assert "Initializing" in captured.out
+    assert "Random seed set to" in captured.err

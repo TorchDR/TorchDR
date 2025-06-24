@@ -50,7 +50,6 @@ class DRModule(BaseEstimator, ABC):
         self.verbose = bool_arg(verbose)
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
-        self.logger.info("Initializing DR model.")
 
         if random_state is not None:
             self._actual_seed = seed_everything(

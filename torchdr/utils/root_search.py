@@ -6,7 +6,6 @@
 # License: BSD 3-Clause License
 
 import torch
-from tqdm import tqdm
 
 DTYPE = torch.float32
 DEVICE = "cpu"
@@ -22,6 +21,7 @@ def binary_search(
     verbose=False,
     dtype=DTYPE,
     device=DEVICE,
+    logger=None,
 ):
     r"""Implement the binary search root finding method.
 
@@ -46,6 +46,10 @@ def binary_search(
         if True, prints current bounds.
     dtype : torch.dtype, optional
         data type of the input.
+    device : str, optional
+        device on which the computation is performed.
+    logger : logging.Logger, optional
+        logger to use for printing.
 
     Returns
     -------
@@ -53,14 +57,21 @@ def binary_search(
         root of f.
     """
     begin, end = init_bounds(
-        f=f, n=n, begin=begin, end=end, dtype=dtype, device=device, verbose=verbose
+        f=f,
+        n=n,
+        begin=begin,
+        end=end,
+        dtype=dtype,
+        device=device,
+        verbose=verbose,
+        logger=logger,
     )
 
     m = (begin + end) / 2
     fm = f(m)
 
-    pbar = tqdm(range(max_iter), disable=not verbose)
-    for _ in pbar:
+    i = 0
+    for i in range(max_iter):
         if torch.max(torch.abs(fm)) < tol:
             break
 
@@ -70,13 +81,13 @@ def binary_search(
         m = (begin + end) / 2
         fm = f(m)
 
-        if verbose:
-            mean_f = fm.abs().mean().item()
-            std_f = fm.abs().std().item()
-            pbar.set_description(
-                "[TorchDR] Root search : "
-                f"Mean |diff.| = {float(mean_f): .2e} (std = {float(std_f): .2e}) "
-            )
+    if verbose:
+        n_iter = i + 1 if max_iter > 0 else 0
+        msg = f"Root found in {n_iter} iterations."
+        if logger is None:
+            print("[TorchDR] " + msg)
+        else:
+            logger.info(msg)
 
     return m
 
@@ -91,6 +102,7 @@ def false_position(
     verbose=False,
     dtype=DTYPE,
     device=DEVICE,
+    logger=None,
 ):
     r"""Implement the false position root finding method.
 
@@ -118,6 +130,8 @@ def false_position(
         data type of the input.
     device : str, optional
         device on which the computation is performed.
+    logger : logging.Logger, optional
+        logger to use for printing.
 
     Returns
     -------
@@ -125,7 +139,14 @@ def false_position(
         root of f.
     """
     begin, end = init_bounds(
-        f=f, n=n, begin=begin, end=end, dtype=dtype, device=device, verbose=verbose
+        f=f,
+        n=n,
+        begin=begin,
+        end=end,
+        dtype=dtype,
+        device=device,
+        verbose=verbose,
+        logger=logger,
     )
 
     f_begin, f_end = f(begin), f(end)
@@ -135,8 +156,8 @@ def false_position(
         "dimension changed after evaluating the function which root should be computed."
     )
 
-    pbar = tqdm(range(max_iter), disable=not verbose)
-    for _ in pbar:
+    i = 0
+    for i in range(max_iter):
         if torch.max(torch.abs(fm)) < tol:
             break
 
@@ -148,18 +169,20 @@ def false_position(
         m = begin - ((begin - end) / (f_begin - f_end)) * f_begin
         fm = f(m)
 
-        if verbose:
-            mean_f = fm.abs().mean().item()
-            std_f = fm.abs().std().item()
-            pbar.set_description(
-                "[TorchDR] Root search : "
-                f"Mean |diff.| = {float(mean_f): .2e} (std = {float(std_f): .2e}). "
-            )
+    if verbose:
+        n_iter = i + 1 if max_iter > 0 else 0
+        msg = f"Root found in {n_iter} iterations."
+        if logger is None:
+            print("[TorchDR] " + msg)
+        else:
+            logger.info(msg)
 
     return m
 
 
-def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True):
+def init_bounds(
+    f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True, logger=None
+):
     """Initialize the bounds of the root search."""
     if begin is None:
         begin = torch.ones(n, dtype=dtype, device=device)
@@ -201,10 +224,11 @@ def init_bounds(f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=
         out_end = f(end) < 0
         eval_counter += 1
 
-    if eval_counter > 1 and verbose:
-        print(
-            f"[TorchDR] {eval_counter} evaluation(s) to set the bounds "
-            "of the root search."
-        )
+    if verbose and eval_counter > 0:
+        msg = f"Root search bounds initialized in {eval_counter} evaluation(s)."
+        if logger is None:
+            print("[TorchDR] " + msg)
+        else:
+            logger.info(msg)
 
     return begin, end

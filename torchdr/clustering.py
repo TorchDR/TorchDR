@@ -72,7 +72,6 @@ class ClusteringModule(BaseEstimator, ABC):
 
         # --- Logger setup ---
         self.logger = set_logger(self.__class__.__name__, self.verbose)
-        self.logger.info("Initializing clustering model.")
 
         if random_state is not None:
             self._actual_seed = seed_everything(

@@ -139,7 +139,6 @@ class AffinityMatcher(DRModule):
         self.lr = lr
         self.min_grad_norm = min_grad_norm
         self.check_interval = check_interval
-        self.verbose = verbose
         self.max_iter = max_iter
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
@@ -236,6 +235,9 @@ class AffinityMatcher(DRModule):
             check_nonnegativity(X)
             self.affinity_in_ = X
         else:
+            self.logger.info(
+                f"Computing the affinity matrix using {self.affinity_in.__class__.__name__}."
+            )
             if isinstance(self.affinity_in, SparseLogAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
@@ -279,10 +281,8 @@ class AffinityMatcher(DRModule):
             )
 
             if self.verbose:
-                pbar.set_description(
-                    f"[TorchDR] DR Loss : {loss.item():.2e} | "
-                    f"Grad norm : {grad_norm:.2e} "
-                )
+                msg = f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e}"
+                pbar.set_description(f"[TorchDR] {self.logger.name}: {msg}")
 
             self._after_step()
 

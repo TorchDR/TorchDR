@@ -58,7 +58,6 @@ class Affinity(ABC):
         self.random_state = random_state
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
-        self.logger.info("Initializing affinity model.")
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.

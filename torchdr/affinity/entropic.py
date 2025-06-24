@@ -8,7 +8,6 @@
 
 import contextlib
 import math
-import warnings
 
 import numpy as np
 import torch
@@ -20,13 +19,13 @@ from torchdr.utils import (
     matrix_transpose,
     check_NaNs,
     entropy,
-    false_position,
     kmax,
     kmin,
     logsumexp_red,
     sum_matrix_vector,
     wrap_vectors,
     check_neighbor_param,
+    binary_search,
 )
 
 
@@ -78,8 +77,13 @@ def _bounds_entropic_affinity(C, perplexity):
 
     begin = 3 / 4
     end = 1 - 1e-6
-    p1 = false_position(
-        f=find_p1, n=1, begin=begin, end=end, max_iter=1000, tol=1e-6, verbose=False
+    p1 = binary_search(
+        f=find_p1,
+        n=1,
+        begin=begin,
+        end=end,
+        max_iter=1000,
+        tol=1e-6,
     ).item()
 
     # retrieve greatest and smallest pairwise distances
@@ -178,7 +182,7 @@ class EntropicAffinity(SparseLogAffinity):
         perplexity: float = 30,
         tol: float = 1e-3,
         max_iter: int = 1000,
-        sparsity: bool = "True",
+        sparsity: bool = True,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
@@ -214,9 +218,6 @@ class EntropicAffinity(SparseLogAffinity):
         indices : torch.Tensor or None
             Indices of the nearest neighbors if sparsity is used.
         """
-        if self.verbose:
-            self.logger.info("Computing the Entropic Affinity matrix.")
-
         n_samples_in = X.shape[0]
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = np.log(perplexity) + 1
@@ -225,8 +226,7 @@ class EntropicAffinity(SparseLogAffinity):
         if self.sparsity:
             if self.verbose:
                 self.logger.info(
-                    f"Affinity : sparsity mode enabled, computing {k} "
-                    "nearest neighbors."
+                    f"Sparsity mode enabled, computing {k} nearest neighbors."
                 )
             k = check_neighbor_param(k, n_samples_in)
             # when using sparsity, we construct a reduced distance matrix
@@ -243,7 +243,7 @@ class EntropicAffinity(SparseLogAffinity):
         begin, end = _bounds_entropic_affinity(C_, perplexity)
         begin += 1e-6  # avoid numerical issues
 
-        self.eps_ = false_position(
+        self.eps_ = binary_search(
             f=entropy_gap,
             n=n_samples_in,
             begin=begin,
@@ -253,6 +253,7 @@ class EntropicAffinity(SparseLogAffinity):
             verbose=self.verbose,
             dtype=X.dtype,
             device=X.device,
+            logger=self.logger if self.verbose else None,
         )
 
         log_P_final = _log_Pe(C_, self.eps_)
@@ -376,9 +377,6 @@ class SymmetricEntropicAffinity(LogAffinity):
             of shape (n_samples, n_samples)
             Log of the symmetric entropic affinity matrix.
         """
-        self.log_ = {}
-        if self.verbose:
-            self.logger.info("Computing the Symmetric Entropic Affinity matrix.")
 
         C, _ = self._distance_matrix(X)
 
@@ -481,15 +479,12 @@ class SymmetricEntropicAffinity(LogAffinity):
                         and torch.norm(grad_mu) < self.tol
                     ):
                         if self.verbose:
-                            self.logger.info(
-                                "Affinity : convergence reached at iter {k}."
-                            )
+                            self.logger.info(f"Convergence reached at iter {k}.")
                         break
 
                     if k == self.max_iter - 1 and self.verbose:
-                        warnings.warn(
-                            "WARNING Affinity: max iter attained, "
-                            "algorithm stops but may not have converged."
+                        self.logger.warning(
+                            "Max iter attained, algorithm stops but may not have converged."
                         )
 
             self.n_iter_ = k
@@ -616,12 +611,6 @@ class SinkhornAffinity(LogAffinity):
         if self.base_kernel == "student":
             C = (1 + C).log()
 
-        if self.verbose:
-            self.logger.info(
-                "Computing the (KL) Doubly Stochastic "
-                "Affinity matrix (Sinkhorn affinity)."
-            )
-
         n_samples_in = C.shape[0]
         log_K = -C / self.eps
 
@@ -646,13 +635,12 @@ class SinkhornAffinity(LogAffinity):
 
                 if torch.norm(self.dual_ - reduction) < self.tol:
                     if self.verbose:
-                        self.logger.info(f"Affinity : convergence reached at iter {k}.")
+                        self.logger.info(f"Convergence reached at iter {k}.")
                     break
 
                 if k == self.max_iter - 1 and self.verbose:
-                    warnings.warn(
-                        "WARNING Affinity: max iter attained, algorithm "
-                        "stops but may not have converged."
+                    self.logger.warning(
+                        "Max iter attained, algorithm stops but may not have converged."
                     )
 
         self.n_iter_ = k

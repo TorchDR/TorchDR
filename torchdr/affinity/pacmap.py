@@ -68,17 +68,13 @@ class PACMAPAffinity(SparseLogAffinity):
         self : PACMAPAffinityIn
             The fitted instance.
         """
-        if self.verbose:
-            self.logger.info("Computing PaCMAP affinity.")
-
         n_samples_in = X.shape[0]
         k = min(self.n_neighbors + 50, n_samples_in)
         k = check_neighbor_param(k, n_samples_in)
 
         if self.verbose:
-            self.logger.info(
-                f"Affinity : sparsity mode enabled, computing {k} nearest neighbors."
-            )
+            self.logger.info(f"Sparsity mode enabled, computing {k} nearest neighbors.")
+
         C_, temp_indices = self._distance_matrix(X, k=k)
 
         # Compute rho as the average distance between the 4th to 6th neighbors
