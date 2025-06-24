@@ -67,8 +67,16 @@ class ClusteringModule(BaseEstimator, ABC):
         self.backend = backend
         self.random_state = random_state
         self.verbose = verbose
+
         if self.verbose:
             print(f"[TorchDR] Initializing clustering model {self.__class__.__name__} ")
+
+        if random_state is not None:
+            self._actual_seed = seed_everything(
+                random_state, fast=True, deterministic=False
+            )
+            if self.verbose:
+                print(f"[TorchDR] Random seed set to: {self._actual_seed}.")
 
     @abstractmethod
     def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
@@ -103,7 +111,6 @@ class ClusteringModule(BaseEstimator, ABC):
         labels : torch.Tensor of shape (n_samples,)
             Cluster labels.
         """
-        seed_everything(self.random_state)
         self.fit(X)
         return self.labels_
 

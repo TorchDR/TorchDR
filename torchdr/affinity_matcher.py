@@ -27,7 +27,6 @@ from torchdr.utils import (
     handle_type,
     square_loss,
     to_torch,
-    seed_everything,
     ManifoldParameter,
     PoincareBallManifold,
 )
@@ -203,7 +202,6 @@ class AffinityMatcher(DRModule):
         embedding_ : torch.Tensor
             The embedding of the input data.
         """  # noqa: RST306
-        seed_everything(self.random_state)
         self._fit(X)
         return self.embedding_
 

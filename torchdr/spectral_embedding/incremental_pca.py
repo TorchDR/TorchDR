@@ -319,7 +319,8 @@ class IncrementalPCA(DRModule):
             Projected data.
         """
         self.fit(X)
-        return self.transform(X)
+        self.embedding_ = self.transform(X)
+        return self.embedding_
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):

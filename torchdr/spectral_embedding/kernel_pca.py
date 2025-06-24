@@ -112,6 +112,9 @@ class KernelPCA(DRModule):
 
         self.eigenvectors_ = eigvecs
         self.eigenvalues_ = eigvals
+        self.embedding_ = (
+            self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
+        )
         return self
 
     @handle_type
@@ -169,4 +172,4 @@ class KernelPCA(DRModule):
             Projected data.
         """
         self.fit(X)
-        return self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
+        return self.embedding_
