@@ -21,18 +21,19 @@ from .entropic import (
 from .knn_normalized import (
     MAGICAffinity,
     SelfTuningAffinity,
+    PHATEAffinity,
+    PACMAPAffinity,
+    UMAPAffinityIn,
 )
 from .quadratic import DoublyStochasticQuadraticAffinity
-from .umap import UMAPAffinityIn, UMAPAffinityOut
 from .unnormalized import (
     GaussianAffinity,
     NegativeCostAffinity,
     ScalarProductAffinity,
     StudentAffinity,
     CauchyAffinity,
+    UMAPAffinityOut,
 )
-from .pacmap import PACMAPAffinity
-from .phate import PHATEAffinity
 
 __all__ = [
     "Affinity",
