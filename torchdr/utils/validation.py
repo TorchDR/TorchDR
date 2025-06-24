@@ -7,6 +7,11 @@
 import torch
 from torch.testing import assert_close
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 from .keops import is_lazy_tensor, pykeops
 
 
@@ -272,6 +277,9 @@ def check_array(
         raise ValueError(
             "torchdr.utils.validation.check_array only supports tensor output."
         )
+
+    if pd is not None and isinstance(array, pd.DataFrame):
+        array = array.values
 
     if not isinstance(array, torch.Tensor):
         try:

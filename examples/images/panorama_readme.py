@@ -3,7 +3,7 @@ import os
 from matplotlib import pyplot as plt
 from sklearn.datasets import fetch_openml
 
-from torchdr import PCA, TSNE, UMAP, InfoTSNE, LargeVis
+from torchdr import PCA, PACMAP, UMAP, InfoTSNE, LargeVis
 
 # --- Load the MNIST dataset ---
 mnist = fetch_openml("mnist_784", cache=True, as_frame=False)
@@ -14,20 +14,20 @@ y = mnist.target.astype("int64")
 # --- Perform PCA as a preprocessing step ---
 x = PCA(50).fit_transform(x)
 
-# --- Compute TSNE embedding ---
-tsne = TSNE(backend="keops", device="cuda", verbose=True)
-z_tsne = tsne.fit_transform(x)
-
 # --- Compute InfoTSNE embedding ---
-infotsne = InfoTSNE(backend="keops", device="cuda", verbose=True)
+infotsne = InfoTSNE(backend="faiss", device="cuda", verbose=True)
 z_infotsne = infotsne.fit_transform(x)
 
+# --- Compute PACMAP embedding ---
+pacmap = PACMAP(backend="faiss", device="cuda", verbose=True)
+z_pacmap = pacmap.fit_transform(x)
+
 # --- Compute LargeVis embedding ---
-largevis = LargeVis(backend="keops", device="cuda", verbose=True, max_iter=10000)
+largevis = LargeVis(backend="faiss", device="cuda", verbose=True)
 z_largevis = largevis.fit_transform(x)
 
 # --- Compute UMAP embedding ---
-umap = UMAP(backend="keops", device="cuda", verbose=True, max_iter=10000)
+umap = UMAP(backend="faiss", device="cuda", verbose=True)
 z_umap = umap.fit_transform(x)
 
 
@@ -35,13 +35,15 @@ z_umap = umap.fit_transform(x)
 fig, axes = plt.subplots(1, 4, figsize=(24, 6))
 fontsize = 25
 
-scatter = axes[0].scatter(z_tsne[:, 0], z_tsne[:, 1], c=y, cmap="tab10", s=1, alpha=0.3)
-axes[0].set_title("TSNE", fontsize=fontsize)
+scatter = axes[0].scatter(
+    z_infotsne[:, 0], z_infotsne[:, 1], c=y, cmap="tab10", s=1, alpha=0.3
+)
+axes[0].set_title("InfoTSNE", fontsize=fontsize)
 axes[0].set_xticks([-10, 10])
 axes[0].set_yticks([-10, 10])
 
-axes[1].scatter(z_infotsne[:, 0], z_infotsne[:, 1], c=y, cmap="tab10", s=1, alpha=0.3)
-axes[1].set_title("InfoTSNE", fontsize=fontsize)
+axes[1].scatter(z_pacmap[:, 0], z_pacmap[:, 1], c=y, cmap="tab10", s=1, alpha=0.3)
+axes[1].set_title("PACMAP", fontsize=fontsize)
 axes[1].set_xticks([-10, 10])
 axes[1].set_yticks([-10, 10])
 
