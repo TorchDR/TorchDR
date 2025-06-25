@@ -86,6 +86,10 @@ class IncrementalPCA(DRModule):
         self.copy = copy
         self.batch_size = batch_size
         self.n_features_ = None
+        self.svd_driver = svd_driver
+        self.lowrank = lowrank
+        self.lowrank_q = lowrank_q
+        self.lowrank_niter = lowrank_niter
 
         if lowrank:
             if lowrank_q is None:
@@ -282,7 +286,7 @@ class IncrementalPCA(DRModule):
         torch.Tensor:
             Transformed data tensor with shape (n_samples, n_components).
         """
-        return (X - self.mean_.to(X.dtype)) @ self.components_.T
+        return (X - self.mean_.to(X.dtype)) @ self.components_.to(X.dtype).T
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         """Fit the model with X and apply the dimensionality reduction on X.
