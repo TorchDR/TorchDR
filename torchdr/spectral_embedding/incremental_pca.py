@@ -262,7 +262,7 @@ class IncrementalPCA(DRModule):
 
     @handle_type(
         accept_sparse=False,
-        ensure_min_samples=2,
+        ensure_min_samples=1,
         ensure_min_features=1,
         ensure_2d=True,
     )
@@ -282,7 +282,7 @@ class IncrementalPCA(DRModule):
         torch.Tensor:
             Transformed data tensor with shape (n_samples, n_components).
         """
-        return (X - self.mean_) @ self.components_.T
+        return (X - self.mean_.to(X.dtype)) @ self.components_.T
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         """Fit the model with X and apply the dimensionality reduction on X.
