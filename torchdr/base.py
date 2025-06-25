@@ -7,11 +7,14 @@
 from abc import ABC, abstractmethod
 
 import torch
+import numpy as np
 from sklearn.base import BaseEstimator
 
 from torchdr.utils import bool_arg, seed_everything, set_logger, handle_type
 
-from typing import Optional, Any
+from typing import Optional, Any, TypeVar
+
+ArrayLike = TypeVar("ArrayLike", torch.Tensor, np.ndarray)
 
 
 class DRModule(BaseEstimator, ABC):
@@ -61,20 +64,14 @@ class DRModule(BaseEstimator, ABC):
             self.logger.info(f"Random seed set to: {self._actual_seed}.")
 
         self.embedding_ = None
+        self.is_fitted_ = False
 
-    @handle_type(
-        accept_sparse=False,
-        ensure_min_samples=2,
-        ensure_min_features=1,
-        ensure_2d=True,
-    )
-    def fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+    @abstractmethod
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the dimensionality reduction model and transform the input data.
 
-        This method handles duplicate data points by default. It performs
-        dimensionality reduction on unique data points and then maps the
-        results back to the original data structure. This behavior can be
-        controlled by the `process_duplicates` parameter.
+        This method should be implemented by subclasses and contains the core
+        logic for the DR algorithm, assuming unique data points.
 
         Parameters
         ----------
@@ -87,6 +84,62 @@ class DRModule(BaseEstimator, ABC):
         Returns
         -------
         embedding_ : torch.Tensor of shape (n_samples, n_components)
+            The embedding of the input data in the lower-dimensional space.
+        """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _fit_transform method is not implemented."
+        )
+
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=2,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
+    def fit(self, X: ArrayLike, y: Optional[Any] = None) -> "DRModule":
+        """Fit the dimensionality reduction model from the input data.
+
+        Parameters
+        ----------
+        X : ArrayLike of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        self : DRModule
+            The fitted DRModule instance.
+        """
+        self.fit_transform(X, y=y)
+        return self
+
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=2,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
+    def fit_transform(self, X: ArrayLike, y: Optional[Any] = None) -> ArrayLike:
+        """Fit the dimensionality reduction model and transform the input data.
+
+        This method handles duplicate data points by default. It performs
+        dimensionality reduction on unique data points and then maps the
+        results back to the original data structure. This behavior can be
+        controlled by the `process_duplicates` parameter.
+
+        Parameters
+        ----------
+        X : ArrayLike of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data or input affinity matrix if it is precomputed.
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        embedding_ : ArrayLike of shape (n_samples, n_components)
             The embedding of the input data in the lower-dimensional space.
         """
         if self.process_duplicates:
@@ -104,28 +157,42 @@ class DRModule(BaseEstimator, ABC):
         else:
             self.embedding_ = self._fit_transform(X, y=y)
 
+        self.is_fitted_ = True
         return self.embedding_
 
-    @abstractmethod
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
-        """Fit the dimensionality reduction model and transform the input data.
+    def transform(self, X: Optional[ArrayLike] = None) -> ArrayLike:
+        """Transform the input data into the learned embedding space.
 
-        This method should be implemented by subclasses and contains the core
-        logic for the DR algorithm, assuming unique data points.
+        This method can only be called after the model has been fitted.
+        If `X` is not provided, it returns the embedding of the training data.
 
         Parameters
         ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data or input affinity matrix if it is precomputed.
-        y : None
-            Ignored.
+        X : ArrayLike of shape (n_samples, n_features), optional
+            The data to transform. If None, returns the training data embedding.
+            Not all models support transforming new data.
+
+        Returns
+        -------
+        embedding_ : ArrayLike of shape (n_samples, n_components)
+            The embedding of the input data.
 
         Raises
         ------
         NotImplementedError
-            This method should be overridden by subclasses.
+            If the model does not support transforming new data.
+        ValueError
+            If the model has not been fitted yet.
         """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _fit_transform method is not implemented."
-        )
+        if not self.is_fitted_:
+            raise ValueError(
+                "This DRModule instance is not fitted yet. "
+                "Call 'fit' or 'fit_transform' with some data first."
+            )
+
+        if X is not None:
+            raise NotImplementedError(
+                "Transforming new data is not implemented for this model."
+            )
+
+        return self.embedding_
