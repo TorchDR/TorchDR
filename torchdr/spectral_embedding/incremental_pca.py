@@ -15,6 +15,7 @@ from torchdr.utils import (
     handle_type,
     svd_flip,
     to_torch,
+    log_with_timing,
 )
 
 from typing import Union, Any
@@ -186,6 +187,7 @@ class IncrementalPCA(DRModule):
 
         return updated_mean, updated_variance, updated_sample_count
 
+    @log_with_timing(log_device_backend=True)
     def fit(self, X: Union[torch.Tensor, np.ndarray], check_input: bool = True):
         """Fit the model with data `X` using minibatches of size `batch_size`.
 

@@ -11,9 +11,16 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, to_torch, svd_flip
+from torchdr.utils import (
+    handle_type,
+    to_torch,
+    svd_flip,
+    sum_red,
+    center_kernel,
+    check_nonnegativity_eigenvalues,
+    log_with_timing,
+)
 
-from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalues
 from torchdr.affinity import (
     Affinity,
     GaussianAffinity,
@@ -74,6 +81,7 @@ class KernelPCA(DRModule):
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )
 
+    @log_with_timing(log_device_backend=True)
     def fit(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the KernelPCA model.
 

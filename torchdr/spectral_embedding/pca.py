@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, to_torch, svd_flip
+from torchdr.utils import handle_type, to_torch, svd_flip, log_with_timing
 
 
 class PCA(DRModule):
@@ -53,6 +53,7 @@ class PCA(DRModule):
         self.mean_ = None
         self.components_ = None
 
+    @log_with_timing(log_device_backend=True)
     def fit(self, X: Union[torch.Tensor, np.ndarray]):
         r"""Fit the PCA model.
 

@@ -17,8 +17,9 @@ from torchdr.utils import (
     symmetric_pairwise_distances_indices,
     to_torch,
     bool_arg,
+    log_with_timing,
+    set_logger,
 )
-from torchdr.utils import set_logger
 
 
 class Affinity(ABC):
@@ -59,6 +60,7 @@ class Affinity(ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
+    @log_with_timing
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
 
@@ -160,6 +162,7 @@ class LogAffinity(Affinity):
             random_state=random_state,
         )
 
+    @log_with_timing
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
     ):
@@ -251,7 +254,7 @@ class SparseLogAffinity(LogAffinity):
             verbose=verbose,
             random_state=random_state,
         )
-        self._sparsity = bool_arg(sparsity)
+        self.sparsity = sparsity
 
     @property
     def sparsity(self):
@@ -263,6 +266,7 @@ class SparseLogAffinity(LogAffinity):
         """Set the sparsity of the affinity matrix."""
         self._sparsity = bool_arg(value)
 
+    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -366,6 +370,7 @@ class UnnormalizedAffinity(Affinity):
             random_state=random_state,
         )
 
+    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -513,6 +518,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             random_state=random_state,
         )
 
+    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],

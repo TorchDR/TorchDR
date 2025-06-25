@@ -9,7 +9,12 @@ from abc import ABC, abstractmethod
 import torch
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import bool_arg, seed_everything, set_logger, handle_type
+from torchdr.utils import (
+    bool_arg,
+    seed_everything,
+    set_logger,
+    handle_type,
+)
 
 from typing import Optional, Any
 

@@ -112,7 +112,6 @@ benchmarks = [
     "requests",
     "umap-learn",
 ]
-
 all = [
     "torchdr[test,keops,dev,doc,examples,benchmarks]",
 ]

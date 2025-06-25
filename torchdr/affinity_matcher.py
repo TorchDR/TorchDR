@@ -27,6 +27,7 @@ from torchdr.utils import (
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
+    log_with_timing,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -221,6 +222,7 @@ class AffinityMatcher(DRModule):
         self._fit(X)
         return self
 
+    @log_with_timing(log_device_backend=True)
     def _fit(self, X: torch.Tensor):
         self.n_samples_in_, self.n_features_in_ = X.shape
 
@@ -235,9 +237,6 @@ class AffinityMatcher(DRModule):
             check_nonnegativity(X)
             self.affinity_in_ = X
         else:
-            self.logger.info(
-                f"Computing the affinity matrix using {self.affinity_in.__class__.__name__}."
-            )
             if isinstance(self.affinity_in, SparseLogAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
@@ -251,6 +250,7 @@ class AffinityMatcher(DRModule):
         self._set_optimizer()
         self._set_scheduler()
 
+        grad_norm = float("nan")
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for step in pbar:
             self.n_iter_ = step
@@ -281,7 +281,12 @@ class AffinityMatcher(DRModule):
             )
 
             if self.verbose:
-                msg = f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e}"
+                lr = self.optimizer_.param_groups[0]["lr"]
+                msg = (
+                    f"Loss: {loss.item():.2e} | "
+                    f"Grad norm: {grad_norm:.2e} | "
+                    f"LR: {lr:.2e}"
+                )
                 pbar.set_description(f"[TorchDR] {self.logger.name}: {msg}")
 
             self._after_step()
