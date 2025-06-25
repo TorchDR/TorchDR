@@ -21,7 +21,8 @@ class PACMAP(SampledNeighborEmbedding):
 
         w_{\mathrm{NB}} \sum_{i, j \in \mathrm{NB}(i)} \frac{d_{ij}}{10 + d_{ij}} + w_{\mathrm{MN}} \sum_{i,j \in \mathrm{MN}(i)} \frac{d_{ij}}{10^4 + d_{ij}} + w_{\mathrm{FP}} \sum_{i,j \in \mathrm{FP}(i)} \frac{1}{1 + d_{ij}}
 
-    where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively (more details in :cite:`wang2021understanding`).
+    where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively,
+    and :math:`d_{ij} = 1 + \|\mathbf{z}_i - \mathbf{z}_j\|^2` (more details in :cite:`wang2021understanding`).
 
     Parameters
     ----------
@@ -30,7 +31,7 @@ class PACMAP(SampledNeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm, by default 'auto'.
+        Learning rate for the algorithm, by default 1e0.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "Adam".
@@ -77,7 +78,7 @@ class PACMAP(SampledNeighborEmbedding):
         self,
         n_neighbors: float = 10,
         n_components: int = 2,
-        lr: Union[float, str] = "auto",
+        lr: Union[float, str] = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "Adam",
         optimizer_kwargs: Optional[Union[Dict, str]] = None,
         scheduler: Optional[

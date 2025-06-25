@@ -47,12 +47,22 @@ To utilize GPU support, set :attr:`device="cuda"` when initializing any module. 
     DR particularly benefits from GPU acceleration as most computations, including affinity calculations and the DR objective, involve matrix reductions that are highly parallelizable.
 
 
-Avoiding memory overflows with KeOps symbolic (lazy) tensors
+Handling the quadratic cost via sparsity or symbolic tensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Affinities incur a quadratic memory cost, which can be particularly problematic when dealing with large numbers of samples, especially when using GPUs.
+Affinities naturally incur a quadratic memory cost, which can be particularly
+problematic when dealing with large numbers of samples, especially when using GPUs.
 
-To prevent memory overflows, TorchDR relies on ``pykeops`` :cite:`charlier2021kernel` lazy tensors. These tensors are expressed as mathematical formulas, evaluated directly on the data samples. This symbolic representation allows computations to be performed without storing the entire matrix in memory, thereby effectively eliminating any memory limitation.
+Many affinity metrics only require computing distances to each point's k nearest neighbors.
+For large datasets (typically when :math:`n > 10^4`) where the full pairwise-distance matrix won't fit in GPU memory,
+TorchDR can offload these computations to the GPU-compatible kNN library `Faiss <https://github.com/facebookresearch/faiss>`_.
+Simply set :attr:`backend` to ``faiss`` to leverage Faiss's efficient implementations.
+
+Alternatively, for exact computations or affinities that can't be limited to kNNs, you can use symbolic (lazy) tensors to avoid memory overflows.
+TorchDR integrates with ``pykeops``:cite:`charlier2021kernel`, representing tensors as mathematical expressions evaluated directly on your data samples.
+By computing on-the-fly formulas instead of storing full matrices, this approach removes memory constraints entirely.
+However, for very large datasets (typically when :math:`n > 10^5`), the computational cost becomes prohibitive.
+Simply set :attr:`backend` to ``keops`` in any module to enable it.
 
 .. image:: figures/symbolic_matrix.svg
    :width: 800
@@ -60,14 +70,13 @@ To prevent memory overflows, TorchDR relies on ``pykeops`` :cite:`charlier2021ke
 
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
-Set :attr:`backend="keops"` as input to any module to use symbolic tensors.
 
 
 Affinities
 ----------
 
 Affinities are the essential building blocks of dimensionality reduction methods.
-TorchDR provides a wide range of affinities, including basic ones such as :class:`GaussianAffinity <torchdr.GaussianAffinity>`, :class:`StudentAffinity <torchdr.StudentAffinity>` and :class:`ScalarProductAffinity <torchdr.ScalarProductAffinity>`.
+TorchDR provides a wide range of affinities. See :ref:`api_and_modules` for a complete list.
 
 Base structure
 ^^^^^^^^^^^^^^
@@ -231,7 +240,7 @@ NE objectives share a common structure: they aim to **minimize** the **weighted 
 
 In the above, :math:`\mathcal{L}_{\mathrm{rep}}(\mathbf{Q})` represents the repulsive part of the loss function while :math:`\lambda` is a hyperparameter that controls the balance between attraction and repulsion. The latter is called :attr:`early_exaggeration_coeff` in TorchDR because it is often set to a value larger than one at the beginning of the optimization.
 
-Many NE methods can be represented within this framework. The following table summarizes the ones implemented in TorchDR, detailing their respective repulsive loss function, as well as their input and output affinities.
+Many NE methods can be represented within this framework. See below for some examples.
 
 .. list-table::
    :widths: auto

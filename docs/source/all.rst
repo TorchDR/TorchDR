@@ -25,32 +25,22 @@ directly on the GPU memory without overflows using ``keops=True``.
 
 TorchDR supports a variety of dimensionality reduction methods. They are presented in the following sections.
 
+
 Spectral Embedding
 ^^^^^^^^^^^^^^^^^^
-
-Those classes are used to perform classical spectral embedding from a
-:class:`torchdr.Affinity` object defined on the input data.
-They give the same output as using :class:`torchdr.AffinityMatcher` with this same
-:class:`torchdr.Affinity` in input space and a :class:`torchdr.ScalarProductAffinity` in
-the embedding space. However, :class:`torchdr.AffinityMatcher` relies on a
-gradient-based solver while the spectral embedding classes rely on the
-eigendecomposition of the affinity matrix.
 
 .. autosummary::
    :toctree: gen_modules/
    :template: myclass_template.rst
 
    PCA
-   KernelPCA
    IncrementalPCA
+   KernelPCA
    PHATE
 
 
 Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
-
-TorchDR supports the following neighbor embedding methods.
-
 
 .. autosummary::
    :toctree: gen_modules/
@@ -94,11 +84,10 @@ Base Neighbor Embedding Modules
 """""""""""""""""""""""""""""""
 
 Neighbor embedding base modules inherit from the :class:`torchdr.AffinityMatcher`
-class and implement specific strategies that are common to all neighbor embedding
-methods such as early exaggeration.
-
-In particular, :class:`torchdr.SparseNeighborEmbedding` relies on the sparsity of the
-input affinity to compute the attractive term in linear time. :class:`torchdr.SampledNeighborEmbedding` inherits from this class and adds the possibility to
+class.
+:class:`torchdr.SparseNeighborEmbedding` relies on the sparsity of the
+input affinity to compute the attractive term in linear time.
+:class:`torchdr.SampledNeighborEmbedding` inherits from this class and adds the possibility to
 approximate the repulsive term of the loss via negative samples.
 
 .. autosummary::
@@ -112,10 +101,6 @@ approximate the repulsive term of the loss via negative samples.
 
 Affinity Classes
 ^^^^^^^^^^^^^^^^
-
-The following classes are used to compute the affinities between the data points.
-Broadly speaking, they define a notion of similarity between samples.
-
 
 Simple Affinities
 """""""""""""""""
@@ -141,6 +126,9 @@ Affinities Normalized by kNN Distances
    SelfTuningAffinity
    MAGICAffinity
    PotentialAffinity
+   PHATEAffinity
+   PACMAPAffinity
+   UMAPAffinityIn
 
 
 Entropic Affinities
@@ -163,15 +151,11 @@ Other Affinities
    :template: myclass_template.rst
 
    DoublyStochasticQuadraticAffinity
-   UMAPAffinityIn
    UMAPAffinityOut
-   PACMAPAffinity
 
 
 Scores
 ^^^^^^
-
-The following classes are used to evaluate the embeddings.
 
 .. autosummary::
    :toctree: gen_modules/
@@ -182,9 +166,6 @@ The following classes are used to evaluate the embeddings.
 
 Utils
 ^^^^^
-
-The following classes are used to perform various operations such as computing
-the pairwise distances between the data points as well as solving root search problems.
 
 .. autosummary::
    :toctree: gen_modules/

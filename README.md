@@ -51,7 +51,7 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ## Methods
 
-### Neighbor Embedding
+### Neighbor Embedding (optimal for data visualization)
 
 `TorchDR` provides a suite of **neighbor embedding** methods.
 
@@ -65,10 +65,7 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ### Spectral Embedding
 
-`TorchDR` provides **spectral embeddings** calculated via eigenvalue decomposition:
-- [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html)
-- [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html) to handle massive datasets
-- [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html) to leverage any `TorchDR` *Affinity* (see the [Affinities](#affinities) subsection below)
+`TorchDR` provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
 
 
 ## Benchmarks
@@ -115,13 +112,15 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 
 `TorchDR` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
-- Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html).
+- Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html), [`UMAPAffinityIn`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAPAffinityIn.html), [`PHATEAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATEAffinity.html), [`PACMAPAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAPAffinity.html).
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
 - Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).
+
 
 ### Evaluation Metric
 
 `TorchDR` provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
+
 
 ### Backends
 
@@ -134,13 +133,27 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ## Installation
 
-You can install the toolbox through PyPI with:
+Install the core `torchdr` library from PyPI:
 
 ```bash
 pip install torchdr
 ```
 
-To get the latest version, you can install it from the source code as follows:
+`TorchDR` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
+
+*   **Faiss (Recommended)**: For the fastest k-NN computations, install [Faiss](https://github.com/facebookresearch/faiss). Please follow their [official installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md). A common method is using `conda`:
+    ```bash
+    conda install -c pytorch -c nvidia faiss-gpu
+    ```
+
+*   **KeOps**: For memory-efficient symbolic computations, install [PyKeOps](https://www.kernel-operations.io/keops/index.html).
+    ```bash
+    pip install pykeops
+    ```
+
+### Installation from Source
+
+If you want to use the latest, unreleased version of `torchdr`, you can install it directly from GitHub:
 
 ```bash
 pip install git+https://github.com/torchdr/torchdr
