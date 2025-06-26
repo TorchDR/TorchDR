@@ -201,6 +201,8 @@ class AffinityMatcher(DRModule):
 
         # --- check if affinity_in is precomputed else compute it ---
         if self.affinity_in == "precomputed":
+            if self.verbose:
+                self.logger.info("[Step 1/2] --- Using precomputed affinity matrix ---")
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
                     '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
@@ -210,12 +212,19 @@ class AffinityMatcher(DRModule):
             check_nonnegativity(X)
             self.affinity_in_ = X
         else:
+            if self.verbose:
+                self.logger.info(
+                    f"[Step 1/2] --- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} ---"
+                )
             if isinstance(self.affinity_in, SparseLogAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
                 )
             else:
                 self.affinity_in_ = self.affinity_in(X)
+
+        if self.verbose:
+            self.logger.info("[Step 2/2] --- Optimizing the embedding ---")
 
         self._init_embedding(X)
         self._set_params()
