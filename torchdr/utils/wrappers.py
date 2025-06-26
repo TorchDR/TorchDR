@@ -19,16 +19,15 @@ def log_with_timing(_func=None, *, log_device_backend: bool = False):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            msg = "Starting..."
             if log_device_backend:
                 backend = getattr(self, "backend_", self.backend)
-                msg += f" (device: {self.device}, backend: {backend})"
-
-            self.logger.info(msg)
+                self.logger.info(
+                    f"Starting on device '{self.device}' with backend '{backend}'."
+                )
             start_time = time.time()
             result = func(self, *args, **kwargs)
             end_time = time.time()
-            self.logger.info(f"Finished in {end_time - start_time:.2f}s.")
+            self.logger.info(f"Computed in {end_time - start_time:.2f}s.")
             return result
 
         return wrapper
