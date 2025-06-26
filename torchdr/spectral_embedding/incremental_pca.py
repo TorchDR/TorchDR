@@ -15,7 +15,6 @@ from torchdr.utils import (
     handle_type,
     svd_flip,
     to_torch,
-    log_with_timing,
 )
 
 from typing import Union, Any
@@ -87,6 +86,10 @@ class IncrementalPCA(DRModule):
         self.copy = copy
         self.batch_size = batch_size
         self.n_features_ = None
+        self.svd_driver = svd_driver
+        self.lowrank = lowrank
+        self.lowrank_q = lowrank_q
+        self.lowrank_niter = lowrank_niter
 
         if lowrank:
             if lowrank_q is None:
@@ -187,37 +190,6 @@ class IncrementalPCA(DRModule):
 
         return updated_mean, updated_variance, updated_sample_count
 
-    @log_with_timing(log_device_backend=True)
-    def fit(self, X: Union[torch.Tensor, np.ndarray], check_input: bool = True):
-        """Fit the model with data `X` using minibatches of size `batch_size`.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray
-            The input data tensor with shape (n_samples, n_features).
-        check_input : bool, optional
-            If True, validates the input. Defaults to True.
-
-        Returns
-        -------
-        IncrementalPCA:
-            The fitted IPCA model.
-        """
-        X = to_torch(X, device="auto")
-        if check_input:
-            X = self._validate_data(X)
-        n_samples, n_features = X.shape
-        if self.batch_size is None:
-            self.batch_size = 5 * n_features
-
-        for batch in self.gen_batches(
-            n_samples, self.batch_size, min_batch_size=self.n_components or 0
-        ):
-            X_batch = X[batch].to(X.device if self.device == "auto" else self.device)
-            self.partial_fit(X_batch, check_input=False)
-
-        return self
-
     def partial_fit(self, X, check_input=True):
         """Fit incrementally the model with batch data `X`.
 
@@ -250,8 +222,7 @@ class IncrementalPCA(DRModule):
 
         if n_features != self.n_features_:
             raise ValueError(
-                "Number of features of the new batch does not match "
-                "the number of features of the first batch."
+                f"n_features={self.n_features_} while input has {n_features} features"
             )
 
         col_mean, col_var, n_total_samples = self._incremental_mean_and_var(
@@ -293,7 +264,12 @@ class IncrementalPCA(DRModule):
             self.noise_variance_ = torch.tensor(0.0, device=X.device)
         return self
 
-    @handle_type
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=1,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
     def transform(self, X: Union[torch.Tensor, np.ndarray]):
         """Apply dimensionality reduction to `X`.
 
@@ -310,8 +286,7 @@ class IncrementalPCA(DRModule):
         torch.Tensor:
             Transformed data tensor with shape (n_samples, n_components).
         """
-        X = X - self.mean_
-        return X @ self.components_.T
+        return (X - self.mean_.to(X.dtype)) @ self.components_.to(X.dtype).T
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         """Fit the model with X and apply the dimensionality reduction on X.
@@ -319,19 +294,29 @@ class IncrementalPCA(DRModule):
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Training data, where `n_samples` is the number of samples and
-            `n_features` is the number of features.
-        y : Optional[Any], optional
-            Ignored. Defaults to None.
+            Data on which to fit the PCA model and project onto the components.
+        y : Optional[Any], default=None
+            Target values (None for unsupervised transformations).
 
         Returns
         -------
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Transformed data.
+            Projected data.
         """
-        self.fit(X)
-        X_transformed = (X - self.mean_) @ self.components_[: self.n_components].T
-        return X_transformed
+        X = to_torch(X, device=self.device)
+        X = self._validate_data(X)
+        n_samples, n_features = X.shape
+        if self.batch_size is None:
+            self.batch_size = 5 * n_features
+
+        for batch in self.gen_batches(
+            n_samples, self.batch_size, min_batch_size=self.n_components or 0
+        ):
+            X_batch = X[batch].to(X.device if self.device == "auto" else self.device)
+            self.partial_fit(X_batch, check_input=False)
+
+        self.embedding_ = self.transform(X)
+        return self.embedding_
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):

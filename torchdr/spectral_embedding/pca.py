@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, to_torch, svd_flip, log_with_timing
+from torchdr.utils import handle_type, svd_flip
 
 
 class PCA(DRModule):
@@ -53,32 +53,39 @@ class PCA(DRModule):
         self.mean_ = None
         self.components_ = None
 
-    @log_with_timing(log_device_backend=True)
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
-        r"""Fit the PCA model.
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+        """Fit the PCA model and apply the dimensionality reduction on X.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which to fit the PCA model.
+        X : torch.Tensor of shape (n_samples, n_features)
+            Data on which to fit the PCA model and project onto the components.
+        y : Optional[Any], default=None
+            Target values (None for unsupervised transformations).
 
         Returns
         -------
-        self : PCA
-            The fitted PCA model.
+        embedding_ : torch.Tensor of shape (n_samples, n_components)
+            Projected data.
         """
-        X = to_torch(X, device=self.device)
         self.mean_ = X.mean(0, keepdim=True)
         U, S, V = torch.linalg.svd(
             X - self.mean_, full_matrices=False, driver=self.svd_driver
         )
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
-        self.embedding_ = U[:, : self.n_components] @ S[: self.n_components].diag()
-        return self
+        self.embedding_ = U[:, : self.n_components] * S[: self.n_components]
+        return self.embedding_
 
-    @handle_type
-    def transform(self, X: Union[torch.Tensor, np.ndarray]):
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=2,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
+    def transform(
+        self, X: Union[torch.Tensor, np.ndarray]
+    ) -> Union[torch.Tensor, np.ndarray]:
         r"""Project the input data onto the PCA components.
 
         Parameters
@@ -92,21 +99,3 @@ class PCA(DRModule):
             Projected data.
         """
         return (X - self.mean_) @ self.components_.T
-
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
-        """Fit the model with X and apply the dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which to fit the PCA model and project onto the components.
-        y : Optional[Any], default=None
-            Target values (None for unsupervised transformations).
-
-        Returns
-        -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
-        """
-        self.fit(X)
-        return self.embedding_

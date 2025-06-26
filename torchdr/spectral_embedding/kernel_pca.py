@@ -11,16 +11,9 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import (
-    handle_type,
-    to_torch,
-    svd_flip,
-    sum_red,
-    center_kernel,
-    check_nonnegativity_eigenvalues,
-    log_with_timing,
-)
+from torchdr.utils import handle_type, svd_flip
 
+from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalues
 from torchdr.affinity import (
     Affinity,
     GaussianAffinity,
@@ -81,21 +74,21 @@ class KernelPCA(DRModule):
                 "[TorchDR] ERROR : KeOps is not (yet) supported for KernelPCA."
             )
 
-    @log_with_timing(log_device_backend=True)
-    def fit(self, X: Union[torch.Tensor, np.ndarray]):
-        r"""Fit the KernelPCA model.
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+        r"""Fit the KernelPCA model and project the input data onto the components.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which to fit the KernelPCA model.
+        X : torch.Tensor of shape (n_samples, n_features)
+            Data on which to fit the KernelPCA model and project onto the components.
+        y : Optional[Any], default=None
+            Ignored in this method.
 
         Returns
         -------
-        self : KernelPCA
-            The fitted KernelPCA model.
+        embedding_ : torch.Tensor of shape (n_samples, n_components)
+            Projected data.
         """
-        X = to_torch(X, device=self.device)
         self.X_fit_ = X.clone()
         K = self.affinity(X)
         K, _, col_mean, mean = center_kernel(K, return_all=True)
@@ -124,10 +117,17 @@ class KernelPCA(DRModule):
         self.embedding_ = (
             self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
         )
-        return self
+        return self.embedding_
 
-    @handle_type
-    def transform(self, X: Union[torch.Tensor, np.ndarray]):
+    @handle_type(
+        accept_sparse=False,
+        ensure_min_samples=2,
+        ensure_min_features=1,
+        ensure_2d=True,
+    )
+    def transform(
+        self, X: Union[torch.Tensor, np.ndarray]
+    ) -> Union[torch.Tensor, np.ndarray]:
         r"""Project the input data onto the KernelPCA components.
 
         Parameters
@@ -159,28 +159,10 @@ class KernelPCA(DRModule):
         result = (
             K
             @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[: self.n_components]).sqrt()
+            @ torch.diag(1 / self.eigenvalues_[: self.n_components].sqrt())
         )
         # remove np.inf arising from division by 0 eigenvalues:
         zero_eigvals = self.eigenvalues_[: self.n_components] == 0
         if zero_eigvals.any():
             result[:, zero_eigvals] = 0
         return result
-
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
-        r"""Fit the KernelPCA model and project the input data onto the components.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data on which to fit the KernelPCA model and project onto the components.
-        y : Optional[Any], default=None
-            Ignored in this method.
-
-        Returns
-        -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
-        """
-        self.fit(X)
-        return self.embedding_
