@@ -5,11 +5,37 @@
 # License: BSD 3-Clause License
 
 import functools
+import time
 
 import torch
 
 from .keops import LazyTensor, is_lazy_tensor, pykeops
 from .validation import check_array
+
+
+def log_with_timing(_func=None, *, log_device_backend: bool = False):
+    """Log the execution time of a method, with an option to include device and backend."""
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if log_device_backend:
+                backend = getattr(self, "backend_", self.backend)
+                self.logger.info(
+                    f"Starting on device '{self.device}' with backend '{backend}'."
+                )
+            start_time = time.time()
+            result = func(self, *args, **kwargs)
+            end_time = time.time()
+            self.logger.info(f"Computed in {end_time - start_time:.2f}s.")
+            return result
+
+        return wrapper
+
+    if _func is None:
+        return decorator
+    else:
+        return decorator(_func)
 
 
 def output_contiguous(func):
@@ -39,11 +65,14 @@ def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs
     if isinstance(x, torch.Tensor):
         input_backend = "torch"
         input_device = x.device
-        target_device = device if device != "auto" else input_device
     else:
         input_backend = "numpy"
         input_device = "cpu"
-        target_device = device if device != "auto" else "cpu"
+
+    if device == "auto":
+        target_device = input_device
+    else:
+        target_device = device
 
     x_ = check_array(x, device=target_device, **check_array_kwargs)
 

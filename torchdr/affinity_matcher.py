@@ -196,15 +196,13 @@ class AffinityMatcher(DRModule):
         -------
         embedding_ : torch.Tensor
             The embedding of the input data.
-        """  # noqa: RST306
-        self._fit(X)
-        return self.embedding_
-
-    def _fit(self, X: torch.Tensor):
+        """
         self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- check if affinity_in is precomputed else compute it ---
         if self.affinity_in == "precomputed":
+            if self.verbose:
+                self.logger.info("[Step 1/2] --- Using precomputed affinity matrix ---")
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
                     '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
@@ -214,9 +212,10 @@ class AffinityMatcher(DRModule):
             check_nonnegativity(X)
             self.affinity_in_ = X
         else:
-            self.logger.info(
-                f"Computing the affinity matrix using {self.affinity_in.__class__.__name__}."
-            )
+            if self.verbose:
+                self.logger.info(
+                    f"[Step 1/2] --- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} ---"
+                )
             if isinstance(self.affinity_in, SparseLogAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
@@ -224,12 +223,16 @@ class AffinityMatcher(DRModule):
             else:
                 self.affinity_in_ = self.affinity_in(X)
 
+        if self.verbose:
+            self.logger.info("[Step 2/2] --- Optimizing the embedding ---")
+
         self._init_embedding(X)
         self._set_params()
         self._set_learning_rate()
         self._set_optimizer()
         self._set_scheduler()
 
+        grad_norm = float("nan")
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for step in pbar:
             self.n_iter_ = step
@@ -260,12 +263,17 @@ class AffinityMatcher(DRModule):
             )
 
             if self.verbose:
-                msg = f"Loss : {loss.item():.2e} | Grad norm : {grad_norm:.2e}"
+                lr = self.optimizer_.param_groups[0]["lr"]
+                msg = (
+                    f"Loss: {loss.item():.2e} | "
+                    f"Grad norm: {grad_norm:.2e} | "
+                    f"LR: {lr:.2e}"
+                )
                 pbar.set_description(f"[TorchDR] {self.logger.name}: {msg}")
 
             self._after_step()
 
-        return self
+        return self.embedding_
 
     def _loss(self):
         if self.affinity_out is None:

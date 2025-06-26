@@ -10,7 +10,13 @@ import torch
 import numpy as np
 from sklearn.base import BaseEstimator
 
-from torchdr.utils import bool_arg, seed_everything, set_logger, handle_type
+from torchdr.utils import (
+    bool_arg,
+    seed_everything,
+    set_logger,
+    handle_type,
+    log_with_timing,
+)
 
 from typing import Optional, Any, TypeVar
 
@@ -115,6 +121,7 @@ class DRModule(BaseEstimator, ABC):
         self.fit_transform(X, y=y)
         return self
 
+    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,

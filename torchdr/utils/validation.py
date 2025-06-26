@@ -243,7 +243,6 @@ def check_array(
     ensure_min_samples=1,
     ensure_min_features=1,
     ensure_2d=True,
-    to_tensor=True,
     device=None,
 ):
     """Input validation on an array, list, or tensor.
@@ -263,8 +262,6 @@ def check_array(
         Make sure that the array has at least `ensure_min_features` features.
     ensure_2d : bool, default=True
         Whether to raise an error if the array is not 2D.
-    to_tensor : bool, default=True
-        Whether to convert the input to a torch.Tensor.
     device : str, default=None
         Device to which the tensor is moved.
 
@@ -273,11 +270,6 @@ def check_array(
     array_converted : torch.Tensor
         The converted and validated array.
     """
-    if not to_tensor:
-        raise ValueError(
-            "torchdr.utils.validation.check_array only supports tensor output."
-        )
-
     if pd is not None and isinstance(array, pd.DataFrame):
         array = array.values
 
@@ -299,8 +291,8 @@ def check_array(
         elif array.ndim == 1:
             array = array.reshape(-1, 1)
 
-    if array.ndim != 2:
-        raise ValueError(f"Expected 2D array, got {array.ndim}D array instead.")
+        if array.ndim != 2:
+            raise ValueError(f"Expected 2D array, got {array.ndim}D array instead.")
 
     n_samples, n_features = array.shape
     if n_samples < ensure_min_samples:

@@ -303,7 +303,7 @@ class IncrementalPCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
-        X = to_torch(X, device=self.device)
+        X = to_torch(X, device="auto")
         X = self._validate_data(X)
         n_samples, n_features = X.shape
         if self.batch_size is None:

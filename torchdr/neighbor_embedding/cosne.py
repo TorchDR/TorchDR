@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Dict, Optional, Union, Type
+from typing import Dict, Optional, Union, Type, Any
 import torch
 
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
@@ -153,10 +153,10 @@ class COSNE(SparseNeighborEmbedding):
             check_interval=check_interval,
         )
 
-    def _fit(self, X: torch.Tensor):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         # We compute once and for all the norms of X data samples
         self.X_norm = (X**2).sum(-1)
-        super()._fit(X)
+        return super()._fit_transform(X)
 
     def _repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True)

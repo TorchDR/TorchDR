@@ -57,6 +57,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     wrap_vectors,
+    log_with_timing,
 )
 
 from .manifold import (
@@ -125,4 +126,5 @@ __all__ = [
     "check_array",
     "plot_disk",
     "plot_poincare_disk",
+    "log_with_timing",
 ]
