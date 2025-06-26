@@ -15,6 +15,7 @@ from torchdr.utils import (
     seed_everything,
     set_logger,
     handle_type,
+    log_with_timing,
 )
 
 from typing import Optional, Any, TypeVar
@@ -95,6 +96,7 @@ class DRModule(BaseEstimator, ABC):
             "[TorchDR] ERROR : _fit_transform method is not implemented."
         )
 
+    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,

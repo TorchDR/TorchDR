@@ -22,11 +22,11 @@ from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
     cross_entropy_loss,
+    handle_type,
     square_loss,
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
-    log_with_timing,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -182,7 +182,7 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = -1
 
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         """Fit the model from data in X.
 
         Parameters
@@ -201,7 +201,26 @@ class AffinityMatcher(DRModule):
         self._fit(X)
         return self.embedding_
 
-    @log_with_timing(log_device_backend=True)
+    @handle_type
+    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
+        """Fit the model to the provided data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            or (n_samples, n_samples) if precomputed is True
+            Input data.
+        y : None
+            Ignored.
+
+        Returns
+        -------
+        self : AffinityMatcher
+            The fitted AffinityMatcher instance.
+        """
+        self._fit(X)
+        return self
+
     def _fit(self, X: torch.Tensor):
         self.n_samples_in_, self.n_features_in_ = X.shape
 
