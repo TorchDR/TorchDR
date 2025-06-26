@@ -79,7 +79,7 @@ class NeighborEmbedding(AffinityMatcher):
         Random seed for reproducibility. Default is None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
-        Default is 1.0.
+        Default is None.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
@@ -107,7 +107,7 @@ class NeighborEmbedding(AffinityMatcher):
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
+        early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
         **kwargs: Any,
@@ -175,13 +175,13 @@ class NeighborEmbedding(AffinityMatcher):
 
         return self
 
-    def _fit(self, X: torch.Tensor):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         self._check_n_neighbors(X.shape[0])
         self.early_exaggeration_coeff_ = (
             self.early_exaggeration_coeff
         )  # early_exaggeration_ may change during the optimization
 
-        super()._fit(X)
+        return super()._fit_transform(X)
 
     def _loss(self):
         raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")
