@@ -181,7 +181,7 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = -1
 
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
 
         Parameters
@@ -196,11 +196,7 @@ class AffinityMatcher(DRModule):
         -------
         embedding_ : torch.Tensor
             The embedding of the input data.
-        """  # noqa: RST306
-        self._fit(X)
-        return self.embedding_
-
-    def _fit(self, X: torch.Tensor):
+        """
         self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- check if affinity_in is precomputed else compute it ---
@@ -268,7 +264,7 @@ class AffinityMatcher(DRModule):
 
             self._after_step()
 
-        return self
+        return self.embedding_
 
     def _loss(self):
         if self.affinity_out is None:

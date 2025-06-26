@@ -96,7 +96,6 @@ class DRModule(BaseEstimator, ABC):
             "[TorchDR] ERROR : _fit_transform method is not implemented."
         )
 
-    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,
@@ -122,6 +121,7 @@ class DRModule(BaseEstimator, ABC):
         self.fit_transform(X, y=y)
         return self
 
+    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,

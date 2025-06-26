@@ -65,11 +65,14 @@ def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs
     if isinstance(x, torch.Tensor):
         input_backend = "torch"
         input_device = x.device
-        target_device = device if device != "auto" else input_device
     else:
         input_backend = "numpy"
         input_device = "cpu"
-        target_device = device if device != "auto" else "cpu"
+
+    if device == "auto":
+        target_device = input_device
+    else:
+        target_device = device
 
     x_ = check_array(x, device=target_device, **check_array_kwargs)
 
