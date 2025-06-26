@@ -181,7 +181,7 @@ class NeighborEmbedding(AffinityMatcher):
             self.early_exaggeration_coeff
         )  # early_exaggeration_ may change during the optimization
 
-        return super()._fit_transform(X)
+        return super()._fit_transform(X, y)
 
     def _loss(self):
         raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")

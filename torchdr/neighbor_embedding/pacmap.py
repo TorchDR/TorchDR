@@ -6,7 +6,7 @@
 
 import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from typing import Union, Optional, Dict, Type
+from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
 from torchdr.utils import kmin, sum_red, symmetric_pairwise_distances_indices
 
@@ -139,10 +139,10 @@ class PACMAP(SampledNeighborEmbedding):
             n_negatives=self.n_further,
         )
 
-    def _fit(self, X: torch.Tensor):
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         self.X_ = X  # Keep input data to compute mid-near loss
         self._set_weights()
-        super()._fit(X)
+        return super()._fit_transform(X, y)
 
     def _set_weights(self):
         if self.n_iter_ < self.iter_per_phase:
