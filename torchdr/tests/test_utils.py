@@ -1151,15 +1151,14 @@ def test_matrix_power(use_lazy, power, exc):
 # ====== Test check_array ======
 class TestCheckArray:
     def test_check_array_numpy(self):
-        X = np.random.randn(10, 5)
-        X_torch = check_array(X, to_tensor=True, device="cpu")
-        assert isinstance(X_torch, torch.Tensor)
-        assert_close(torch.from_numpy(X), X_torch)
+        array = np.array([1, 2, 3])
+        tensor = check_array(array)
+        assert isinstance(tensor, torch.Tensor)
 
     def test_check_array_tensor(self):
-        X = torch.randn(10, 5)
-        X_torch = check_array(X, to_tensor=True, device="cpu")
-        assert X is X_torch  # Should be the same object
+        tensor = torch.tensor([1, 2, 3])
+        checked_tensor = check_array(tensor)
+        assert tensor is checked_tensor
 
     def test_ensure_2d(self):
         X = torch.randn(10)

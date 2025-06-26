@@ -39,7 +39,7 @@ def test_invalid_affinity_in():
 def test_affinity_in_precomputed_shape_error():
     model = AffinityMatcher(affinity_in="precomputed", affinity_out=GaussianAffinity())
     with pytest.raises(ValueError):
-        model._fit(torch.rand(5, 4))
+        model.fit_transform(torch.rand(5, 4))
 
 
 def test_convergence_reached():
@@ -58,7 +58,7 @@ def test_convergence_reached():
         verbose=False,
         check_interval=1,
     )
-    model._fit(torch.rand(5, 2))
+    model.fit_transform(torch.rand(5, 2))
     assert model.n_iter_ < 2  # should converge in less than 2 iterations
 
 
