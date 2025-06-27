@@ -179,10 +179,14 @@ def handle_keops(func):
                     return func(self, *args, **kwargs)
 
                 except torch.cuda.OutOfMemoryError:
-                    print(
-                        "[TorchDR] Out of memory encountered, setting backend to 'keops' "
+                    msg = (
+                        f"Out of memory encountered, setting backend to 'keops' "
                         f"for {self.__class__.__name__} object."
                     )
+                    if hasattr(self, "logger") and self.logger is not None:
+                        self.logger.warning(msg)
+                    else:
+                        warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
                     if not pykeops:
                         raise ValueError(
                             "[TorchDR] ERROR : pykeops is not installed. "
@@ -203,40 +207,31 @@ def compile_if_enabled(func):
     a `compile` attribute set to True. The compiled function then
     replaces the original method for subsequent calls on that instance.
     """
-    # Use a private attribute on the function to store the compiled version
     compiled_func_name = f"_compiled_{func.__name__}"
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        # Check for compile attribute on the instance
         if not getattr(self, "compile", False):
             return func(self, *args, **kwargs)
 
-        # Get the already compiled function from the instance if it exists
         if hasattr(self, compiled_func_name):
             compiled_func = getattr(self, compiled_func_name)
             return compiled_func(self, *args, **kwargs)
 
-        # If not compiled yet, compile it
         try:
             compiled_func = torch.compile(func)
         except Exception as e:
+            msg = (
+                f"Could not compile {func.__name__} with torch.compile. "
+                f"Falling back to eager execution. Reason: {e}"
+            )
             if hasattr(self, "logger") and self.logger is not None:
-                self.logger.warning(
-                    f"Could not compile {func.__name__} with torch.compile. "
-                    f"Falling back to eager execution. Reason: {e}"
-                )
+                self.logger.warning(msg)
             else:
-                warnings.warn(
-                    f"[TorchDR] WARNING: Could not compile {func.__name__} with torch.compile. "
-                    f"Falling back to eager execution. Reason: {e}",
-                    UserWarning,
-                )
-            # If compilation fails, use the original function and don't try again
+                warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
             setattr(self, func.__name__, func)
             return func(self, *args, **kwargs)
 
-        # Store the compiled function on the instance for future calls
         setattr(self, compiled_func_name, compiled_func)
 
         return compiled_func(self, *args, **kwargs)
