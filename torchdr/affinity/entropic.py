@@ -175,6 +175,9 @@ class EntropicAffinity(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -188,6 +191,7 @@ class EntropicAffinity(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         self.perplexity = perplexity
         self.tol = tol
@@ -200,6 +204,7 @@ class EntropicAffinity(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            _pre_processed=_pre_processed,
         )
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
@@ -333,6 +338,9 @@ class SymmetricEntropicAffinity(LogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -348,6 +356,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -355,6 +364,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.perplexity = perplexity
         self.lr = lr
@@ -561,6 +571,9 @@ class SinkhornAffinity(LogAffinity):
     with_grad : bool, optional (default=False)
         If True, the Sinkhorn iterations are done with gradient tracking.
         If False, torch.no_grad() is used for the iterations.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -575,6 +588,7 @@ class SinkhornAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         with_grad: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -582,6 +596,7 @@ class SinkhornAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.eps = eps
         self.tol = tol
@@ -676,6 +691,9 @@ class NormalizedGaussianAffinity(LogAffinity):
         Verbosity.
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -687,6 +705,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -694,6 +713,7 @@ class NormalizedGaussianAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.sigma = sigma
         self.normalization_dim = normalization_dim
@@ -758,6 +778,9 @@ class NormalizedStudentAffinity(LogAffinity):
         Verbosity.
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -769,6 +792,7 @@ class NormalizedStudentAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -776,6 +800,7 @@ class NormalizedStudentAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
         self.normalization_dim = normalization_dim

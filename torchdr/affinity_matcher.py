@@ -98,6 +98,9 @@ class AffinityMatcher(DRModule):
         Random seed for reproducibility. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    jit_compile : bool, default=False
+        Whether to compile the loss function with `torch.compile` for faster
+        computation.
     """  # noqa: E501
 
     def __init__(
@@ -124,6 +127,7 @@ class AffinityMatcher(DRModule):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
+        jit_compile: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -132,6 +136,7 @@ class AffinityMatcher(DRModule):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            jit_compile=jit_compile,
             **kwargs,
         )
 
@@ -160,6 +165,8 @@ class AffinityMatcher(DRModule):
                 '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
             )
         self.affinity_in = affinity_in
+        if isinstance(self.affinity_in, Affinity):
+            self.affinity_in._pre_processed = True
 
         # --- check affinity_out ---
         if affinity_out is not None:
@@ -175,6 +182,7 @@ class AffinityMatcher(DRModule):
                     "when affinity_in is sparse. Setting sparsity = False in affinity_in."
                 )
                 self.affinity_in.sparsity = False  # turn off sparsity
+            affinity_out._pre_processed = True
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
@@ -232,13 +240,30 @@ class AffinityMatcher(DRModule):
         self._set_optimizer()
         self._set_scheduler()
 
+        if self.jit_compile:
+            if self.verbose:
+                self.logger.info("Compiling the loss function with torch.compile.")
+            try:
+                loss_calculator = torch.compile(self._loss)
+            except Exception as e:
+                if self.verbose:
+                    self.logger.warning(
+                        f"torch.compile failed with error: {e}. "
+                        "Running without compilation."
+                    )
+                loss_calculator = self._loss
+        else:
+            loss_calculator = self._loss
+
         grad_norm = float("nan")
         pbar = tqdm(range(self.max_iter), disable=not self.verbose)
         for step in pbar:
             self.n_iter_ = step
 
+            self._before_step()
+
             self.optimizer_.zero_grad()
-            loss = self._loss()
+            loss = loss_calculator()
             loss.backward()
 
             check_convergence = self.n_iter_ % self.check_interval == 0
@@ -301,6 +326,9 @@ class AffinityMatcher(DRModule):
 
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
+
+    def _before_step(self):
+        pass
 
     def _after_step(self):
         pass

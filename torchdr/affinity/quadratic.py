@@ -81,6 +81,9 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -97,6 +100,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -104,6 +108,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.eps = eps
         self.init_dual = init_dual

@@ -130,6 +130,7 @@ class SNE(SparseNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=False,
+            _pre_processed=True,
         )
 
         super().__init__(

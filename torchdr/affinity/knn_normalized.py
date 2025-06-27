@@ -74,6 +74,9 @@ class SelfTuningAffinity(LogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -85,6 +88,7 @@ class SelfTuningAffinity(LogAffinity):
         device: Optional[str] = None,
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -92,6 +96,7 @@ class SelfTuningAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.K = K
         self.normalization_dim = normalization_dim
@@ -163,6 +168,9 @@ class MAGICAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -173,6 +181,7 @@ class MAGICAffinity(Affinity):
         device: Optional[str] = None,
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -180,6 +189,7 @@ class MAGICAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.K = K
 
@@ -236,6 +246,9 @@ class PHATEAffinity(Affinity):
         Exponent for the alpha-decay kernel in affinity computation.
     t : int, optional (default=5)
         Number of diffusion steps (power to raise diffusion matrix).
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -247,6 +260,7 @@ class PHATEAffinity(Affinity):
         k: int = 5,
         alpha: float = 10.0,
         t: int = 5,
+        _pre_processed: bool = False,
     ):
         if backend == "faiss" or backend == "keops":
             raise ValueError(
@@ -259,6 +273,7 @@ class PHATEAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             zero_diag=False,
+            _pre_processed=_pre_processed,
         )
 
         self.alpha = alpha
@@ -313,6 +328,9 @@ class UMAPAffinityIn(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -326,6 +344,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.tol = tol
@@ -338,6 +357,7 @@ class UMAPAffinityIn(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            _pre_processed=_pre_processed,
         )
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
@@ -410,6 +430,9 @@ class PACMAPAffinity(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -420,6 +443,7 @@ class PACMAPAffinity(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
 
@@ -430,6 +454,7 @@ class PACMAPAffinity(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=True,  # PACMAP uses sparsity mode
+            _pre_processed=_pre_processed,
         )
 
     def _compute_sparse_log_affinity(self, X: torch.Tensor):

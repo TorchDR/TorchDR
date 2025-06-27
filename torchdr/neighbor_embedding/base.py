@@ -84,6 +84,9 @@ class NeighborEmbedding(AffinityMatcher):
         Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    jit_compile : bool, default=False
+        Whether to compile the loss function with `torch.compile` for faster
+        computation.
     """  # noqa: E501
 
     def __init__(
@@ -110,6 +113,7 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
+        jit_compile: bool = False,
         **kwargs: Any,
     ):
         self.early_exaggeration_iter = early_exaggeration_iter
@@ -146,6 +150,7 @@ class NeighborEmbedding(AffinityMatcher):
             verbose=verbose,
             random_state=random_state,
             check_interval=check_interval,
+            jit_compile=jit_compile,
         )
 
     def _after_step(self):
@@ -303,6 +308,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    jit_compile : bool, default=False
+        Whether to compile the loss function with `torch.compile` for faster
+        computation.
     """  # noqa: E501
 
     def __init__(
@@ -329,6 +337,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
+        jit_compile: bool = False,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -367,6 +376,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            jit_compile=jit_compile,
         )
 
     def _attractive_loss(self):
@@ -465,6 +475,9 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Number of negative samples for the repulsive loss.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    jit_compile : bool, default=False
+        Whether to compile the loss function with `torch.compile` for faster
+        computation.
     """  # noqa: E501
 
     def __init__(
@@ -492,8 +505,11 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
         check_interval: int = 50,
+        discard_NNs: bool = True,
+        jit_compile: bool = False,
     ):
         self.n_negatives = n_negatives
+        self.discard_NNs = discard_NNs
 
         super().__init__(
             affinity_in=affinity_in,
@@ -516,14 +532,24 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            jit_compile=jit_compile,
         )
 
-    def _sample_negatives(self, discard_NNs=False):
-        # Negatives are all other points except NNs (if discard_NNs) and point itself
-        device = getattr(self.NN_indices_, "device", "cpu")
+    def _before_step(self):
+        self.neg_indices_ = self._sample_negatives()
 
+    def _sample_negatives(self):
+        # Negatives are all other points except NNs (if discard_NNs) and point itself
+        device = self.embedding_.device
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
-        if discard_NNs and (self.NN_indices_ is not None):
+
+        if self.discard_NNs:
+            # exclude NNs from negative sampling
+            if not hasattr(self, "NN_indices_"):
+                raise ValueError(
+                    "[TorchDR] ERROR : NN_indices_ not found. "
+                    "Cannot discard NNs from negative sampling."
+                )
             exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
@@ -548,6 +574,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             device=device,
         )
 
+        # exclude has shape (n_samples_in_, n_excluded_per_sample)
+        # we sort the rows of exclude to be able to use searchsorted
         exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
         shifts = torch.searchsorted(exclude, negatives, right=True)
         negatives += shifts

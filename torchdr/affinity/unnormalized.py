@@ -57,6 +57,9 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -67,6 +70,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -74,6 +78,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.sigma = sigma
 
@@ -106,6 +111,9 @@ class StudentAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -116,6 +124,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -123,6 +132,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
 
@@ -158,6 +168,9 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -168,6 +181,7 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -175,6 +189,7 @@ class CauchyAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.gamma = gamma
 
@@ -201,6 +216,9 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -210,6 +228,7 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -217,6 +236,7 @@ class NegativeCostAffinity(UnnormalizedAffinity):
             backend=backend,
             verbose=verbose,
             zero_diag=zero_diag,
+            _pre_processed=_pre_processed,
         )
 
     def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
@@ -239,6 +259,9 @@ class ScalarProductAffinity(NegativeCostAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -246,13 +269,15 @@ class ScalarProductAffinity(NegativeCostAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
-            metric="angular",
+            metric="scalar_product",
             device=device,
             backend=backend,
             verbose=verbose,
             zero_diag=False,
+            _pre_processed=_pre_processed,
         )
 
 
@@ -290,6 +315,9 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -303,6 +331,7 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -310,6 +339,7 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            _pre_processed=_pre_processed,
         )
         self.min_dist = min_dist
         self.spread = spread

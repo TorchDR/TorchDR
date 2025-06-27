@@ -85,6 +85,9 @@ class UMAP(SampledNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Check interval for the algorithm, by default 50.
+    discard_NNs : bool, optional
+        Whether to discard the nearest neighbors from the negative sampling.
+        Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -118,6 +121,7 @@ class UMAP(SampledNeighborEmbedding):
         n_negatives: int = 10,
         sparsity: bool = True,
         check_interval: int = 50,
+        discard_NNs: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
@@ -169,11 +173,11 @@ class UMAP(SampledNeighborEmbedding):
             random_state=random_state,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            discard_NNs=discard_NNs,
         )
 
     def _repulsive_loss(self):
-        indices = self._sample_negatives(discard_NNs=False)
-        Q = self.affinity_out(self.embedding_, indices=indices)
+        Q = self.affinity_out(self.embedding_, indices=self.neg_indices_)
         Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
         return -sum_red((1 - Q).log(), dim=(0, 1))
 

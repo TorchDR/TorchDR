@@ -84,6 +84,9 @@ class LargeVis(SampledNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
+    discard_NNs : bool, optional
+        Whether to discard the nearest neighbors from the negative sampling.
+        Default is True.
     """  # noqa: E501
 
     def __init__(
@@ -114,6 +117,7 @@ class LargeVis(SampledNeighborEmbedding):
         n_negatives: int = 5,
         sparsity: bool = True,
         check_interval: int = 50,
+        discard_NNs: bool = True,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -136,6 +140,7 @@ class LargeVis(SampledNeighborEmbedding):
             metric=metric_out,
             device=device,
             verbose=False,
+            _pre_processed=True,
         )
 
         super().__init__(
@@ -159,11 +164,11 @@ class LargeVis(SampledNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            discard_NNs=discard_NNs,
         )
 
     def _repulsive_loss(self):
-        indices = self._sample_negatives()
-        Q = self.affinity_out(self.embedding_, indices=indices)
+        Q = self.affinity_out(self.embedding_, indices=self.neg_indices_)
         Q = Q / (Q + 1)
         return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 

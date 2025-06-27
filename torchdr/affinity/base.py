@@ -17,7 +17,6 @@ from torchdr.utils import (
     symmetric_pairwise_distances_indices,
     to_torch,
     bool_arg,
-    log_with_timing,
     set_logger,
 )
 
@@ -39,6 +38,9 @@ class Affinity(ABC):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -49,6 +51,7 @@ class Affinity(ABC):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        _pre_processed: bool = False,
     ):
         self.log = {}
         self.metric = metric
@@ -57,10 +60,10 @@ class Affinity(ABC):
         self.backend = backend
         self.verbose = bool_arg(verbose)
         self.random_state = random_state
+        self._pre_processed = _pre_processed
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-    @log_with_timing
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
 
@@ -74,7 +77,8 @@ class Affinity(ABC):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        X = to_torch(X, device=self.device)
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
@@ -142,6 +146,9 @@ class LogAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -152,6 +159,7 @@ class LogAffinity(Affinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -160,9 +168,9 @@ class LogAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            _pre_processed=_pre_processed,
         )
 
-    @log_with_timing
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
     ):
@@ -182,7 +190,8 @@ class LogAffinity(Affinity):
             The computed log affinity matrix if `log` is True, otherwise the
             exponentiated log affinity matrix.
         """
-        X = to_torch(X, device=self.device)
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
         log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
@@ -234,6 +243,9 @@ class SparseLogAffinity(LogAffinity):
         If True, prints additional information during computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -245,6 +257,7 @@ class SparseLogAffinity(LogAffinity):
         verbose: bool = False,
         sparsity: bool = True,
         random_state: float = None,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -253,6 +266,7 @@ class SparseLogAffinity(LogAffinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            _pre_processed=_pre_processed,
         )
         self.sparsity = sparsity
 
@@ -266,7 +280,6 @@ class SparseLogAffinity(LogAffinity):
         """Set the sparsity of the affinity matrix."""
         self._sparsity = bool_arg(value)
 
-    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -350,6 +363,9 @@ class UnnormalizedAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -360,6 +376,7 @@ class UnnormalizedAffinity(Affinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -369,8 +386,8 @@ class UnnormalizedAffinity(Affinity):
             verbose=verbose,
             random_state=random_state,
         )
+        self._pre_processed = _pre_processed
 
-    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -395,9 +412,10 @@ class UnnormalizedAffinity(Affinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        X = to_torch(X, device=self.device)
-        if Y is not None:
-            Y = to_torch(Y, device=self.device)
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
+            if Y is not None:
+                Y = to_torch(Y, device=self.device)
         C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
@@ -498,6 +516,9 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -508,6 +529,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -516,9 +538,9 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            _pre_processed=_pre_processed,
         )
 
-    @log_with_timing
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -547,9 +569,10 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        X = to_torch(X, device=self.device)
-        if Y is not None:
-            Y = to_torch(Y, device=self.device)
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
+            if Y is not None:
+                Y = to_torch(Y, device=self.device)
         C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:

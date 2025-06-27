@@ -15,7 +15,6 @@ from torchdr.utils import (
     seed_everything,
     set_logger,
     handle_type,
-    log_with_timing,
 )
 
 from typing import Optional, Any, TypeVar
@@ -43,6 +42,9 @@ class DRModule(BaseEstimator, ABC):
         Random seed for reproducibility.
     process_duplicates : bool, default=True
         Whether to handle duplicate data points by default.
+    jit_compile : bool, default=False
+        Whether to compile the loss function with `torch.compile` for faster
+        computation.
     """
 
     def __init__(
@@ -53,6 +55,7 @@ class DRModule(BaseEstimator, ABC):
         verbose: bool = False,
         random_state: float = None,
         process_duplicates: bool = True,
+        jit_compile: bool = False,
     ):
         self.n_components = n_components
         self.device = device
@@ -60,6 +63,7 @@ class DRModule(BaseEstimator, ABC):
         self.random_state = random_state
         self.verbose = bool_arg(verbose)
         self.process_duplicates = process_duplicates
+        self.jit_compile = jit_compile
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
@@ -121,7 +125,6 @@ class DRModule(BaseEstimator, ABC):
         self.fit_transform(X, y=y)
         return self
 
-    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,
