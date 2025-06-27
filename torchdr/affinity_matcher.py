@@ -189,9 +189,15 @@ class AffinityMatcher(DRModule):
 
         if self.jit_compile:
             self._training_step = compile_func(self._training_step)
+            self._compute_grad_norm = compile_func(self._compute_grad_norm)
             self.on_training_step_start = compile_func(self.on_training_step_start)
             self.on_training_step_end = compile_func(self.on_training_step_end)
-            self._compute_grad_norm = compile_func(self._compute_grad_norm)
+            self.on_affinity_computation_start = compile_func(
+                self.on_affinity_computation_start
+            )
+            self.on_affinity_computation_end = compile_func(
+                self.on_affinity_computation_end
+            )
 
         self.n_iter_ = -1
 

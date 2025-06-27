@@ -11,7 +11,6 @@ import math
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from typing import Union, Tuple, Optional
@@ -325,6 +324,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         Precision threshold at which the algorithm stops, by default 1e-5.
     max_iter : int, optional
         Number of maximum iterations for the algorithm, by default 500.
+    check_interval : int, optional
+        Interval for logging progress.
     optimizer : str , optional
         Which pytorch optimizer to use (default 'Adam').
     metric : str, optional
@@ -350,6 +351,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         eps_square: bool = True,
         tol: float = 1e-3,
         max_iter: int = 500,
+        check_interval: int = 50,
         optimizer: str = "Adam",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
@@ -368,10 +370,12 @@ class SymmetricEntropicAffinity(LogAffinity):
         )
         self.perplexity = perplexity
         self.lr = lr
+        self.eps_square = eps_square
         self.tol = tol
         self.max_iter = max_iter
+        self.check_interval = check_interval
         self.optimizer = optimizer
-        self.eps_square = eps_square
+        self.n_iter_ = 0
 
     def _compute_log_affinity(self, X: torch.Tensor):
         r"""Solve the problem (SEA) in :cite:`van2024snekhorn`.
@@ -445,8 +449,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             optimizer_class = getattr(torch.optim, self.optimizer)
             optimizer = optimizer_class([self.eps_, self.mu_], lr=self.lr)
 
-            pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-            for k in pbar:
+            for k in range(self.max_iter):
                 with torch.no_grad():
                     optimizer.zero_grad()
 
@@ -475,14 +478,17 @@ class SymmetricEntropicAffinity(LogAffinity):
                         ),
                     )
 
-                    perps = (H - 1).exp()
-                    if self.verbose:
-                        pbar.set_description(
-                            f"PERPLEXITY:{float(perps.mean().item()): .2e} "
+                    if self.verbose and (k % self.check_interval == 0):
+                        perps = (H - 1).exp()
+                        P_sum_mean = float(P_sum.mean().item())
+                        P_sum_std = float(P_sum.std().item())
+                        msg = (
+                            f"Perplexity:{float(perps.mean().item()): .2e} "
                             f"(std:{float(perps.std().item()): .2e}), "
-                            f"MARGINAL:{float(P_sum.mean().item()): .2e} "
-                            f"(std:{float(P_sum.std().item()): .2e})"
+                            f"Marginal:{P_sum_mean: .2e} "
+                            f"(std:{P_sum_std: .2e})"
                         )
+                        self.logger.info(f"[{k}/{self.max_iter}] {msg}")
 
                     if (
                         torch.norm(grad_eps) < self.tol
