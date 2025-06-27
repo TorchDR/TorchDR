@@ -36,7 +36,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm, by default 'auto'.
+        Learning rate for the algorithm, by default 1e0.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
@@ -73,6 +73,10 @@ class InfoTSNE(SampledNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
+    early_exaggeration_coeff : float, optional
+        Factor for the early exaggeration phase, by default None.
+    early_exaggeration_iter : int, optional
+        Number of iterations for the early exaggeration phase, by default None.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 5.
     sparsity : bool, optional
@@ -91,7 +95,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: Union[float, str] = "auto",
+        lr: Union[float, str] = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
@@ -106,6 +110,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -156,6 +162,8 @@ class InfoTSNE(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            early_exaggeration_coeff=early_exaggeration_coeff,
+            early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,

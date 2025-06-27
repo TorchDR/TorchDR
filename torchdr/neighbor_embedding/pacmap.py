@@ -153,9 +153,7 @@ class PACMAP(SampledNeighborEmbedding):
         self._set_weights()
         return super()._fit_transform(X, y)
 
-    def on_training_step_end(self):
-        super().on_training_step_end()
-        # Set weights for the next phase
+    def _set_weights(self):
         if self.n_iter_ < self.iter_per_phase:
             self.w_NB = 2
             self.w_MN = (
@@ -171,6 +169,9 @@ class PACMAP(SampledNeighborEmbedding):
             self.w_NB = 1
             self.w_MN = 0
             self.w_FP = 1
+
+    def on_training_step_end(self):
+        self._set_weights()
 
     def _attractive_loss(self):
         # Attractive loss with nearest neighbors
