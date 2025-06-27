@@ -541,11 +541,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
 
         if self.discard_NNs:
             if not hasattr(self, "NN_indices_"):
-                raise ValueError(
-                    "[TorchDR] ERROR : NN_indices_ not found. "
-                    "Cannot discard NNs from negative sampling."
+                self.logger.warning(
+                    "NN_indices_ not found. Cannot discard NNs from negative sampling."
                 )
-            exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
+                exclude = self_idxs
+            else:
+                exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
         self.exclude_, _ = exclude.sort(dim=1)

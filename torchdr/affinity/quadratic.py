@@ -7,7 +7,6 @@
 from typing import Optional
 
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity import Affinity
 from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors
@@ -64,6 +63,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the algorithm.
+    check_interval : int, optional
+        Interval for logging progress.
     optimizer : str, optional
         Optimizer to use for the dual ascent (default 'Adam').
     lr : float, optional
@@ -92,6 +93,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         init_dual: Optional[torch.Tensor] = None,
         tol: float = 1e-5,
         max_iter: int = 1000,
+        check_interval: int = 50,
         optimizer: str = "Adam",
         lr: float = 1e0,
         base_kernel: str = "gaussian",
@@ -114,9 +116,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.init_dual = init_dual
         self.tol = tol
         self.max_iter = max_iter
+        self.check_interval = check_interval
         self.optimizer = optimizer
         self.lr = lr
         self.base_kernel = base_kernel
+        self.n_iter_ = 0
 
     def _compute_affinity(self, X: torch.Tensor):
         r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
@@ -149,8 +153,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         optimizer = optimizer_class([self.dual_], lr=self.lr)
 
         # Dual ascent iterations
-        pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for k in pbar:
+        for k in range(self.max_iter):
             with torch.no_grad():
                 P = _Pds(C, self.dual_, self.eps)
                 P_sum = P.sum(1).squeeze()
@@ -166,11 +169,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 ),
             )
 
-            if self.verbose:
-                pbar.set_description(
-                    f"MARGINAL:{float(P_sum.mean().item()): .2e} "
-                    f"(std:{float(P_sum.std().item()): .2e})"
-                )
+            if self.verbose and (k % self.check_interval == 0):
+                P_sum_mean = float(P_sum.mean().item())
+                P_sum_std = float(P_sum.std().item())
+                msg = f"Marginal:{P_sum_mean: .2e} (std:{P_sum_std: .2e})"
+                self.logger.info(f"[{k}/{self.max_iter}] {msg}")
 
             if torch.norm(grad_dual) < self.tol:
                 if self.verbose:
