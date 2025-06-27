@@ -33,6 +33,7 @@ from .utils import (
     matrix_power,
     identity_matrix,
     set_logger,
+    compile_func,
 )
 from .validation import (
     check_entropy,
@@ -125,4 +126,5 @@ __all__ = [
     "check_array",
     "plot_disk",
     "plot_poincare_disk",
+    "compile_func",
 ]

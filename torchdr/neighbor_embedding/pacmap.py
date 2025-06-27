@@ -75,6 +75,8 @@ class PACMAP(SampledNeighborEmbedding):
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
         Default is True.
+    jit_compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -103,6 +105,7 @@ class PACMAP(SampledNeighborEmbedding):
         check_interval: int = 50,
         iter_per_phase: int = 100,
         discard_NNs: bool = True,
+        jit_compile: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
@@ -142,6 +145,7 @@ class PACMAP(SampledNeighborEmbedding):
             check_interval=check_interval,
             n_negatives=self.n_further,
             discard_NNs=discard_NNs,
+            jit_compile=jit_compile,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):

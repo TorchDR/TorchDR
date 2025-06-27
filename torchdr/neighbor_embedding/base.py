@@ -535,16 +535,11 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             jit_compile=jit_compile,
         )
 
-    def _before_step(self):
-        self.neg_indices_ = self._sample_negatives()
-
-    def _sample_negatives(self):
-        # Negatives are all other points except NNs (if discard_NNs) and point itself
-        device = self.embedding_.device
+    def _after_affinity_computation(self):
+        device = self.affinity_in_.device
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
 
         if self.discard_NNs:
-            # exclude NNs from negative sampling
             if not hasattr(self, "NN_indices_"):
                 raise ValueError(
                     "[TorchDR] ERROR : NN_indices_ not found. "
@@ -553,30 +548,22 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
+        self.exclude_, _ = exclude.sort(dim=1)
 
-        k = exclude.size(1)
-        n_possible = self.n_samples_in_ - k
-        if n_possible <= 0:
-            raise ValueError(
-                f"[TorchDR] ERROR : No possible negatives (n={self.n_samples_in_}, k_excluded={k})."
-            )
-
+        n_possible = self.n_samples_in_ - self.exclude_.shape[1]
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
                 f"[TorchDR] ERROR : requested {self.n_negatives} negatives but "
                 f"only {n_possible} available."
             )
 
+    def _before_step(self):
+        # Sample negatives
         negatives = torch.randint(
             1,
-            n_possible,
+            self.n_samples_in_ - self.exclude_.shape[1],
             (self.n_samples_in_, self.n_negatives),
-            device=device,
+            device=self.embedding_.device,
         )
-
-        # exclude has shape (n_samples_in_, n_excluded_per_sample)
-        # we sort the rows of exclude to be able to use searchsorted
-        exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
-        shifts = torch.searchsorted(exclude, negatives, right=True)
-        negatives += shifts
-        return negatives
+        shifts = torch.searchsorted(self.exclude_, negatives, right=True)
+        self.neg_indices_ = negatives + shifts

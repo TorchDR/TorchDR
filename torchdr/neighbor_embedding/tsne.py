@@ -80,6 +80,8 @@ class TSNE(SparseNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm, by default 50.
+    jit_compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -109,6 +111,7 @@ class TSNE(SparseNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
+        jit_compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -154,6 +157,7 @@ class TSNE(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            jit_compile=jit_compile,
         )
 
     def _repulsive_loss(self):

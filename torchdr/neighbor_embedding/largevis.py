@@ -87,6 +87,8 @@ class LargeVis(SampledNeighborEmbedding):
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
         Default is True.
+    jit_compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -118,6 +120,7 @@ class LargeVis(SampledNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = True,
+        jit_compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -165,6 +168,7 @@ class LargeVis(SampledNeighborEmbedding):
             n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,
+            jit_compile=jit_compile,
         )
 
     def _repulsive_loss(self):

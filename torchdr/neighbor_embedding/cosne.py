@@ -103,6 +103,7 @@ class COSNE(SparseNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
+        jit_compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = "sqhyperbolic"
@@ -125,7 +126,7 @@ class COSNE(SparseNeighborEmbedding):
         )
         affinity_out = CauchyAffinity(
             metric=self.metric_out,
-            gamma=self.gamma,
+            gamma=gamma,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -152,6 +153,7 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            jit_compile=jit_compile,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:

@@ -12,6 +12,7 @@ import logging
 import numpy as np
 import torch
 from typing import Union
+import warnings
 
 from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
 from .wrappers import wrap_vectors
@@ -643,3 +644,16 @@ def matrix_power(matrix: Union[torch.Tensor, LazyTensorType], power: float):
                 @ torch.diag_embed(powered_eigenvalues)
                 @ eigenvectors.transpose(-2, -1)
             )
+
+
+def compile_func(func):
+    """Compile a function with torch.compile if requested on the object."""
+    try:
+        return torch.compile(func)
+    except Exception as e:
+        warnings.warn(
+            f"[TorchDR] WARNING: Could not compile {func.__name__} with torch.compile. "
+            f"Falling back to eager execution. Reason: {e}",
+            UserWarning,
+        )
+        return func

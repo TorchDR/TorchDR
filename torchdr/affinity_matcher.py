@@ -8,7 +8,6 @@
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity import (
     Affinity,
@@ -26,6 +25,7 @@ from torchdr.utils import (
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
+    compile_func,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -187,6 +187,11 @@ class AffinityMatcher(DRModule):
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
+        if self.jit_compile:
+            self._train_step = compile_func(self._train_step)
+            self._before_step = compile_func(self._before_step)
+            self._after_step = compile_func(self._after_step)
+
         self.n_iter_ = -1
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
@@ -206,6 +211,8 @@ class AffinityMatcher(DRModule):
             The embedding of the input data.
         """
         self.n_samples_in_, self.n_features_in_ = X.shape
+
+        self._before_affinity_computation()
 
         # --- check if affinity_in is precomputed else compute it ---
         if self.affinity_in == "precomputed":
@@ -231,6 +238,8 @@ class AffinityMatcher(DRModule):
             else:
                 self.affinity_in_ = self.affinity_in(X)
 
+        self._after_affinity_computation()
+
         if self.verbose:
             self.logger.info("[Step 2/2] --- Optimizing the embedding ---")
 
@@ -240,31 +249,28 @@ class AffinityMatcher(DRModule):
         self._set_optimizer()
         self._set_scheduler()
 
-        if self.jit_compile:
-            if self.verbose:
-                self.logger.info("Compiling the loss function with torch.compile.")
-            try:
-                loss_calculator = torch.compile(self._loss)
-            except Exception as e:
-                if self.verbose:
-                    self.logger.warning(
-                        f"torch.compile failed with error: {e}. "
-                        "Running without compilation."
-                    )
-                loss_calculator = self._loss
-        else:
-            loss_calculator = self._loss
-
         grad_norm = float("nan")
-        pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for step in pbar:
+        for step in range(self.max_iter):
             self.n_iter_ = step
 
             self._before_step()
+            loss = self._train_step()
+            self._after_step()
 
-            self.optimizer_.zero_grad()
-            loss = loss_calculator()
-            loss.backward()
+            check_NaNs(
+                self.embedding_,
+                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
+                f"at iter {step}.",
+            )
+
+            if self.verbose and (self.n_iter_ % self.check_interval == 0):
+                lr = self.optimizer_.param_groups[0]["lr"]
+                msg = (
+                    f"Loss: {loss.item():.2e} | "
+                    f"Grad norm: {grad_norm:.2e} | "
+                    f"LR: {lr:.2e}"
+                )
+                self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
@@ -277,28 +283,16 @@ class AffinityMatcher(DRModule):
                         )
                     break
 
-            self.optimizer_.step()
-            if self.scheduler_ is not None:
-                self.scheduler_.step()
-
-            check_NaNs(
-                self.embedding_,
-                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
-                f"at iter {step}.",
-            )
-
-            if self.verbose:
-                lr = self.optimizer_.param_groups[0]["lr"]
-                msg = (
-                    f"Loss: {loss.item():.2e} | "
-                    f"Grad norm: {grad_norm:.2e} | "
-                    f"LR: {lr:.2e}"
-                )
-                pbar.set_description(f"[TorchDR] {self.logger.name}: {msg}")
-
-            self._after_step()
-
         return self.embedding_
+
+    def _train_step(self):
+        self.optimizer_.zero_grad(set_to_none=True)
+        loss = self._loss()
+        loss.backward()
+        self.optimizer_.step()
+        if self.scheduler_ is not None:
+            self.scheduler_.step()
+        return loss
 
     def _loss(self):
         if self.affinity_out is None:
@@ -326,6 +320,12 @@ class AffinityMatcher(DRModule):
 
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
+
+    def _before_affinity_computation(self):
+        pass
+
+    def _after_affinity_computation(self):
+        pass
 
     def _before_step(self):
         pass
