@@ -143,7 +143,6 @@ class LargeVis(SampledNeighborEmbedding):
             metric=metric_out,
             device=device,
             verbose=False,
-            _pre_processed=True,
         )
 
         super().__init__(

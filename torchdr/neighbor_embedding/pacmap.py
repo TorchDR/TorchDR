@@ -170,7 +170,7 @@ class PACMAP(SampledNeighborEmbedding):
             self.w_MN = 0
             self.w_FP = 1
 
-    def _after_step(self):
+    def on_training_step_end(self):
         self._set_weights()
 
     def _attractive_loss(self):

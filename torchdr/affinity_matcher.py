@@ -188,9 +188,10 @@ class AffinityMatcher(DRModule):
         self.kwargs_affinity_out = kwargs_affinity_out
 
         if self.jit_compile:
-            self._train_step = compile_func(self._train_step)
-            self._before_step = compile_func(self._before_step)
-            self._after_step = compile_func(self._after_step)
+            self._training_step = compile_func(self._training_step)
+            self.on_training_step_start = compile_func(self.on_training_step_start)
+            self.on_training_step_end = compile_func(self.on_training_step_end)
+            self._compute_grad_norm = compile_func(self._compute_grad_norm)
 
         self.n_iter_ = -1
 
@@ -212,9 +213,11 @@ class AffinityMatcher(DRModule):
         """
         self.n_samples_in_, self.n_features_in_ = X.shape
 
-        self._before_affinity_computation()
+        # --- Input affinity computation ---
 
-        # --- check if affinity_in is precomputed else compute it ---
+        self.on_affinity_computation_start()
+
+        # check if affinity_in is precomputed else compute it
         if self.affinity_in == "precomputed":
             if self.verbose:
                 self.logger.info("[Step 1/2] --- Using precomputed affinity matrix ---")
@@ -238,7 +241,9 @@ class AffinityMatcher(DRModule):
             else:
                 self.affinity_in_ = self.affinity_in(X)
 
-        self._after_affinity_computation()
+        self.on_affinity_computation_end()
+
+        # --- Embedding optimization ---
 
         if self.verbose:
             self.logger.info("[Step 2/2] --- Optimizing the embedding ---")
@@ -253,9 +258,9 @@ class AffinityMatcher(DRModule):
         for step in range(self.max_iter):
             self.n_iter_ = step
 
-            self._before_step()
-            loss = self._train_step()
-            self._after_step()
+            self.on_training_step_start()
+            loss = self._training_step()
+            self.on_training_step_end()
 
             check_NaNs(
                 self.embedding_,
@@ -274,7 +279,7 @@ class AffinityMatcher(DRModule):
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
-                grad_norm = self.embedding_.grad.norm(2).item()
+                grad_norm = self._compute_grad_norm().item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         self.logger.info(
@@ -285,7 +290,7 @@ class AffinityMatcher(DRModule):
 
         return self.embedding_
 
-    def _train_step(self):
+    def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
         loss = self._loss()
         loss.backward()
@@ -321,16 +326,19 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
 
-    def _before_affinity_computation(self):
+    def _compute_grad_norm(self):
+        return self.embedding_.grad.norm(2)
+
+    def on_affinity_computation_start(self):
         pass
 
-    def _after_affinity_computation(self):
+    def on_affinity_computation_end(self):
         pass
 
-    def _before_step(self):
+    def on_training_step_start(self):
         pass
 
-    def _after_step(self):
+    def on_training_step_end(self):
         pass
 
     def _set_params(self):

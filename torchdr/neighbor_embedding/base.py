@@ -153,7 +153,7 @@ class NeighborEmbedding(AffinityMatcher):
             jit_compile=jit_compile,
         )
 
-    def _after_step(self):
+    def on_training_step_end(self):
         if (  # stop early exaggeration phase
             self.early_exaggeration_coeff_ > 1
             and self.n_iter_ == self.early_exaggeration_iter
@@ -535,7 +535,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             jit_compile=jit_compile,
         )
 
-    def _after_affinity_computation(self):
+    def on_affinity_computation_end(self):
         device = self.affinity_in_.device
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
 
@@ -557,7 +557,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
                 f"only {n_possible} available."
             )
 
-    def _before_step(self):
+    def on_training_step_start(self):
         # Sample negatives
         negatives = torch.randint(
             1,

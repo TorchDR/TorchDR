@@ -130,7 +130,6 @@ class COSNE(SparseNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
-            _pre_processed=True,
         )
 
         super().__init__(
