@@ -33,7 +33,6 @@ from .utils import (
     matrix_power,
     identity_matrix,
     set_logger,
-    compile_func,
 )
 from .validation import (
     check_entropy,
@@ -58,6 +57,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     wrap_vectors,
+    compile_if_enabled,
 )
 
 from .manifold import (
@@ -126,5 +126,5 @@ __all__ = [
     "check_array",
     "plot_disk",
     "plot_poincare_disk",
-    "compile_func",
+    "compile_if_enabled",
 ]

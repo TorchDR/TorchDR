@@ -88,7 +88,7 @@ class UMAP(SampledNeighborEmbedding):
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
         Default is False.
-    jit_compile : bool, optional
+    compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
@@ -115,7 +115,6 @@ class UMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -124,7 +123,8 @@ class UMAP(SampledNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = False,
-        jit_compile: bool = False,
+        compile: bool = False,
+        **kwargs,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
@@ -177,7 +177,8 @@ class UMAP(SampledNeighborEmbedding):
             n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,
-            jit_compile=jit_compile,
+            compile=compile,
+            **kwargs,
         )
 
     def _repulsive_loss(self):

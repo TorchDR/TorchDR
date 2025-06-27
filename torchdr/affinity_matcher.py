@@ -25,7 +25,7 @@ from torchdr.utils import (
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
-    compile_func,
+    compile_if_enabled,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -98,9 +98,8 @@ class AffinityMatcher(DRModule):
         Random seed for reproducibility. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
-    jit_compile : bool, default=False
-        Whether to compile the loss function with `torch.compile` for faster
-        computation.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     """  # noqa: E501
 
     def __init__(
@@ -127,7 +126,7 @@ class AffinityMatcher(DRModule):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
-        jit_compile: bool = False,
+        compile: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -136,7 +135,7 @@ class AffinityMatcher(DRModule):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            jit_compile=jit_compile,
+            compile=compile,
             **kwargs,
         )
 
@@ -186,18 +185,6 @@ class AffinityMatcher(DRModule):
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
-
-        if self.jit_compile:
-            self._training_step = compile_func(self._training_step)
-            self._compute_grad_norm = compile_func(self._compute_grad_norm)
-            self.on_training_step_start = compile_func(self.on_training_step_start)
-            self.on_training_step_end = compile_func(self.on_training_step_end)
-            self.on_affinity_computation_start = compile_func(
-                self.on_affinity_computation_start
-            )
-            self.on_affinity_computation_end = compile_func(
-                self.on_affinity_computation_end
-            )
 
         self.n_iter_ = -1
 
@@ -287,7 +274,7 @@ class AffinityMatcher(DRModule):
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
-                grad_norm = self._compute_grad_norm().item()
+                grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         self.logger.info(
@@ -298,6 +285,7 @@ class AffinityMatcher(DRModule):
 
         return self.embedding_
 
+    @compile_if_enabled
     def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
         loss = self._loss()
@@ -333,9 +321,6 @@ class AffinityMatcher(DRModule):
 
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
-
-    def _compute_grad_norm(self):
-        return self.embedding_.grad.norm(2)
 
     def on_affinity_computation_start(self):
         pass

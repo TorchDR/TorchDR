@@ -10,6 +10,8 @@ import torch
 from .keops import LazyTensor, is_lazy_tensor, pykeops
 from .validation import check_array
 
+import warnings
+
 
 def output_contiguous(func):
     """Convert all output torch tensors to contiguous."""
@@ -190,5 +192,53 @@ def handle_keops(func):
                     self.backend_ = "keops"
 
         return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def compile_if_enabled(func):
+    """Decorator to conditionally compile a function with torch.compile.
+
+    The compilation is triggered on the first call if the instance has
+    a `compile` attribute set to True. The compiled function then
+    replaces the original method for subsequent calls on that instance.
+    """
+    # Use a private attribute on the function to store the compiled version
+    compiled_func_name = f"_compiled_{func.__name__}"
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Check for compile attribute on the instance
+        if not getattr(self, "compile", False):
+            return func(self, *args, **kwargs)
+
+        # Get the already compiled function from the instance if it exists
+        if hasattr(self, compiled_func_name):
+            compiled_func = getattr(self, compiled_func_name)
+            return compiled_func(self, *args, **kwargs)
+
+        # If not compiled yet, compile it
+        try:
+            compiled_func = torch.compile(func)
+        except Exception as e:
+            if hasattr(self, "logger") and self.logger is not None:
+                self.logger.warning(
+                    f"Could not compile {func.__name__} with torch.compile. "
+                    f"Falling back to eager execution. Reason: {e}"
+                )
+            else:
+                warnings.warn(
+                    f"[TorchDR] WARNING: Could not compile {func.__name__} with torch.compile. "
+                    f"Falling back to eager execution. Reason: {e}",
+                    UserWarning,
+                )
+            # If compilation fails, use the original function and don't try again
+            setattr(self, func.__name__, func)
+            return func(self, *args, **kwargs)
+
+        # Store the compiled function on the instance for future calls
+        setattr(self, compiled_func_name, compiled_func)
+
+        return compiled_func(self, *args, **kwargs)
 
     return wrapper

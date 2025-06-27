@@ -67,7 +67,7 @@ class LargeVis(SampledNeighborEmbedding):
         Random seed for reproducibility, by default None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
-        By default 1.
+        By default None.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default None.
     tol_affinity : float, optional
@@ -87,7 +87,7 @@ class LargeVis(SampledNeighborEmbedding):
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
         Default is True.
-    jit_compile : bool, optional
+    compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
@@ -110,7 +110,7 @@ class LargeVis(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1,
+        early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
@@ -120,7 +120,7 @@ class LargeVis(SampledNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = True,
-        jit_compile: bool = False,
+        compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -167,7 +167,7 @@ class LargeVis(SampledNeighborEmbedding):
             n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,
-            jit_compile=jit_compile,
+            compile=compile,
         )
 
     def _repulsive_loss(self):
