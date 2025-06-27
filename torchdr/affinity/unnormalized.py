@@ -253,7 +253,7 @@ class ScalarProductAffinity(NegativeCostAffinity):
     Parameters
     ----------
     device : str, optional
-        Device to use for computations. Default is "cuda".
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
@@ -272,7 +272,7 @@ class ScalarProductAffinity(NegativeCostAffinity):
         _pre_processed: bool = False,
     ):
         super().__init__(
-            metric="scalar_product",
+            metric="angular",
             device=device,
             backend=backend,
             verbose=verbose,

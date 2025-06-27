@@ -344,7 +344,7 @@ def test_after_step():
         affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
     )
     # Just ensure it doesn't raise an error
-    model._after_step()
+    model.on_training_step_end()
 
 
 def test_affinity_out_none_requires_custom_loss():

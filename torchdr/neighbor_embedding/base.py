@@ -536,7 +536,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         )
 
     def on_affinity_computation_end(self):
-        device = self.affinity_in_.device
+        device = getattr(self.NN_indices_, "device", "cpu")
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
 
         if self.discard_NNs:
