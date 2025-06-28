@@ -57,7 +57,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     wrap_vectors,
-    compile_if_enabled,
+    compile_if_requested,
 )
 
 from .manifold import (
@@ -126,5 +126,5 @@ __all__ = [
     "check_array",
     "plot_disk",
     "plot_poincare_disk",
-    "compile_if_enabled",
+    "compile_if_requested",
 ]
