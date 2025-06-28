@@ -9,7 +9,12 @@ from typing import Optional
 import torch
 
 from torchdr.affinity import Affinity
-from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors, compile_if_requested
+from torchdr.utils import (
+    matrix_transpose,
+    check_NaNs,
+    wrap_vectors,
+    compile_if_requested,
+)
 
 
 @wrap_vectors

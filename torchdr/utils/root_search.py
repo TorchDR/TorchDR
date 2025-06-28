@@ -191,7 +191,15 @@ def false_position(
 
 @compile_if_requested
 def init_bounds(
-    f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True, logger=None, compile: bool = False,
+    f,
+    n,
+    begin=None,
+    end=None,
+    dtype=DTYPE,
+    device=DEVICE,
+    verbose=True,
+    logger=None,
+    compile: bool = False,
 ):
     """Initialize the bounds of the root search."""
     if begin is None:

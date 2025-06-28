@@ -216,12 +216,12 @@ def compile_if_requested(func):
         # Determine if we should compile
         should_compile = False
         is_method = False
-        if args and hasattr(args[0], 'compile'):
+        if args and hasattr(args[0], "compile"):
             self = args[0]
             should_compile = getattr(self, "compile", False)
             is_method = True
-        elif 'compile' in kwargs:
-            should_compile = kwargs['compile']
+        elif "compile" in kwargs:
+            should_compile = kwargs["compile"]
 
         if not should_compile:
             return func(*args, **kwargs)
@@ -230,7 +230,7 @@ def compile_if_requested(func):
         # For methods, key on the instance id to recompile for different instances
         # For functions, key on the function itself
         key = (id(self), func) if is_method else func
-        
+
         if key in compiled_funcs:
             return compiled_funcs[key](*args, **kwargs)
 
@@ -247,7 +247,7 @@ def compile_if_requested(func):
                 self.logger.warning(msg)
             else:
                 warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
-            
+
             # Cache the original function to avoid recompilation attempts
             compiled_funcs[key] = func
             return func(*args, **kwargs)
