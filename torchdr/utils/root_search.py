@@ -6,7 +6,7 @@
 # License: BSD 3-Clause License
 
 import torch
-from torchdr.utils import compile_if_requested
+from torchdr.utils.wrappers import compile_if_requested
 
 DTYPE = torch.float32
 DEVICE = "cpu"
