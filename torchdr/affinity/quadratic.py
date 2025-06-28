@@ -9,7 +9,7 @@ from typing import Optional
 import torch
 
 from torchdr.affinity import Affinity
-from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors
+from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors, compile_if_requested
 
 
 @wrap_vectors
@@ -82,6 +82,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -102,6 +104,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -110,6 +113,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.eps = eps
@@ -122,6 +126,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.base_kernel = base_kernel
         self.n_iter_ = 0
 
+    @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
         r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
 

@@ -38,6 +38,8 @@ class Affinity(ABC):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -51,6 +53,7 @@ class Affinity(ABC):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         self.log = {}
@@ -60,6 +63,7 @@ class Affinity(ABC):
         self.backend = backend
         self.verbose = bool_arg(verbose)
         self.random_state = random_state
+        self.compile = compile
         self._pre_processed = _pre_processed
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
@@ -146,6 +150,8 @@ class LogAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -159,6 +165,7 @@ class LogAffinity(Affinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -168,6 +175,7 @@ class LogAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 
@@ -241,6 +249,8 @@ class SparseLogAffinity(LogAffinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
     _pre_processed : bool, optional
@@ -255,6 +265,7 @@ class SparseLogAffinity(LogAffinity):
         device: str = "auto",
         backend: str = None,
         verbose: bool = False,
+        compile: bool = False,
         sparsity: bool = True,
         random_state: float = None,
         _pre_processed: bool = False,
@@ -266,6 +277,7 @@ class SparseLogAffinity(LogAffinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.sparsity = sparsity
@@ -363,6 +375,8 @@ class UnnormalizedAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -376,6 +390,7 @@ class UnnormalizedAffinity(Affinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -385,6 +400,8 @@ class UnnormalizedAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self._pre_processed = _pre_processed
 
@@ -516,6 +533,8 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -529,6 +548,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         backend: str = None,
         verbose: bool = False,
         random_state: float = None,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -538,6 +558,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 

@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 import numpy as np
 
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
-from torchdr.utils import LazyTensorType
+from torchdr.utils import LazyTensorType, compile_if_requested
 
 
 # from umap/umap/umap_.py
@@ -57,6 +57,8 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -70,6 +72,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -78,10 +81,12 @@ class GaussianAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.sigma = sigma
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C / self.sigma
 
@@ -111,6 +116,8 @@ class StudentAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -124,6 +131,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -132,10 +140,12 @@ class StudentAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return (
             -0.5
@@ -168,6 +178,8 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -181,6 +193,7 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -189,10 +202,12 @@ class CauchyAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.gamma = gamma
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return (self.gamma / (C + self.gamma**2)).log()
 
@@ -216,6 +231,8 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -228,6 +245,7 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -236,9 +254,11 @@ class NegativeCostAffinity(UnnormalizedAffinity):
             backend=backend,
             verbose=verbose,
             zero_diag=zero_diag,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C
 
@@ -259,6 +279,8 @@ class ScalarProductAffinity(NegativeCostAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -269,6 +291,7 @@ class ScalarProductAffinity(NegativeCostAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -277,6 +300,7 @@ class ScalarProductAffinity(NegativeCostAffinity):
             backend=backend,
             verbose=verbose,
             zero_diag=False,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 
@@ -315,6 +339,8 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -331,25 +357,25 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
+        if a is None or b is None:
+            a, b = find_ab_params(spread, min_dist)
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.min_dist = min_dist
         self.spread = spread
+        self._a = a
+        self._b = b
 
-        if a is None or b is None:
-            fitted_a, fitted_b = find_ab_params(self.spread, self.min_dist)
-            self._a, self._b = fitted_a.item(), fitted_b.item()
-        else:
-            self._a = a
-            self._b = b
-
+    @compile_if_requested
     def _log_affinity_formula(self, C: torch.Tensor):
-        return -(1 + self._a * C**self._b).log()
+        return -(self._a * C**self._b).log1p()

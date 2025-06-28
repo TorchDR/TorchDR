@@ -21,6 +21,7 @@ from torchdr.utils import (
     matrix_power,
     check_neighbor_param,
     binary_search,
+    compile_if_requested,
 )
 
 
@@ -74,6 +75,8 @@ class SelfTuningAffinity(LogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -88,6 +91,7 @@ class SelfTuningAffinity(LogAffinity):
         device: Optional[str] = None,
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -96,11 +100,13 @@ class SelfTuningAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.K = K
         self.normalization_dim = normalization_dim
 
+    @compile_if_requested
     def _compute_log_affinity(self, X: torch.Tensor):
         r"""Fit the self-tuning affinity model to the provided data.
 
@@ -168,6 +174,8 @@ class MAGICAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -181,6 +189,7 @@ class MAGICAffinity(Affinity):
         device: Optional[str] = None,
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -189,10 +198,12 @@ class MAGICAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
         self.K = K
 
+    @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
         r"""Fit the MAGIC affinity model to the provided data.
 
@@ -246,6 +257,8 @@ class PHATEAffinity(Affinity):
         Exponent for the alpha-decay kernel in affinity computation.
     t : int, optional (default=5)
         Number of diffusion steps (power to raise diffusion matrix).
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -260,6 +273,7 @@ class PHATEAffinity(Affinity):
         k: int = 5,
         alpha: float = 10.0,
         t: int = 5,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         if backend == "faiss" or backend == "keops":
@@ -272,14 +286,16 @@ class PHATEAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
             zero_diag=False,
             _pre_processed=_pre_processed,
         )
 
-        self.alpha = alpha
         self.k = k
+        self.alpha = alpha
         self.t = t
 
+    @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
         C, _ = self._distance_matrix(X)
 
@@ -328,6 +344,8 @@ class UMAPAffinityIn(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -344,6 +362,7 @@ class UMAPAffinityIn(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -357,9 +376,11 @@ class UMAPAffinityIn(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""Compute the input affinity matrix of UMAP from input data X.
 
@@ -430,6 +451,8 @@ class PACMAPAffinity(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -443,6 +466,7 @@ class PACMAPAffinity(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -454,9 +478,11 @@ class PACMAPAffinity(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=True,  # PACMAP uses sparsity mode
+            compile=compile,
             _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""Compute the input affinity matrix of PACMAP from input data X.
 

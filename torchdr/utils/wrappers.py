@@ -200,40 +200,58 @@ def handle_keops(func):
     return wrapper
 
 
-def compile_if_enabled(func):
+def compile_if_requested(func):
     """Decorator to conditionally compile a function with torch.compile.
 
-    The compilation is triggered on the first call if the instance has
-    a `compile` attribute set to True. The compiled function then
-    replaces the original method for subsequent calls on that instance.
+    The compilation is triggered based on a 'compile' flag.
+    For class methods, it checks for a `self.compile` attribute.
+    For standalone functions, it checks for a `compile` keyword argument.
+
+    The compiled function is cached for subsequent calls.
     """
-    compiled_func_name = f"_compiled_{func.__name__}"
+    compiled_funcs = {}  # Cache for compiled functions
 
     @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if not getattr(self, "compile", False):
-            return func(self, *args, **kwargs)
+    def wrapper(*args, **kwargs):
+        # Determine if we should compile
+        should_compile = False
+        is_method = False
+        if args and hasattr(args[0], 'compile'):
+            self = args[0]
+            should_compile = getattr(self, "compile", False)
+            is_method = True
+        elif 'compile' in kwargs:
+            should_compile = kwargs['compile']
 
-        if hasattr(self, compiled_func_name):
-            compiled_func = getattr(self, compiled_func_name)
-            return compiled_func(self, *args, **kwargs)
+        if not should_compile:
+            return func(*args, **kwargs)
+
+        # Create a unique key for the compiled function
+        # For methods, key on the instance id to recompile for different instances
+        # For functions, key on the function itself
+        key = (id(self), func) if is_method else func
+        
+        if key in compiled_funcs:
+            return compiled_funcs[key](*args, **kwargs)
 
         try:
             compiled_func = torch.compile(func)
+            compiled_funcs[key] = compiled_func
         except Exception as e:
             msg = (
                 f"Could not compile {func.__name__} with torch.compile. "
                 f"Falling back to eager execution. Reason: {e}"
             )
-            if hasattr(self, "logger") and self.logger is not None:
+            # For methods, try to use a logger
+            if is_method and hasattr(self, "logger") and self.logger is not None:
                 self.logger.warning(msg)
             else:
                 warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
-            setattr(self, func.__name__, func)
-            return func(self, *args, **kwargs)
+            
+            # Cache the original function to avoid recompilation attempts
+            compiled_funcs[key] = func
+            return func(*args, **kwargs)
 
-        setattr(self, compiled_func_name, compiled_func)
-
-        return compiled_func(self, *args, **kwargs)
+        return compiled_funcs[key](*args, **kwargs)
 
     return wrapper
