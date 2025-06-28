@@ -165,6 +165,8 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
         if isinstance(self.affinity_in, Affinity):
             self.affinity_in._pre_processed = True
+            if self.backend not in ["faiss", "keops"]:  # torch.compile not supported
+                self.affinity_in.compile = self.compile
 
         # --- check affinity_out ---
         if affinity_out is not None:
@@ -181,6 +183,7 @@ class AffinityMatcher(DRModule):
                 )
                 self.affinity_in.sparsity = False  # turn off sparsity
             affinity_out._pre_processed = True
+            affinity_out.compile = self.compile
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out

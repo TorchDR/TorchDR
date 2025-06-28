@@ -6,9 +6,11 @@
 
 import torch
 import numpy as np
+import warnings
+from typing import Optional
 
 from torchdr.utils.utils import identity_matrix, kmin
-from .keops import LazyTensor, pykeops
+from .keops import LazyTensor
 from .faiss import faiss
 from .wrappers import compile_if_requested
 
@@ -25,60 +27,51 @@ LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 def pairwise_distances(
     X: torch.Tensor,
-    Y: torch.Tensor = None,
-    metric: str = "sqeuclidean",
-    backend: str = None,
-    exclude_self: bool = False,
-    k: int = None,
+    Y: Optional[torch.Tensor] = None,
+    metric: str = "euclidean",
+    backend: Optional[str] = None,
+    exclude_self: bool = True,
+    k: Optional[int] = None,
     compile: bool = False,
 ):
-    r"""Compute pairwise distances matrix between points in two datasets.
-
-    Returns the pairwise distance matrix as torch tensor or KeOps lazy tensor
-    (if keops is True).
+    r"""Compute pairwise distances between two tensors.
 
     Parameters
     ----------
     X : torch.Tensor of shape (n_samples, n_features)
-        First dataset.
+        Input data.
     Y : torch.Tensor of shape (m_samples, n_features), optional
-        Second dataset. If None, Y = X.
+        Input data. If None, Y is set to X.
     metric : str, optional
-        Metric to use for computing distances. The default is "sqeuclidean".
-    backend: {"keops", None}, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
+        Metric to use. Default is "euclidean".
+    backend : {'keops', 'faiss', None}, optional
+        Backend to use for computation.
+        If None, use standard torch operations.
     exclude_self : bool, optional
-        If True, adds weight on the diagonal of the distance matrix.
-        Default is False.
+        Whether to exclude self-distances (diagonal elements) from the result.
+        Only used when k is not None.
     k : int, optional
-        Number of nearest neighbors to consider for the distances.
-        Default is None.
-    compile : bool, optional
-        Whether to compile the torch implementation of the distance computation.
-        Default is False.
+        If not None, return only the k-nearest neighbors.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
 
     Returns
     -------
-    C : torch.Tensor or pykeops.torch.LazyTensor (if keops is True)
-    of shape (n_samples, m_samples)
-        Pairwise distances matrix.
+    C : torch.Tensor
+        Pairwise distances.
+    indices : torch.Tensor, optional
+        Indices of the k-nearest neighbors. Only returned if k is not None.
     """
     if backend == "keops":
-        if not pykeops:
-            raise ValueError(
-                "[TorchDR] ERROR : pykeops is not installed. "
-                "Please install it to use `backend=keops`."
-            )
         C, indices = _pairwise_distances_keops(
-            X, Y, metric, k=k, exclude_self=exclude_self
+            X=X, Y=Y, metric=metric, exclude_self=exclude_self, k=k
         )
     elif backend == "faiss":
         if k is not None:
-            if not faiss:
-                raise ValueError(
-                    "[TorchDR] ERROR : faiss is not installed. "
-                    "Please install it to use `backend=faiss`."
+            if compile:
+                warnings.warn(
+                    "[TorchDR] WARNING: `torch.compile` is not supported with `backend='faiss'`. "
+                    "Disabling compilation for this function."
                 )
             C, indices = _pairwise_distances_faiss(
                 X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
@@ -344,10 +337,16 @@ def _pairwise_distances_faiss(
         # This branch should never be reached due to the initial check.
         raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
 
-    # If the input tensor is on GPU, move the index to GPU.
-    if X.device.type == "cuda":
-        res = faiss.StandardGpuResources()
-        index = faiss.index_cpu_to_gpu(res, 0, index)
+    device = X.device
+    if device.type == "cuda":
+        if hasattr(faiss, "StandardGpuResources"):
+            res = faiss.StandardGpuResources()
+            index = faiss.index_cpu_to_gpu(res, 0, index)
+        else:
+            warnings.warn(
+                "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
+                "This may be slow. For faster performance, install `faiss-gpu`."
+            )
 
     # Add the database vectors to the index.
     index.add(Y_np)
@@ -391,7 +390,6 @@ def _pairwise_distances_faiss(
             Ind = Ind[:, :k]
 
     # Convert back to torch tensors.
-    device = X.device
     distances = torch.from_numpy(D).to(device).to(dtype)
     indices = torch.from_numpy(Ind).to(device).long()
 
