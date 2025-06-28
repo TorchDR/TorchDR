@@ -16,7 +16,6 @@ from torchdr.affinity import (
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
-from torchdr.spectral_embedding import PCA
 from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
@@ -25,7 +24,7 @@ from torchdr.utils import (
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
-    compile_if_enabled,
+    compile_if_requested,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -285,7 +284,7 @@ class AffinityMatcher(DRModule):
 
         return self.embedding_
 
-    @compile_if_enabled
+    @compile_if_requested
     def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
         loss = self._loss()
@@ -423,6 +422,8 @@ class AffinityMatcher(DRModule):
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
+            from torchdr.spectral_embedding import PCA
+
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
