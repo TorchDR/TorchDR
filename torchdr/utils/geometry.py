@@ -10,6 +10,7 @@ import numpy as np
 from torchdr.utils.utils import identity_matrix, kmin
 from .keops import LazyTensor, pykeops
 from .faiss import faiss
+from .wrappers import compile_if_requested
 
 LIST_METRICS_TORCH = [
     "euclidean",
@@ -29,6 +30,7 @@ def pairwise_distances(
     backend: str = None,
     exclude_self: bool = False,
     k: int = None,
+    compile: bool = False,
 ):
     r"""Compute pairwise distances matrix between points in two datasets.
 
@@ -52,6 +54,9 @@ def pairwise_distances(
     k : int, optional
         Number of nearest neighbors to consider for the distances.
         Default is None.
+    compile : bool, optional
+        Whether to compile the torch implementation of the distance computation.
+        Default is False.
 
     Returns
     -------
@@ -68,29 +73,36 @@ def pairwise_distances(
         C, indices = _pairwise_distances_keops(
             X, Y, metric, k=k, exclude_self=exclude_self
         )
-    elif backend == "faiss" and k is not None:
-        if not faiss:
-            raise ValueError(
-                "[TorchDR] ERROR : faiss is not installed. "
-                "Please install it to use `backend=faiss`."
+    elif backend == "faiss":
+        if k is not None:
+            if not faiss:
+                raise ValueError(
+                    "[TorchDR] ERROR : faiss is not installed. "
+                    "Please install it to use `backend=faiss`."
+                )
+            C, indices = _pairwise_distances_faiss(
+                X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
             )
-        C, indices = _pairwise_distances_faiss(
-            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
-        )
+        else:
+            raise ValueError(
+                "[TorchDR] ERROR : k must be provided when using `backend=faiss`."
+            )
     else:
         C, indices = _pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
+            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self, compile=compile
         )
 
     return C, indices
 
 
+@compile_if_requested
 def _pairwise_distances_torch(
     X: torch.Tensor,
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
     exclude_self: bool = False,
+    compile: bool = False,
 ):
     r"""Compute pairwise distances between points using PyTorch.
 
@@ -112,6 +124,9 @@ def _pairwise_distances_torch(
     exclude_self : bool, default False
         If True and Y is not provided, the self–distance (diagonal elements) are set to infinity,
         excluding the self index from the k nearest neighbors.
+    compile : bool, optional
+        Whether to compile the torch implementation of the distance computation.
+        Default is False.
 
     Returns
     -------
@@ -383,10 +398,12 @@ def _pairwise_distances_faiss(
     return distances, indices
 
 
+@compile_if_requested
 def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,
     metric: str = "sqeuclidean",
+    compile: bool = False,
 ):
     r"""Compute pairwise distances for a subset of pairs given by indices.
 
@@ -401,6 +418,8 @@ def symmetric_pairwise_distances_indices(
         Indices of the pairs for which to compute the distances.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
+    compile : bool, optional
+        Whether to compile the distance computation. Default is False.
 
     Returns
     -------

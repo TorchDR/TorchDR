@@ -126,12 +126,14 @@ class Affinity(ABC):
             value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
+        # The `@handle_keops` decorator sets `self.backend_`, which is used below.
         return pairwise_distances(
             X=X,
             metric=self.metric,
             backend=self.backend_,
             exclude_self=self.zero_diag,
             k=k,
+            compile=self.compile,
         )
 
 
@@ -465,11 +467,11 @@ class UnnormalizedAffinity(Affinity):
     ):
         r"""Compute the pairwise distance matrix from the input data.
 
-        It uses the specified metric and optionally leverages KeOps
+        It uses the specified metric and optionally leveraging KeOps
         for memory efficient computation.
         It supports computing the full pairwise distance matrix, the pairwise
-        distance matrix between two sets of samples, or the pairwise distance matrix
-        between a set of samples and a subset of samples specified by indices.
+        distance matrix for a given set of indices, and the cross-distance
+        matrix between two datasets.
 
         Parameters
         ----------
@@ -494,20 +496,25 @@ class UnnormalizedAffinity(Affinity):
                 "and indices at the same time."
             )
 
-        elif indices is not None:
-            return symmetric_pairwise_distances_indices(
-                X, indices=indices, metric=self.metric
+        # Note: The `backend_` attribute is set by the `@handle_keops` decorator.
+
+        elif Y is not None:  # Case 1: Cross-distance matrix
+            return pairwise_distances(
+                X, Y, metric=self.metric, backend=self.backend_, compile=self.compile
             )
 
-        elif Y is not None:
-            return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
+        elif indices is not None:  # Case 2: Sparse self-distance matrix
+            return symmetric_pairwise_distances_indices(
+                X, indices=indices, metric=self.metric, compile=self.compile
+            )
 
-        else:
+        else:  # Case 3: Full self-distance matrix (with or without the diagonal)
             return pairwise_distances(
                 X,
                 metric=self.metric,
                 backend=self.backend_,
                 exclude_self=self.zero_diag,
+                compile=self.compile,
             )
 
 
