@@ -422,7 +422,7 @@ class AffinityMatcher(DRModule):
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
-            from torchdr.spectral_embedding import PCA
+            from torchdr.spectral_embedding.pca import PCA
 
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
