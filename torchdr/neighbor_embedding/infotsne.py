@@ -36,7 +36,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm, by default 1e0.
+        Learning rate for the algorithm, by default "auto".
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
@@ -55,7 +55,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     min_grad_norm : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 2000.
+        Number of maximum iterations for the descent algorithm, by default 1000.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -95,7 +95,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: Union[float, str] = 1e0,
+        lr: Union[float, str] = "auto",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
