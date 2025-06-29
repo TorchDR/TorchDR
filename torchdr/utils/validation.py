@@ -111,7 +111,7 @@ def relative_similarity(P, P_target):
     return (P - P_target).abs().sum() / P_target.abs().sum()
 
 
-def check_similarity(P, P_target, tol=1e-4, msg=None):
+def check_similarity(P, P_target, tol=1e-5, msg=None):
     """Check if a torch.Tensor or LazyTensor is close to a target matrix."""
     (n, p) = P.shape
     (also_n, also_p) = P_target.shape

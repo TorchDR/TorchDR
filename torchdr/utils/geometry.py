@@ -29,7 +29,7 @@ def pairwise_distances(
     Y: Optional[torch.Tensor] = None,
     metric: str = "euclidean",
     backend: Optional[str] = None,
-    exclude_self: bool = True,
+    inf_diag: bool = False,
     k: Optional[int] = None,
     compile: bool = False,
 ):
@@ -46,9 +46,9 @@ def pairwise_distances(
     backend : {'keops', 'faiss', None}, optional
         Backend to use for computation.
         If None, use standard torch operations.
-    exclude_self : bool, optional
-        Whether to exclude self-distances (diagonal elements) from the result.
-        Only used when k is not None.
+    inf_diag : bool, optional
+        Whether to add infinity to the diagonal of the distance matrix.
+        Only used when k is not None. Default is False.
     k : int, optional
         If not None, return only the k-nearest neighbors.
     compile : bool, default=False
@@ -63,12 +63,12 @@ def pairwise_distances(
     """
     if backend == "keops":
         C, indices = _pairwise_distances_keops(
-            X=X, Y=Y, metric=metric, exclude_self=exclude_self, k=k
+            X=X, Y=Y, metric=metric, inf_diag=inf_diag, k=k
         )
     elif backend == "faiss":
         if k is not None:
             C, indices = _pairwise_distances_faiss(
-                X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
+                X=X, Y=Y, metric=metric, k=k, inf_diag=inf_diag
             )
         else:
             raise ValueError(
@@ -76,7 +76,7 @@ def pairwise_distances(
             )
     else:
         C, indices = _pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self, compile=compile
+            X=X, Y=Y, metric=metric, k=k, inf_diag=inf_diag, compile=compile
         )
 
     return C, indices
@@ -87,13 +87,13 @@ def _pairwise_distances_torch(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
-    exclude_self: bool = False,
+    inf_diag: bool = False,
     compile: bool = False,
 ):
     r"""Compute pairwise distances between points using PyTorch.
 
     When Y is not provided (i.e. computing distances within X) and
-    `exclude_self` is True, the self–distance for each point (i.e. the diagonal)
+    `inf_diag` is True, the self–distance for each point (i.e. the diagonal)
     is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
@@ -107,7 +107,7 @@ def _pairwise_distances_torch(
     k : int, optional
         Number of nearest neighbors to consider for the distances.
         If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
-    exclude_self : bool, default False
+    inf_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal elements) are set to infinity,
         excluding the self index from the k nearest neighbors.
     compile : bool, optional
@@ -129,7 +129,7 @@ def _pairwise_distances_torch(
     # If Y is not provided, use X (and reuse its memory).
     if Y is None or Y is X:
         Y = X
-        do_exclude = exclude_self
+        do_exclude = inf_diag
     else:
         do_exclude = False  # Only exclude self when Y is not provided.
 
@@ -184,12 +184,12 @@ def _pairwise_distances_keops(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
-    exclude_self: bool = False,
+    inf_diag: bool = False,
 ):
     r"""Compute pairwise distances between points using KeOps LazyTensors.
 
     When Y is not provided (i.e. computing distances within X) and
-    `exclude_self` is True, the self–distance for each point (diagonal)
+    `inf_diag` is True, the self–distance for each point (diagonal)
     is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
@@ -203,7 +203,7 @@ def _pairwise_distances_keops(
     k : int, optional
         Number of nearest neighbors to consider for the distances.
         If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
-    exclude_self : bool, default False
+    inf_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal entries) are set to infinity,
         excluding the self index from the k nearest neighbors.
 
@@ -223,7 +223,7 @@ def _pairwise_distances_keops(
     # If Y is not provided, use X and decide about self–exclusion.
     if Y is None or Y is X:
         Y = X
-        do_exclude = exclude_self
+        do_exclude = inf_diag
     else:
         do_exclude = False  # Only exclude self when Y is not provided.
 
@@ -261,7 +261,7 @@ def _pairwise_distances_faiss(
     k: int,
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
-    exclude_self: bool = False,
+    inf_diag: bool = False,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -270,7 +270,7 @@ def _pairwise_distances_faiss(
       - "sqeuclidean": returns the squared Euclidean distance (as computed by FAISS)
       - "angular": returns the negative inner-product (after normalizing vectors)
 
-    If Y is not provided then we assume a self–search and, if `exclude_self` is True,
+    If Y is not provided then we assume a self–search and, if `inf_diag` is True,
     the self–neighbor is removed from the results.
 
     Parameters
@@ -283,8 +283,8 @@ def _pairwise_distances_faiss(
         One of "euclidean", "sqeuclidean", or "angular".
     k : int, optional
         Number of nearest neighbors to return.
-        (If `exclude_self` is True in a self–search, then k+1 neighbors are retrieved first.)
-    exclude_self : bool, default False
+        (If `inf_diag` is True in a self–search, then k+1 neighbors are retrieved first.)
+    inf_diag : bool, default False
         When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
         is excluded from the k results.
 
@@ -312,7 +312,7 @@ def _pairwise_distances_faiss(
     # If Y is not provided, reuse X_np for Y_np.
     if Y is None or Y is X:
         Y_np = X_np
-        do_exclude = exclude_self
+        do_exclude = inf_diag
     else:
         Y_np = Y.detach().cpu().numpy().astype(np.float32)
         do_exclude = False

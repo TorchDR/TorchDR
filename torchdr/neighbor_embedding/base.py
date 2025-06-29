@@ -536,7 +536,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         )
 
     def on_affinity_computation_end(self):
-        """Prepare for negative sampling by identifying samples to exclude."""
+        """Prepare for negative sampling by sampling samples' indices to exclude."""
         super().on_affinity_computation_end()
         device = getattr(self.NN_indices_, "device", "cpu")
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
@@ -551,7 +551,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
                 exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
-        self.exclude_, _ = exclude.sort(dim=1)
+        self.exclude_, _ = exclude.sort(dim=1)  # sort exclude so searchsorted works
 
         n_possible = self.n_samples_in_ - self.exclude_.shape[1]
         if self.n_negatives > n_possible and self.verbose:

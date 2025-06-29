@@ -131,7 +131,7 @@ class Affinity(ABC):
             X=X,
             metric=self.metric,
             backend=self.backend_,
-            exclude_self=self.zero_diag,
+            inf_diag=self.zero_diag,  # infinite distance is zero affinity
             k=k,
             compile=self.compile,
         )
@@ -513,7 +513,7 @@ class UnnormalizedAffinity(Affinity):
                 X,
                 metric=self.metric,
                 backend=self.backend_,
-                exclude_self=self.zero_diag,
+                inf_diag=self.zero_diag,  # infinite distance is zero affinity
                 compile=self.compile,
             )
 

@@ -85,7 +85,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         Interval for checking convergence, by default 50.
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
-        Default is True.
+        Default is False.
     compile : bool, optional
         Whether to compile the loss function with `torch.compile` for faster
         computation. Default is False.
@@ -95,7 +95,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: Union[float, str] = 100.0,
+        lr: Union[float, str] = "auto",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
@@ -119,7 +119,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         n_negatives: int = 50,
         sparsity: bool = True,
         check_interval: int = 50,
-        discard_NNs: bool = True,
+        discard_NNs: bool = False,
         compile: bool = False,
     ):
         self.metric_in = metric_in
