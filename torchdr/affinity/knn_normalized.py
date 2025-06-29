@@ -17,12 +17,12 @@ from torchdr.utils import (
     logsumexp_red,
     sum_red,
     wrap_vectors,
-    pairwise_distances,
     matrix_power,
     check_neighbor_param,
     binary_search,
     compile_if_requested,
 )
+from torchdr.distance import pairwise_distances
 
 
 @wrap_vectors

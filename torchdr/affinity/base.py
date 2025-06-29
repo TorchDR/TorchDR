@@ -13,11 +13,14 @@ import torch
 from torchdr.utils import (
     LazyTensorType,
     handle_keops,
-    pairwise_distances,
-    symmetric_pairwise_distances_indices,
     to_torch,
     bool_arg,
     set_logger,
+)
+
+from torchdr.distance import (
+    pairwise_distances,
+    symmetric_pairwise_distances_indices,
 )
 
 

@@ -55,7 +55,8 @@ from .neighbor_embedding import (
 from .spectral_embedding import IncrementalPCA, KernelPCA, PCA, PHATE
 
 # import utils
-from .utils import binary_search, false_position, pairwise_distances
+from .utils import binary_search, false_position
+from .distance import pairwise_distances
 
 __all__ = [
     "__title__",

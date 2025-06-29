@@ -8,7 +8,8 @@ import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
-from torchdr.utils import kmin, sum_red, symmetric_pairwise_distances_indices
+from torchdr.utils import kmin, sum_red
+from torchdr.distance import symmetric_pairwise_distances_indices
 
 
 class PACMAP(SampledNeighborEmbedding):

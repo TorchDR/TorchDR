@@ -9,10 +9,14 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from torchdr.utils import (
+from torchdr.distance import (
     LIST_METRICS_TORCH,
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
+    pairwise_distances,
+    symmetric_pairwise_distances_indices,
+)
+from torchdr.utils import (
     binary_search,
     center_kernel,
     check_array,
@@ -22,10 +26,8 @@ from torchdr.utils import (
     false_position,
     handle_keops,
     to_torch,
-    pairwise_distances,
     pykeops,
     faiss,
-    symmetric_pairwise_distances_indices,
     RiemannianAdam,
     ManifoldParameter,
     EuclideanManifold,
