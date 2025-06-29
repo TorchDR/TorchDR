@@ -32,7 +32,7 @@ def find_ab_params(spread, min_dist):
     yv[xv < min_dist] = 1.0
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, covar = curve_fit(curve, xv, yv)
-    return params[0], params[1]
+    return params[0].item(), params[1].item()
 
 
 class GaussianAffinity(UnnormalizedLogAffinity):
@@ -378,4 +378,4 @@ class UMAPAffinityOut(UnnormalizedLogAffinity):
 
     @compile_if_requested
     def _log_affinity_formula(self, C: torch.Tensor):
-        return -(self._a * C**self._b).log1p()
+        return -(1 + self._a * C**self._b).log()
