@@ -121,24 +121,10 @@ def pairwise_distances_faiss(
 
     # If doing self–search with self–exclusion, remove the self neighbor from the results.
     if do_exclude:
-        new_D = []
-        new_Ind = []
-        for i in range(n):
-            row_indices = Ind[i]
-            row_distances = D[i]
-            # Exclude the query itself.
-            mask = row_indices != i
-            filtered_indices = row_indices[mask]
-            filtered_distances = row_distances[mask]
-            new_Ind.append(filtered_indices[:k])
-            new_D.append(filtered_distances[:k])
-        D = np.vstack(new_D)
-        Ind = np.vstack(new_Ind)
-    else:
-        # Otherwise, if extra neighbors were retrieved, trim to k.
-        if k_search > k:
-            D = D[:, :k]
-            Ind = Ind[:, :k]
+        # In a self-search, FAISS returns the query point itself as the first neighbor.
+        # We searched for k+1 neighbors, so we discard the first column.
+        D = D[:, 1:]
+        Ind = Ind[:, 1:]
 
     # Convert back to torch tensors.
     distances = torch.from_numpy(D).to(device).to(dtype)
