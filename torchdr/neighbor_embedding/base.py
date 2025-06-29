@@ -84,6 +84,8 @@ class NeighborEmbedding(AffinityMatcher):
         Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     """  # noqa: E501
 
     def __init__(
@@ -110,6 +112,7 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
+        compile: bool = False,
         **kwargs: Any,
     ):
         self.early_exaggeration_iter = early_exaggeration_iter
@@ -146,9 +149,11 @@ class NeighborEmbedding(AffinityMatcher):
             verbose=verbose,
             random_state=random_state,
             check_interval=check_interval,
+            compile=compile,
+            **kwargs,
         )
 
-    def _after_step(self):
+    def on_training_step_end(self):
         if (  # stop early exaggeration phase
             self.early_exaggeration_coeff_ > 1
             and self.n_iter_ == self.early_exaggeration_iter
@@ -303,6 +308,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     """  # noqa: E501
 
     def __init__(
@@ -329,6 +336,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
+        compile: bool = False,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseLogAffinity):
@@ -367,6 +375,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            compile=compile,
         )
 
     def _attractive_loss(self):
@@ -462,9 +471,13 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
     n_negatives : int, optional
-        Number of negative samples for the repulsive loss.
+        Number of negative samples to use. Default is 5.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    discard_NNs : bool, optional
+        Whether to discard nearest neighbors from negative sampling. Default is True.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     """  # noqa: E501
 
     def __init__(
@@ -492,8 +505,11 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
         check_interval: int = 50,
+        discard_NNs: bool = True,
+        compile: bool = False,
     ):
         self.n_negatives = n_negatives
+        self.discard_NNs = discard_NNs
 
         super().__init__(
             affinity_in=affinity_in,
@@ -516,39 +532,42 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            compile=compile,
         )
 
-    def _sample_negatives(self, discard_NNs=False):
-        # Negatives are all other points except NNs (if discard_NNs) and point itself
+    def on_affinity_computation_end(self):
+        """Prepare for negative sampling by sampling samples' indices to exclude."""
+        super().on_affinity_computation_end()
         device = getattr(self.NN_indices_, "device", "cpu")
-
         self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
-        if discard_NNs and (self.NN_indices_ is not None):
-            exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
+
+        if self.discard_NNs:
+            if not hasattr(self, "NN_indices_"):
+                self.logger.warning(
+                    "NN_indices_ not found. Cannot discard NNs from negative sampling."
+                )
+                exclude = self_idxs
+            else:
+                exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
+        self.exclude_, _ = exclude.sort(dim=1)  # sort exclude so searchsorted works
 
-        k = exclude.size(1)
-        n_possible = self.n_samples_in_ - k
-        if n_possible <= 0:
-            raise ValueError(
-                f"[TorchDR] ERROR : No possible negatives (n={self.n_samples_in_}, k_excluded={k})."
-            )
-
+        n_possible = self.n_samples_in_ - self.exclude_.shape[1]
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
                 f"[TorchDR] ERROR : requested {self.n_negatives} negatives but "
                 f"only {n_possible} available."
             )
 
+    def on_training_step_start(self):
+        """Sample negatives."""
+        super().on_training_step_start()
         negatives = torch.randint(
             1,
-            n_possible,
+            self.n_samples_in_ - self.exclude_.shape[1],
             (self.n_samples_in_, self.n_negatives),
-            device=device,
+            device=self.embedding_.device,
         )
-
-        exclude, _ = exclude.sort(dim=1)  # Sort exclude rows so searchsorted works
-        shifts = torch.searchsorted(exclude, negatives, right=True)
-        negatives += shifts
-        return negatives
+        shifts = torch.searchsorted(self.exclude_, negatives, right=True)
+        self.neg_indices_ = negatives + shifts

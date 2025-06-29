@@ -12,7 +12,6 @@ from sklearn.base import BaseEstimator
 
 from torchdr.utils import (
     kmin,
-    pairwise_distances,
     pykeops,
     to_torch,
     faiss,
@@ -20,6 +19,7 @@ from torchdr.utils import (
     set_logger,
     bool_arg,
 )
+from torchdr.distance import pairwise_distances
 
 from typing import Union, Optional, Any
 

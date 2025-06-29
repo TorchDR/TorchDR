@@ -279,6 +279,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     def entropy_gap(eps, C):  # function to find the root of
         return entropy(_log_Pe(C, eps), log=True) - target_entropy
 
+    # test with a given perplexity
     affinity = EntropicAffinity(
         perplexity=perp,
         backend=backend,
@@ -303,7 +304,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
         "Lower bound of entropic affinity root is not valid."
     )
     assert (entropy_gap(end, C) > 0).all(), (
-        "Lower bound of entropic affinity root is not valid."
+        "Upper bound of entropic affinity root is not valid."
     )
 
 

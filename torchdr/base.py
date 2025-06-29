@@ -11,11 +11,9 @@ import numpy as np
 from sklearn.base import BaseEstimator
 
 from torchdr.utils import (
-    bool_arg,
     seed_everything,
     set_logger,
     handle_type,
-    log_with_timing,
 )
 
 from typing import Optional, Any, TypeVar
@@ -30,17 +28,19 @@ class DRModule(BaseEstimator, ABC):
 
     Parameters
     ----------
-    n_components : int, default=2
-        Number of components to project the input data onto.
-    device : str, default="auto"
-        Device on which the computations are performed.
+    n_components : int, optional
+        Number of dimensions for the embedding. Default is 2.
+    device : str, optional
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
-    verbose : bool, default=False
-        Whether to print information during the computations.
-    random_state : float, default=None
-        Random seed for reproducibility.
+    verbose : bool, optional
+        Verbosity of the optimization process. Default is False.
+    random_state : float, optional
+        Random seed for reproducibility. Default is None.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     process_duplicates : bool, default=True
         Whether to handle duplicate data points by default.
     """
@@ -49,23 +49,26 @@ class DRModule(BaseEstimator, ABC):
         self,
         n_components: int = 2,
         device: str = "auto",
-        backend: str = None,
+        backend: Optional[str] = None,
         verbose: bool = False,
-        random_state: float = None,
+        random_state: Optional[float] = None,
+        compile: bool = False,
         process_duplicates: bool = True,
+        **kwargs,
     ):
         self.n_components = n_components
         self.device = device
         self.backend = backend
+        self.verbose = verbose
         self.random_state = random_state
-        self.verbose = bool_arg(verbose)
+        self.compile = compile
         self.process_duplicates = process_duplicates
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-        if random_state is not None:
+        if self.random_state is not None:
             self._actual_seed = seed_everything(
-                random_state, fast=True, deterministic=False
+                self.random_state, fast=True, deterministic=False
             )
             self.logger.info(f"Random seed set to: {self._actual_seed}.")
 
@@ -121,7 +124,6 @@ class DRModule(BaseEstimator, ABC):
         self.fit_transform(X, y=y)
         return self
 
-    @log_with_timing(log_device_backend=True)
     @handle_type(
         accept_sparse=False,
         ensure_min_samples=2,

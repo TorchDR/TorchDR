@@ -11,8 +11,8 @@ from random import sample, seed
 import numpy as np
 import torch
 
-from torchdr.utils import pairwise_distances, prod_matrix_vector, to_torch
-
+from torchdr.utils import prod_matrix_vector, to_torch
+from torchdr.distance import pairwise_distances
 from typing import Union, Optional
 
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]

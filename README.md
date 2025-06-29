@@ -139,7 +139,7 @@ Install the core `torchdr` library from PyPI:
 pip install torchdr
 ```
 
-`TorchDR` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
+:warning: `TorchDR` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
 
 *   **Faiss (Recommended)**: For the fastest k-NN computations, install [Faiss](https://github.com/facebookresearch/faiss). Please follow their [official installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md). A common method is using `conda`:
     ```bash

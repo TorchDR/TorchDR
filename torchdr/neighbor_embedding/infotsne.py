@@ -36,7 +36,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm, by default 'auto'.
+        Learning rate for the algorithm, by default "auto".
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
@@ -55,7 +55,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     min_grad_norm : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 2000.
+        Number of maximum iterations for the descent algorithm, by default 1000.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -73,12 +73,22 @@ class InfoTSNE(SampledNeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
+    early_exaggeration_coeff : float, optional
+        Factor for the early exaggeration phase, by default None.
+    early_exaggeration_iter : int, optional
+        Number of iterations for the early exaggeration phase, by default None.
     n_negatives : int, optional
-        Number of negative samples for the noise-contrastive loss, by default 5.
+        Number of negative samples for the noise-contrastive loss, by default 50.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
+    discard_NNs : bool, optional
+        Whether to discard the nearest neighbors from the negative sampling.
+        Default is False.
+    compile : bool, optional
+        Whether to compile the loss function with `torch.compile` for faster
+        computation. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -100,6 +110,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
@@ -107,6 +119,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         n_negatives: int = 50,
         sparsity: bool = True,
         check_interval: int = 50,
+        discard_NNs: bool = False,
+        compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -148,11 +162,14 @@ class InfoTSNE(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            early_exaggeration_coeff=early_exaggeration_coeff,
+            early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            discard_NNs=discard_NNs,
+            compile=compile,
         )
 
     def _repulsive_loss(self):
-        indices = self._sample_negatives()
-        log_Q = self.affinity_out(self.embedding_, log=True, indices=indices)
+        log_Q = self.affinity_out(self.embedding_, log=True, indices=self.neg_indices_)
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

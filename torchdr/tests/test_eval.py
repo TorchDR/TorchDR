@@ -16,7 +16,8 @@ from torch.testing import assert_close
 
 from torchdr.eval import admissible_LIST_METRICS, silhouette_samples, silhouette_score
 from torchdr.tests.utils import toy_dataset
-from torchdr.utils import pairwise_distances, pykeops
+from torchdr.utils import pykeops
+from torchdr.distance import pairwise_distances
 
 lst_types = ["float32", "float64"]
 if pykeops:

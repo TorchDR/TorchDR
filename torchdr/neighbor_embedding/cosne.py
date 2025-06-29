@@ -83,7 +83,7 @@ class COSNE(SparseNeighborEmbedding):
         gamma: float = 2,
         n_components: int = 2,
         lr: Union[float, str] = "auto",
-        optimizer_kwargs: Union[Dict, str] = {},
+        optimizer_kwargs: Optional[Union[Dict, str]] = None,
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
@@ -92,7 +92,7 @@ class COSNE(SparseNeighborEmbedding):
         init_scaling: float = 0.5,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
@@ -103,6 +103,7 @@ class COSNE(SparseNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
+        compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = "sqhyperbolic"
@@ -125,7 +126,7 @@ class COSNE(SparseNeighborEmbedding):
         )
         affinity_out = CauchyAffinity(
             metric=self.metric_out,
-            gamma=self.gamma,
+            gamma=gamma,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -151,6 +152,7 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            compile=compile,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:

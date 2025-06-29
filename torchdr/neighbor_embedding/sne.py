@@ -80,6 +80,8 @@ class SNE(SparseNeighborEmbedding):
         Whether to use sparsity in the algorithm.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm.
+    compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -109,12 +111,14 @@ class SNE(SparseNeighborEmbedding):
         metric_out: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
+        compile: bool = False,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
+        self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -124,6 +128,7 @@ class SNE(SparseNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
+            sparsity=sparsity,
         )
         affinity_out = GaussianAffinity(
             metric=metric_out,
@@ -152,6 +157,7 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            compile=compile,
         )
 
     def _repulsive_loss(self):
