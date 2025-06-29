@@ -78,7 +78,7 @@ class InfoTSNE(SampledNeighborEmbedding):
     early_exaggeration_iter : int, optional
         Number of iterations for the early exaggeration phase, by default None.
     n_negatives : int, optional
-        Number of negative samples for the noise-contrastive loss, by default 5.
+        Number of negative samples for the noise-contrastive loss, by default 50.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
@@ -95,7 +95,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         self,
         perplexity: float = 30,
         n_components: int = 2,
-        lr: Union[float, str] = "auto",
+        lr: Union[float, str] = 100.0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[

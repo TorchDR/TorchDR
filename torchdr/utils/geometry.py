@@ -12,7 +12,6 @@ from typing import Optional
 from torchdr.utils.utils import identity_matrix, kmin
 from .keops import LazyTensor
 from .faiss import faiss
-from .wrappers import compile_if_requested
 
 LIST_METRICS_TORCH = [
     "euclidean",
@@ -68,11 +67,6 @@ def pairwise_distances(
         )
     elif backend == "faiss":
         if k is not None:
-            if compile:
-                warnings.warn(
-                    "[TorchDR] WARNING: `torch.compile` is not supported with `backend='faiss'`. "
-                    "Disabling compilation for this function."
-                )
             C, indices = _pairwise_distances_faiss(
                 X=X, Y=Y, metric=metric, k=k, exclude_self=exclude_self
             )
@@ -88,7 +82,6 @@ def pairwise_distances(
     return C, indices
 
 
-@compile_if_requested
 def _pairwise_distances_torch(
     X: torch.Tensor,
     Y: torch.Tensor = None,
@@ -396,7 +389,6 @@ def _pairwise_distances_faiss(
     return distances, indices
 
 
-@compile_if_requested
 def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,

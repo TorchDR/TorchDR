@@ -176,7 +176,7 @@ class EntropicAffinity(SparseLogAffinity):
     verbose : bool, optional
         Verbosity. Default is False.
     compile: bool, optional
-        If True, the computation is compiled using keops. Default is False.
+        If True, use torch compile. Default is False.
     _pre_processed: bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -347,7 +347,7 @@ class SymmetricEntropicAffinity(LogAffinity):
     verbose : bool, optional
         Verbosity. Default is False.
     compile: bool, optional
-        If True, the computation is compiled using keops. Default is False.
+        If True, use torch compile. Default is False.
     _pre_processed: bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -590,7 +590,7 @@ class SinkhornAffinity(LogAffinity):
         If True, the Sinkhorn iterations are done with gradient tracking.
         If False, torch.no_grad() is used for the iterations.
     compile: bool, optional
-        If True, the computation is compiled using keops. Default is False.
+        If True, use torch compile. Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -715,7 +715,7 @@ class NormalizedGaussianAffinity(LogAffinity):
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
     compile: bool, optional
-        If True, the computation is compiled using keops. Default is False.
+        If True, use torch compile. Default is False.
     _pre_processed: bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -807,7 +807,7 @@ class NormalizedStudentAffinity(LogAffinity):
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
     compile: bool, optional
-        If True, the computation is compiled using keops. Default is False.
+        If True, use torch compile. Default is False.
     _pre_processed: bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.

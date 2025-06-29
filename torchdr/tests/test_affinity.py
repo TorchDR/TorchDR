@@ -274,11 +274,12 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
-    target_entropy = np.log(perp) * ones + 1
+    target_entropy = np.log(perp) * ones
 
     def entropy_gap(eps, C):  # function to find the root of
         return entropy(_log_Pe(C, eps), log=True) - target_entropy
 
+    # test with a given perplexity
     affinity = EntropicAffinity(
         perplexity=perp,
         backend=backend,
@@ -294,7 +295,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     check_type(log_P, backend == "keops")
     check_shape(log_P, (n, n))
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
-    check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
+    check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=1e-3, log=True)
 
     # -- check bounds on the root of entropic affinities --
     C, _ = affinity._distance_matrix(to_torch(X, device=DEVICE))
@@ -303,7 +304,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
         "Lower bound of entropic affinity root is not valid."
     )
     assert (entropy_gap(end, C) > 0).all(), (
-        "Lower bound of entropic affinity root is not valid."
+        "Upper bound of entropic affinity root is not valid."
     )
 
 
