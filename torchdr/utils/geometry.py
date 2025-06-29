@@ -10,6 +10,8 @@ import warnings
 from typing import Optional
 
 from torchdr.utils.utils import identity_matrix, kmin
+from torchdr.utils.wrappers import compile_if_requested
+
 from .keops import LazyTensor
 from .faiss import faiss
 
@@ -24,6 +26,7 @@ LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular"]
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
+@compile_if_requested
 def pairwise_distances(
     X: torch.Tensor,
     Y: Optional[torch.Tensor] = None,
@@ -82,6 +85,7 @@ def pairwise_distances(
     return C, indices
 
 
+@compile_if_requested
 def _pairwise_distances_torch(
     X: torch.Tensor,
     Y: torch.Tensor = None,
