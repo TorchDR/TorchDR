@@ -165,8 +165,7 @@ class AffinityMatcher(DRModule):
         self.affinity_in = affinity_in
         if isinstance(self.affinity_in, Affinity):
             self.affinity_in._pre_processed = True
-            if self.backend not in ["faiss", "keops"]:  # torch.compile not supported
-                self.affinity_in.compile = self.compile
+            self.affinity_in.compile = self.compile
 
         # --- check affinity_out ---
         if affinity_out is not None:

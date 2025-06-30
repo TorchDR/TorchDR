@@ -475,7 +475,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
     discard_NNs : bool, optional
-        Whether to discard nearest neighbors from negative sampling. Default is True.
+        Whether to discard nearest neighbors from negative sampling. Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
     """  # noqa: E501
@@ -505,7 +505,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         early_exaggeration_iter: Optional[int] = None,
         n_negatives: int = 5,
         check_interval: int = 50,
-        discard_NNs: bool = True,
+        discard_NNs: bool = False,
         compile: bool = False,
     ):
         self.n_negatives = n_negatives
