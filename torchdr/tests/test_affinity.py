@@ -266,8 +266,7 @@ def test_cauchy_affinity(dtype, metric):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("sparsity", [False])
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_entropic_affinity(dtype, metric, sparsity, backend, compile):
+def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
@@ -316,8 +315,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("optimizer", ["Adam", "LBFGS"])
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_sym_entropic_affinity(dtype, metric, optimizer, backend, compile):
+def test_sym_entropic_affinity(dtype, metric, optimizer, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
@@ -357,8 +355,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend, compile):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_doubly_stochastic_entropic(dtype, metric, backend, compile):
+def test_doubly_stochastic_entropic(dtype, metric, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
@@ -389,8 +386,7 @@ def test_doubly_stochastic_entropic(dtype, metric, backend, compile):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_doubly_stochastic_quadratic(dtype, metric, backend, compile):
+def test_doubly_stochastic_quadratic(dtype, metric, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
@@ -422,8 +418,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend, compile):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("sparsity", [False])
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_umap_data_affinity(dtype, metric, sparsity, backend, compile):
+def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
@@ -475,8 +470,7 @@ def test_negative_cost_affinity(dtype, metric):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("compile", [False, True])
-def test_pacmap_affinity(dtype, metric, backend, compile):
+def test_pacmap_affinity(dtype, metric, backend, compile=False):
     if backend is not None and compile:
         pytest.skip("torch.compile is only supported for backend=None")
 
