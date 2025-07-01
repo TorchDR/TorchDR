@@ -12,8 +12,8 @@ from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import (
     cross_entropy_loss,
     sum_red,
-    symmetric_pairwise_distances_indices,
 )
+from torchdr.distance import symmetric_pairwise_distances_indices
 
 from scipy.optimize import curve_fit
 import numpy as np
@@ -209,7 +209,7 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_, metric=self.metric_out, indices=self.neg_indices_
         )[0]
         D = self._a * D**self._b
-        return -sum_red(D.clamp(min=1e-12).log() - D.log1p(), dim=(0, 1))
+        return -sum_red(D.clamp(min=0).log() - D.log1p(), dim=(0, 1))
 
     def _attractive_loss(self):
         D = symmetric_pairwise_distances_indices(
