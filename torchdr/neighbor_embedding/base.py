@@ -129,6 +129,7 @@ class NeighborEmbedding(AffinityMatcher):
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
 
+        # by default, the linear scheduler goes from 1 to 0
         _scheduler_kwargs = scheduler_kwargs
         if scheduler == "LinearLR" and scheduler_kwargs == "auto":
             _scheduler_kwargs = {

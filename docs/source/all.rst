@@ -128,7 +128,7 @@ Affinities Normalized by kNN Distances
    PotentialAffinity
    PHATEAffinity
    PACMAPAffinity
-   UMAPAffinityIn
+   UMAPAffinity
 
 
 Entropic Affinities
@@ -151,7 +151,6 @@ Other Affinities
    :template: myclass_template.rst
 
    DoublyStochasticQuadraticAffinity
-   UMAPAffinityOut
 
 
 Scores

@@ -311,7 +311,7 @@ class PHATEAffinity(Affinity):
         return affinity
 
 
-class UMAPAffinityIn(SparseLogAffinity):
+class UMAPAffinity(SparseLogAffinity):
     r"""Compute the input affinity used in UMAP :cite:`mcinnes2018umap`.
 
     The algorithm computes via root search the variable

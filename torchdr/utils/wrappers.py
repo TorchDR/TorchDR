@@ -238,20 +238,10 @@ def compile_if_requested(func):
             compiled_func = torch.compile(func)
             compiled_funcs[key] = compiled_func
         except Exception as e:
-            # Handle specific TorchDynamo errors related to NoneType defaults
-            if "InternalTorchDynamoError" in str(
-                type(e)
-            ) and "'NoneType' object is not subscriptable" in str(e):
-                msg = (
-                    f"Could not compile {func.__name__} with torch.compile due to "
-                    f"TorchDynamo compatibility issue with None defaults. "
-                    f"Falling back to eager execution."
-                )
-            else:
-                msg = (
-                    f"Could not compile {func.__name__} with torch.compile. "
-                    f"Falling back to eager execution. Reason: {e}"
-                )
+            msg = (
+                f"Could not compile {func.__name__} with torch.compile. "
+                f"Falling back to eager execution. Reason: {e}"
+            )
 
             # For methods, try to use a logger
             if is_method and hasattr(self, "logger") and self.logger is not None:

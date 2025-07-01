@@ -39,8 +39,7 @@ from torchdr.affinity import (
     StudentAffinity,
     CauchyAffinity,
     SymmetricEntropicAffinity,
-    UMAPAffinityIn,
-    UMAPAffinityOut,
+    UMAPAffinity,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
@@ -83,15 +82,6 @@ def test_scalar_product_affinity(dtype):
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
-    # --- test with compile=True ---
-    affinity_compiled = ScalarProductAffinity(device=DEVICE, backend=None, compile=True)
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_symmetry(P_compiled)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
-
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
@@ -121,21 +111,6 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
     # --- check consistency between torch and keops ---
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
-
-    # --- test with compile=True ---
-    affinity_compiled = NormalizedGaussianAffinity(
-        device=DEVICE, backend=None, metric=metric, normalization_dim=dim, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if isinstance(dim, int):
-        check_marginal(P_compiled * n, one, dim=dim)
-    else:
-        check_total_sum(P_compiled, 1)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -167,21 +142,6 @@ def test_normalized_student_affinity(dtype, metric, dim):
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
-    # --- test with compile=True ---
-    affinity_compiled = NormalizedStudentAffinity(
-        device=DEVICE, backend=None, metric=metric, normalization_dim=dim, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if isinstance(dim, int):
-        check_marginal(P_compiled * n, one, dim=dim)
-    else:
-        check_total_sum(P_compiled, 1)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
-
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
@@ -203,17 +163,6 @@ def test_gibbs_affinity(dtype, metric):
     # --- check consistency between torch and keops ---
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
-
-    # --- test with compile=True ---
-    affinity_compiled = GaussianAffinity(
-        device=DEVICE, backend=None, metric=metric, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -244,21 +193,6 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
-    # --- test with compile=True ---
-    affinity_compiled = SelfTuningAffinity(
-        device=DEVICE, backend=None, metric=metric, normalization_dim=dim, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if isinstance(dim, int):
-        check_marginal(P_compiled, one, dim=dim)
-    else:
-        check_total_sum(P_compiled, 1)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
-
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
@@ -283,18 +217,6 @@ def test_magic_affinity(dtype, metric):
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
-    # --- test with compile=True ---
-    affinity_compiled = MAGICAffinity(
-        device=DEVICE, backend=None, metric=metric, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    check_marginal(P_compiled, one, dim=1)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
-
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
@@ -317,17 +239,6 @@ def test_student_affinity(dtype, metric):
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
-    # --- test with compile=True ---
-    affinity_compiled = StudentAffinity(
-        device=DEVICE, backend=None, metric=metric, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
-
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
@@ -349,17 +260,6 @@ def test_cauchy_affinity(dtype, metric):
     # --- check consistency between torch and keops ---
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
-
-    # --- test with compile=True ---
-    affinity_compiled = CauchyAffinity(
-        device=DEVICE, backend=None, metric=metric, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_nonnegativity(P_compiled)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -532,7 +432,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile):
     n_neighbors = 30
     tol = 1e-3
 
-    affinity = UMAPAffinityIn(
+    affinity = UMAPAffinity(
         n_neighbors=n_neighbors,
         device=DEVICE,
         backend=backend,
@@ -548,36 +448,6 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile):
     check_type(P, backend == "keops")
     check_shape(P, (n, n))
     check_nonnegativity(P)
-
-
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("a, b", [(1, 2), (None, None)])
-@pytest.mark.parametrize("compile", [False, True])
-def test_umap_embedding_affinity(dtype, metric, backend, a, b, compile):
-    if backend is not None and compile:
-        pytest.skip("torch.compile is only supported for backend=None")
-
-    n = 300
-    X, _ = toy_dataset(n, dtype)
-
-    affinity = UMAPAffinityOut(
-        device=DEVICE,
-        backend=backend,
-        metric=metric,
-        verbose=True,
-        a=a,
-        b=b,
-        compile=compile,
-    )
-    P = affinity(X)
-
-    # -- check properties of the affinity matrix --
-    check_type(P, backend == "keops")
-    check_shape(P, (n, n))
-    check_nonnegativity(P)
-    check_symmetry(P)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -600,17 +470,6 @@ def test_negative_cost_affinity(dtype, metric):
     # --- check consistency between torch and keops ---
     if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
-
-    # --- test with compile=True ---
-    affinity_compiled = NegativeCostAffinity(
-        device=DEVICE, backend=None, metric=metric, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_symmetry(P_compiled)
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -678,19 +537,3 @@ def test_phate_affinity(dtype, metric):
         f"Expected sigma_ shape {(n,)}, got {affinity.sigma_.shape}"
     )
     assert torch.all(affinity.sigma_ > 0), "sigma_ values should be positive"
-
-    # --- test with compile=True ---
-    affinity_compiled = PHATEAffinity(
-        device=DEVICE, backend=None, metric=metric, k=5, alpha=2.0, t=3, compile=True
-    )
-    P_compiled = affinity_compiled(X)
-    check_type(P_compiled, False)
-    check_shape(P_compiled, (n, n))
-    check_symmetry(P_compiled)
-    assert hasattr(affinity_compiled, "sigma_"), "sigma_ attribute not found"
-    assert affinity_compiled.sigma_.shape == (n,), (
-        f"Expected sigma_ shape {(n,)}, got {affinity_compiled.sigma_.shape}"
-    )
-    assert torch.all(affinity_compiled.sigma_ > 0), "sigma_ values should be positive"
-    if "keops" in lst_backend:
-        check_similarity_torch_keops(P, P_compiled)
