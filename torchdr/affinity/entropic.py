@@ -271,8 +271,9 @@ class EntropicAffinity(SparseLogAffinity):
         self.log_normalization_ = logsumexp_red(log_P_final, dim=1)
         log_affinity_matrix = log_P_final - self.log_normalization_
 
-        log_affinity_matrix -= math.log(n_samples_in)
-
+        log_affinity_matrix -= math.log(
+            n_samples_in
+        )  # sum of each row is 1/n so that total sum is 1
         return log_affinity_matrix, indices
 
 

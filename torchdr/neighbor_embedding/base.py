@@ -57,9 +57,10 @@ class NeighborEmbedding(AffinityMatcher):
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
+        Default is None.
+    scheduler_kwargs : dict, 'auto', or None, optional
+        Additional keyword arguments for the scheduler. Default is 'auto', which
+        corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
     min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
@@ -100,7 +101,7 @@ class NeighborEmbedding(AffinityMatcher):
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
-        scheduler_kwargs: Optional[Dict] = None,
+        scheduler_kwargs: Union[Dict, str, None] = "auto",
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: Union[str, torch.Tensor, np.ndarray] = "pca",
@@ -125,10 +126,16 @@ class NeighborEmbedding(AffinityMatcher):
         # improve consistency with the sklearn API
         if "learning_rate" in kwargs:
             self.lr = kwargs["learning_rate"]
-        if "min_grad_norm" in kwargs:
-            self.min_grad_norm = kwargs["min_grad_norm"]
         if "early_exaggeration" in kwargs:
             self.early_exaggeration_coeff = kwargs["early_exaggeration"]
+
+        _scheduler_kwargs = scheduler_kwargs
+        if scheduler == "LinearLR" and scheduler_kwargs == "auto":
+            _scheduler_kwargs = {
+                "start_factor": 1.0,
+                "end_factor": 0,
+                "total_iters": max_iter,
+            }
 
         super().__init__(
             affinity_in=affinity_in,
@@ -139,7 +146,7 @@ class NeighborEmbedding(AffinityMatcher):
             optimizer_kwargs=optimizer_kwargs,
             lr=lr,
             scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
+            scheduler_kwargs=_scheduler_kwargs,
             min_grad_norm=min_grad_norm,
             max_iter=max_iter,
             init=init,
@@ -284,6 +291,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
+        Default is "auto", which corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
     min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
@@ -306,6 +314,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    repulsion_strength: float, optional
+        Strength of the repulsive term. Default is 1.0.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
@@ -324,7 +334,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
-        scheduler_kwargs: Optional[Dict] = None,
+        scheduler_kwargs: Optional[Dict] = "auto",
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: Union[str, torch.Tensor, np.ndarray] = "pca",
@@ -335,6 +345,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        repulsion_strength: float = 1.0,
         check_interval: int = 50,
         compile: bool = False,
     ):
@@ -353,6 +364,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
                 "must be an UnnormalizedAffinity object or None."
             )
+
+        self.repulsion_strength = repulsion_strength
 
         super().__init__(
             affinity_in=affinity_in,
@@ -396,7 +409,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     def _loss(self):
         loss = (
             self.early_exaggeration_coeff_ * self._attractive_loss()
-            + self._repulsive_loss()
+            + self.repulsion_strength * self._repulsive_loss()
         )
         return loss
 
@@ -448,6 +461,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
+        Default is "auto", which corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
     min_grad_norm : float, optional
         Tolerance for stopping criterion. Default is 1e-7.
     max_iter : int, optional
@@ -470,6 +484,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Default is 1.0.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    repulsion_strength: float, optional
+        Strength of the repulsive term. Default is 1.0.
     n_negatives : int, optional
         Number of negative samples to use. Default is 5.
     check_interval : int, optional
@@ -492,7 +508,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = None,
-        scheduler_kwargs: Optional[Dict] = None,
+        scheduler_kwargs: Union[Dict, str, None] = "auto",
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         init: str = "pca",
@@ -503,6 +519,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,
         early_exaggeration_iter: Optional[int] = None,
+        repulsion_strength: float = 1.0,
         n_negatives: int = 5,
         check_interval: int = 50,
         discard_NNs: bool = False,
@@ -531,6 +548,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             random_state=random_state,
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
+            repulsion_strength=repulsion_strength,
             check_interval=check_interval,
             compile=compile,
         )

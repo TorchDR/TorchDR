@@ -51,9 +51,10 @@ class UMAP(SampledNeighborEmbedding):
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
+        Default is "LinearLR".
+    scheduler_kwargs : dict, 'auto', or None, optional
+        Additional keyword arguments for the scheduler. Default is 'auto', which
+        corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -105,8 +106,8 @@ class UMAP(SampledNeighborEmbedding):
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
-        scheduler_kwargs: Optional[Dict] = None,
+        ] = "LinearLR",
+        scheduler_kwargs: Union[Dict, str, None] = "auto",
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
@@ -157,6 +158,14 @@ class UMAP(SampledNeighborEmbedding):
             verbose=False,
         )
 
+        _scheduler_kwargs = scheduler_kwargs
+        if scheduler == "LinearLR" and scheduler_kwargs == "auto":
+            _scheduler_kwargs = {
+                "start_factor": 1.0,
+                "end_factor": 0,
+                "total_iters": max_iter,
+            }
+
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -167,7 +176,7 @@ class UMAP(SampledNeighborEmbedding):
             max_iter=max_iter,
             lr=lr,
             scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
+            scheduler_kwargs=_scheduler_kwargs,
             init=init,
             init_scaling=init_scaling,
             device=device,

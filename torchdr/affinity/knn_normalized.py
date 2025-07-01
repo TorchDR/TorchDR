@@ -413,7 +413,7 @@ class UMAPAffinityIn(SparseLogAffinity):
 
         def marginal_gap(eps):  # function to find the root of
             marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
-            return marg - math.log(n_neighbors)
+            return marg - math.log2(n_neighbors)
 
         self.eps_ = binary_search(
             f=marginal_gap,
