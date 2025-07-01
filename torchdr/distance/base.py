@@ -21,7 +21,7 @@ def pairwise_distances(
     Y: Optional[torch.Tensor] = None,
     metric: str = "euclidean",
     backend: Optional[str] = None,
-    inf_diag: bool = False,
+    exclude_diag: bool = False,
     k: Optional[int] = None,
     compile: bool = False,
 ):
@@ -38,8 +38,8 @@ def pairwise_distances(
     backend : {'keops', 'faiss', None}, optional
         Backend to use for computation.
         If None, use standard torch operations.
-    inf_diag : bool, optional
-        Whether to add infinity to the diagonal of the distance matrix.
+    exclude_diag : bool, optional
+        Whether to exclude the diagonal from the distance matrix.
         Only used when k is not None. Default is False.
     k : int, optional
         If not None, return only the k-nearest neighbors.
@@ -55,12 +55,12 @@ def pairwise_distances(
     """
     if backend == "keops":
         C, indices = pairwise_distances_keops(
-            X=X, Y=Y, metric=metric, inf_diag=inf_diag, k=k
+            X=X, Y=Y, metric=metric, exclude_diag=exclude_diag, k=k
         )
     elif backend == "faiss":
         if k is not None:
             C, indices = pairwise_distances_faiss(
-                X=X, Y=Y, metric=metric, k=k, inf_diag=inf_diag
+                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
             )
         else:
             raise ValueError(
@@ -68,7 +68,7 @@ def pairwise_distances(
             )
     else:
         C, indices = pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, inf_diag=inf_diag, compile=compile
+            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, compile=compile
         )
 
     return C, indices

@@ -25,13 +25,13 @@ def pairwise_distances_torch(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
-    inf_diag: bool = False,
+    exclude_diag: bool = False,
     compile: bool = False,
 ):
     r"""Compute pairwise distances between points using PyTorch.
 
     When Y is not provided (i.e. computing distances within X) and
-    `inf_diag` is True, the self–distance for each point (i.e. the diagonal)
+    `exclude_diag` is True, the self–distance for each point (i.e. the diagonal)
     is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
@@ -45,7 +45,7 @@ def pairwise_distances_torch(
     k : int, optional
         Number of nearest neighbors to consider for the distances.
         If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
-    inf_diag : bool, default False
+    exclude_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal elements) are set to infinity,
         excluding the self index from the k nearest neighbors.
     compile : bool, optional
@@ -67,9 +67,9 @@ def pairwise_distances_torch(
     # If Y is not provided, use X (and reuse its memory).
     if Y is None or Y is X:
         Y = X
-        do_exclude = inf_diag
+        do_exclude_diag = exclude_diag
     else:
-        do_exclude = False  # Only exclude self when Y is not provided.
+        do_exclude_diag = False  # Only exclude self when Y is not provided.
 
     # For metrics that require norms, compute once and reuse if Y is X.
     if metric in {"sqeuclidean", "euclidean", "sqhyperbolic"}:
@@ -102,7 +102,7 @@ def pairwise_distances_torch(
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by setting the diagonal to a large number.
-    if do_exclude:
+    if do_exclude_diag:
         n = C.shape[0]
         diag_idx = torch.arange(n, device=C.device)
         diag_mask = torch.zeros_like(C)

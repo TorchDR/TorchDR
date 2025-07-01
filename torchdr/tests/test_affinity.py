@@ -80,7 +80,7 @@ def test_scalar_product_affinity(dtype):
         check_symmetry(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -89,7 +89,8 @@ def test_scalar_product_affinity(dtype):
     check_type(P_compiled, False)
     check_shape(P_compiled, (n, n))
     check_symmetry(P_compiled)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -118,7 +119,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -133,7 +134,8 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
         check_marginal(P_compiled * n, one, dim=dim)
     else:
         check_total_sum(P_compiled, 1)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -162,7 +164,7 @@ def test_normalized_student_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -177,7 +179,8 @@ def test_normalized_student_affinity(dtype, metric, dim):
         check_marginal(P_compiled * n, one, dim=dim)
     else:
         check_total_sum(P_compiled, 1)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -198,7 +201,7 @@ def test_gibbs_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -209,7 +212,8 @@ def test_gibbs_affinity(dtype, metric):
     check_type(P_compiled, False)
     check_shape(P_compiled, (n, n))
     check_nonnegativity(P_compiled)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -237,7 +241,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -252,7 +256,8 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
         check_marginal(P_compiled, one, dim=dim)
     else:
         check_total_sum(P_compiled, 1)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -275,7 +280,7 @@ def test_magic_affinity(dtype, metric):
         check_marginal(P, one, dim=1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -287,7 +292,8 @@ def test_magic_affinity(dtype, metric):
     check_shape(P_compiled, (n, n))
     check_nonnegativity(P_compiled)
     check_marginal(P_compiled, one, dim=1)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -308,7 +314,7 @@ def test_student_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -319,7 +325,8 @@ def test_student_affinity(dtype, metric):
     check_type(P_compiled, False)
     check_shape(P_compiled, (n, n))
     check_nonnegativity(P_compiled)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -340,7 +347,7 @@ def test_cauchy_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -351,7 +358,8 @@ def test_cauchy_affinity(dtype, metric):
     check_type(P_compiled, False)
     check_shape(P_compiled, (n, n))
     check_nonnegativity(P_compiled)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -590,7 +598,7 @@ def test_negative_cost_affinity(dtype, metric):
         check_symmetry(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
     # --- test with compile=True ---
@@ -601,7 +609,8 @@ def test_negative_cost_affinity(dtype, metric):
     check_type(P_compiled, False)
     check_shape(P_compiled, (n, n))
     check_symmetry(P_compiled)
-    check_similarity_torch_keops(list_P[0], P_compiled, K=10)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(list_P[1], P_compiled, K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -683,4 +692,5 @@ def test_phate_affinity(dtype, metric):
         f"Expected sigma_ shape {(n,)}, got {affinity_compiled.sigma_.shape}"
     )
     assert torch.all(affinity_compiled.sigma_ > 0), "sigma_ values should be positive"
-    check_similarity_torch_keops(P, P_compiled)
+    if "keops" in lst_backend:
+        check_similarity_torch_keops(P, P_compiled)

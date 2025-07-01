@@ -19,7 +19,7 @@ def pairwise_distances_faiss(
     k: int,
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
-    inf_diag: bool = False,
+    exclude_diag: bool = False,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -28,7 +28,7 @@ def pairwise_distances_faiss(
       - "sqeuclidean": returns the squared Euclidean distance (as computed by FAISS)
       - "angular": returns the negative inner-product (after normalizing vectors)
 
-    If Y is not provided then we assume a self–search and, if `inf_diag` is True,
+    If Y is not provided then we assume a self–search and, if `exclude_diag` is True,
     the self–neighbor is removed from the results.
 
     Parameters
@@ -41,8 +41,8 @@ def pairwise_distances_faiss(
         One of "euclidean", "sqeuclidean", or "angular".
     k : int, optional
         Number of nearest neighbors to return.
-        (If `inf_diag` is True in a self–search, then k+1 neighbors are retrieved first.)
-    inf_diag : bool, default False
+        (If `exclude_diag` is True in a self–search, then k+1 neighbors are retrieved first.)
+    exclude_diag : bool, default False
         When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
         is excluded from the k results.
 
@@ -70,7 +70,7 @@ def pairwise_distances_faiss(
     # If Y is not provided, reuse X_np for Y_np.
     if Y is None or Y is X:
         Y_np = X_np
-        do_exclude = inf_diag
+        do_exclude = exclude_diag
     else:
         Y_np = Y.detach().cpu().numpy().astype(np.float32)
         do_exclude = False

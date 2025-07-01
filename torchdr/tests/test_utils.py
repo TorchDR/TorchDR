@@ -138,17 +138,19 @@ def test_pairwise_distances_keops(dtype, metric):
 @pytest.mark.skipif(not faiss, reason="faiss is not available")
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_FAISS)
-@pytest.mark.parametrize("inf_diag", [True, False])
-def test_pairwise_distances_faiss(dtype, metric, inf_diag):
+@pytest.mark.parametrize("exclude_diag", [True, False])
+def test_pairwise_distances_faiss(dtype, metric, exclude_diag):
     n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and faiss ---
     k = 10
-    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None, inf_diag=inf_diag)
+    C, _ = pairwise_distances(
+        x, y, k=k, metric=metric, backend=None, exclude_diag=exclude_diag
+    )
     C_faiss, _ = pairwise_distances(
-        x, y, k=k, metric=metric, backend="faiss", inf_diag=inf_diag
+        x, y, k=k, metric=metric, backend="faiss", exclude_diag=exclude_diag
     )
     check_shape(C_faiss, (n, k))
 

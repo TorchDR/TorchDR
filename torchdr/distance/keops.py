@@ -18,12 +18,12 @@ def pairwise_distances_keops(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
-    inf_diag: bool = False,
+    exclude_diag: bool = False,
 ):
     r"""Compute pairwise distances between points using KeOps LazyTensors.
 
     When Y is not provided (i.e. computing distances within X) and
-    `inf_diag` is True, the self–distance for each point (diagonal)
+    `exclude_diag` is True, the self–distance for each point (diagonal)
     is set to infinity so that the self index is not returned as a nearest neighbor.
 
     Parameters
@@ -37,7 +37,7 @@ def pairwise_distances_keops(
     k : int, optional
         Number of nearest neighbors to consider for the distances.
         If provided, the function returns a tuple (C, indices) where C contains the k smallest distances.
-    inf_diag : bool, default False
+    exclude_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal entries) are set to infinity,
         excluding the self index from the k nearest neighbors.
 
@@ -57,9 +57,9 @@ def pairwise_distances_keops(
     # If Y is not provided, use X and decide about self–exclusion.
     if Y is None or Y is X:
         Y = X
-        do_exclude = inf_diag
+        do_exclude_diag = exclude_diag
     else:
-        do_exclude = False  # Only exclude self when Y is not provided.
+        do_exclude_diag = False  # Only exclude self when Y is not provided.
 
     # Create LazyTensors for pairwise operations.
     X_i = LazyTensor(X.unsqueeze(-2))  # Shape: (n, 1, d)
@@ -78,7 +78,7 @@ def pairwise_distances_keops(
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
     # If requested, exclude self–neighbors by masking the diagonal.
-    if do_exclude:
+    if do_exclude_diag:
         n = X.shape[0]
         Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)
         C = C + Id * 1e12
