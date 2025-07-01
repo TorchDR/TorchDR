@@ -9,10 +9,14 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from torchdr.utils import (
+from torchdr.distance import (
     LIST_METRICS_TORCH,
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
+    pairwise_distances,
+    symmetric_pairwise_distances_indices,
+)
+from torchdr.utils import (
     binary_search,
     center_kernel,
     check_array,
@@ -20,12 +24,9 @@ from torchdr.utils import (
     check_similarity,
     check_similarity_torch_keops,
     false_position,
-    handle_keops,
     to_torch,
-    pairwise_distances,
     pykeops,
     faiss,
-    symmetric_pairwise_distances_indices,
     RiemannianAdam,
     ManifoldParameter,
     EuclideanManifold,
@@ -137,15 +138,20 @@ def test_pairwise_distances_keops(dtype, metric):
 @pytest.mark.skipif(not faiss, reason="faiss is not available")
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_FAISS)
-def test_pairwise_distances_faiss(dtype, metric):
+@pytest.mark.parametrize("exclude_diag", [True, False])
+def test_pairwise_distances_faiss(dtype, metric, exclude_diag):
     n, m, p = 100, 50, 10
     x = torch.randn(n, p, dtype=dtype)
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and faiss ---
     k = 10
-    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
-    C_faiss, _ = pairwise_distances(x, y, k=k, metric=metric, backend="faiss")
+    C, _ = pairwise_distances(
+        x, y, k=k, metric=metric, backend=None, exclude_diag=exclude_diag
+    )
+    C_faiss, _ = pairwise_distances(
+        x, y, k=k, metric=metric, backend="faiss", exclude_diag=exclude_diag
+    )
     check_shape(C_faiss, (n, k))
 
     torch.testing.assert_close(C, C_faiss, rtol=1e-5, atol=1e-5)
@@ -168,6 +174,16 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     check_similarity(C_indices, C_full_indices)
 
 
+def test_pairwise_distances_compilation():
+    n, p = 100, 20
+    x = torch.randn(n, p)
+
+    C_eager, _ = pairwise_distances(x, compile=False, backend=None)
+    C_compiled, _ = pairwise_distances(x, compile=True, backend=None)
+
+    check_similarity(C_eager, C_compiled)
+
+
 # ====== test center_kernel ======
 
 
@@ -181,42 +197,6 @@ def test_center_kernel(dtype):
     ones_n = torch.ones(n, dtype=dtype)
     H = torch.eye(n, dtype=dtype) - torch.outer(ones_n, ones_n) / n
     torch.testing.assert_close(K_c, H @ K @ H)
-
-
-# ====== test handle_keops ======
-
-
-class MockClass:
-    def __init__(self, backend=None):
-        self.backend = backend
-
-    @handle_keops
-    def some_method(self, *args, **kwargs):
-        return "Function executed"
-
-
-@pytest.fixture
-def mock_obj():
-    return MockClass()
-
-
-def test_no_indices_keops_false(mock_obj):
-    result = mock_obj.some_method()
-    assert result == "Function executed"
-    assert getattr(mock_obj, "backend_") is None  # Ensure backend_ remains None
-
-
-def test_no_indices_keops(mock_obj):
-    mock_obj.backend = "keops"
-    result = mock_obj.some_method()
-    assert result == "Function executed"
-    assert getattr(mock_obj, "backend_") == "keops"  # Ensure backend_ remains "keops"
-
-
-def test_indices_provided(mock_obj):
-    result = mock_obj.some_method(indices=[1, 2, 3])
-    assert result == "Function executed"
-    assert getattr(mock_obj, "backend_", None) is None  # Ensure backend_ isn't set
 
 
 # ====== test radam functions ======

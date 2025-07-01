@@ -10,7 +10,8 @@ from typing import Optional
 
 from torchdr.affinity import PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import square_loss, pairwise_distances
+from torchdr.utils import square_loss
+from torchdr.distance import pairwise_distances
 
 
 class PHATE(AffinityMatcher):

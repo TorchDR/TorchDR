@@ -79,7 +79,7 @@ class TSNEkhorn(NeighborEmbedding):
         Random seed for reproducibility, by default None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
-        By default 10.0 for early exaggeration.
+        By default 12.0 for early exaggeration.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
     lr_affinity_in : float, optional
@@ -104,6 +104,8 @@ class TSNEkhorn(NeighborEmbedding):
         entropic affinity. Default is True.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm, by default 50.
+    jit_compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -125,8 +127,8 @@ class TSNEkhorn(NeighborEmbedding):
         backend: Optional[str] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 10.0,
-        early_exaggeration_iter: Optional[int] = 250,
+        early_exaggeration_coeff: float = 12.0,
+        early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
@@ -136,6 +138,8 @@ class TSNEkhorn(NeighborEmbedding):
         unrolling: bool = False,
         symmetric_affinity: bool = True,
         check_interval: int = 50,
+        compile: bool = False,
+        **kwargs,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -200,6 +204,8 @@ class TSNEkhorn(NeighborEmbedding):
             early_exaggeration_coeff=early_exaggeration_coeff,
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
+            compile=compile,
+            **kwargs,
         )
 
     def _loss(self):

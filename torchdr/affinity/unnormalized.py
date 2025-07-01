@@ -7,32 +7,9 @@
 
 import torch
 from typing import Union, Optional
-from scipy.optimize import curve_fit
-import numpy as np
 
 from torchdr.affinity.base import UnnormalizedAffinity, UnnormalizedLogAffinity
-from torchdr.utils import LazyTensorType
-
-
-# from umap/umap/umap_.py
-def find_ab_params(spread, min_dist):
-    """Fit a, b params as in UMAP.
-
-    Fit (a, b) for the differentiable curve used in lower
-    dimensional fuzzy simplicial complex construction. We want the
-    smooth curve (from a pre-defined family with simple gradient) that
-    best matches an offset exponential decay.
-    """
-
-    def curve(x, a, b):
-        return 1.0 / (1.0 + a * x ** (2 * b))
-
-    xv = np.linspace(0, spread * 3, 300)
-    yv = np.zeros(xv.shape)
-    yv[xv < min_dist] = 1.0
-    yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
-    params, covar = curve_fit(curve, xv, yv)
-    return params[0], params[1]
+from torchdr.utils import LazyTensorType, compile_if_requested
 
 
 class GaussianAffinity(UnnormalizedLogAffinity):
@@ -57,6 +34,11 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    compile : bool, optional
+        Whether to compile the formula.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -67,6 +49,8 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -74,9 +58,12 @@ class GaussianAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.sigma = sigma
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C / self.sigma
 
@@ -106,6 +93,11 @@ class StudentAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -116,6 +108,8 @@ class StudentAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -123,9 +117,12 @@ class StudentAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return (
             -0.5
@@ -158,6 +155,11 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity.
+    compile : bool, optional
+        Whether to compile the formula.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -168,6 +170,8 @@ class CauchyAffinity(UnnormalizedLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = True,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -175,9 +179,12 @@ class CauchyAffinity(UnnormalizedLogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.gamma = gamma
 
+    @compile_if_requested
     def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return (self.gamma / (C + self.gamma**2)).log()
 
@@ -201,6 +208,11 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -210,6 +222,8 @@ class NegativeCostAffinity(UnnormalizedAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -217,8 +231,11 @@ class NegativeCostAffinity(UnnormalizedAffinity):
             backend=backend,
             verbose=verbose,
             zero_diag=zero_diag,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
         return -C
 
@@ -233,12 +250,17 @@ class ScalarProductAffinity(NegativeCostAffinity):
     Parameters
     ----------
     device : str, optional
-        Device to use for computations. Default is "cuda".
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional
         Which backend to use for handling sparsity and memory efficiency.
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the formula.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -246,6 +268,8 @@ class ScalarProductAffinity(NegativeCostAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric="angular",
@@ -253,73 +277,6 @@ class ScalarProductAffinity(NegativeCostAffinity):
             backend=backend,
             verbose=verbose,
             zero_diag=False,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
-
-
-class UMAPAffinityOut(UnnormalizedLogAffinity):
-    r"""Compute the affinity used in embedding space in UMAP :cite:`mcinnes2018umap`.
-
-    Its :math:`(i,j)` coefficient is as follows:
-
-    .. math::
-        1 / \left(1 + a C_{ij}^{b} \right)
-
-    where parameters a and b are fitted to the spread and min_dist parameters.
-
-    Parameters
-    ----------
-    min_dist : float, optional
-        min_dist parameter from UMAP. Provides the minimum distance apart that
-        points are allowed to be.
-    spread : float, optional
-        spread parameter from UMAP.
-    a : float, optional
-        factor of the cost matrix.
-    b : float, optional
-        exponent of the cost matrix.
-    degrees_of_freedom : int, optional
-        Degrees of freedom for the Student-t distribution.
-    metric : str, optional
-        Metric to use for pairwise distances computation.
-    zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero.
-    device : str, optional
-        Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Default is None.
-    verbose : bool, optional
-        Verbosity. Default is False.
-    """
-
-    def __init__(
-        self,
-        min_dist: float = 0.1,
-        spread: float = 1,
-        a: Optional[float] = None,
-        b: Optional[float] = None,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = "auto",
-        backend: Optional[str] = None,
-        verbose: bool = False,
-    ):
-        super().__init__(
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-        )
-        self.min_dist = min_dist
-        self.spread = spread
-
-        if a is None or b is None:
-            fitted_a, fitted_b = find_ab_params(self.spread, self.min_dist)
-            self._a, self._b = fitted_a.item(), fitted_b.item()
-        else:
-            self._a = a
-            self._b = b
-
-    def _log_affinity_formula(self, C: torch.Tensor):
-        return -(1 + self._a * C**self._b).log()

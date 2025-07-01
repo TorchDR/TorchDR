@@ -8,7 +8,8 @@ import torch
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
-from torchdr.utils import kmin, sum_red, symmetric_pairwise_distances_indices
+from torchdr.utils import kmin, sum_red
+from torchdr.distance import symmetric_pairwise_distances_indices
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -72,6 +73,11 @@ class PACMAP(SampledNeighborEmbedding):
         Interval for checking convergence, by default 50.
     iter_per_phase : int, optional
         Number of iterations for each phase of the algorithm, by default 100.
+    discard_NNs : bool, optional
+        Whether to discard the nearest neighbors from the negative sampling.
+        Default is True.
+    compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -99,6 +105,8 @@ class PACMAP(SampledNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
+        discard_NNs: bool = True,
+        compile: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
@@ -137,6 +145,8 @@ class PACMAP(SampledNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             n_negatives=self.n_further,
+            discard_NNs=discard_NNs,
+            compile=compile,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
@@ -161,7 +171,7 @@ class PACMAP(SampledNeighborEmbedding):
             self.w_MN = 0
             self.w_FP = 1
 
-    def _after_step(self):
+    def on_training_step_end(self):
         self._set_weights()
 
     def _attractive_loss(self):
@@ -222,11 +232,10 @@ class PACMAP(SampledNeighborEmbedding):
         return near_loss + mid_near_loss
 
     def _repulsive_loss(self):
-        indices = self._sample_negatives(discard_NNs=True)
         Q_further = (
             1
             + symmetric_pairwise_distances_indices(
-                self.embedding_, metric=self.metric_out, indices=indices
+                self.embedding_, metric=self.metric_out, indices=self.neg_indices_
             )[0]
         )
         Q_further = 1 / (1 + Q_further)

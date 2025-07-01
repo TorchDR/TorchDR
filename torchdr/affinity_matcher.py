@@ -8,7 +8,6 @@
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity import (
     Affinity,
@@ -17,7 +16,6 @@ from torchdr.affinity import (
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
-from torchdr.spectral_embedding import PCA
 from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
@@ -26,6 +24,7 @@ from torchdr.utils import (
     to_torch,
     ManifoldParameter,
     PoincareBallManifold,
+    compile_if_requested,
 )
 
 from typing import Union, Dict, Optional, Any, Type
@@ -98,6 +97,8 @@ class AffinityMatcher(DRModule):
         Random seed for reproducibility. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
+    compile : bool, default=False
+        Whether to use torch.compile for faster computation.
     """  # noqa: E501
 
     def __init__(
@@ -124,6 +125,7 @@ class AffinityMatcher(DRModule):
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
+        compile: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -132,6 +134,7 @@ class AffinityMatcher(DRModule):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            compile=compile,
             **kwargs,
         )
 
@@ -160,6 +163,9 @@ class AffinityMatcher(DRModule):
                 '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
             )
         self.affinity_in = affinity_in
+        if isinstance(self.affinity_in, Affinity):
+            self.affinity_in._pre_processed = True
+            self.affinity_in.compile = self.compile
 
         # --- check affinity_out ---
         if affinity_out is not None:
@@ -175,6 +181,8 @@ class AffinityMatcher(DRModule):
                     "when affinity_in is sparse. Setting sparsity = False in affinity_in."
                 )
                 self.affinity_in.sparsity = False  # turn off sparsity
+            affinity_out._pre_processed = True
+            affinity_out.compile = self.compile
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
@@ -199,10 +207,16 @@ class AffinityMatcher(DRModule):
         """
         self.n_samples_in_, self.n_features_in_ = X.shape
 
-        # --- check if affinity_in is precomputed else compute it ---
+        # --- Input affinity computation ---
+
+        self.on_affinity_computation_start()
+
+        # check if affinity_in is precomputed else compute it
         if self.affinity_in == "precomputed":
             if self.verbose:
-                self.logger.info("[Step 1/2] --- Using precomputed affinity matrix ---")
+                self.logger.info(
+                    "[Stage 1/2] --- Using precomputed affinity matrix ---"
+                )
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
                     '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
@@ -214,7 +228,7 @@ class AffinityMatcher(DRModule):
         else:
             if self.verbose:
                 self.logger.info(
-                    f"[Step 1/2] --- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} ---"
+                    f"[Stage 1/2] --- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} ---"
                 )
             if isinstance(self.affinity_in, SparseLogAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
@@ -223,8 +237,12 @@ class AffinityMatcher(DRModule):
             else:
                 self.affinity_in_ = self.affinity_in(X)
 
+        self.on_affinity_computation_end()
+
+        # --- Embedding optimization ---
+
         if self.verbose:
-            self.logger.info("[Step 2/2] --- Optimizing the embedding ---")
+            self.logger.info("[Stage 2/2] --- Optimizing the embedding ---")
 
         self._init_embedding(X)
         self._set_params()
@@ -233,13 +251,27 @@ class AffinityMatcher(DRModule):
         self._set_scheduler()
 
         grad_norm = float("nan")
-        pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for step in pbar:
+        for step in range(self.max_iter):
             self.n_iter_ = step
 
-            self.optimizer_.zero_grad()
-            loss = self._loss()
-            loss.backward()
+            self.on_training_step_start()
+            loss = self._training_step()
+            self.on_training_step_end()
+
+            check_NaNs(
+                self.embedding_,
+                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
+                f"at iter {step}.",
+            )
+
+            if self.verbose and (self.n_iter_ % self.check_interval == 0):
+                lr = self.optimizer_.param_groups[0]["lr"]
+                msg = (
+                    f"Loss: {loss.item():.2e} | "
+                    f"Grad norm: {grad_norm:.2e} | "
+                    f"LR: {lr:.2e}"
+                )
+                self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
@@ -252,28 +284,17 @@ class AffinityMatcher(DRModule):
                         )
                     break
 
-            self.optimizer_.step()
-            if self.scheduler_ is not None:
-                self.scheduler_.step()
-
-            check_NaNs(
-                self.embedding_,
-                msg="[TorchDR] ERROR AffinityMatcher : NaNs in the embeddings "
-                f"at iter {step}.",
-            )
-
-            if self.verbose:
-                lr = self.optimizer_.param_groups[0]["lr"]
-                msg = (
-                    f"Loss: {loss.item():.2e} | "
-                    f"Grad norm: {grad_norm:.2e} | "
-                    f"LR: {lr:.2e}"
-                )
-                pbar.set_description(f"[TorchDR] {self.logger.name}: {msg}")
-
-            self._after_step()
-
         return self.embedding_
+
+    @compile_if_requested
+    def _training_step(self):
+        self.optimizer_.zero_grad(set_to_none=True)
+        loss = self._loss()
+        loss.backward()
+        self.optimizer_.step()
+        if self.scheduler_ is not None:
+            self.scheduler_.step()
+        return loss
 
     def _loss(self):
         if self.affinity_out is None:
@@ -302,7 +323,16 @@ class AffinityMatcher(DRModule):
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
         return loss
 
-    def _after_step(self):
+    def on_affinity_computation_start(self):
+        pass
+
+    def on_affinity_computation_end(self):
+        pass
+
+    def on_training_step_start(self):
+        pass
+
+    def on_training_step_end(self):
         pass
 
     def _set_params(self):
@@ -394,6 +424,8 @@ class AffinityMatcher(DRModule):
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
+            from torchdr.spectral_embedding.pca import PCA
+
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)

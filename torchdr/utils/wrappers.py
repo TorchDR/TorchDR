@@ -5,37 +5,12 @@
 # License: BSD 3-Clause License
 
 import functools
-import time
-
 import torch
 
 from .keops import LazyTensor, is_lazy_tensor, pykeops
 from .validation import check_array
 
-
-def log_with_timing(_func=None, *, log_device_backend: bool = False):
-    """Log the execution time of a method, with an option to include device and backend."""
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if log_device_backend:
-                backend = getattr(self, "backend_", self.backend)
-                self.logger.info(
-                    f"Starting on device '{self.device}' with backend '{backend}'."
-                )
-            start_time = time.time()
-            result = func(self, *args, **kwargs)
-            end_time = time.time()
-            self.logger.info(f"Computed in {end_time - start_time:.2f}s.")
-            return result
-
-        return wrapper
-
-    if _func is None:
-        return decorator
-    else:
-        return decorator(_func)
+import warnings
 
 
 def output_contiguous(func):
@@ -204,10 +179,14 @@ def handle_keops(func):
                     return func(self, *args, **kwargs)
 
                 except torch.cuda.OutOfMemoryError:
-                    print(
-                        "[TorchDR] Out of memory encountered, setting backend to 'keops' "
+                    msg = (
+                        f"Out of memory encountered, setting backend to 'keops' "
                         f"for {self.__class__.__name__} object."
                     )
+                    if hasattr(self, "logger") and self.logger is not None:
+                        self.logger.warning(msg)
+                    else:
+                        warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
                     if not pykeops:
                         raise ValueError(
                             "[TorchDR] ERROR : pykeops is not installed. "
@@ -217,5 +196,63 @@ def handle_keops(func):
                     self.backend_ = "keops"
 
         return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def compile_if_requested(func):
+    """Decorator to conditionally compile a function with torch.compile.
+
+    The compilation is triggered based on a 'compile' flag.
+    For class methods, it checks for a `self.compile` attribute.
+    For standalone functions, it checks for a `compile` keyword argument.
+
+    The compiled function is cached for subsequent calls.
+    """
+    compiled_funcs = {}  # Cache for compiled functions
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Determine if we should compile
+        should_compile = False
+        is_method = False
+        if args and hasattr(args[0], "compile"):
+            self = args[0]
+            should_compile = getattr(self, "compile", False)
+            is_method = True
+        elif "compile" in kwargs:
+            should_compile = kwargs["compile"]
+
+        if not should_compile:
+            return func(*args, **kwargs)
+
+        # Create a unique key for the compiled function
+        # For methods, key on the instance id to recompile for different instances
+        # For functions, key on the function itself
+        key = (id(self), func) if is_method else func
+
+        if key in compiled_funcs:
+            return compiled_funcs[key](*args, **kwargs)
+
+        try:
+            compiled_func = torch.compile(func)
+            compiled_funcs[key] = compiled_func
+        except Exception as e:
+            msg = (
+                f"Could not compile {func.__name__} with torch.compile. "
+                f"Falling back to eager execution. Reason: {e}"
+            )
+
+            # For methods, try to use a logger
+            if is_method and hasattr(self, "logger") and self.logger is not None:
+                self.logger.warning(msg)
+            else:
+                warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
+
+            # Cache the original function to avoid recompilation attempts
+            compiled_funcs[key] = func
+            return func(*args, **kwargs)
+
+        return compiled_funcs[key](*args, **kwargs)
 
     return wrapper

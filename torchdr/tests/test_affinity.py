@@ -39,8 +39,7 @@ from torchdr.affinity import (
     StudentAffinity,
     CauchyAffinity,
     SymmetricEntropicAffinity,
-    UMAPAffinityIn,
-    UMAPAffinityOut,
+    UMAPAffinity,
 )
 from torchdr.affinity.entropic import _bounds_entropic_affinity, _log_Pe
 from torchdr.tests.utils import toy_dataset
@@ -80,7 +79,7 @@ def test_scalar_product_affinity(dtype):
         check_symmetry(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -110,7 +109,7 @@ def test_normalized_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -140,7 +139,7 @@ def test_normalized_student_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -162,7 +161,7 @@ def test_gibbs_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -191,7 +190,7 @@ def test_self_tuning_gibbs_affinity(dtype, metric, dim):
             check_total_sum(P, 1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -215,7 +214,7 @@ def test_magic_affinity(dtype, metric):
         check_marginal(P, one, dim=1)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -237,7 +236,7 @@ def test_student_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -259,7 +258,7 @@ def test_cauchy_affinity(dtype, metric):
         check_nonnegativity(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
@@ -267,7 +266,10 @@ def test_cauchy_affinity(dtype, metric):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("sparsity", [False])
 @pytest.mark.parametrize("backend", lst_backend)
-def test_entropic_affinity(dtype, metric, sparsity, backend):
+def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     perp = 30
@@ -279,6 +281,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
     def entropy_gap(eps, C):  # function to find the root of
         return entropy(_log_Pe(C, eps), log=True) - target_entropy
 
+    # test with a given perplexity
     affinity = EntropicAffinity(
         perplexity=perp,
         backend=backend,
@@ -287,6 +290,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
         verbose=True,
         device=DEVICE,
         sparsity=sparsity,
+        compile=compile,
     )
     log_P = affinity(X, log=True)
 
@@ -303,7 +307,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
         "Lower bound of entropic affinity root is not valid."
     )
     assert (entropy_gap(end, C) > 0).all(), (
-        "Lower bound of entropic affinity root is not valid."
+        "Upper bound of entropic affinity root is not valid."
     )
 
 
@@ -311,7 +315,10 @@ def test_entropic_affinity(dtype, metric, sparsity, backend):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("optimizer", ["Adam", "LBFGS"])
 @pytest.mark.parametrize("backend", lst_backend)
-def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
+def test_sym_entropic_affinity(dtype, metric, optimizer, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     perp = 30
@@ -331,6 +338,7 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
         eps_square=True,
         device=DEVICE,
         optimizer=optimizer,
+        compile=compile,
     )
     log_P = affinity(X, log=True)
 
@@ -347,7 +355,10 @@ def test_sym_entropic_affinity(dtype, metric, optimizer, backend):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-def test_doubly_stochastic_entropic(dtype, metric, backend):
+def test_doubly_stochastic_entropic(dtype, metric, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     eps = 1e0
@@ -361,6 +372,7 @@ def test_doubly_stochastic_entropic(dtype, metric, backend):
         tol=tol,
         device=DEVICE,
         verbose=True,
+        compile=compile,
     )
     log_P = affinity(X, log=True)
 
@@ -374,7 +386,10 @@ def test_doubly_stochastic_entropic(dtype, metric, backend):
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-def test_doubly_stochastic_quadratic(dtype, metric, backend):
+def test_doubly_stochastic_quadratic(dtype, metric, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     eps = 1e0
@@ -388,6 +403,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend):
         tol=tol,
         device=DEVICE,
         verbose=True,
+        compile=compile,
     )
     P = affinity(X)
 
@@ -402,13 +418,16 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend):
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("sparsity", [False])
 @pytest.mark.parametrize("backend", lst_backend)
-def test_umap_data_affinity(dtype, metric, sparsity, backend):
+def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     n_neighbors = 30
     tol = 1e-3
 
-    affinity = UMAPAffinityIn(
+    affinity = UMAPAffinity(
         n_neighbors=n_neighbors,
         device=DEVICE,
         backend=backend,
@@ -416,6 +435,7 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend):
         tol=tol,
         verbose=True,
         sparsity=sparsity,
+        compile=compile,
     )
     P = affinity(X)
 
@@ -423,31 +443,6 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend):
     check_type(P, backend == "keops")
     check_shape(P, (n, n))
     check_nonnegativity(P)
-
-
-@pytest.mark.parametrize("dtype", lst_types)
-@pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("backend", lst_backend)
-@pytest.mark.parametrize("a, b", [(1, 2), (None, None)])
-def test_umap_embedding_affinity(dtype, metric, backend, a, b):
-    n = 300
-    X, _ = toy_dataset(n, dtype)
-
-    affinity = UMAPAffinityOut(
-        device=DEVICE,
-        backend=backend,
-        metric=metric,
-        verbose=True,
-        a=a,
-        b=b,
-    )
-    P = affinity(X)
-
-    # -- check properties of the affinity matrix --
-    check_type(P, backend == "keops")
-    check_shape(P, (n, n))
-    check_nonnegativity(P)
-    check_symmetry(P)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -468,14 +463,17 @@ def test_negative_cost_affinity(dtype, metric):
         check_symmetry(P)
 
     # --- check consistency between torch and keops ---
-    if len(lst_backend) > 1:
+    if "keops" in lst_backend:
         check_similarity_torch_keops(list_P[0], list_P[1], K=10)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
-def test_pacmap_affinity(dtype, metric, backend):
+def test_pacmap_affinity(dtype, metric, backend, compile=False):
+    if backend is not None and compile:
+        pytest.skip("torch.compile is only supported for backend=None")
+
     n = 300
     X, _ = toy_dataset(n, dtype)
     n_neighbors = 30
@@ -486,6 +484,7 @@ def test_pacmap_affinity(dtype, metric, backend):
         backend=backend,
         metric=metric,
         verbose=True,
+        compile=compile,
     )
 
     # PACMAPAffinity returns None for affinities and only indices
@@ -517,7 +516,7 @@ def test_phate_affinity(dtype, metric):
 
     # PHATE doesn't support keops/faiss backends, so we only test with None backend
     affinity = PHATEAffinity(
-        device=DEVICE, backend=None, metric=metric, k=5, alpha=2.0, t=3
+        device=DEVICE, backend=None, metric=metric, k=5, alpha=2.0, t=3, compile=False
     )
     P = affinity(X)
 

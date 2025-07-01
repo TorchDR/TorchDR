@@ -11,7 +11,6 @@ import math
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from typing import Union, Tuple, Optional
@@ -26,6 +25,7 @@ from torchdr.utils import (
     wrap_vectors,
     check_neighbor_param,
     binary_search,
+    compile_if_requested,
 )
 
 
@@ -175,6 +175,11 @@ class EntropicAffinity(SparseLogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile: bool, optional
+        If True, use torch compile. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -188,6 +193,8 @@ class EntropicAffinity(SparseLogAffinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         self.perplexity = perplexity
         self.tol = tol
@@ -200,8 +207,11 @@ class EntropicAffinity(SparseLogAffinity):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _compute_sparse_log_affinity(self, X: torch.Tensor):
         r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
 
@@ -254,14 +264,16 @@ class EntropicAffinity(SparseLogAffinity):
             dtype=X.dtype,
             device=X.device,
             logger=self.logger if self.verbose else None,
+            compile=self.compile,
         )
 
         log_P_final = _log_Pe(C_, self.eps_)
         self.log_normalization_ = logsumexp_red(log_P_final, dim=1)
         log_affinity_matrix = log_P_final - self.log_normalization_
 
-        log_affinity_matrix -= math.log(n_samples_in)
-
+        log_affinity_matrix -= math.log(
+            n_samples_in
+        )  # sum of each row is 1/n so that total sum is 1
         return log_affinity_matrix, indices
 
 
@@ -320,6 +332,8 @@ class SymmetricEntropicAffinity(LogAffinity):
         Precision threshold at which the algorithm stops, by default 1e-5.
     max_iter : int, optional
         Number of maximum iterations for the algorithm, by default 500.
+    check_interval : int, optional
+        Interval for logging progress.
     optimizer : str , optional
         Which pytorch optimizer to use (default 'Adam').
     metric : str, optional
@@ -333,6 +347,11 @@ class SymmetricEntropicAffinity(LogAffinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile: bool, optional
+        If True, use torch compile. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -342,12 +361,15 @@ class SymmetricEntropicAffinity(LogAffinity):
         eps_square: bool = True,
         tol: float = 1e-3,
         max_iter: int = 500,
+        check_interval: int = 50,
         optimizer: str = "Adam",
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -355,14 +377,19 @@ class SymmetricEntropicAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.perplexity = perplexity
         self.lr = lr
+        self.eps_square = eps_square
         self.tol = tol
         self.max_iter = max_iter
+        self.check_interval = check_interval
         self.optimizer = optimizer
-        self.eps_square = eps_square
+        self.n_iter_ = 0
 
+    @compile_if_requested
     def _compute_log_affinity(self, X: torch.Tensor):
         r"""Solve the problem (SEA) in :cite:`van2024snekhorn`.
 
@@ -435,8 +462,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             optimizer_class = getattr(torch.optim, self.optimizer)
             optimizer = optimizer_class([self.eps_, self.mu_], lr=self.lr)
 
-            pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-            for k in pbar:
+            for k in range(self.max_iter):
                 with torch.no_grad():
                     optimizer.zero_grad()
 
@@ -465,14 +491,17 @@ class SymmetricEntropicAffinity(LogAffinity):
                         ),
                     )
 
-                    perps = (H - 1).exp()
-                    if self.verbose:
-                        pbar.set_description(
-                            f"PERPLEXITY:{float(perps.mean().item()): .2e} "
+                    if self.verbose and (k % self.check_interval == 0):
+                        perps = (H - 1).exp()
+                        P_sum_mean = float(P_sum.mean().item())
+                        P_sum_std = float(P_sum.std().item())
+                        msg = (
+                            f"Perplexity:{float(perps.mean().item()): .2e} "
                             f"(std:{float(perps.std().item()): .2e}), "
-                            f"MARGINAL:{float(P_sum.mean().item()): .2e} "
-                            f"(std:{float(P_sum.std().item()): .2e})"
+                            f"Marginal:{P_sum_mean: .2e} "
+                            f"(std:{P_sum_std: .2e})"
                         )
+                        self.logger.info(f"[{k}/{self.max_iter}] {msg}")
 
                     if (
                         torch.norm(grad_eps) < self.tol
@@ -561,6 +590,11 @@ class SinkhornAffinity(LogAffinity):
     with_grad : bool, optional (default=False)
         If True, the Sinkhorn iterations are done with gradient tracking.
         If False, torch.no_grad() is used for the iterations.
+    compile: bool, optional
+        If True, use torch compile. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -575,6 +609,8 @@ class SinkhornAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         with_grad: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -582,6 +618,8 @@ class SinkhornAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.eps = eps
         self.tol = tol
@@ -589,10 +627,11 @@ class SinkhornAffinity(LogAffinity):
         self.base_kernel = base_kernel
         self.with_grad = with_grad
 
+    @compile_if_requested
     def _compute_log_affinity(
         self, X: torch.Tensor, init_dual: Optional[torch.Tensor] = None
     ):
-        r"""Compute the entropic doubly stochastic affinity matrix.
+        r"""Run the Sinkhorn algorithm to compute the doubly stochastic matrix.
 
         Parameters
         ----------
@@ -676,6 +715,11 @@ class NormalizedGaussianAffinity(LogAffinity):
         Verbosity.
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    compile: bool, optional
+        If True, use torch compile. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -687,6 +731,8 @@ class NormalizedGaussianAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -694,10 +740,13 @@ class NormalizedGaussianAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.sigma = sigma
         self.normalization_dim = normalization_dim
 
+    @compile_if_requested
     def _compute_log_affinity(self, X: torch.Tensor):
         r"""Fit the normalized Gaussian affinity model to the provided data.
 
@@ -758,6 +807,11 @@ class NormalizedStudentAffinity(LogAffinity):
         Verbosity.
     normalization_dim : int or Tuple[int], optional
         Dimension along which to normalize the affinity matrix. Default is (0, 1)
+    compile: bool, optional
+        If True, use torch compile. Default is False.
+    _pre_processed: bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """
 
     def __init__(
@@ -769,6 +823,8 @@ class NormalizedStudentAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -776,10 +832,13 @@ class NormalizedStudentAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
         self.normalization_dim = normalization_dim
 
+    @compile_if_requested
     def _compute_log_affinity(self, X: torch.Tensor):
         r"""Fits the normalized Student affinity model to the provided data.
 

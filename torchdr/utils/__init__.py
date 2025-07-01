@@ -4,14 +4,6 @@
 #
 # License: BSD 3-Clause License
 
-
-from .geometry import (
-    LIST_METRICS_TORCH,
-    LIST_METRICS_KEOPS,
-    LIST_METRICS_FAISS,
-    pairwise_distances,
-    symmetric_pairwise_distances_indices,
-)
 from .keops import LazyTensor, LazyTensorType, is_lazy_tensor, pykeops
 from .faiss import faiss
 from .root_search import binary_search, false_position
@@ -57,7 +49,7 @@ from .wrappers import (
     to_torch,
     torch_to_backend,
     wrap_vectors,
-    log_with_timing,
+    compile_if_requested,
 )
 
 from .manifold import (
@@ -87,11 +79,6 @@ __all__ = [
     "sum_red",
     "logsumexp_red",
     "check_NaNs",
-    "pairwise_distances",
-    "symmetric_pairwise_distances_indices",
-    "LIST_METRICS_KEOPS",
-    "LIST_METRICS_FAISS",
-    "LIST_METRICS_TORCH",
     "check_marginal",
     "relative_similarity",
     "check_similarity",
@@ -126,5 +113,5 @@ __all__ = [
     "check_array",
     "plot_disk",
     "plot_poincare_disk",
-    "log_with_timing",
+    "compile_if_requested",
 ]

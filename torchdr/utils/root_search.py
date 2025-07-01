@@ -6,11 +6,13 @@
 # License: BSD 3-Clause License
 
 import torch
+from torchdr.utils.wrappers import compile_if_requested
 
 DTYPE = torch.float32
 DEVICE = "cpu"
 
 
+@compile_if_requested
 def binary_search(
     f,
     n,
@@ -22,6 +24,7 @@ def binary_search(
     dtype=DTYPE,
     device=DEVICE,
     logger=None,
+    compile: bool = False,
 ):
     r"""Implement the binary search root finding method.
 
@@ -50,6 +53,8 @@ def binary_search(
         device on which the computation is performed.
     logger : logging.Logger, optional
         logger to use for printing.
+    compile : bool, optional
+        if True, the function is compiled.
 
     Returns
     -------
@@ -92,6 +97,7 @@ def binary_search(
     return m
 
 
+@compile_if_requested
 def false_position(
     f,
     n,
@@ -103,6 +109,7 @@ def false_position(
     dtype=DTYPE,
     device=DEVICE,
     logger=None,
+    compile: bool = False,
 ):
     r"""Implement the false position root finding method.
 
@@ -132,6 +139,8 @@ def false_position(
         device on which the computation is performed.
     logger : logging.Logger, optional
         logger to use for printing.
+    compile : bool, optional
+        if True, the function is compiled.
 
     Returns
     -------
@@ -180,8 +189,17 @@ def false_position(
     return m
 
 
+@compile_if_requested
 def init_bounds(
-    f, n, begin=None, end=None, dtype=DTYPE, device=DEVICE, verbose=True, logger=None
+    f,
+    n,
+    begin=None,
+    end=None,
+    dtype=DTYPE,
+    device=DEVICE,
+    verbose=True,
+    logger=None,
+    compile: bool = False,
 ):
     """Initialize the bounds of the root search."""
     if begin is None:

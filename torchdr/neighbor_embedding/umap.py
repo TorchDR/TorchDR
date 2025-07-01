@@ -7,17 +7,44 @@
 from typing import Dict, Optional, Union, Type
 import torch
 
-from torchdr.affinity import UMAPAffinityIn, UMAPAffinityOut
+from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_red
+from torchdr.utils import (
+    cross_entropy_loss,
+    sum_red,
+)
+from torchdr.distance import symmetric_pairwise_distances_indices
+
+from scipy.optimize import curve_fit
+import numpy as np
+
+
+# from umap/umap/umap_.py
+def find_ab_params(spread, min_dist):
+    """Fit a, b params as in UMAP.
+
+    Fit (a, b) for the differentiable curve used in lower
+    dimensional fuzzy simplicial complex construction. We want the
+    smooth curve (from a pre-defined family with simple gradient) that
+    best matches an offset exponential decay.
+    """
+
+    def curve(x, a, b):
+        return 1.0 / (1.0 + a * x ** (2 * b))
+
+    xv = np.linspace(0, spread * 3, 300)
+    yv = np.zeros(xv.shape)
+    yv[xv < min_dist] = 1.0
+    yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+    params, covar = curve_fit(curve, xv, yv)
+    return params[0].item(), params[1].item()
 
 
 class UMAP(SampledNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
-    It uses a :class:`~torchdr.UMAPAffinityIn` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.UMAPAffinity` as input
+    affinity :math:`\mathbf{P}`.
 
     The loss function is defined as:
 
@@ -51,9 +78,10 @@ class UMAP(SampledNeighborEmbedding):
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
+        Default is "LinearLR".
+    scheduler_kwargs : dict, 'auto', or None, optional
+        Additional keyword arguments for the scheduler. Default is 'auto', which
+        corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
         Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
@@ -81,10 +109,13 @@ class UMAP(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 10.
-    sparsity : bool, optional
-        Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Check interval for the algorithm, by default 50.
+    discard_NNs : bool, optional
+        Whether to discard the nearest neighbors from the negative sampling.
+        Default is False.
+    compile : bool, optional
+        Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -100,8 +131,8 @@ class UMAP(SampledNeighborEmbedding):
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
-        scheduler_kwargs: Optional[Dict] = None,
+        ] = "LinearLR",
+        scheduler_kwargs: Union[Dict, str, None] = "auto",
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
@@ -110,27 +141,31 @@ class UMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_iter: Optional[int] = None,
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 10,
-        sparsity: bool = True,
         check_interval: int = 50,
+        discard_NNs: bool = False,
+        compile: bool = False,
+        **kwargs,
     ):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
         self.spread = spread
-        self.a = a
-        self.b = b
         self.metric_in = metric_in
         self.metric_out = metric_out
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.sparsity = sparsity
+        self.sparsity = True  # UMAP always uses sparse affinities
 
-        affinity_in = UMAPAffinityIn(
+        if a is None or b is None:
+            a, b = find_ab_params(self.spread, self.min_dist)
+        self._a = a
+        self._b = b
+
+        affinity_in = UMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
             tol=tol_affinity,
@@ -138,21 +173,12 @@ class UMAP(SampledNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
-            sparsity=sparsity,
-        )
-        affinity_out = UMAPAffinityOut(
-            min_dist=min_dist,
-            spread=spread,
-            a=a,
-            b=b,
-            metric=metric_out,
-            device=device,
-            verbose=False,
+            sparsity=self.sparsity,
+            compile=compile,
         )
 
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -169,15 +195,23 @@ class UMAP(SampledNeighborEmbedding):
             random_state=random_state,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            discard_NNs=discard_NNs,
+            compile=compile,
+            **kwargs,
         )
 
     def _repulsive_loss(self):
-        indices = self._sample_negatives(discard_NNs=False)
-        Q = self.affinity_out(self.embedding_, indices=indices)
-        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
-        return -sum_red((1 - Q).log(), dim=(0, 1))
+        D = symmetric_pairwise_distances_indices(
+            self.embedding_, metric=self.metric_out, indices=self.neg_indices_
+        )[0]
+        D = self._a * D**self._b
+        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+        return -sum_red((1 - D).log(), dim=(0, 1))
 
     def _attractive_loss(self):
-        Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
-        Q = Q / (Q + 1)  # stabilization trick, PR #856 from UMAP repo
-        return cross_entropy_loss(self.affinity_in_, Q)
+        D = symmetric_pairwise_distances_indices(
+            self.embedding_, metric=self.metric_out, indices=self.NN_indices_
+        )[0]
+        D = self._a * D**self._b
+        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+        return cross_entropy_loss(self.affinity_in_, D)

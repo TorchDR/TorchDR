@@ -7,10 +7,14 @@
 from typing import Optional
 
 import torch
-from tqdm import tqdm
 
 from torchdr.affinity import Affinity
-from torchdr.utils import matrix_transpose, check_NaNs, wrap_vectors
+from torchdr.utils import (
+    matrix_transpose,
+    check_NaNs,
+    wrap_vectors,
+    compile_if_requested,
+)
 
 
 @wrap_vectors
@@ -64,6 +68,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Precision threshold at which the algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the algorithm.
+    check_interval : int, optional
+        Interval for logging progress.
     optimizer : str, optional
         Optimizer to use for the dual ascent (default 'Adam').
     lr : float, optional
@@ -81,6 +87,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the computation. Default is False.
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
     """  # noqa: E501
 
     def __init__(
@@ -89,6 +100,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         init_dual: Optional[torch.Tensor] = None,
         tol: float = 1e-5,
         max_iter: int = 1000,
+        check_interval: int = 50,
         optimizer: str = "Adam",
         lr: float = 1e0,
         base_kernel: str = "gaussian",
@@ -97,6 +109,8 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         device: str = "auto",
         backend: Optional[str] = None,
         verbose: bool = False,
+        compile: bool = False,
+        _pre_processed: bool = False,
     ):
         super().__init__(
             metric=metric,
@@ -104,15 +118,20 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            compile=compile,
+            _pre_processed=_pre_processed,
         )
         self.eps = eps
         self.init_dual = init_dual
         self.tol = tol
         self.max_iter = max_iter
+        self.check_interval = check_interval
         self.optimizer = optimizer
         self.lr = lr
         self.base_kernel = base_kernel
+        self.n_iter_ = 0
 
+    @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
         r"""Compute the quadratic doubly stochastic affinity matrix from input data X.
 
@@ -144,8 +163,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         optimizer = optimizer_class([self.dual_], lr=self.lr)
 
         # Dual ascent iterations
-        pbar = tqdm(range(self.max_iter), disable=not self.verbose)
-        for k in pbar:
+        for k in range(self.max_iter):
             with torch.no_grad():
                 P = _Pds(C, self.dual_, self.eps)
                 P_sum = P.sum(1).squeeze()
@@ -161,11 +179,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
                 ),
             )
 
-            if self.verbose:
-                pbar.set_description(
-                    f"MARGINAL:{float(P_sum.mean().item()): .2e} "
-                    f"(std:{float(P_sum.std().item()): .2e})"
-                )
+            if self.verbose and (k % self.check_interval == 0):
+                P_sum_mean = float(P_sum.mean().item())
+                P_sum_std = float(P_sum.std().item())
+                msg = f"Marginal:{P_sum_mean: .2e} (std:{P_sum_std: .2e})"
+                self.logger.info(f"[{k}/{self.max_iter}] {msg}")
 
             if torch.norm(grad_dual) < self.tol:
                 if self.verbose:
@@ -180,6 +198,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.n_iter_ = k
         affinity_matrix = _Pds(C, self.dual_, self.eps)
 
-        affinity_matrix /= n_samples_in
+        affinity_matrix /= n_samples_in  # sum of each row is 1/n so that total sum is 1
 
         return affinity_matrix

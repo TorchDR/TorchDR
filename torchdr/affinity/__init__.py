@@ -23,7 +23,7 @@ from .knn_normalized import (
     SelfTuningAffinity,
     PHATEAffinity,
     PACMAPAffinity,
-    UMAPAffinityIn,
+    UMAPAffinity,
 )
 from .quadratic import DoublyStochasticQuadraticAffinity
 from .unnormalized import (
@@ -32,7 +32,6 @@ from .unnormalized import (
     ScalarProductAffinity,
     StudentAffinity,
     CauchyAffinity,
-    UMAPAffinityOut,
 )
 
 __all__ = [
@@ -54,8 +53,7 @@ __all__ = [
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",
-    "UMAPAffinityIn",
-    "UMAPAffinityOut",
+    "UMAPAffinity",
     "PACMAPAffinity",
     "PHATEAffinity",
 ]

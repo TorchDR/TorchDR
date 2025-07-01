@@ -28,8 +28,7 @@ from .affinity import (
     SinkhornAffinity,
     StudentAffinity,
     SymmetricEntropicAffinity,
-    UMAPAffinityIn,
-    UMAPAffinityOut,
+    UMAPAffinity,
     PHATEAffinity,
     PACMAPAffinity,
 )
@@ -52,11 +51,11 @@ from .neighbor_embedding import (
     TSNEkhorn,
     PACMAP,
 )
-from .spectral_embedding import IncrementalPCA, KernelPCA, PCA
-from .diffusion_embedding import PHATE
+from .spectral_embedding import IncrementalPCA, KernelPCA, PCA, PHATE
 
 # import utils
-from .utils import binary_search, false_position, pairwise_distances
+from .utils import binary_search, false_position
+from .distance import pairwise_distances
 
 __all__ = [
     "__title__",
@@ -78,8 +77,7 @@ __all__ = [
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",
-    "UMAPAffinityIn",
-    "UMAPAffinityOut",
+    "UMAPAffinity",
     "DRModule",
     "KMeans",
     "AffinityMatcher",

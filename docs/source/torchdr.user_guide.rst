@@ -163,7 +163,8 @@ Other various affinities
 
 TorchDR features other affinities that can be used in various contexts.
 
-For instance, the UMAP :cite:`mcinnes2018umap` algorithm relies on the affinities :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` for the input data and :class:`UMAPAffinityOut <torchdr.UMAPAffinityOut>` in the embedding space. :class:`UMAPAffinityIn <torchdr.UMAPAffinityIn>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
+For instance, the UMAP :cite:`mcinnes2018umap` algorithm relies on the affinity :class:`UMAPAffinity <torchdr.UMAPAffinity>` in input space.
+:class:`UMAPAffinity <torchdr.UMAPAffinity>` follows a similar construction as entropic affinities to ensure a constant number of effective neighbors, with :attr:`n_neighbors` playing the role of the :attr:`perplexity` hyperparameter.
 
 Another example is the doubly stochastic normalization of a base affinity under the :math:`\ell_2` geometry that has recently been proposed for DR :cite:`zhang2023manifold`. This method is analogous to :class:`SinkhornAffinity <torchdr.SinkhornAffinity>` where the Shannon entropy is replaced by the :math:`\ell_2` norm to recover a sparse affinity.
 It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStochasticQuadraticAffinity>`.
@@ -273,8 +274,8 @@ Many NE methods can be represented within this framework. See below for some exa
 
    * - :class:`UMAP <UMAP>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
-     - :class:`UMAPAffinityIn <UMAPAffinityIn>`
-     - :class:`UMAPAffinityOut <UMAPAffinityOut>`
+     - :class:`UMAPAffinity <UMAPAffinity>`
+     - None
 
    * - :class:`LargeVis <LargeVis>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
