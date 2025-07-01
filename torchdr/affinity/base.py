@@ -134,7 +134,7 @@ class Affinity(ABC):
             X=X,
             metric=self.metric,
             backend=self.backend_,
-            exclude_diag=self.zero_diag,  # infinite distance is zero affinity
+            exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
             compile=self.compile,
         )

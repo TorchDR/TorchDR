@@ -198,6 +198,6 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.n_iter_ = k
         affinity_matrix = _Pds(C, self.dual_, self.eps)
 
-        affinity_matrix /= n_samples_in
+        affinity_matrix /= n_samples_in  # sum of each row is 1/n so that total sum is 1
 
         return affinity_matrix

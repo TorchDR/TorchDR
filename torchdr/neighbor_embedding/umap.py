@@ -44,8 +44,7 @@ class UMAP(SampledNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
     It uses a :class:`~torchdr.UMAPAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.UMAPAffinityOut` as output
-    affinity :math:`\mathbf{Q}`.
+    affinity :math:`\mathbf{P}`.
 
     The loss function is defined as:
 
@@ -110,8 +109,6 @@ class UMAP(SampledNeighborEmbedding):
         Metric to use for the output affinity, by default 'euclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 10.
-    sparsity : bool, optional
-        Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Check interval for the algorithm, by default 50.
     discard_NNs : bool, optional
@@ -149,7 +146,6 @@ class UMAP(SampledNeighborEmbedding):
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
         n_negatives: int = 10,
-        sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
@@ -162,7 +158,7 @@ class UMAP(SampledNeighborEmbedding):
         self.metric_out = metric_out
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.sparsity = sparsity
+        self.sparsity = True  # UMAP always uses sparse affinities
 
         if a is None or b is None:
             a, b = find_ab_params(self.spread, self.min_dist)
@@ -177,7 +173,7 @@ class UMAP(SampledNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
-            sparsity=sparsity,
+            sparsity=self.sparsity,
             compile=compile,
         )
 
@@ -209,11 +205,13 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_, metric=self.metric_out, indices=self.neg_indices_
         )[0]
         D = self._a * D**self._b
-        return -sum_red(D.clamp(min=0).log() - D.log1p(), dim=(0, 1))
+        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+        return -sum_red((1 - D).log(), dim=(0, 1))
 
     def _attractive_loss(self):
         D = symmetric_pairwise_distances_indices(
             self.embedding_, metric=self.metric_out, indices=self.NN_indices_
         )[0]
         D = self._a * D**self._b
-        return cross_entropy_loss(self.affinity_in_, -D.log1p(), log=True)
+        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+        return cross_entropy_loss(self.affinity_in_, D)
