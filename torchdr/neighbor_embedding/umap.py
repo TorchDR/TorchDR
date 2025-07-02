@@ -200,37 +200,21 @@ class UMAP(SampledNeighborEmbedding):
             **kwargs,
         )
 
-    # def _compute_repulsive_loss(self):
-    #     D = symmetric_pairwise_distances_indices(
-    #         self.embedding_,
-    #         metric=self.metric_out,
-    #         indices=self.neg_indices_,
-    #         compile=self.compile,
-    #     )[0]
-    #     D = self._a * D**self._b
-    #     D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-    #     return -sum_red((1 - D).log(), dim=(0, 1))
-
-    # def _compute_attractive_loss(self):
-    #     D = symmetric_pairwise_distances_indices(
-    #         self.embedding_,
-    #         metric=self.metric_out,
-    #         indices=self.NN_indices_,
-    #         compile=self.compile,
-    #     )[0]
-    #     D = self._a * D**self._b
-    #     D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-    #     return cross_entropy_loss(self.affinity_in_, D)
-
     def on_affinity_computation_end(self):
         super().on_affinity_computation_end()
         # mask small affinities
         A_max = self.affinity_in_.max()
         threshold = A_max / self.max_iter
 
+        edges_removed = (self.affinity_in_ <= threshold).sum()
+        print(f"number of edges removed: {edges_removed}")
+        print(
+            f"percentage of edges removed: {edges_removed / self.affinity_in_.numel()}"
+        )
+
         self.epochs_per_sample = torch.where(
             self.affinity_in_ > threshold,
-            A_max / self.affinity_in_,
+            A_max / (self.affinity_in_ + 1e-3),
             torch.full_like(self.affinity_in_, fill_value=1e9),
         )
         self.epoch_of_next_sample = self.epochs_per_sample.clone()
@@ -242,7 +226,11 @@ class UMAP(SampledNeighborEmbedding):
             indices=self.NN_indices_,
             compile=self.compile,
         )[0]
-        D = 2 * self._a * self._b * D ** (self._b - 1) / (1 + self._a * D**self._b)
+        D = torch.where(
+            D > 0,
+            2 * self._a * self._b * D ** (self._b - 1) / (1 + self._a * D**self._b),
+            torch.zeros_like(D),
+        )  # compute D**(b-1) for D > 0 to prevent infinities when b < 1
 
         # consider positive edges with frequency inversely proportional to the affinity value
         self.mask_affinity_in_ = self.epoch_of_next_sample <= (self.n_iter_ + 1)
@@ -251,13 +239,15 @@ class UMAP(SampledNeighborEmbedding):
             self.epoch_of_next_sample + self.epochs_per_sample,
             self.epoch_of_next_sample,
         )
-        D = D * self.mask_affinity_in_  # (n, n_negatives)
+        D = D * self.mask_affinity_in_
 
-        diff = (
+        embedding_diff = (
             self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
         )  # (n, n_negatives, d)
-        D = torch.clamp(D.unsqueeze(-1) * diff, -4, 4)  # clamp as in umap repo
-        return D.sum(dim=1)  # (n, d)
+        D = torch.clamp(
+            D.unsqueeze(-1) * embedding_diff, -4, 4
+        )  # clamp as in umap repo
+        return D.sum(dim=1)
 
     def _compute_repulsive_gradients(self):
         D = symmetric_pairwise_distances_indices(
@@ -266,25 +256,21 @@ class UMAP(SampledNeighborEmbedding):
             indices=self.neg_indices_,
             compile=self.compile,
         )[0]
+        D = -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
 
-        # for each positive edge, we sample 'negative_sample_rate' negative edges
-        neg_counts = (
-            self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate
-        )  # (n,)
-        col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)[
-            None, :
-        ]  # (1, n_negatives)
-        keep = col_idx < neg_counts[:, None]  # (n, n_negatives)
-        D = (
-            -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
-        )  # (n, n_negatives)
-        D = D * keep  # (n, n_negatives)
+        # for each positive edge, we filter to keep 'negative_sample_rate' negative edges
+        neg_counts = self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate
+        col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)[None, :]
+        keep = col_idx < neg_counts[:, None]
+        D = D * keep
 
-        diff = (
+        embedding_diff = (
             self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
         )  # (n, n_negatives, d)
-        D = torch.clamp(D.unsqueeze(-1) * diff, -4, 4)  # clamp as in umap repo
-        return D.sum(dim=1)  # (n, d)
+        D = torch.clamp(
+            D.unsqueeze(-1) * embedding_diff, -4, 4
+        )  # clamp as in umap repo
+        return D.sum(dim=1)
 
     def _init_embedding(self, X):
         """

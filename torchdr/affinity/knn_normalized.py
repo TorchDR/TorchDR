@@ -428,7 +428,83 @@ class UMAPAffinity(SparseLogAffinity):
 
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
 
-        return log_affinity_matrix, indices
+        # symmetrize
+        affinity_matrix = log_affinity_matrix.exp()
+        out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
+
+        print(f"size of out_val: {out_val.shape}")
+        print(f"size of out_idx: {out_idx.shape}")
+
+        print(f"nans in out_val: {torch.isnan(out_val).sum()}")
+        print(f"nans in out_idx: {torch.isnan(out_idx).sum()}")
+
+        return (out_val + 1e-6).log(), out_idx
+
+
+def sym_sparse_op(values: torch.Tensor, indices: torch.LongTensor):
+    """
+    Compute Q = P + P.T - P.*P.T for a sparse P in row-wise format
+    (values [n,k], indices [n,k]), returning padded (n, k_out) outputs.
+    """
+    n, k = values.shape
+    device, dtype = values.device, values.dtype
+
+    # 1) Flatten P entries into (i_flat, j_flat, v_flat)
+    rows = torch.arange(n, device=device).unsqueeze(1).expand(n, k)  # [n,k]
+    i_flat = rows.reshape(-1)  # [N]
+    j_flat = indices.reshape(-1)  # [N]
+    v_flat = values.reshape(-1)  # [N]
+    N = i_flat.numel()
+
+    # 2) Linearized keys for P and Pᵀ
+    keys_P = i_flat * n + j_flat  # [N]
+    keys_PT = j_flat * n + i_flat  # [N]
+
+    # 3) Stack them, then unique-group to merge duplicates
+    keys_all = torch.cat([keys_P, keys_PT], dim=0)  # [2N]
+    vals_all = torch.cat([v_flat, v_flat], dim=0)  # [2N]
+    mask_P = torch.arange(2 * N, device=device) < N
+    mask_PT = ~mask_P
+
+    uniq_keys, inv_idx = torch.unique(
+        keys_all, sorted=True, return_inverse=True
+    )  # uniq_keys: [M], inv_idx: [2N]
+    M = uniq_keys.numel()
+
+    # 4) Sum up contributions from P vs Pᵀ separately
+    vP = torch.zeros(M, dtype=dtype, device=device)
+    vT = torch.zeros(M, dtype=dtype, device=device)
+    vP.scatter_add_(0, inv_idx, vals_all * mask_P.to(dtype))
+    vT.scatter_add_(0, inv_idx, vals_all * mask_PT.to(dtype))
+
+    # 5) Compute Q-values and decode back to (i_out, j_out)
+    v_out = vP + vT - vP * vT
+    i_out = uniq_keys // n
+    j_out = uniq_keys % n
+
+    # 6) Figure out per-row counts and padding width
+    counts = torch.bincount(i_out, minlength=n)
+    max_k_out = int(counts.max().item())
+
+    # 7) Prepare padded output tensors
+    indices_out = torch.full((n, max_k_out), -1, dtype=torch.long, device=device)
+    values_out = torch.zeros((n, max_k_out), dtype=dtype, device=device)
+
+    # 8) Compute slot positions within each row-block
+    M_all = uniq_keys.numel()
+    pos = torch.arange(M_all, device=device)
+    is_new = torch.cat([torch.tensor([True], device=device), i_out[1:] != i_out[:-1]])
+    row_starts = torch.nonzero(is_new, as_tuple=False).flatten()
+    grp = torch.searchsorted(row_starts, pos, right=True) - 1
+    slot = pos - row_starts[grp]
+
+    flat_pos = i_out * max_k_out + slot
+
+    # 9) Scatter into the padded arrays
+    values_out.view(-1).scatter_(0, flat_pos, v_out)
+    indices_out.view(-1).scatter_(0, flat_pos, j_out)
+
+    return values_out, indices_out
 
 
 class PACMAPAffinity(SparseLogAffinity):
