@@ -170,12 +170,12 @@ class LargeVis(SampledNeighborEmbedding):
             compile=compile,
         )
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.neg_indices_)
         Q = Q / (Q + 1)
         return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 
-    def _attractive_loss(self):
+    def _compute_attractive_loss(self):
         Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.affinity_in_, Q)

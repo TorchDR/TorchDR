@@ -202,7 +202,10 @@ class UMAP(SampledNeighborEmbedding):
 
     def _repulsive_loss(self):
         D = symmetric_pairwise_distances_indices(
-            self.embedding_, metric=self.metric_out, indices=self.neg_indices_
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.neg_indices_,
+            compile=self.compile,
         )[0]
         D = self._a * D**self._b
         D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
@@ -210,7 +213,10 @@ class UMAP(SampledNeighborEmbedding):
 
     def _attractive_loss(self):
         D = symmetric_pairwise_distances_indices(
-            self.embedding_, metric=self.metric_out, indices=self.NN_indices_
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.NN_indices_,
+            compile=self.compile,
         )[0]
         D = self._a * D**self._b
         D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability

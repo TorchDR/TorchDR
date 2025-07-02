@@ -174,12 +174,15 @@ class PACMAP(SampledNeighborEmbedding):
     def on_training_step_end(self):
         self._set_weights()
 
-    def _attractive_loss(self):
+    def _compute_attractive_loss(self):
         # Attractive loss with nearest neighbors
         Q_near = (
             1
             + symmetric_pairwise_distances_indices(
-                self.embedding_, indices=self.NN_indices_, metric=self.metric_out
+                self.embedding_,
+                indices=self.NN_indices_,
+                metric=self.metric_out,
+                compile=self.compile,
             )[0]
         )
         Q_near = Q_near / (1e1 + Q_near)
@@ -213,7 +216,10 @@ class PACMAP(SampledNeighborEmbedding):
                 )
                 mid_near_candidates_indices += shifts
                 D_mid_near_candidates = symmetric_pairwise_distances_indices(
-                    self.X_, indices=mid_near_candidates_indices, metric=self.metric_in
+                    self.X_,
+                    indices=mid_near_candidates_indices,
+                    metric=self.metric_in,
+                    compile=self.compile,
                 )[0]
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
@@ -221,7 +227,10 @@ class PACMAP(SampledNeighborEmbedding):
             Q_mid_near = (
                 1
                 + symmetric_pairwise_distances_indices(
-                    self.embedding_, indices=mid_near_indices, metric=self.metric_out
+                    self.embedding_,
+                    indices=mid_near_indices,
+                    metric=self.metric_out,
+                    compile=self.compile,
                 )[0]
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
@@ -231,11 +240,14 @@ class PACMAP(SampledNeighborEmbedding):
 
         return near_loss + mid_near_loss
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         Q_further = (
             1
             + symmetric_pairwise_distances_indices(
-                self.embedding_, metric=self.metric_out, indices=self.neg_indices_
+                self.embedding_,
+                metric=self.metric_out,
+                indices=self.neg_indices_,
+                compile=self.compile,
             )[0]
         )
         Q_further = 1 / (1 + Q_further)

@@ -208,7 +208,7 @@ class TSNEkhorn(NeighborEmbedding):
             **kwargs,
         )
 
-    def _loss(self):
+    def _compute_loss(self):
         if not hasattr(self, "dual_sinkhorn_"):
             self.dual_sinkhorn_ = None
 

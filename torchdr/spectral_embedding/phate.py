@@ -128,10 +128,13 @@ class PHATE(AffinityMatcher):
             check_interval=check_interval,
         )
 
-    def _loss(self):
+    def _compute_loss(self):
         Q = (
             -pairwise_distances(
-                self.embedding_, metric="sqeuclidean", backend=self.backend
+                self.embedding_,
+                metric="sqeuclidean",
+                backend=self.backend,
+                compile=self.compile,
             )[0]
             .clamp(min=1e-12)
             .sqrt()

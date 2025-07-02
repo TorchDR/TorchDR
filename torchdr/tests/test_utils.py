@@ -106,7 +106,6 @@ def test_pairwise_distances(dtype, metric):
     x = x / x.max() - 0.1
     y = y / y.max() - 0.1
 
-    # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 

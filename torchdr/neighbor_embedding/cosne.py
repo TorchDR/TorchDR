@@ -160,7 +160,7 @@ class COSNE(SparseNeighborEmbedding):
         self.X_norm = (X**2).sum(-1)
         return super()._fit_transform(X)
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True)
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))  # torch.tensor([0])
         Y_norm = (self.embedding_**2).sum(-1)

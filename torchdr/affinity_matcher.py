@@ -289,17 +289,30 @@ class AffinityMatcher(DRModule):
     @compile_if_requested
     def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
-        loss = self._loss()
-        loss.backward()
+
+        if getattr(self, "_use_direct_gradients", False):
+            gradients = self._compute_gradients()
+            if gradients is not None:
+                self.embedding_.grad = gradients
+        else:
+            loss = self._compute_loss()
+            loss.backward()
+
         self.optimizer_.step()
         if self.scheduler_ is not None:
             self.scheduler_.step()
         return loss
 
-    def _loss(self):
+    def _compute_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_gradients method must be implemented when "
+            "_use_direct_gradients is True."
+        )
+
+    def _compute_loss(self):
         if self.affinity_out is None:
             raise ValueError(
-                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _loss method."
+                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _compute_loss method."
             )
 
         if self.kwargs_affinity_out is None:
