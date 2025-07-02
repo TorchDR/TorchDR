@@ -6,17 +6,13 @@
 
 from typing import Dict, Optional, Union, Type
 import torch
+import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import (
-    cross_entropy_loss,
-    sum_red,
-)
 from torchdr.distance import symmetric_pairwise_distances_indices
 
 from scipy.optimize import curve_fit
-import numpy as np
 
 
 # from umap/umap/umap_.py
@@ -82,8 +78,9 @@ class UMAP(SampledNeighborEmbedding):
     scheduler_kwargs : dict, 'auto', or None, optional
         Additional keyword arguments for the scheduler. Default is 'auto', which
         corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z, default 'pca'.
+    init : {'normal', 'pca', 'umap_spectral'} or torch.Tensor of shape (n_samples, output_dim), optional
+        Initialization for the embedding Z, default 'pca'. 'umap_spectral' uses the
+        original UMAP package's spectral initialization.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     min_grad_norm : float, optional
@@ -128,7 +125,7 @@ class UMAP(SampledNeighborEmbedding):
         b: Optional[float] = None,
         lr: float = 1e-1,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
-        optimizer_kwargs: Union[Dict, str] = "auto",
+        optimizer_kwargs: Union[Dict, str] = None,
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = "LinearLR",
@@ -144,8 +141,7 @@ class UMAP(SampledNeighborEmbedding):
         tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
-        n_negatives: int = 10,
+        negative_sample_rate: int = 5,
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
@@ -155,10 +151,14 @@ class UMAP(SampledNeighborEmbedding):
         self.min_dist = min_dist
         self.spread = spread
         self.metric_in = metric_in
-        self.metric_out = metric_out
         self.max_iter_affinity = max_iter_affinity
         self.tol_affinity = tol_affinity
-        self.sparsity = True  # UMAP always uses sparse affinities
+        self.negative_sample_rate = negative_sample_rate
+
+        self.metric_out = "sqeuclidean"
+        self.sparsity = True
+        self._use_direct_gradients = True
+        self._eps = 1e-3
 
         if a is None or b is None:
             a, b = find_ab_params(self.spread, self.min_dist)
@@ -193,31 +193,225 @@ class UMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,
             compile=compile,
+            n_negatives=int(self.negative_sample_rate * self.n_neighbors),
             **kwargs,
         )
 
-    def _compute_repulsive_loss(self):
-        D = symmetric_pairwise_distances_indices(
-            self.embedding_,
-            metric=self.metric_out,
-            indices=self.neg_indices_,
-            compile=self.compile,
-        )[0]
-        D = self._a * D**self._b
-        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-        return -sum_red((1 - D).log(), dim=(0, 1))
+    # def _compute_repulsive_loss(self):
+    #     D = symmetric_pairwise_distances_indices(
+    #         self.embedding_,
+    #         metric=self.metric_out,
+    #         indices=self.neg_indices_,
+    #         compile=self.compile,
+    #     )[0]
+    #     D = self._a * D**self._b
+    #     D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+    #     return -sum_red((1 - D).log(), dim=(0, 1))
 
-    def _compute_attractive_loss(self):
+    # def _compute_attractive_loss(self):
+    #     D = symmetric_pairwise_distances_indices(
+    #         self.embedding_,
+    #         metric=self.metric_out,
+    #         indices=self.NN_indices_,
+    #         compile=self.compile,
+    #     )[0]
+    #     D = self._a * D**self._b
+    #     D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
+    #     return cross_entropy_loss(self.affinity_in_, D)
+
+    def on_affinity_computation_end(self):
+        super().on_affinity_computation_end()
+        # mask small affinities
+        A_max = self.affinity_in_.max()
+        threshold = A_max / self.max_iter
+
+        self.epochs_per_sample = torch.where(
+            self.affinity_in_ > threshold,
+            A_max / self.affinity_in_,
+            torch.full_like(self.affinity_in_, fill_value=1e9),
+        )
+        self.epoch_of_next_sample = self.epochs_per_sample.clone()
+
+    def _compute_attractive_gradients(self):
         D = symmetric_pairwise_distances_indices(
             self.embedding_,
             metric=self.metric_out,
             indices=self.NN_indices_,
             compile=self.compile,
         )[0]
-        D = self._a * D**self._b
-        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-        return cross_entropy_loss(self.affinity_in_, D)
+        D = 2 * self._a * self._b * D ** (self._b - 1) / (1 + self._a * D**self._b)
+
+        # consider positive edges with frequency inversely proportional to the affinity value
+        self.mask_affinity_in_ = self.epoch_of_next_sample <= (self.n_iter_ + 1)
+        self.epoch_of_next_sample = torch.where(
+            self.mask_affinity_in_,
+            self.epoch_of_next_sample + self.epochs_per_sample,
+            self.epoch_of_next_sample,
+        )
+        D = D * self.mask_affinity_in_  # (n, n_negatives)
+
+        diff = (
+            self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
+        )  # (n, n_negatives, d)
+        D = torch.clamp(D.unsqueeze(-1) * diff, -4, 4)  # clamp as in umap repo
+        return D.sum(dim=1)  # (n, d)
+
+    def _compute_repulsive_gradients(self):
+        D = symmetric_pairwise_distances_indices(
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.neg_indices_,
+            compile=self.compile,
+        )[0]
+
+        # for each positive edge, we sample 'negative_sample_rate' negative edges
+        neg_counts = (
+            self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate
+        )  # (n,)
+        col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)[
+            None, :
+        ]  # (1, n_negatives)
+        keep = col_idx < neg_counts[:, None]  # (n, n_negatives)
+        D = (
+            -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
+        )  # (n, n_negatives)
+        D = D * keep  # (n, n_negatives)
+
+        diff = (
+            self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
+        )  # (n, n_negatives, d)
+        D = torch.clamp(D.unsqueeze(-1) * diff, -4, 4)  # clamp as in umap repo
+        return D.sum(dim=1)  # (n, d)
+
+    def _init_embedding(self, X):
+        """
+        Initialize the low-dimensional embedding exactly as UMAP does:
+         - User-supplied array: rescale so max abs coordinate = 10
+         - "random"/"normal": uniform in [-10,10]
+         - "pca": top-d PCA, then scale to [-10,10] and add σ=1e-4 jitter
+         - "umap_spectral": use original UMAP package with spectral initialization
+        """
+        n, d = X.shape[0], self.n_components
+        device = X.device if self.device == "auto" else self.device
+        dtype = torch.float32
+
+        # 1) User-supplied initial embedding
+        if isinstance(self.init, (torch.Tensor, np.ndarray)):
+            emb = self.init
+            if not isinstance(emb, torch.Tensor):
+                emb = torch.as_tensor(emb, device=device, dtype=dtype)
+            # Rescale so max absolute coordinate is 10
+            max_abs = emb.abs().max()
+            emb = emb * (10.0 / (max_abs + 1e-12))
+            self.embedding_ = emb.requires_grad_()
+            return self.embedding_
+
+        # 2) Random uniform in [-10,10]
+        if self.init in ("random", "normal"):
+            emb = torch.empty((n, d), device=device, dtype=dtype)
+            emb.uniform_(-10.0, 10.0)
+            self.embedding_ = emb.requires_grad_()
+            return self.embedding_
+
+        # 3) PCA + scaling + jitter
+        if self.init == "pca":
+            from torchdr.spectral_embedding.pca import PCA
+
+            emb = PCA(n_components=d, device=device).fit_transform(X)
+            # Rescale so max abs coordinate is 10
+            max_abs = emb.abs().max()
+            emb = emb * (10.0 / (max_abs + 1e-12))
+            # Add tiny Gaussian noise (σ=1e-4)
+            emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
+            self.embedding_ = emb.requires_grad_()
+            return self.embedding_
+
+        # 4) Original UMAP spectral initialization
+        if self.init == "umap_spectral":
+            try:
+                import umap
+
+                # Convert tensor to numpy if needed
+                X_np = X.cpu().numpy() if hasattr(X, "cpu") else X
+
+                # Create UMAP instance for initialization only
+                umap_init = umap.UMAP(
+                    n_neighbors=int(self.n_neighbors),
+                    n_components=d,
+                    init="spectral",
+                    n_epochs=0,  # Don't optimize, just get initialization
+                    verbose=False,
+                    random_state=self.random_state,
+                )
+
+                # Fit to get the spectral initialization
+                umap_init.fit(X_np)
+
+                # Get the spectral initialization embedding
+                # In UMAP, the spectral init is stored before optimization
+                from umap.spectral import spectral_layout
+
+                # Get knn graph like UMAP does
+                from umap.umap_ import fuzzy_simplicial_set, nearest_neighbors
+
+                # Get nearest neighbors
+                knn_indices, knn_dists, _ = nearest_neighbors(
+                    X_np,
+                    int(self.n_neighbors),
+                    umap_init.metric,
+                    {},
+                    umap_init.angular_rp_forest,
+                    np.random.RandomState(self.random_state),
+                    verbose=False,
+                )
+
+                # Get fuzzy simplicial set
+                graph, _, _, _ = fuzzy_simplicial_set(
+                    X_np,
+                    int(self.n_neighbors),
+                    np.random.RandomState(self.random_state),
+                    umap_init.metric,
+                    {},
+                    knn_indices,
+                    knn_dists,
+                    umap_init.angular_rp_forest,
+                    umap_init.set_op_mix_ratio,
+                    umap_init.local_connectivity,
+                    verbose=False,
+                    return_dists=True,
+                )
+
+                # Get spectral initialization
+                emb_np = spectral_layout(
+                    X_np, graph, d, np.random.RandomState(self.random_state)
+                )
+
+                # Convert to tensor and scale like original UMAP
+                emb = torch.as_tensor(emb_np, device=device, dtype=dtype)
+
+                # Apply UMAP's scaling: scale to [-10, 10] with noise
+                max_abs = emb.abs().max()
+                emb = emb * (10.0 / (max_abs + 1e-12))
+                emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
+
+                self.embedding_ = emb.requires_grad_()
+                return self.embedding_
+
+            except ImportError:
+                print(
+                    "Warning: umap-learn package not found. Falling back to PCA initialization."
+                )
+                # Fall back to PCA if umap package not available
+                from torchdr.spectral_embedding.pca import PCA
+
+                emb = PCA(n_components=d, device=device).fit_transform(X)
+                max_abs = emb.abs().max()
+                emb = emb * (10.0 / (max_abs + 1e-12))
+                emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
+                self.embedding_ = emb.requires_grad_()
+                return self.embedding_
+
+        raise ValueError(f"Unsupported init '{self.init}' in _init_embedding")
