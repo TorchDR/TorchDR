@@ -251,7 +251,7 @@ def test_loss_with_different_functions():
     )
     model_square._init_embedding(X)
     model_square.affinity_in_ = torch.rand(5, 5)
-    loss = model_square._loss()
+    loss = model_square._compute_loss()
     assert isinstance(loss, torch.Tensor)
 
     # Test cross entropy loss
@@ -262,7 +262,7 @@ def test_loss_with_different_functions():
     )
     model_ce._init_embedding(X)
     model_ce.affinity_in_ = torch.rand(5, 5)
-    loss = model_ce._loss()
+    loss = model_ce._compute_loss()
     assert isinstance(loss, torch.Tensor)
 
     # Test cross entropy loss with LogAffinity
@@ -273,7 +273,7 @@ def test_loss_with_different_functions():
     )
     model_ce_log._init_embedding(X)
     model_ce_log.affinity_in_ = torch.rand(5, 5)
-    loss = model_ce_log._loss()
+    loss = model_ce_log._compute_loss()
     assert isinstance(loss, torch.Tensor)
 
 
@@ -355,13 +355,13 @@ def test_affinity_out_none_requires_custom_loss():
     model._init_embedding(X)
     model.affinity_in_ = torch.rand(5, 5)  # Mock the fitted affinity
     with pytest.raises(ValueError, match="affinity_out is not set"):
-        model._loss()
+        model._compute_loss()
 
 
 def test_affinity_out_none_with_custom_loss():
     # Test that affinity_out=None works with custom _loss method
     class CustomAffinityMatcher(AffinityMatcher):
-        def _loss(self):
+        def _compute_loss(self):
             # Simple custom loss that uses the embedding
             return (self.embedding_**2).sum()
 
