@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity import (
     Affinity,
-    SparseLogAffinity,
+    SparseAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
 )
@@ -275,7 +275,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -359,7 +359,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         compile: bool = False,
     ):
         # check affinity affinity_in
-        if not isinstance(affinity_in, SparseLogAffinity):
+        if not isinstance(affinity_in, SparseAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
                 "must be a sparse affinity."
@@ -458,7 +458,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a
-    :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
+    :class:`~torchdr.SparseAffinity` and the output affinity matrix is an
     :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
     can be computed with linear complexity.
 

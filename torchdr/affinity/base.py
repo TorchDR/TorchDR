@@ -231,10 +231,10 @@ class LogAffinity(Affinity):
         )
 
 
-class SparseLogAffinity(LogAffinity):
-    r"""Base class for sparse log affinity matrices.
+class SparseAffinity(Affinity):
+    r"""Base class for sparse affinity matrices.
 
-    If sparsity is enabled, returns the log affinity matrix in a rectangular format
+    If sparsity is enabled, returns the affinity matrix in a rectangular format
     with the corresponding indices.
     Otherwise, returns the full affinity matrix and None.
 
@@ -297,10 +297,89 @@ class SparseLogAffinity(LogAffinity):
         self._sparsity = bool_arg(value)
 
     def __call__(
+        self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
+    ):
+        r"""Compute the affinity matrix from the input data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Input data.
+
+        Returns
+        -------
+        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
+            The computed affinity matrix.
+        indices : torch.Tensor
+            If return_indices is True, returns the indices of the non-zero elements
+            in the affinity matrix if sparsity is enabled. Otherwise, returns None.
+        """
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
+        return self._compute_sparse_affinity(X, return_indices, **kwargs)
+
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
+        r"""Compute the sparse affinity matrix from the input data.
+
+        This method must be overridden by subclasses.
+
+        Parameters
+        ----------
+        X : torch.Tensor of shape (n_samples, n_features)
+            Input data.
+        return_indices : bool, optional
+            If True, returns the indices of the non-zero elements in the affinity matrix
+            if sparsity is enabled. Default is False.
+
+        Raises
+        ------
+        NotImplementedError
+            If the `_compute_sparse_affinity` method is not implemented by
+            the subclass, a NotImplementedError is raised.
+        """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : `_compute_sparse_affinity` method is not implemented."
+        )
+
+
+class SparseLogAffinity(SparseAffinity, LogAffinity):
+    r"""Base class for sparse log affinity matrices.
+
+    If sparsity is enabled, returns the log affinity matrix in a rectangular format
+    with the corresponding indices.
+    Otherwise, returns the full affinity matrix and None.
+
+    Parameters
+    ----------
+    metric : str, optional
+        The distance metric to use for computing pairwise distances.
+        Default is "sqeuclidean".
+    zero_diag : bool, optional
+        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+    device : str, optional
+        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
+        If "auto", uses the device of the input data. Default is "auto".
+    backend : {"keops", "faiss", None}, optional
+        Which backend to use for handling sparsity and memory efficiency.
+        Default is None.
+    verbose : bool, optional
+        If True, prints additional information during computation. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity matrix computation. Default is False.
+    sparsity : bool or 'auto', optional
+        Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    _pre_processed : bool, optional
+        If True, assumes inputs are already torch tensors on the correct device
+        and skips the `to_torch` conversion. Default is False.
+    """
+
+    def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
         log: bool = False,
-        return_indices: bool = False,
+        return_indices: bool = True,
         **kwargs,
     ):
         r"""Compute and return the log affinity matrix from input data.
@@ -328,15 +407,20 @@ class SparseLogAffinity(LogAffinity):
             If return_indices is True, returns the indices of the non-zero elements
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
-        X = to_torch(X, device=self.device)
-        log_affinity, indices = self._compute_sparse_log_affinity(X, **kwargs)
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
+        log_affinity, indices = self._compute_sparse_log_affinity(
+            X, return_indices, **kwargs
+        )
         if log_affinity is None:
             affinity_to_return = None
         else:
             affinity_to_return = log_affinity if log else log_affinity.exp()
         return (affinity_to_return, indices) if return_indices else affinity_to_return
 
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_log_affinity(
+        self, X: torch.Tensor, return_indices: bool = False, **kwargs
+    ):
         r"""Compute the log affinity matrix in a sparse format from the input data.
 
         This method must be overridden by subclasses.
@@ -345,6 +429,9 @@ class SparseLogAffinity(LogAffinity):
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
             Input data.
+        return_indices : bool, optional
+            If True, returns the indices of the non-zero elements in the affinity matrix
+            if sparsity is enabled. Default is False.
 
         Raises
         ------

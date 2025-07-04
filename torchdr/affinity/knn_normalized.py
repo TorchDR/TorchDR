@@ -377,7 +377,9 @@ class UMAPAffinity(SparseAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
         r"""Compute the input affinity matrix of UMAP from input data X.
 
         Parameters
@@ -430,7 +432,7 @@ class UMAPAffinity(SparseAffinity):
         affinity_matrix = log_affinity_matrix.exp()
         out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
 
-        return out_val, out_idx
+        return out_val, out_idx if return_indices else out_val
 
 
 class PACMAPAffinity(SparseAffinity):
@@ -485,7 +487,7 @@ class PACMAPAffinity(SparseAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_affinity(self, X: torch.Tensor):
         r"""Compute the input affinity matrix of PACMAP from input data X.
 
         Parameters

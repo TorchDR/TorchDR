@@ -12,7 +12,7 @@ import torch
 from torchdr.affinity import (
     Affinity,
     LogAffinity,
-    SparseLogAffinity,
+    SparseAffinity,
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
@@ -227,7 +227,7 @@ class AffinityMatcher(DRModule):
                 self.logger.info(
                     f"----- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} -----"
                 )
-            if isinstance(self.affinity_in, SparseLogAffinity):
+            if isinstance(self.affinity_in, SparseAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
                 )

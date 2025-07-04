@@ -214,13 +214,18 @@ class EntropicAffinity(SparseLogAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_log_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
         r"""Solve the entropic affinity problem by :cite:`hinton2002stochastic`.
 
         Parameters
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
             Data on which affinity is computed.
+        return_indices : bool, optional
+            If True, returns the indices of the non-zero elements in the affinity matrix
+            if sparsity is enabled. Default is False.
 
         Returns
         -------
@@ -278,7 +283,7 @@ class EntropicAffinity(SparseLogAffinity):
         log_affinity_matrix -= math.log(
             n_samples_in
         )  # sum of each row is 1/n so that total sum is 1
-        return log_affinity_matrix, indices
+        return log_affinity_matrix, indices if return_indices else log_affinity_matrix
 
 
 class SymmetricEntropicAffinity(LogAffinity):
