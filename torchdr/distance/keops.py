@@ -13,7 +13,6 @@ from torchdr.utils.keops import LazyTensor
 LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular"]
 
 
-@torch.compiler.disable
 def pairwise_distances_keops(
     X: torch.Tensor,
     Y: torch.Tensor = None,

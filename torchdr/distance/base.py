@@ -62,7 +62,7 @@ def pairwise_distances(
             )
     else:
         C, indices = pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, compile=compile
+            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
         )
 
     return C, indices

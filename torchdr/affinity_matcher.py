@@ -182,7 +182,6 @@ class AffinityMatcher(DRModule):
                 )
                 self.affinity_in.sparsity = False  # turn off sparsity
             affinity_out._pre_processed = True
-            affinity_out.compile = self.compile
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out

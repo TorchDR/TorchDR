@@ -9,7 +9,7 @@ from typing import Tuple, Union, Optional
 
 import torch
 
-from torchdr.affinity.base import Affinity, LogAffinity, SparseLogAffinity
+from torchdr.affinity.base import Affinity, LogAffinity, SparseAffinity
 from torchdr.utils import (
     matrix_transpose,
     kmin,
@@ -311,7 +311,7 @@ class PHATEAffinity(Affinity):
         return affinity
 
 
-class UMAPAffinity(SparseLogAffinity):
+class UMAPAffinity(SparseAffinity):
     r"""Compute the input affinity used in UMAP :cite:`mcinnes2018umap`.
 
     The algorithm computes via root search the variable
@@ -407,11 +407,13 @@ class UMAPAffinity(SparseLogAffinity):
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        def marginal_gap(eps):  # function to find the root of
-            marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
-            return marg - torch.log2(
-                torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
-            )
+        log_n_neighbors = torch.log2(
+            torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
+        )
+
+        def marginal_gap(eps):
+            log_marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1)
+            return log_marg.exp().squeeze() - log_n_neighbors
 
         self.eps_ = binary_search(
             f=marginal_gap,
@@ -421,16 +423,17 @@ class UMAPAffinity(SparseLogAffinity):
             device=X.device,
         )
 
+        # Compute log affinity matrix
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
 
         # symmetrize
         affinity_matrix = log_affinity_matrix.exp()
         out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
 
-        return (out_val + 1e-6).log(), out_idx
+        return out_val, out_idx
 
 
-class PACMAPAffinity(SparseLogAffinity):
+class PACMAPAffinity(SparseAffinity):
     r"""Compute the input affinity used in PACMAP :cite:`wang2021understanding`.
 
     Parameters

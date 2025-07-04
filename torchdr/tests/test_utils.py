@@ -173,16 +173,6 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     check_similarity(C_indices, C_full_indices)
 
 
-def test_pairwise_distances_compilation():
-    n, p = 100, 20
-    x = torch.randn(n, p)
-
-    C_eager, _ = pairwise_distances(x, compile=False, backend=None)
-    C_compiled, _ = pairwise_distances(x, compile=True, backend=None)
-
-    check_similarity(C_eager, C_compiled)
-
-
 # ====== test center_kernel ======
 
 
