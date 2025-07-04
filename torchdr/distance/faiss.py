@@ -14,6 +14,7 @@ from torchdr.utils.faiss import faiss
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
+@torch.compiler.disable
 def pairwise_distances_faiss(
     X: torch.Tensor,
     k: Union[int, torch.Tensor],
