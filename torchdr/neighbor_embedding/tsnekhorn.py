@@ -168,7 +168,6 @@ class TSNEkhorn(NeighborEmbedding):
             affinity_in = EntropicAffinity(
                 perplexity=perplexity,
                 metric=metric_in,
-                tol=tol_affinity_in,
                 max_iter=max_iter_affinity_in,
                 device=device,
                 backend=backend,

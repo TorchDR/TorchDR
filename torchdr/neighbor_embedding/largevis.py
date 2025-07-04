@@ -112,7 +112,6 @@ class LargeVis(SampledNeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
-        tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
@@ -126,13 +125,11 @@ class LargeVis(SampledNeighborEmbedding):
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
-            tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,

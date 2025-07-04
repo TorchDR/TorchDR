@@ -202,15 +202,18 @@ class UMAP(SampledNeighborEmbedding):
 
     def on_affinity_computation_end(self):
         super().on_affinity_computation_end()
-        # mask small affinities
+
+        # Remove small affinity edges
         A_max = self.affinity_in_.max()
         threshold = A_max / self.max_iter
 
-        edges_removed = (self.affinity_in_ <= threshold).sum()
-        print(f"number of edges removed: {edges_removed}")
-        print(
-            f"percentage of edges removed: {edges_removed / self.affinity_in_.numel()}"
-        )
+        if self.verbose:
+            edges_removed = (self.affinity_in_ <= threshold).sum()
+            total_edges = self.affinity_in_.numel()
+            percentage_kept = (
+                (total_edges - edges_removed).float() / total_edges * 100
+            ).item()
+            self.logger.info(f"Keeping {percentage_kept:.1f}% of affinity edges.")
 
         self.epochs_per_sample = torch.where(
             self.affinity_in_ > threshold,
@@ -232,7 +235,8 @@ class UMAP(SampledNeighborEmbedding):
             torch.zeros_like(D),
         )  # compute D**(b-1) for D > 0 to prevent infinities when b < 1
 
-        # consider positive edges with frequency inversely proportional to the affinity value
+        # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
+        # (higher affinity → smaller epochs_per_sample) get updated more often.
         self.mask_affinity_in_ = self.epoch_of_next_sample <= (self.n_iter_ + 1)
         self.epoch_of_next_sample = torch.where(
             self.mask_affinity_in_,
@@ -244,9 +248,8 @@ class UMAP(SampledNeighborEmbedding):
         embedding_diff = (
             self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
         )  # (n, n_negatives, d)
-        D = torch.clamp(
-            D.unsqueeze(-1) * embedding_diff, -4, 4
-        )  # clamp as in umap repo
+        D = D.unsqueeze(-1) * embedding_diff
+        D = torch.clamp(D, -4, 4)  # clamp as in umap repo
         return D.sum(dim=1)
 
     def _compute_repulsive_gradients(self):
@@ -258,7 +261,7 @@ class UMAP(SampledNeighborEmbedding):
         )[0]
         D = -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
 
-        # for each positive edge, we filter to keep 'negative_sample_rate' negative edges
+        # Filter to keep 'negative_sample_rate' negative edges per positive edge.
         neg_counts = self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate
         col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)[None, :]
         keep = col_idx < neg_counts[:, None]
@@ -267,137 +270,6 @@ class UMAP(SampledNeighborEmbedding):
         embedding_diff = (
             self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
         )  # (n, n_negatives, d)
-        D = torch.clamp(
-            D.unsqueeze(-1) * embedding_diff, -4, 4
-        )  # clamp as in umap repo
+        D = D.unsqueeze(-1) * embedding_diff
+        D = torch.clamp(D, -4, 4)  # clamp as in umap repo
         return D.sum(dim=1)
-
-    def _init_embedding(self, X):
-        """
-        Initialize the low-dimensional embedding exactly as UMAP does:
-         - User-supplied array: rescale so max abs coordinate = 10
-         - "random"/"normal": uniform in [-10,10]
-         - "pca": top-d PCA, then scale to [-10,10] and add σ=1e-4 jitter
-         - "umap_spectral": use original UMAP package with spectral initialization
-        """
-        n, d = X.shape[0], self.n_components
-        device = X.device if self.device == "auto" else self.device
-        dtype = torch.float32
-
-        # 1) User-supplied initial embedding
-        if isinstance(self.init, (torch.Tensor, np.ndarray)):
-            emb = self.init
-            if not isinstance(emb, torch.Tensor):
-                emb = torch.as_tensor(emb, device=device, dtype=dtype)
-            # Rescale so max absolute coordinate is 10
-            max_abs = emb.abs().max()
-            emb = emb * (10.0 / (max_abs + 1e-12))
-            self.embedding_ = emb.requires_grad_()
-            return self.embedding_
-
-        # 2) Random uniform in [-10,10]
-        if self.init in ("random", "normal"):
-            emb = torch.empty((n, d), device=device, dtype=dtype)
-            emb.uniform_(-10.0, 10.0)
-            self.embedding_ = emb.requires_grad_()
-            return self.embedding_
-
-        # 3) PCA + scaling + jitter
-        if self.init == "pca":
-            from torchdr.spectral_embedding.pca import PCA
-
-            emb = PCA(n_components=d, device=device).fit_transform(X)
-            # Rescale so max abs coordinate is 10
-            max_abs = emb.abs().max()
-            emb = emb * (10.0 / (max_abs + 1e-12))
-            # Add tiny Gaussian noise (σ=1e-4)
-            emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
-            self.embedding_ = emb.requires_grad_()
-            return self.embedding_
-
-        # 4) Original UMAP spectral initialization
-        if self.init == "umap_spectral":
-            try:
-                import umap
-
-                # Convert tensor to numpy if needed
-                X_np = X.cpu().numpy() if hasattr(X, "cpu") else X
-
-                # Create UMAP instance for initialization only
-                umap_init = umap.UMAP(
-                    n_neighbors=int(self.n_neighbors),
-                    n_components=d,
-                    init="spectral",
-                    n_epochs=0,  # Don't optimize, just get initialization
-                    verbose=False,
-                    random_state=self.random_state,
-                )
-
-                # Fit to get the spectral initialization
-                umap_init.fit(X_np)
-
-                # Get the spectral initialization embedding
-                # In UMAP, the spectral init is stored before optimization
-                from umap.spectral import spectral_layout
-
-                # Get knn graph like UMAP does
-                from umap.umap_ import fuzzy_simplicial_set, nearest_neighbors
-
-                # Get nearest neighbors
-                knn_indices, knn_dists, _ = nearest_neighbors(
-                    X_np,
-                    int(self.n_neighbors),
-                    umap_init.metric,
-                    {},
-                    umap_init.angular_rp_forest,
-                    np.random.RandomState(self.random_state),
-                    verbose=False,
-                )
-
-                # Get fuzzy simplicial set
-                graph, _, _, _ = fuzzy_simplicial_set(
-                    X_np,
-                    int(self.n_neighbors),
-                    np.random.RandomState(self.random_state),
-                    umap_init.metric,
-                    {},
-                    knn_indices,
-                    knn_dists,
-                    umap_init.angular_rp_forest,
-                    umap_init.set_op_mix_ratio,
-                    umap_init.local_connectivity,
-                    verbose=False,
-                    return_dists=True,
-                )
-
-                # Get spectral initialization
-                emb_np = spectral_layout(
-                    X_np, graph, d, np.random.RandomState(self.random_state)
-                )
-
-                # Convert to tensor and scale like original UMAP
-                emb = torch.as_tensor(emb_np, device=device, dtype=dtype)
-
-                # Apply UMAP's scaling: scale to [-10, 10] with noise
-                max_abs = emb.abs().max()
-                emb = emb * (10.0 / (max_abs + 1e-12))
-                emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
-
-                self.embedding_ = emb.requires_grad_()
-                return self.embedding_
-
-            except ImportError:
-                print(
-                    "Warning: umap-learn package not found. Falling back to PCA initialization."
-                )
-                # Fall back to PCA if umap package not available
-                from torchdr.spectral_embedding.pca import PCA
-
-                emb = PCA(n_components=d, device=device).fit_transform(X)
-                max_abs = emb.abs().max()
-                emb = emb * (10.0 / (max_abs + 1e-12))
-                emb = emb + torch.randn_like(emb, device=device, dtype=emb.dtype) * 1e-4
-                self.embedding_ = emb.requires_grad_()
-                return self.embedding_
-
-        raise ValueError(f"Unsupported init '{self.init}' in _init_embedding")

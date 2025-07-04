@@ -48,7 +48,7 @@ def _log_Pds(log_K, dual):
     return dual + dual_t + log_K
 
 
-def _bounds_entropic_affinity(C, perplexity):
+def _bounds_entropic_affinity(C, perplexity, device, dtype):
     r"""Compute the entropic affinity bounds derived in :cite:`vladymyrov2013entropic`.
 
     Parameters
@@ -56,8 +56,12 @@ def _bounds_entropic_affinity(C, perplexity):
     C : tensor or lazy tensor of shape (n_samples, n_samples)
         or (n_samples, k) if sparsity is used
         Distance matrix between the samples.
-    perplexity : float
+    perplexity : torch.Tensor, shape ()
         Perplexity parameter, related to the number of 'effective' nearest neighbors.
+    device : torch.device
+        Device to use for computation.
+    dtype : torch.dtype
+        Data type to use for computation.
 
     Returns
     -------
@@ -67,39 +71,47 @@ def _bounds_entropic_affinity(C, perplexity):
         Upper bound of the root.
     """
     # we use the same notations as in [4] for clarity purposes
-    N = C.shape[0]
+    n_samples_in = C.shape[0]
+
+    tN = torch.tensor(float(n_samples_in), dtype=dtype, device=device)
+    tNm1 = torch.tensor(float(n_samples_in - 1), dtype=dtype, device=device)
+
+    twiceN = 2.0 * tN
+    max_val = torch.minimum(torch.sqrt(twiceN), perplexity)
 
     # solve a unique 1D root finding problem
-    def find_p1(x):
-        return np.log(np.min([np.sqrt(2 * N), perplexity])) - 2 * (1 - x) * np.log(
-            N / (2 * (1 - x))
-        )
+    def _find_p1(x: torch.Tensor):
+        # x : (1,) tensor in (0,1)
+        return torch.log(max_val) - 2.0 * (1.0 - x) * torch.log(tN / (2.0 * (1.0 - x)))
 
-    begin = 3 / 4
-    end = 1 - 1e-6
+    b_lo = torch.tensor(0.75, dtype=dtype, device=device).unsqueeze(0)
+    b_hi = torch.tensor(1.0 - 1e-6, dtype=dtype, device=device).unsqueeze(0)
+
     p1 = binary_search(
-        f=find_p1,
+        f=_find_p1,
         n=1,
-        begin=begin,
-        end=end,
+        begin=b_lo,
+        end=b_hi,
         max_iter=1000,
-        tol=1e-6,
-    ).item()
+        dtype=dtype,
+        device=device,
+    ).squeeze()
 
-    # retrieve greatest and smallest pairwise distances
     dN = kmax(C, k=1, dim=1)[0].squeeze()
     d12 = kmin(C, k=2, dim=1)[0]
-    d1 = d12[:, 0]
-    d2 = d12[:, 1]
+    d1, d2 = d12[:, 0], d12[:, 1]
+
     Delta_N = dN - d1
     Delta_2 = d2 - d1
 
     # compute bounds derived in [4]
+    log_ratio = torch.log(tN / perplexity)
+
     beta_L = torch.max(
-        (N * np.log(N / perplexity)) / ((N - 1) * Delta_N),
-        torch.sqrt(np.log(N / perplexity) / (dN**2 - d1**2)),
+        (tN * log_ratio) / (tNm1 * Delta_N),
+        torch.sqrt(log_ratio / (dN.pow(2) - d1.pow(2))),
     )
-    beta_U = (1 / Delta_2) * np.log((N - 1) * p1 / (1 - p1))
+    beta_U = (torch.log(tNm1 * p1 / (1.0 - p1))) / Delta_2
 
     # convert to our notations
     begin = 1 / beta_U
@@ -156,8 +168,6 @@ class EntropicAffinity(SparseLogAffinity):
     perplexity : float, optional
         Perplexity parameter, related to the number of 'effective' nearest neighbors.
         Consider selecting a value between 2 and the number of samples.
-    tol : float, optional
-        Precision threshold at which the root finding algorithm stops.
     max_iter : int, optional
         Number of maximum iterations for the root finding algorithm.
     sparsity: bool, optional
@@ -185,7 +195,6 @@ class EntropicAffinity(SparseLogAffinity):
     def __init__(
         self,
         perplexity: float = 30,
-        tol: float = 1e-3,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -197,7 +206,6 @@ class EntropicAffinity(SparseLogAffinity):
         _pre_processed: bool = False,
     ):
         self.perplexity = perplexity
-        self.tol = tol
         self.max_iter = max_iter
 
         super().__init__(
@@ -229,8 +237,12 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         n_samples_in = X.shape[0]
-        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
-        target_entropy = np.log(perplexity) + 1
+        perplexity = torch.tensor(
+            check_neighbor_param(self.perplexity, n_samples_in),
+            dtype=X.dtype,
+            device=X.device,
+        )
+        target_entropy = torch.log(perplexity) + 1
 
         k = 3 * perplexity
         if self.sparsity:
@@ -250,21 +262,19 @@ class EntropicAffinity(SparseLogAffinity):
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(C_, perplexity)
-        begin += 1e-6  # avoid numerical issues
+        begin, end = _bounds_entropic_affinity(
+            C_, perplexity, device=X.device, dtype=X.dtype
+        )
+        begin = begin + 1e-6  # avoid numerical issues
 
         self.eps_ = binary_search(
             f=entropy_gap,
             n=n_samples_in,
             begin=begin,
             end=end,
-            tol=self.tol,
             max_iter=self.max_iter,
-            verbose=self.verbose,
             dtype=X.dtype,
             device=X.device,
-            logger=self.logger if self.verbose else None,
-            compile=self.compile,
         )
 
         log_P_final = _log_Pe(C_, self.eps_)

@@ -220,21 +220,41 @@ def check_nonnegativity_eigenvalues(lambdas, tol_neg_ratio=1e-3, small_pos_ratio
 
 
 def check_neighbor_param(n_neighbors, n_samples):
-    r"""Check the n_neighbors parameter and returns a valid value."""
+    r"""Check the n_neighbors parameter.
+
+    If called with Tensors, do a clamp in‐graph so torch.compile can trace it."""
+
+    # If either input is a tensor, switch to tensor‐only logic:
+    if isinstance(n_neighbors, torch.Tensor) or isinstance(n_samples, torch.Tensor):
+        # coerce both to long tensors on the same device
+        n = torch.as_tensor(
+            n_samples,
+            dtype=torch.long,
+            device=n_samples.device
+            if isinstance(n_samples, torch.Tensor)
+            else n_neighbors.device,
+        )
+        k = torch.as_tensor(n_neighbors, dtype=torch.long, device=n.device)
+
+        # valid neighbor count is in [2, n−2]
+        lower = torch.tensor(2, dtype=k.dtype, device=k.device)
+        upper = n - 2
+
+        return torch.clamp(k, min=lower, max=upper)
+
     if n_samples <= 1:
         raise ValueError(
             f"[TorchDR] ERROR : Input has less than one sample : n_samples = {n_samples}."
         )
 
-    elif n_neighbors >= n_samples - 1 or n_neighbors <= 1:
+    if n_neighbors <= 1 or n_neighbors >= n_samples - 1:
         raise ValueError(
             f"[TorchDR] ERROR : Number of requested neighbors must be greater than "
             f"1 and smaller than the number of samples - 1 (here {n_samples - 1}). "
             f"Got {n_neighbors}."
         )
 
-    else:
-        return n_neighbors
+    return n_neighbors
 
 
 def check_array(

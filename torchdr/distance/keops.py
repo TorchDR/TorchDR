@@ -13,6 +13,7 @@ from torchdr.utils.keops import LazyTensor
 LIST_METRICS_KEOPS = ["euclidean", "sqeuclidean", "manhattan", "angular"]
 
 
+@torch.compiler.disable
 def pairwise_distances_keops(
     X: torch.Tensor,
     Y: torch.Tensor = None,
@@ -77,7 +78,7 @@ def pairwise_distances_keops(
     else:
         raise ValueError(f"[TorchDR] ERROR : Unsupported metric '{metric}'.")
 
-    # If requested, exclude self–neighbors by masking the diagonal.
+    # If requested, exclude self–neighbors by adding a large constant to the diagonal.
     if do_exclude_diag:
         n = X.shape[0]
         Id = identity_matrix(n, keops=True, device=X.device, dtype=X.dtype)

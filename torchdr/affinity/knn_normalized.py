@@ -326,8 +326,6 @@ class UMAPAffinity(SparseLogAffinity):
     ----------
     n_neighbors : float, optional
         Number of effective nearest neighbors to consider. Similar to the perplexity.
-    tol : float, optional
-        Precision threshold for the root search.
     max_iter : int, optional
         Maximum number of iterations for the root search.
     sparsity : bool, optional
@@ -354,7 +352,6 @@ class UMAPAffinity(SparseLogAffinity):
     def __init__(
         self,
         n_neighbors: float = 30,
-        tol: float = 1e-5,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -366,7 +363,6 @@ class UMAPAffinity(SparseLogAffinity):
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
-        self.tol = tol
         self.max_iter = max_iter
 
         super().__init__(
@@ -418,12 +414,11 @@ class UMAPAffinity(SparseLogAffinity):
         self.eps_ = binary_search(
             f=marginal_gap,
             n=n_samples_in,
-            tol=self.tol,
             max_iter=self.max_iter,
-            verbose=self.verbose,
             dtype=X.dtype,
             device=X.device,
-            logger=self.logger if self.verbose else None,
+            verbose=self.verbose,
+            logger=self.logger,
         )
 
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
@@ -431,12 +426,6 @@ class UMAPAffinity(SparseLogAffinity):
         # symmetrize
         affinity_matrix = log_affinity_matrix.exp()
         out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
-
-        print(f"size of out_val: {out_val.shape}")
-        print(f"size of out_idx: {out_idx.shape}")
-
-        print(f"nans in out_val: {torch.isnan(out_val).sum()}")
-        print(f"nans in out_idx: {torch.isnan(out_idx).sum()}")
 
         return (out_val + 1e-6).log(), out_idx
 
