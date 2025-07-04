@@ -106,7 +106,6 @@ def test_pairwise_distances(dtype, metric):
     x = x / x.max() - 0.1
     y = y / y.max() - 0.1
 
-    # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
@@ -172,16 +171,6 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
-
-
-def test_pairwise_distances_compilation():
-    n, p = 100, 20
-    x = torch.randn(n, p)
-
-    C_eager, _ = pairwise_distances(x, compile=False, backend=None)
-    C_compiled, _ = pairwise_distances(x, compile=True, backend=None)
-
-    check_similarity(C_eager, C_compiled)
 
 
 # ====== test center_kernel ======

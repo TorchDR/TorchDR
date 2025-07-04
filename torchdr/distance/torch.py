@@ -7,7 +7,6 @@
 import torch
 
 from torchdr.utils.utils import kmin
-from torchdr.utils.wrappers import compile_if_requested
 
 
 LIST_METRICS_TORCH = [
@@ -19,14 +18,12 @@ LIST_METRICS_TORCH = [
 ]
 
 
-@compile_if_requested
 def pairwise_distances_torch(
     X: torch.Tensor,
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     k: int = None,
     exclude_diag: bool = False,
-    compile: bool = False,
 ):
     r"""Compute pairwise distances between points using PyTorch.
 
@@ -48,9 +45,6 @@ def pairwise_distances_torch(
     exclude_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal elements) are set to infinity,
         excluding the self index from the k nearest neighbors.
-    compile : bool, optional
-        Whether to compile the torch implementation of the distance computation.
-        Default is False.
 
     Returns
     -------

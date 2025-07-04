@@ -7,6 +7,7 @@
 from .base import (
     Affinity,
     LogAffinity,
+    SparseAffinity,
     SparseLogAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
@@ -36,6 +37,7 @@ from .unnormalized import (
 
 __all__ = [
     "Affinity",
+    "SparseAffinity",
     "LogAffinity",
     "UnnormalizedAffinity",
     "UnnormalizedLogAffinity",
