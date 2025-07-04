@@ -187,7 +187,7 @@ class AffinityMatcher(DRModule):
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
-        self.n_iter_ = -1
+        self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
@@ -250,7 +250,7 @@ class AffinityMatcher(DRModule):
 
         grad_norm = float("nan")
         for step in range(self.max_iter):
-            self.n_iter_ = step
+            self.n_iter_.fill_(step)
 
             self.on_training_step_start()
             loss = self._training_step()
@@ -372,7 +372,7 @@ class AffinityMatcher(DRModule):
             optimizer_class = self.optimizer
 
         self.optimizer_ = optimizer_class(
-            self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
+            self.params_, lr=torch.tensor(self.lr_), **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
 

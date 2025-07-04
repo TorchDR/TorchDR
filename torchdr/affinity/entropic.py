@@ -9,7 +9,6 @@
 import contextlib
 import math
 
-import numpy as np
 import torch
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
@@ -72,12 +71,8 @@ def _bounds_entropic_affinity(C, perplexity, device, dtype):
     """
     # we use the same notations as in [4] for clarity purposes
     n_samples_in = C.shape[0]
-
-    tN = torch.tensor(float(n_samples_in), dtype=dtype, device=device)
-    tNm1 = torch.tensor(float(n_samples_in - 1), dtype=dtype, device=device)
-
-    twiceN = 2.0 * tN
-    max_val = torch.minimum(torch.sqrt(twiceN), perplexity)
+    tN = torch.tensor(n_samples_in, dtype=dtype, device=device)
+    max_val = torch.minimum(torch.sqrt(2.0 * tN), perplexity)
 
     # solve a unique 1D root finding problem
     def _find_p1(x: torch.Tensor):
@@ -106,12 +101,11 @@ def _bounds_entropic_affinity(C, perplexity, device, dtype):
 
     # compute bounds derived in [4]
     log_ratio = torch.log(tN / perplexity)
-
     beta_L = torch.max(
-        (tN * log_ratio) / (tNm1 * Delta_N),
+        (tN * log_ratio) / ((tN - 1) * Delta_N),
         torch.sqrt(log_ratio / (dN.pow(2) - d1.pow(2))),
     )
-    beta_U = (torch.log(tNm1 * p1 / (1.0 - p1))) / Delta_2
+    beta_U = (torch.log((tN - 1) * p1 / (1.0 - p1))) / Delta_2
 
     # convert to our notations
     begin = 1 / beta_U
@@ -419,7 +413,9 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         n_samples_in = X.shape[0]
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
-        target_entropy = np.log(perplexity) + 1
+        target_entropy = (
+            torch.log(torch.tensor(perplexity, dtype=X.dtype, device=X.device)) + 1
+        )
 
         one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 

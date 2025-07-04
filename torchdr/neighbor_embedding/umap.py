@@ -96,8 +96,6 @@ class UMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    tol_affinity : float, optional
-        Precision threshold for the input affinity computation.
     max_iter_affinity : int, optional
         Number of maximum iterations for the input affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
@@ -138,7 +136,6 @@ class UMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         negative_sample_rate: int = 5,
@@ -152,7 +149,6 @@ class UMAP(SampledNeighborEmbedding):
         self.spread = spread
         self.metric_in = metric_in
         self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
         self.negative_sample_rate = negative_sample_rate
 
         self.metric_out = "sqeuclidean"
@@ -168,7 +164,6 @@ class UMAP(SampledNeighborEmbedding):
         affinity_in = UMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
-            tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -227,7 +222,6 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_,
             metric=self.metric_out,
             indices=self.NN_indices_,
-            compile=self.compile,
         )[0]
         D = torch.where(
             D > 0,
@@ -237,7 +231,8 @@ class UMAP(SampledNeighborEmbedding):
 
         # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
         # (higher affinity → smaller epochs_per_sample) get updated more often.
-        self.mask_affinity_in_ = self.epoch_of_next_sample <= (self.n_iter_ + 1)
+        # Use tensor iteration counter from base class for torch compile compatibility
+        self.mask_affinity_in_ = self.epoch_of_next_sample <= self.n_iter_ + 1
         self.epoch_of_next_sample = torch.where(
             self.mask_affinity_in_,
             self.epoch_of_next_sample + self.epochs_per_sample,
@@ -257,7 +252,6 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_,
             metric=self.metric_out,
             indices=self.neg_indices_,
-            compile=self.compile,
         )[0]
         D = -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
 

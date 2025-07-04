@@ -182,7 +182,6 @@ class PACMAP(SampledNeighborEmbedding):
                 self.embedding_,
                 indices=self.NN_indices_,
                 metric=self.metric_out,
-                compile=self.compile,
             )[0]
         )
         Q_near = Q_near / (1e1 + Q_near)
@@ -219,7 +218,6 @@ class PACMAP(SampledNeighborEmbedding):
                     self.X_,
                     indices=mid_near_candidates_indices,
                     metric=self.metric_in,
-                    compile=self.compile,
                 )[0]
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
@@ -230,7 +228,6 @@ class PACMAP(SampledNeighborEmbedding):
                     self.embedding_,
                     indices=mid_near_indices,
                     metric=self.metric_out,
-                    compile=self.compile,
                 )[0]
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
@@ -247,7 +244,6 @@ class PACMAP(SampledNeighborEmbedding):
                 self.embedding_,
                 metric=self.metric_out,
                 indices=self.neg_indices_,
-                compile=self.compile,
             )[0]
         )
         Q_further = 1 / (1 + Q_further)

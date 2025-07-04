@@ -133,8 +133,8 @@ class NeighborEmbedding(AffinityMatcher):
         _scheduler_kwargs = scheduler_kwargs
         if scheduler == "LinearLR" and scheduler_kwargs == "auto":
             _scheduler_kwargs = {
-                "start_factor": 1.0,
-                "end_factor": 0,
+                "start_factor": torch.tensor(1.0),
+                "end_factor": torch.tensor(0),
                 "total_iters": max_iter,
             }
 

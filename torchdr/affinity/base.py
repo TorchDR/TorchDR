@@ -136,7 +136,6 @@ class Affinity(ABC):
             backend=self.backend_,
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
-            compile=self.compile,
         )
 
 
@@ -502,13 +501,11 @@ class UnnormalizedAffinity(Affinity):
         # Note: The `backend_` attribute is set by the `@handle_keops` decorator.
 
         elif Y is not None:  # Case 1: Cross-distance matrix
-            return pairwise_distances(
-                X, Y, metric=self.metric, backend=self.backend_, compile=self.compile
-            )
+            return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
 
         elif indices is not None:  # Case 2: Sparse self-distance matrix
             return symmetric_pairwise_distances_indices(
-                X, indices=indices, metric=self.metric, compile=self.compile
+                X, indices=indices, metric=self.metric
             )
 
         else:  # Case 3: Full self-distance matrix (with or without the diagonal)
@@ -517,7 +514,6 @@ class UnnormalizedAffinity(Affinity):
                 metric=self.metric,
                 backend=self.backend_,
                 exclude_diag=self.zero_diag,  # infinite distance is zero affinity
-                compile=self.compile,
             )
 
 
