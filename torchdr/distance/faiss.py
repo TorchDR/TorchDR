@@ -7,16 +7,17 @@
 import torch
 import numpy as np
 import warnings
-
+from typing import Union
 
 from torchdr.utils.faiss import faiss
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
+@torch.compiler.disable
 def pairwise_distances_faiss(
     X: torch.Tensor,
-    k: int,
+    k: Union[int, torch.Tensor],
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     exclude_diag: bool = False,
@@ -39,8 +40,8 @@ def pairwise_distances_faiss(
         Database dataset. If None, Y is set equal to X.
     metric : str, default "euclidean"
         One of "euclidean", "sqeuclidean", or "angular".
-    k : int, optional
-        Number of nearest neighbors to return.
+    k : int or torch.Tensor, optional
+        Number of nearest neighbors to return. If tensor, will be converted to int.
         (If `exclude_diag` is True in a self–search, then k+1 neighbors are retrieved first.)
     exclude_diag : bool, default False
         When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
@@ -61,6 +62,12 @@ def pairwise_distances_faiss(
             "[TorchDR] Only 'euclidean', 'sqeuclidean', and 'angular' metrics "
             "are supported for FAISS."
         )
+
+    # Convert k to integer if it's a tensor (for FAISS compatibility)
+    if isinstance(k, torch.Tensor):
+        k = int(k.item())
+    else:
+        k = int(k)
 
     # Convert input tensor X to a NumPy array.
     dtype = X.dtype

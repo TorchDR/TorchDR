@@ -12,7 +12,7 @@ import torch
 from torchdr.affinity import (
     Affinity,
     LogAffinity,
-    SparseLogAffinity,
+    SparseAffinity,
     UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
@@ -182,12 +182,11 @@ class AffinityMatcher(DRModule):
                 )
                 self.affinity_in.sparsity = False  # turn off sparsity
             affinity_out._pre_processed = True
-            affinity_out.compile = self.compile
 
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
-        self.n_iter_ = -1
+        self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
@@ -214,9 +213,7 @@ class AffinityMatcher(DRModule):
         # check if affinity_in is precomputed else compute it
         if self.affinity_in == "precomputed":
             if self.verbose:
-                self.logger.info(
-                    "[Stage 1/2] --- Using precomputed affinity matrix ---"
-                )
+                self.logger.info("----- Using precomputed affinity matrix -----")
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
                     '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
@@ -228,9 +225,9 @@ class AffinityMatcher(DRModule):
         else:
             if self.verbose:
                 self.logger.info(
-                    f"[Stage 1/2] --- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} ---"
+                    f"----- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} -----"
                 )
-            if isinstance(self.affinity_in, SparseLogAffinity):
+            if isinstance(self.affinity_in, SparseAffinity):
                 self.affinity_in_, self.NN_indices_ = self.affinity_in(
                     X, return_indices=True
                 )
@@ -242,7 +239,7 @@ class AffinityMatcher(DRModule):
         # --- Embedding optimization ---
 
         if self.verbose:
-            self.logger.info("[Stage 2/2] --- Optimizing the embedding ---")
+            self.logger.info("----- Optimizing the embedding -----")
 
         self._init_embedding(X)
         self._set_params()
@@ -252,7 +249,7 @@ class AffinityMatcher(DRModule):
 
         grad_norm = float("nan")
         for step in range(self.max_iter):
-            self.n_iter_ = step
+            self.n_iter_.fill_(step)
 
             self.on_training_step_start()
             loss = self._training_step()
@@ -266,11 +263,14 @@ class AffinityMatcher(DRModule):
 
             if self.verbose and (self.n_iter_ % self.check_interval == 0):
                 lr = self.optimizer_.param_groups[0]["lr"]
-                msg = (
-                    f"Loss: {loss.item():.2e} | "
-                    f"Grad norm: {grad_norm:.2e} | "
-                    f"LR: {lr:.2e}"
-                )
+
+                msg_parts = []
+                if loss is not None:
+                    msg_parts.append(f"Loss: {loss.item():.2e}")
+                msg_parts.append(f"Grad norm: {grad_norm:.2e}")
+                msg_parts.append(f"LR: {lr:.2e}")
+
+                msg = " | ".join(msg_parts)
                 self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
 
             check_convergence = self.n_iter_ % self.check_interval == 0
@@ -289,17 +289,31 @@ class AffinityMatcher(DRModule):
     @compile_if_requested
     def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
-        loss = self._loss()
-        loss.backward()
+
+        if getattr(self, "_use_direct_gradients", False):
+            gradients = self._compute_gradients()
+            if gradients is not None:
+                self.embedding_.grad = gradients
+            loss = None
+        else:
+            loss = self._compute_loss()
+            loss.backward()
+
         self.optimizer_.step()
         if self.scheduler_ is not None:
             self.scheduler_.step()
         return loss
 
-    def _loss(self):
+    def _compute_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_gradients method must be implemented when "
+            "_use_direct_gradients is True."
+        )
+
+    def _compute_loss(self):
         if self.affinity_out is None:
             raise ValueError(
-                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _loss method."
+                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _compute_loss method."
             )
 
         if self.kwargs_affinity_out is None:
@@ -357,7 +371,7 @@ class AffinityMatcher(DRModule):
             optimizer_class = self.optimizer
 
         self.optimizer_ = optimizer_class(
-            self.params_, lr=self.lr_, **(self.optimizer_kwargs or {})
+            self.params_, lr=torch.tensor(self.lr_), **(self.optimizer_kwargs or {})
         )
         return self.optimizer_
 

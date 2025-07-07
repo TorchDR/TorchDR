@@ -7,15 +7,12 @@
 import torch
 from typing import Optional
 
-from torchdr.utils.wrappers import compile_if_requested
-
 
 from .torch import pairwise_distances_torch
 from .keops import pairwise_distances_keops
 from .faiss import pairwise_distances_faiss
 
 
-@compile_if_requested
 def pairwise_distances(
     X: torch.Tensor,
     Y: Optional[torch.Tensor] = None,
@@ -23,7 +20,6 @@ def pairwise_distances(
     backend: Optional[str] = None,
     exclude_diag: bool = False,
     k: Optional[int] = None,
-    compile: bool = False,
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -43,8 +39,6 @@ def pairwise_distances(
         Only used when k is not None. Default is False.
     k : int, optional
         If not None, return only the k-nearest neighbors.
-    compile : bool, default=False
-        Whether to use torch.compile for faster computation.
 
     Returns
     -------
@@ -68,18 +62,16 @@ def pairwise_distances(
             )
     else:
         C, indices = pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, compile=compile
+            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
         )
 
     return C, indices
 
 
-@compile_if_requested
 def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,
     metric: str = "sqeuclidean",
-    compile: bool = False,
 ):
     r"""Compute pairwise distances for a subset of pairs given by indices.
 
@@ -94,8 +86,6 @@ def symmetric_pairwise_distances_indices(
         Indices of the pairs for which to compute the distances.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
-    compile : bool, optional
-        Whether to compile the distance computation. Default is False.
 
     Returns
     -------

@@ -1,4 +1,4 @@
-"""Tools for optimization problems."""
+"""Root search algorithms for solving scalar equations."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Rémi Flamary <remi.flamary@polytechnique.edu>
@@ -6,247 +6,181 @@
 # License: BSD 3-Clause License
 
 import torch
-from torchdr.utils.wrappers import compile_if_requested
-
-DTYPE = torch.float32
-DEVICE = "cpu"
 
 
-@compile_if_requested
+from typing import Callable, Tuple
+
+_DEFAULT_TOL = torch.tensor(1e-6)
+
+
+@torch.compiler.disable
 def binary_search(
-    f,
-    n,
-    begin=None,
-    end=None,
-    max_iter=1000,
-    tol=1e-9,
-    verbose=False,
-    dtype=DTYPE,
-    device=DEVICE,
-    logger=None,
-    compile: bool = False,
-):
-    r"""Implement the binary search root finding method.
+    f: Callable[[torch.Tensor], torch.Tensor],
+    n: int,
+    begin: float = 1.0,
+    end: float = 1.0,
+    max_iter: int = 100,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device = torch.device("cpu"),
+) -> torch.Tensor:
+    """Batched binary search root finding.
 
-    Perform a batched binary search to find the root of an increasing function f.
-    The domain of f is restricted to positive floats.
+    Finds the roots of an increasing function f over positive inputs
+    by repeatedly narrowing the bracket [begin, end].
 
     Parameters
     ----------
-    f : function :math:`\mathbb{R}_{>0} \to \mathbb{R}`
-        batched 1d increasing function which root should be computed.
+    f : Callable[[torch.Tensor], torch.Tensor]
+        Batched 1-D increasing function.
     n : int
-        size of the input of f.
-    begin : float or torch.Tensor of shape (n), optional
-        initial lower bound of the root.
-    end : float or torch.Tensor of shape (n), optional
-        initial upper bound of the root.
+        Batch size (length of the input/output vectors).
+    begin : float, optional
+        Scalar initial lower bound (default: 1.0).
+    end : float, optional
+        Scalar initial upper bound (default: 1.0).
     max_iter : int, optional
-        maximum iterations of search.
-    tol : float, optional
-        precision threshold at which the algorithm stops.
-    verbose : bool, optional
-        if True, prints current bounds.
+        Maximum number of iterations (default: 1000).
     dtype : torch.dtype, optional
-        data type of the input.
-    device : str, optional
-        device on which the computation is performed.
-    logger : logging.Logger, optional
-        logger to use for printing.
-    compile : bool, optional
-        if True, the function is compiled.
+        Data type of all tensors (default: torch.float32).
+    device : torch.device, optional
+        Device for all tensors (default: CPU).
 
     Returns
     -------
-    m : torch.Tensor of shape (n)
-        root of f.
+    m : torch.Tensor of shape (n,)
+        Estimated roots where |f(m)| < tol.
     """
-    begin, end = init_bounds(
-        f=f,
-        n=n,
-        begin=begin,
-        end=end,
-        dtype=dtype,
-        device=device,
-        verbose=verbose,
-        logger=logger,
-    )
+    tol = _DEFAULT_TOL.to(device).to(dtype)
+    b, e = init_bounds(f, n, begin, end, max_iter=max_iter, dtype=dtype, device=device)
 
-    m = (begin + end) / 2
-    fm = f(m)
+    f_b = f(b)
+    m = (b + e) * 0.5
+    f_m = f(m)
 
-    i = 0
-    for i in range(max_iter):
-        if torch.max(torch.abs(fm)) < tol:
+    for _ in range(max_iter):
+        active = torch.abs(f_m) >= tol
+        if not active.any():
             break
 
-        sam = fm * f(begin) > 0
-        begin = sam * m + (~sam) * begin
-        end = (~sam) * m + sam * end
-        m = (begin + end) / 2
-        fm = f(m)
+        same_sign = f_m * f_b > 0
 
-    if verbose:
-        n_iter = i + 1 if max_iter > 0 else 0
-        msg = f"Root found in {n_iter} iterations."
-        if logger is None:
-            print("[TorchDR] " + msg)
-        else:
-            logger.info(msg)
+        b = torch.where(active & same_sign, m, b)
+        e = torch.where(active & (~same_sign), m, e)
+        f_b = torch.where(active & same_sign, f_m, f_b)
+
+        m = (b + e) * 0.5
+        f_m = f(m)
 
     return m
 
 
-@compile_if_requested
+@torch.compiler.disable
 def false_position(
-    f,
-    n,
-    begin=None,
-    end=None,
-    max_iter=1000,
-    tol=1e-9,
-    verbose=False,
-    dtype=DTYPE,
-    device=DEVICE,
-    logger=None,
-    compile: bool = False,
-):
-    r"""Implement the false position root finding method.
+    f: Callable[[torch.Tensor], torch.Tensor],
+    n: int,
+    begin: float = 1.0,
+    end: float = 1.0,
+    max_iter: int = 100,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device = torch.device("cpu"),
+) -> torch.Tensor:
+    """Batched false-position root finding.
 
-    Perform a batched false position method to find the root
+    Uses linear interpolation to bracket and converge on the root
     of an increasing function f.
-    The domain of f is restricted to positive floats.
 
     Parameters
     ----------
-    f : function :math:`\mathbb{R}_{>0} \to \mathbb{R}`
-        increasing function which root should be computed.
+    f : Callable[[torch.Tensor], torch.Tensor]
+        Batched 1-D increasing function.
     n : int
-        size of the input of f.
-    begin : torch.Tensor of shape (n) or float, optional
-        initial lower bound of the root.
-    end : torch.Tensor of shape (n) or float, optional
-        initial upper bound of the root.
+        Batch size (length of the input/output vectors).
+    begin : float, optional
+        Scalar initial lower bound (default: 1.0).
+    end : float, optional
+        Scalar initial upper bound (default: 1.0).
     max_iter : int, optional
-        maximum iterations of search.
-    tol : float, optional
-        precision threshold at which the algorithm stops.
-    verbose : bool, optional
-        if True, prints current bounds.
+        Maximum number of iterations (default: 1000).
     dtype : torch.dtype, optional
-        data type of the input.
-    device : str, optional
-        device on which the computation is performed.
-    logger : logging.Logger, optional
-        logger to use for printing.
-    compile : bool, optional
-        if True, the function is compiled.
+        Data type of all tensors (default: torch.float32).
+    device : torch.device, optional
+        Device for all tensors (default: CPU).
 
     Returns
     -------
-    m : torch.Tensor of shape (n)
-        root of f.
+    m : torch.Tensor of shape (n,)
+        Estimated roots where |f(m)| < tol.
     """
-    begin, end = init_bounds(
-        f=f,
-        n=n,
-        begin=begin,
-        end=end,
-        dtype=dtype,
-        device=device,
-        verbose=verbose,
-        logger=logger,
-    )
+    tol = _DEFAULT_TOL.to(device).to(dtype)
+    b, e = init_bounds(f, n, begin, end, max_iter=max_iter, dtype=dtype, device=device)
 
-    f_begin, f_end = f(begin), f(end)
-    m = begin - ((begin - end) / (f(begin) - f(end))) * f(begin)
-    fm = f(m)
-    assert m.shape == begin.shape == end.shape, (
-        "dimension changed after evaluating the function which root should be computed."
-    )
+    f_b = f(b)
+    f_e = f(e)
+    m = b - (b - e) / (f_b - f_e) * f_b
+    f_m = f(m)
 
-    i = 0
-    for i in range(max_iter):
-        if torch.max(torch.abs(fm)) < tol:
+    for _ in range(max_iter):
+        active = torch.abs(f_m) >= tol
+        if not active.any():
             break
 
-        sam = fm * f_begin > 0
-        begin = sam * m + (~sam) * begin
-        f_begin = sam * fm + (~sam) * f_begin
-        end = (~sam) * m + sam * end
-        f_end = (~sam) * fm + sam * f_end
-        m = begin - ((begin - end) / (f_begin - f_end)) * f_begin
-        fm = f(m)
+        same_sign = f_m * f_b > 0
 
-    if verbose:
-        n_iter = i + 1 if max_iter > 0 else 0
-        msg = f"Root found in {n_iter} iterations."
-        if logger is None:
-            print("[TorchDR] " + msg)
-        else:
-            logger.info(msg)
+        b = torch.where(active & same_sign, m, b)
+        f_b = torch.where(active & same_sign, f_m, f_b)
+        e = torch.where(active & (~same_sign), m, e)
+        f_e = torch.where(active & (~same_sign), f_m, f_e)
+
+        m = b - (b - e) / (f_b - f_e) * f_b
+        f_m = f(m)
 
     return m
 
 
-@compile_if_requested
+@torch.compiler.disable
 def init_bounds(
-    f,
-    n,
-    begin=None,
-    end=None,
-    dtype=DTYPE,
-    device=DEVICE,
-    verbose=True,
-    logger=None,
-    compile: bool = False,
-):
-    """Initialize the bounds of the root search."""
-    if begin is None:
-        begin = torch.ones(n, dtype=dtype, device=device)
+    f: Callable[[torch.Tensor], torch.Tensor],
+    n: int,
+    begin=1.0,
+    end=1.0,
+    max_iter=100,
+    dtype: torch.dtype = torch.float32,
+    device="cpu",
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Initialize root‐search bounds for f, supporting both scalar and tensor inputs."""
+
+    if isinstance(begin, torch.Tensor):
+        b = begin.to(dtype=dtype, device=device)
+        if b.shape != (n,):
+            raise ValueError(f"begin tensor must have shape ({n},), got {b.shape}")
     else:
-        assert isinstance(begin, (int, float, torch.Tensor)), (
-            "begin must be a float, an int or a tensor."
-        )
-        if isinstance(begin, torch.Tensor):
-            assert begin.shape == (n,), "begin must have the same shape as the output."
-            begin = begin.to(dtype=dtype, device=device)
-        begin = begin * torch.ones(n, dtype=dtype, device=device)
+        b = torch.full((n,), float(begin), dtype=dtype, device=device)
 
-    if end is None:
-        end = torch.ones(n, dtype=dtype, device=device)
+    if isinstance(end, torch.Tensor):
+        e = end.to(dtype=dtype, device=device)
+        if e.shape != (n,):
+            raise ValueError(f"end tensor must have shape ({n},), got {e.shape}")
     else:
-        assert isinstance(end, (int, float, torch.Tensor)), (
-            "end must be a float, an int or a tensor."
-        )
-        if isinstance(end, torch.Tensor):
-            assert end.shape == (n,), "end must have the same shape as the output."
-            end = end.to(dtype=dtype, device=device)
-        end = end * torch.ones(n, dtype=dtype, device=device)
+        e = torch.full((n,), float(end), dtype=dtype, device=device)
 
-    eval_counter = 0
+    # shrink `b` downward until f(b) ≤ 0, pulling `e` in with it
+    for _ in range(max_iter):
+        mask = f(b) > 0
+        if not mask.any():
+            break
 
-    # Ensure that begin lower bounds the root
-    out_begin = f(begin) > 0
-    while out_begin.any():
-        end[out_begin] = torch.min(end[out_begin], begin[out_begin])
-        begin[out_begin] /= 2
-        out_begin = f(begin) > 0
-        eval_counter += 1
+        old_b = b
+        e = torch.where(mask, torch.min(e, old_b), e)
+        b = torch.where(mask, b * 0.5, b)
 
-    # Ensure that end upper bounds the root
-    out_end = f(end) < 0
-    while out_end.any():
-        begin[out_end] = torch.max(begin[out_end], end[out_end])
-        end[out_end] *= 2
-        out_end = f(end) < 0
-        eval_counter += 1
+    # expand `e` upward until f(e) ≥ 0, pushing `b` out with it
+    for _ in range(max_iter):
+        mask = f(e) < 0
+        if not mask.any():
+            break
 
-    if verbose and eval_counter > 0:
-        msg = f"Root search bounds initialized in {eval_counter} evaluation(s)."
-        if logger is None:
-            print("[TorchDR] " + msg)
-        else:
-            logger.info(msg)
+        old_e = e
+        b = torch.where(mask, torch.max(b, old_e), b)
+        e = torch.where(mask, e * 2.0, e)
 
-    return begin, end
+    return b, e

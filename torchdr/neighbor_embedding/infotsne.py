@@ -65,8 +65,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    tol_affinity : float, optional
-        Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
@@ -112,7 +110,6 @@ class InfoTSNE(SampledNeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
-        tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
@@ -126,13 +123,11 @@ class InfoTSNE(SampledNeighborEmbedding):
         self.metric_out = metric_out
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
-            tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -170,6 +165,6 @@ class InfoTSNE(SampledNeighborEmbedding):
             compile=compile,
         )
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True, indices=self.neg_indices_)
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

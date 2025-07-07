@@ -8,9 +8,8 @@
 from typing import Tuple, Union, Optional
 
 import torch
-import math
 
-from torchdr.affinity.base import Affinity, LogAffinity, SparseLogAffinity
+from torchdr.affinity.base import Affinity, LogAffinity, SparseAffinity
 from torchdr.utils import (
     matrix_transpose,
     kmin,
@@ -22,6 +21,7 @@ from torchdr.utils import (
     binary_search,
     compile_if_requested,
 )
+from torchdr.utils.sparse import sym_sparse_op
 from torchdr.distance import pairwise_distances
 
 
@@ -311,7 +311,7 @@ class PHATEAffinity(Affinity):
         return affinity
 
 
-class UMAPAffinity(SparseLogAffinity):
+class UMAPAffinity(SparseAffinity):
     r"""Compute the input affinity used in UMAP :cite:`mcinnes2018umap`.
 
     The algorithm computes via root search the variable
@@ -326,8 +326,6 @@ class UMAPAffinity(SparseLogAffinity):
     ----------
     n_neighbors : float, optional
         Number of effective nearest neighbors to consider. Similar to the perplexity.
-    tol : float, optional
-        Precision threshold for the root search.
     max_iter : int, optional
         Maximum number of iterations for the root search.
     sparsity : bool, optional
@@ -354,7 +352,6 @@ class UMAPAffinity(SparseLogAffinity):
     def __init__(
         self,
         n_neighbors: float = 30,
-        tol: float = 1e-5,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -366,7 +363,6 @@ class UMAPAffinity(SparseLogAffinity):
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
-        self.tol = tol
         self.max_iter = max_iter
 
         super().__init__(
@@ -381,7 +377,9 @@ class UMAPAffinity(SparseLogAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
         r"""Compute the input affinity matrix of UMAP from input data X.
 
         Parameters
@@ -411,27 +409,33 @@ class UMAPAffinity(SparseLogAffinity):
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        def marginal_gap(eps):  # function to find the root of
-            marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1).exp().squeeze()
-            return marg - math.log2(n_neighbors)
+        log_n_neighbors = torch.log2(
+            torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
+        )
+
+        def marginal_gap(eps):
+            log_marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1)
+            return log_marg.exp().squeeze() - log_n_neighbors
 
         self.eps_ = binary_search(
             f=marginal_gap,
             n=n_samples_in,
-            tol=self.tol,
             max_iter=self.max_iter,
-            verbose=self.verbose,
             dtype=X.dtype,
             device=X.device,
-            logger=self.logger if self.verbose else None,
         )
 
+        # Compute log affinity matrix
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
 
-        return log_affinity_matrix, indices
+        # symmetrize
+        affinity_matrix = log_affinity_matrix.exp()
+        out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
+
+        return out_val, out_idx if return_indices else out_val
 
 
-class PACMAPAffinity(SparseLogAffinity):
+class PACMAPAffinity(SparseAffinity):
     r"""Compute the input affinity used in PACMAP :cite:`wang2021understanding`.
 
     Parameters
@@ -483,7 +487,9 @@ class PACMAPAffinity(SparseLogAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_log_affinity(self, X: torch.Tensor):
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
         r"""Compute the input affinity matrix of PACMAP from input data X.
 
         Parameters
@@ -514,7 +520,10 @@ class PACMAPAffinity(SparseLogAffinity):
         normalized_C = C_ / rho_i * rho_j
 
         # Compute final NN indices
-        _, local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)
+        local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)[1]
         final_indices = torch.gather(temp_indices, 1, local_indices.to(torch.int64))
 
-        return None, final_indices  # PACMAP only uses the NN indices
+        if return_indices:
+            return None, final_indices
+        else:
+            return normalized_C

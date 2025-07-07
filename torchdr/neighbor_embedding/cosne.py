@@ -64,8 +64,6 @@ class COSNE(SparseNeighborEmbedding):
         By default 12.0 for early exaggeration.
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration, by default 250.
-    tol_affinity : float, optional
-        Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric_in : {'sqeuclidean', 'manhattan'}, optional
@@ -98,7 +96,6 @@ class COSNE(SparseNeighborEmbedding):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: Optional[int] = 250,
-        tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         sparsity: bool = True,
@@ -111,13 +108,11 @@ class COSNE(SparseNeighborEmbedding):
         self.lambda1 = lambda1
         self.gamma = gamma
         self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
             metric=metric_in,
-            tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -160,7 +155,7 @@ class COSNE(SparseNeighborEmbedding):
         self.X_norm = (X**2).sum(-1)
         return super()._fit_transform(X)
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         log_Q = self.affinity_out(self.embedding_, log=True)
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))  # torch.tensor([0])
         Y_norm = (self.embedding_**2).sum(-1)

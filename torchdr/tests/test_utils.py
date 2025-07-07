@@ -50,20 +50,14 @@ def test_binary_search(dtype):
     begin = 0.5
     end = None
 
-    tol = 1e-9
-
-    m = binary_search(
-        f, 1, begin=begin, end=end, max_iter=1000, tol=tol, verbose=False, dtype=dtype
-    )
+    m = binary_search(f, 1, begin=begin, end=end, max_iter=1000, dtype=dtype)
     assert_close(m, torch.tensor([1.0], dtype=dtype))
 
     # --- test 2D, with begin as tensor ---
     begin = 0.5 * torch.ones(2, dtype=torch.float16)
     end = None
 
-    m = binary_search(
-        f, 2, begin=begin, end=end, max_iter=1000, tol=tol, verbose=True, dtype=dtype
-    )
+    m = binary_search(f, 2, begin=begin, end=end, max_iter=1000, dtype=dtype)
     assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
 
@@ -106,7 +100,6 @@ def test_pairwise_distances(dtype, metric):
     x = x / x.max() - 0.1
     y = y / y.max() - 0.1
 
-    # --- check consistency between torch and keops ---
     C, _ = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
@@ -172,16 +165,6 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
-
-
-def test_pairwise_distances_compilation():
-    n, p = 100, 20
-    x = torch.randn(n, p)
-
-    C_eager, _ = pairwise_distances(x, compile=False, backend=None)
-    C_compiled, _ = pairwise_distances(x, compile=True, backend=None)
-
-    check_similarity(C_eager, C_compiled)
 
 
 # ====== test center_kernel ======
