@@ -273,7 +273,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     n = 300
     X, _ = toy_dataset(n, dtype)
     perp = 30
-    tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
+    # tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
     target_entropy = np.log(perp) * ones + 1
@@ -286,7 +286,6 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
         perplexity=perp,
         backend=backend,
         metric=metric,
-        tol=1e-6,
         verbose=True,
         device=DEVICE,
         sparsity=sparsity,
@@ -294,6 +293,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     )
     log_P = affinity(X, log=True)
 
+    tol = 1e-3
     # -- check properties of the affinity matrix --
     check_type(log_P, backend == "keops")
     check_shape(log_P, (n, n))
@@ -425,14 +425,12 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     n = 300
     X, _ = toy_dataset(n, dtype)
     n_neighbors = 30
-    tol = 1e-3
 
     affinity = UMAPAffinity(
         n_neighbors=n_neighbors,
         device=DEVICE,
         backend=backend,
         metric=metric,
-        tol=tol,
         verbose=True,
         sparsity=sparsity,
         compile=compile,

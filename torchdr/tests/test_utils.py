@@ -50,20 +50,14 @@ def test_binary_search(dtype):
     begin = 0.5
     end = None
 
-    tol = 1e-9
-
-    m = binary_search(
-        f, 1, begin=begin, end=end, max_iter=1000, tol=tol, verbose=False, dtype=dtype
-    )
+    m = binary_search(f, 1, begin=begin, end=end, max_iter=1000, dtype=dtype)
     assert_close(m, torch.tensor([1.0], dtype=dtype))
 
     # --- test 2D, with begin as tensor ---
     begin = 0.5 * torch.ones(2, dtype=torch.float16)
     end = None
 
-    m = binary_search(
-        f, 2, begin=begin, end=end, max_iter=1000, tol=tol, verbose=True, dtype=dtype
-    )
+    m = binary_search(f, 2, begin=begin, end=end, max_iter=1000, dtype=dtype)
     assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
 
 

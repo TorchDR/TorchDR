@@ -487,7 +487,9 @@ class PACMAPAffinity(SparseAffinity):
         )
 
     @compile_if_requested
-    def _compute_sparse_affinity(self, X: torch.Tensor):
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
         r"""Compute the input affinity matrix of PACMAP from input data X.
 
         Parameters
@@ -518,7 +520,10 @@ class PACMAPAffinity(SparseAffinity):
         normalized_C = C_ / rho_i * rho_j
 
         # Compute final NN indices
-        _, local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)
+        local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)[1]
         final_indices = torch.gather(temp_indices, 1, local_indices.to(torch.int64))
 
-        return None, final_indices  # PACMAP only uses the NN indices
+        if return_indices:
+            return None, final_indices
+        else:
+            return normalized_C
