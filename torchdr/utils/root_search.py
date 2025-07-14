@@ -64,9 +64,12 @@ def binary_search(
 
         same_sign = f_m * f_b > 0
 
-        b = torch.where(active & same_sign, m, b)
-        e = torch.where(active & (~same_sign), m, e)
-        f_b = torch.where(active & same_sign, f_m, f_b)
+        mask1 = active & same_sign
+        b[mask1] = m[mask1]
+        f_b[mask1] = f_m[mask1]
+
+        mask2 = active & (~same_sign)
+        e[mask2] = m[mask2]
 
         m = (b + e) * 0.5
         f_m = f(m)
@@ -126,10 +129,13 @@ def false_position(
 
         same_sign = f_m * f_b > 0
 
-        b = torch.where(active & same_sign, m, b)
-        f_b = torch.where(active & same_sign, f_m, f_b)
-        e = torch.where(active & (~same_sign), m, e)
-        f_e = torch.where(active & (~same_sign), f_m, f_e)
+        mask1 = active & same_sign
+        b[mask1] = m[mask1]
+        f_b[mask1] = f_m[mask1]
+
+        mask2 = active & (~same_sign)
+        e[mask2] = m[mask2]
+        f_e[mask2] = f_m[mask2]
 
         m = b - (b - e) / (f_b - f_e) * f_b
         f_m = f(m)
