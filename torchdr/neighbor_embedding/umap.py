@@ -222,7 +222,7 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_,
             metric=self.metric_out,
             indices=self.NN_indices_,
-        )[0]
+        )
         D = torch.where(
             D > 0,
             2 * self._a * self._b * D ** (self._b - 1) / (1 + self._a * D**self._b),
@@ -252,7 +252,7 @@ class UMAP(SampledNeighborEmbedding):
             self.embedding_,
             metric=self.metric_out,
             indices=self.neg_indices_,
-        )[0]
+        )
         D = -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
 
         # Filter to keep 'negative_sample_rate' negative edges per positive edge.

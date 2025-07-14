@@ -72,6 +72,7 @@ def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,
     metric: str = "sqeuclidean",
+    return_indices: bool = False,
 ):
     r"""Compute pairwise distances for a subset of pairs given by indices.
 
@@ -86,6 +87,9 @@ def symmetric_pairwise_distances_indices(
         Indices of the pairs for which to compute the distances.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
+    return_indices : bool, optional
+        Whether to return the indices of the pairs for which to compute the distances.
+        Default is False.
 
     Returns
     -------
@@ -113,4 +117,7 @@ def symmetric_pairwise_distances_indices(
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 
-    return C_indices, indices
+    if return_indices:
+        return C_indices, indices
+    else:
+        return C_indices

@@ -272,9 +272,9 @@ class EntropicAffinity(SparseLogAffinity):
             device=X.device,
         )
 
-        log_P_final = _log_Pe(C_, self.eps_)
-        self.log_normalization_ = logsumexp_red(log_P_final, dim=1)
-        log_affinity_matrix = log_P_final - self.log_normalization_
+        log_affinity_matrix = _log_Pe(C_, self.eps_)
+        self.log_normalization_ = logsumexp_red(log_affinity_matrix, dim=1)
+        log_affinity_matrix -= self.log_normalization_
 
         log_affinity_matrix -= torch.log(
             n_samples_in
