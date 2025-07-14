@@ -48,7 +48,7 @@ param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
         (TSNEkhorn, {**SEA_params, "unrolling": False}),
         (LargeVis, {}),
         (InfoTSNE, {}),
-        (UMAP, {}),
+        (UMAP, {"optimizer": "SGD"}),
         (PACMAP, {}),
     ],
 )

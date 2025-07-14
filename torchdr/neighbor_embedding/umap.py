@@ -6,17 +6,13 @@
 
 from typing import Dict, Optional, Union, Type
 import torch
+import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import (
-    cross_entropy_loss,
-    sum_red,
-)
 from torchdr.distance import symmetric_pairwise_distances_indices
 
 from scipy.optimize import curve_fit
-import numpy as np
 
 
 # from umap/umap/umap_.py
@@ -82,8 +78,9 @@ class UMAP(SampledNeighborEmbedding):
     scheduler_kwargs : dict, 'auto', or None, optional
         Additional keyword arguments for the scheduler. Default is 'auto', which
         corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z, default 'pca'.
+    init : {'normal', 'pca', 'umap_spectral'} or torch.Tensor of shape (n_samples, output_dim), optional
+        Initialization for the embedding Z, default 'pca'. 'umap_spectral' uses the
+        original UMAP package's spectral initialization.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     min_grad_norm : float, optional
@@ -99,8 +96,6 @@ class UMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    tol_affinity : float, optional
-        Precision threshold for the input affinity computation.
     max_iter_affinity : int, optional
         Number of maximum iterations for the input affinity computation.
     metric_in : {'euclidean', 'manhattan'}, optional
@@ -128,7 +123,7 @@ class UMAP(SampledNeighborEmbedding):
         b: Optional[float] = None,
         lr: float = 1e-1,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
-        optimizer_kwargs: Union[Dict, str] = "auto",
+        optimizer_kwargs: Union[Dict, str] = None,
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
         ] = "LinearLR",
@@ -141,11 +136,9 @@ class UMAP(SampledNeighborEmbedding):
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        tol_affinity: float = 1e-3,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
-        n_negatives: int = 10,
+        negative_sample_rate: int = 5,
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
@@ -155,10 +148,13 @@ class UMAP(SampledNeighborEmbedding):
         self.min_dist = min_dist
         self.spread = spread
         self.metric_in = metric_in
-        self.metric_out = metric_out
         self.max_iter_affinity = max_iter_affinity
-        self.tol_affinity = tol_affinity
-        self.sparsity = True  # UMAP always uses sparse affinities
+        self.negative_sample_rate = negative_sample_rate
+
+        self.metric_out = "sqeuclidean"
+        self.sparsity = True
+        self._use_direct_gradients = True
+        self._eps = 1e-3
 
         if a is None or b is None:
             a, b = find_ab_params(self.spread, self.min_dist)
@@ -168,7 +164,6 @@ class UMAP(SampledNeighborEmbedding):
         affinity_in = UMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
-            tol=tol_affinity,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -193,25 +188,82 @@ class UMAP(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            n_negatives=n_negatives,
             check_interval=check_interval,
             discard_NNs=discard_NNs,
             compile=compile,
+            n_negatives=int(self.negative_sample_rate * self.n_neighbors),
             **kwargs,
         )
 
-    def _repulsive_loss(self):
-        D = symmetric_pairwise_distances_indices(
-            self.embedding_, metric=self.metric_out, indices=self.neg_indices_
-        )[0]
-        D = self._a * D**self._b
-        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-        return -sum_red((1 - D).log(), dim=(0, 1))
+    def on_affinity_computation_end(self):
+        super().on_affinity_computation_end()
 
-    def _attractive_loss(self):
+        # Remove small affinity edges
+        A_max = self.affinity_in_.max()
+        threshold = A_max / self.max_iter
+
+        if self.verbose:
+            edges_removed = (self.affinity_in_ <= threshold).sum()
+            total_edges = self.affinity_in_.numel()
+            percentage_kept = (
+                (total_edges - edges_removed).float() / total_edges * 100
+            ).item()
+            self.logger.info(f"Keeping {percentage_kept:.1f}% of affinity edges.")
+
+        self.epochs_per_sample = torch.where(
+            self.affinity_in_ > threshold,
+            A_max / (self.affinity_in_ + 1e-3),
+            torch.full_like(self.affinity_in_, fill_value=1e9),
+        )
+        self.epoch_of_next_sample = self.epochs_per_sample.clone()
+
+    def _compute_attractive_gradients(self):
         D = symmetric_pairwise_distances_indices(
-            self.embedding_, metric=self.metric_out, indices=self.NN_indices_
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.NN_indices_,
         )[0]
-        D = self._a * D**self._b
-        D = 1 / (2 + D)  # sigmoid trick to avoid numerical instability
-        return cross_entropy_loss(self.affinity_in_, D)
+        D = torch.where(
+            D > 0,
+            2 * self._a * self._b * D ** (self._b - 1) / (1 + self._a * D**self._b),
+            torch.zeros_like(D),
+        )  # compute D**(b-1) for D > 0 to prevent infinities when b < 1
+
+        # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
+        # (higher affinity → smaller epochs_per_sample) get updated more often.
+        # Use tensor iteration counter from base class for torch compile compatibility
+        self.mask_affinity_in_ = self.epoch_of_next_sample <= self.n_iter_ + 1
+        self.epoch_of_next_sample = torch.where(
+            self.mask_affinity_in_,
+            self.epoch_of_next_sample + self.epochs_per_sample,
+            self.epoch_of_next_sample,
+        )
+        D = D * self.mask_affinity_in_
+
+        embedding_diff = (
+            self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
+        )  # (n, n_negatives, d)
+        D = D.unsqueeze(-1) * embedding_diff
+        D = torch.clamp(D, -4, 4)  # clamp as in umap repo
+        return D.sum(dim=1)
+
+    def _compute_repulsive_gradients(self):
+        D = symmetric_pairwise_distances_indices(
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.neg_indices_,
+        )[0]
+        D = -2 * self._b / ((self._eps + D) * (1 + self._a * D**self._b))
+
+        # Filter to keep 'negative_sample_rate' negative edges per positive edge.
+        neg_counts = self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate
+        col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)[None, :]
+        keep = col_idx < neg_counts[:, None]
+        D = D * keep
+
+        embedding_diff = (
+            self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
+        )  # (n, n_negatives, d)
+        D = D.unsqueeze(-1) * embedding_diff
+        D = torch.clamp(D, -4, 4)  # clamp as in umap repo
+        return D.sum(dim=1)

@@ -264,7 +264,7 @@ def test_cauchy_affinity(dtype, metric):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("sparsity", [False])
+@pytest.mark.parametrize("sparsity", [False, True])
 @pytest.mark.parametrize("backend", lst_backend)
 def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     if backend is not None and compile:
@@ -273,7 +273,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     n = 300
     X, _ = toy_dataset(n, dtype)
     perp = 30
-    tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
+    # tol = 1e-2  # sparse affinities do not validate the test for tol=1e-3
     zeros = torch.zeros(n, dtype=getattr(torch, dtype), device=DEVICE)
     ones = torch.ones(n, dtype=getattr(torch, dtype), device=DEVICE)
     target_entropy = np.log(perp) * ones + 1
@@ -286,23 +286,27 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
         perplexity=perp,
         backend=backend,
         metric=metric,
-        tol=1e-6,
         verbose=True,
         device=DEVICE,
         sparsity=sparsity,
         compile=compile,
     )
-    log_P = affinity(X, log=True)
+    log_P = affinity(X, log=True, return_indices=False)
 
+    tol = 1e-3
     # -- check properties of the affinity matrix --
-    check_type(log_P, backend == "keops")
-    check_shape(log_P, (n, n))
+    if not sparsity:
+        check_type(log_P, backend == "keops")
+        check_shape(log_P, (n, n))
     check_marginal(log_P + math.log(n), zeros, dim=1, tol=tol, log=True)
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
     C, _ = affinity._distance_matrix(to_torch(X, device=DEVICE))
-    begin, end = _bounds_entropic_affinity(C, perplexity=perp)
+    perp_tensor = torch.tensor(perp, dtype=getattr(torch, dtype), device=DEVICE)
+    begin, end = _bounds_entropic_affinity(
+        C, perplexity=perp_tensor, device=DEVICE, dtype=getattr(torch, dtype)
+    )
     assert (entropy_gap(begin, C) < 0).all(), (
         "Lower bound of entropic affinity root is not valid."
     )
@@ -416,7 +420,7 @@ def test_doubly_stochastic_quadratic(dtype, metric, backend, compile=False):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
-@pytest.mark.parametrize("sparsity", [False])
+@pytest.mark.parametrize("sparsity", [True, False])
 @pytest.mark.parametrize("backend", lst_backend)
 def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     if backend is not None and compile:
@@ -425,23 +429,22 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     n = 300
     X, _ = toy_dataset(n, dtype)
     n_neighbors = 30
-    tol = 1e-3
 
     affinity = UMAPAffinity(
         n_neighbors=n_neighbors,
         device=DEVICE,
         backend=backend,
         metric=metric,
-        tol=tol,
         verbose=True,
         sparsity=sparsity,
         compile=compile,
     )
-    P = affinity(X)
+    P = affinity(X, return_indices=False)
 
     # -- check properties of the affinity matrix --
-    check_type(P, backend == "keops")
-    check_shape(P, (n, n))
+    if not sparsity:
+        check_type(P, backend == "keops")
+        check_shape(P, (n, n))
     check_nonnegativity(P)
 
 

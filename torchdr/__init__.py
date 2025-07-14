@@ -16,10 +16,12 @@ from .__about__ import (
 # import affinities
 from .affinity import (
     Affinity,
+    LogAffinity,
+    SparseAffinity,
+    SparseLogAffinity,
     DoublyStochasticQuadraticAffinity,
     EntropicAffinity,
     GaussianAffinity,
-    LogAffinity,
     MAGICAffinity,
     NormalizedGaussianAffinity,
     NormalizedStudentAffinity,
@@ -65,6 +67,8 @@ __all__ = [
     "__author__",
     "__license__",
     "Affinity",
+    "SparseAffinity",
+    "SparseLogAffinity",
     "LogAffinity",
     "GaussianAffinity",
     "NormalizedGaussianAffinity",

@@ -11,7 +11,7 @@ import torch
 
 from torchdr.affinity import (
     Affinity,
-    SparseLogAffinity,
+    SparseAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
 )
@@ -133,8 +133,8 @@ class NeighborEmbedding(AffinityMatcher):
         _scheduler_kwargs = scheduler_kwargs
         if scheduler == "LinearLR" and scheduler_kwargs == "auto":
             _scheduler_kwargs = {
-                "start_factor": 1.0,
-                "end_factor": 0,
+                "start_factor": torch.tensor(1.0),
+                "end_factor": torch.tensor(0),
                 "total_iters": max_iter,
             }
 
@@ -196,8 +196,16 @@ class NeighborEmbedding(AffinityMatcher):
 
         return super()._fit_transform(X, y)
 
-    def _loss(self):
-        raise NotImplementedError("[TorchDR] ERROR : _loss method must be implemented.")
+    def _compute_loss(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_loss method must be implemented."
+        )
+
+    def _compute_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_gradients method must be implemented "
+            "when _use_direct_gradients is True."
+        )
 
     def _set_learning_rate(self):
         if self.lr == "auto":
@@ -267,7 +275,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -351,7 +359,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         compile: bool = False,
     ):
         # check affinity affinity_in
-        if not isinstance(affinity_in, SparseLogAffinity):
+        if not isinstance(affinity_in, SparseAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
                 "must be a sparse affinity."
@@ -392,7 +400,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             compile=compile,
         )
 
-    def _attractive_loss(self):
+    def _compute_attractive_loss(self):
         if isinstance(self.affinity_out, UnnormalizedLogAffinity):
             log_Q = self.affinity_out(
                 self.embedding_, log=True, indices=self.NN_indices_
@@ -402,17 +410,37 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
             return cross_entropy_loss(self.affinity_in_, Q)
 
-    def _repulsive_loss(self):
+    def _compute_repulsive_loss(self):
         raise NotImplementedError(
-            "[TorchDR] ERROR : _repulsive_loss method must be implemented."
+            "[TorchDR] ERROR : _compute_repulsive_loss method must be implemented."
         )
 
-    def _loss(self):
+    def _compute_loss(self):
         loss = (
-            self.early_exaggeration_coeff_ * self._attractive_loss()
-            + self.repulsion_strength * self._repulsive_loss()
+            self.early_exaggeration_coeff_ * self._compute_attractive_loss()
+            + self.repulsion_strength * self._compute_repulsive_loss()
         )
         return loss
+
+    def _compute_gradients(self):
+        # triggered when _use_direct_gradients is True
+        gradients = (
+            self.early_exaggeration_coeff_ * self._compute_attractive_gradients()
+            + self.repulsion_strength * self._compute_repulsive_gradients()
+        )
+        return gradients
+
+    def _compute_attractive_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_attractive_gradients method must be implemented "
+            "when _use_direct_gradients is True."
+        )
+
+    def _compute_repulsive_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
+            "when _use_direct_gradients is True."
+        )
 
 
 class SampledNeighborEmbedding(SparseNeighborEmbedding):
@@ -430,7 +458,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     parameter.
 
     **Fast attraction.** This class should be used when the input affinity matrix is a
-    :class:`~torchdr.SparseLogAffinity` and the output affinity matrix is an
+    :class:`~torchdr.SparseAffinity` and the output affinity matrix is an
     :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
     can be computed with linear complexity.
 

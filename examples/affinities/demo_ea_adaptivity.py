@@ -102,7 +102,7 @@ plt.show()
 aff_ea = EntropicAffinity(
     perplexity=5, backend=None, verbose=False, zero_diag=False, sparsity=False
 )
-EA = aff_ea(X)
+EA = aff_ea(X, return_indices=False)
 
 plt.figure(1, (6, 3))
 
