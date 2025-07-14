@@ -236,11 +236,7 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         n_samples_in = torch.tensor(X.shape[0], dtype=X.dtype, device=X.device)
-        perplexity = torch.tensor(
-            check_neighbor_param(self.perplexity, n_samples_in),
-            dtype=X.dtype,
-            device=X.device,
-        )
+        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = torch.log(perplexity) + 1
 
         k = 3 * perplexity
