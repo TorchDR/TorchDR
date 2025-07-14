@@ -130,7 +130,7 @@ class SelfTuningAffinity(LogAffinity):
             self.log_normalization_ = logsumexp_red(
                 log_affinity_matrix, self.normalization_dim
             )
-            log_affinity_matrix = log_affinity_matrix - self.log_normalization_
+            log_affinity_matrix -= self.log_normalization_
 
         return log_affinity_matrix
 
@@ -532,13 +532,13 @@ class PACMAPAffinity(SparseAffinity):
 
         rho_i = self.rho_.unsqueeze(1)  # Shape: (n_samples, 1)
         rho_j = self.rho_[temp_indices]  # Shape: (n_samples, k)
-        normalized_C = C_ / rho_i * rho_j
+        C_.div_(rho_i * rho_j)
 
         # Compute final NN indices
-        local_indices = kmin(normalized_C, k=self.n_neighbors, dim=1)[1]
+        local_indices = kmin(C_, k=self.n_neighbors, dim=1)[1]
         final_indices = torch.gather(temp_indices, 1, local_indices.to(torch.int64))
 
         if return_indices:
             return None, final_indices
         else:
-            return normalized_C
+            return C_
