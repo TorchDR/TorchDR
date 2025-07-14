@@ -344,6 +344,8 @@ class UMAPAffinity(SparseAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the computation. Default is False.
+    symmetrize : bool, optional
+        Whether to symmetrize the affinity matrix. Default is True.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -360,10 +362,12 @@ class UMAPAffinity(SparseAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        symmetrize: bool = True,
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.max_iter = max_iter
+        self.symmetrize = symmetrize
 
         super().__init__(
             metric=metric,
@@ -427,12 +431,23 @@ class UMAPAffinity(SparseAffinity):
 
         # Compute log affinity matrix
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
-
-        # symmetrize
         affinity_matrix = log_affinity_matrix.exp()
-        out_val, out_idx = sym_sparse_op(affinity_matrix, indices)
 
-        return out_val, out_idx if return_indices else out_val
+        # symmetrize if requested : P = P + P^T - P * P^T
+        if self.symmetrize:
+            if self.sparsity:
+                affinity_matrix, indices = sym_sparse_op(
+                    affinity_matrix, indices, mode="sum_minus_prod"
+                )
+            else:
+                affinity_matrix = (
+                    affinity_matrix
+                    + matrix_transpose(affinity_matrix)
+                    - affinity_matrix * matrix_transpose(affinity_matrix)
+                )
+                indices = None
+
+        return (affinity_matrix, indices) if return_indices else affinity_matrix
 
 
 class PACMAPAffinity(SparseAffinity):

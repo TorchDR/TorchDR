@@ -235,7 +235,7 @@ class EntropicAffinity(SparseLogAffinity):
         indices : torch.Tensor or None
             Indices of the nearest neighbors if sparsity is used.
         """
-        n_samples_in = X.shape[0]
+        n_samples_in = torch.tensor(X.shape[0], dtype=X.dtype, device=X.device)
         perplexity = torch.tensor(
             check_neighbor_param(self.perplexity, n_samples_in),
             dtype=X.dtype,
@@ -280,10 +280,10 @@ class EntropicAffinity(SparseLogAffinity):
         self.log_normalization_ = logsumexp_red(log_P_final, dim=1)
         log_affinity_matrix = log_P_final - self.log_normalization_
 
-        log_affinity_matrix -= math.log(
+        log_affinity_matrix -= torch.log(
             n_samples_in
         )  # sum of each row is 1/n so that total sum is 1
-        return log_affinity_matrix, indices if return_indices else log_affinity_matrix
+        return (log_affinity_matrix, indices) if return_indices else log_affinity_matrix
 
 
 class SymmetricEntropicAffinity(LogAffinity):

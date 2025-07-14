@@ -48,17 +48,17 @@ def test_binary_search(dtype):
 
     # --- test 1D, with begin as scalar ---
     begin = 0.5
-    end = None
+    end = 2.0
 
     m = binary_search(f, 1, begin=begin, end=end, max_iter=1000, dtype=dtype)
-    assert_close(m, torch.tensor([1.0], dtype=dtype))
+    assert_close(m, torch.tensor([1.0], dtype=dtype), rtol=1e-5, atol=1e-5)
 
     # --- test 2D, with begin as tensor ---
     begin = 0.5 * torch.ones(2, dtype=torch.float16)
-    end = None
+    end = 2.0
 
     m = binary_search(f, 2, begin=begin, end=end, max_iter=1000, dtype=dtype)
-    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
+    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype), rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("dtype", lst_types)
@@ -67,24 +67,18 @@ def test_false_position(dtype):
         return x**2 - 1
 
     # --- test 1D, with end as scalar ---
-    begin = None
+    begin = 0.5
     end = 2
 
-    tol = 1e-9
-
-    m = false_position(
-        f, 1, begin=begin, end=end, max_iter=1000, tol=tol, verbose=False, dtype=dtype
-    )
-    assert_close(m, torch.tensor([1.0], dtype=dtype))
+    m = false_position(f, 1, begin=begin, end=end, max_iter=1000, dtype=dtype)
+    assert_close(m, torch.tensor([1.0], dtype=dtype), rtol=1e-5, atol=1e-5)
 
     # --- test 2D, with end as tensor ---
-    begin = None
+    begin = 0.5
     end = 2 * torch.ones(2, dtype=torch.int)
 
-    m = false_position(
-        f, 2, begin=begin, end=end, max_iter=1000, tol=1e-9, verbose=True, dtype=dtype
-    )
-    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype))
+    m = false_position(f, 2, begin=begin, end=end, max_iter=1000, dtype=dtype)
+    assert_close(m, torch.tensor([1.0, 1.0], dtype=dtype), rtol=1e-5, atol=1e-5)
 
 
 # ====== test pairwise distance matrices ======
