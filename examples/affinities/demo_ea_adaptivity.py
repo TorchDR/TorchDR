@@ -66,7 +66,7 @@ def plot_affinity_graph(G):
 aff = NormalizedGaussianAffinity(
     sigma=1, normalization_dim=1, backend=None, zero_diag=False
 )
-K = aff(X)
+K = aff(X, return_indices=False)
 
 plt.figure(1, (6, 3))
 
@@ -102,7 +102,7 @@ plt.show()
 aff_ea = EntropicAffinity(
     perplexity=5, backend=None, verbose=False, zero_diag=False, sparsity=False
 )
-EA = aff_ea(X)
+EA = aff_ea(X, return_indices=False)
 
 plt.figure(1, (6, 3))
 
