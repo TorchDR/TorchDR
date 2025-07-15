@@ -21,28 +21,20 @@ DR aims to construct a low-dimensional representation (or embedding) of an input
 
 ## Key Features
 
-🚀 Blazing Fast: Engineered for speed with full GPU acceleration, torch.compile support, and optimized algorithms leveraging sparsity and negative sampling.
+🚀 **Blazing Fast**: engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity** and negative sampling.
 
-🧩 Modular by Design: With a clean, Python-based architecture, every component is designed to be easily customized, extended, or replaced to fit your specific needs.
+🧩 **Modular by Design**: very component is designed to be easily customized, extended, or replaced to fit your specific needs.
 
-🪶 Memory-Efficient: Process massive datasets without memory overflows. Natively handles sparse data and supports memory-efficient symbolic operations via KeOps.
+🪶 **Memory-Efficient**: natively handles sparsity and memory-efficient symbolic operations to process massive datasets without memory overflows.
 
-🤝 Seamless Integration: Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows.
+🤝 **Seamless Integration**: Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows.
 
-📦 Minimal Dependencies: The core requires only PyTorch, NumPy, and scikit-learn. Optional features like high-speed k-NN search or symbolic computation can be unlocked by installing Faiss or KeOps.
-
-<!-- ## Key Features
-
-- **Speed** : supports **GPU acceleration**, leverages **sparsity**, **contrastive learning** / **negative sampling** techniques and **torch compile**.
-- **Modularity** : all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
-- **Memory efficiency** : relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
-- **Compatibility** : implemented methods are fully **compatible** with the `sklearn` and `torch` ecosystems.
-- **Minimal dependencies** : requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic tensor ops. -->
+📦 **Minimal Dependencies**: requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic computation.
 
 
 ## Getting Started
 
-`TorchDR` offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both `NumPy` arrays and `PyTorch` tensors as input, ensuring that the output matches the type and backend of the input.
+**TorchDR** offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
 
 ```python
 from sklearn.datasets import fetch_openml
@@ -50,22 +42,39 @@ from torchdr import PCA, UMAP
 
 x = fetch_openml("mnist_784").data.astype("float32")
 
-x_ = PCA(n_components=50).fit_transform(x)
-z = UMAP(n_neighbors=30).fit_transform(x_)
+z = UMAP(n_neighbors=30).fit_transform(x)
 ```
 
-`TorchDR` is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
+## 🚀 GPU Acceleration
+
+**TorchDR** is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
 
 ```python
-z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
+z_gpu = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
 ```
+
+### 🔥 PyTorch 2.0+ torch.compile Support
+
+For an additional performance boost on modern PyTorch versions, TorchDR supports `torch.compile`. Just add the `compile=True` flag as follows:
+
+```python
+z_gpu_compile = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(x)
+```
+
+### ⚙️ Backends
+
+The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
+
+- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations.
+- To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
+- Finally, setting `backend=None` will use raw PyTorch for all computations.
 
 
 ## Methods
 
 ### Neighbor Embedding (optimal for data visualization)
 
-`TorchDR` provides a suite of **neighbor embedding** methods.
+**TorchDR** provides a suite of **neighbor embedding** methods.
 
 **Linear-time (Contrastive Learning).** State-of-the-art speed on large datasets: [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html), [`PACMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAP.html).
 
@@ -77,12 +86,12 @@ z_gpu = UMAP(n_neighbors=30 device="cuda").fit_transform(x_)
 
 ### Spectral Embedding
 
-`TorchDR` provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
+**TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
 
 
 ## Benchmarks
 
-Relying on `TorchDR` enables an **orders-of-magnitude improvement in runtime performance** compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
+Relying on **TorchDR** enables an **orders-of-magnitude improvement in runtime performance** compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
 
 <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark_single_cell.png" width="1024" alt="UMAP benchmark on single cell data">
@@ -122,7 +131,7 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 
 ### Affinities
 
-`TorchDR` features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
+**TorchDR** features a **wide range of affinities** which can then be used as a building block for DR algorithms. It includes:
 
 - Affinities based on k-NN normalizations: [`SelfTuningAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SelfTuningAffinity.html), [`MAGICAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.MAGICAffinity.html), [`UMAPAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAPAffinity.html), [`PHATEAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATEAffinity.html), [`PACMAPAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAPAffinity.html).
 - Doubly stochastic affinities: [`SinkhornAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SinkhornAffinity.html), [`DoublyStochasticQuadraticAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.DoublyStochasticQuadraticAffinity.html).
@@ -131,16 +140,8 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 
 ### Evaluation Metric
 
-`TorchDR` provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
+**TorchDR** provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
 
-
-### Backends
-
-The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
-
-- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations.
-- To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
-- Finally, setting `backend=None` will use raw PyTorch for all computations.
 
 
 ## Installation
@@ -151,7 +152,7 @@ Install the core `torchdr` library from PyPI:
 pip install torchdr
 ```
 
-:warning: `TorchDR` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
+:warning: `torchdr` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
 
 *   **Faiss (Recommended)**: For the fastest k-NN computations, install [Faiss](https://github.com/facebookresearch/faiss). Please follow their [official installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md). A common method is using `conda`:
     ```bash
