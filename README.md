@@ -37,7 +37,7 @@
 
 ```python
 from sklearn.datasets import fetch_openml
-from torchdr import PCA, UMAP
+from torchdr import UMAP
 
 x = fetch_openml("mnist_784").data.astype("float32")
 
