@@ -6,7 +6,6 @@
 
 from abc import ABC, abstractmethod
 
-import numpy as np
 import torch
 from sklearn.base import BaseEstimator
 
@@ -20,8 +19,9 @@ from torchdr.utils import (
     bool_arg,
 )
 from torchdr.distance import pairwise_distances
+from torchdr.base import ArrayLike
 
-from typing import Union, Optional, Any
+from typing import Optional, Any
 
 
 class ClusteringModule(BaseEstimator, ABC):
@@ -80,12 +80,12 @@ class ClusteringModule(BaseEstimator, ABC):
             self.logger.info(f"Random seed set to: {self._actual_seed}.")
 
     @abstractmethod
-    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
+    def fit(self, X: ArrayLike, y: Optional[Any] = None):
         """Fit the clustering model.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : ArrayLike of shape (n_samples, n_features)
             Input data.
         y : None
             Ignored.
@@ -97,12 +97,12 @@ class ClusteringModule(BaseEstimator, ABC):
         """
         raise NotImplementedError
 
-    def fit_predict(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
+    def fit_predict(self, X: ArrayLike, y: Optional[Any] = None):
         """Fit the clustering model and output the predicted labels.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : ArrayLike of shape (n_samples, n_features)
             Input data.
         y : None
             Ignored.
@@ -182,12 +182,12 @@ class KMeans(ClusteringModule):
             )
         self.metric = metric
 
-    def fit(self, X: Union[torch.Tensor, np.ndarray], y: Optional[Any] = None):
+    def fit(self, X: ArrayLike, y: Optional[Any] = None):
         """Fit the k-means model.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : ArrayLike of shape (n_samples, n_features)
             The input data.
         y : None
             Ignored.
@@ -229,7 +229,7 @@ class KMeans(ClusteringModule):
 
         for it in range(self.max_iter):
             # E step: assign points to the closest cluster
-            C, _ = pairwise_distances(
+            C = pairwise_distances(
                 X, centroids, metric=self.metric, backend=self.backend
             )
             _, centroid_membership = kmin(C, k=1, dim=1)
@@ -260,9 +260,10 @@ class KMeans(ClusteringModule):
         n_samples, n_features = X.shape
 
         if self.init == "random":
-            centroid_indices = np.random.choice(
-                n_samples, size=self.n_clusters, replace=False
-            )
+            # Use torch.randint instead of np.random.choice
+            centroid_indices = torch.randperm(n_samples, device=X.device)[
+                : self.n_clusters
+            ]
             centroids = X[centroid_indices].clone()
         elif self.init == "k-means++":
             centroids = self._kmeans_plusplus(X)
@@ -279,7 +280,7 @@ class KMeans(ClusteringModule):
         )
 
         # Randomly choose the first centroid
-        center_id = np.random.randint(n_samples)
+        center_id = torch.randint(n_samples, size=(1,), device=X.device).item()
         centers[0] = X[center_id]
 
         # Initialize list of closest distances
@@ -292,10 +293,10 @@ class KMeans(ClusteringModule):
             # Compute probabilities proportional to squared distances
             probs = closest_dist_sq / torch.sum(closest_dist_sq)
             probs = torch.clamp(probs, min=0)
-            probs_np = probs.cpu().numpy()
-            probs_np /= probs_np.sum()  # Normalize probabilities
-            # Sample the next centroid index
-            center_id = np.random.choice(n_samples, p=probs_np)
+            # Normalize probabilities
+            probs = probs / probs.sum()
+            # Sample the next centroid index using torch.multinomial
+            center_id = torch.multinomial(probs, num_samples=1).item()
             centers[c] = X[center_id]
 
             # Update the closest distances
@@ -312,12 +313,12 @@ class KMeans(ClusteringModule):
 
         return centers
 
-    def predict(self, X: Union[torch.Tensor, np.ndarray]):
+    def predict(self, X: ArrayLike):
         """Predict the closest cluster each sample in X belongs to.
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : ArrayLike of shape (n_samples, n_features)
             The input data.
 
         Returns
@@ -326,7 +327,7 @@ class KMeans(ClusteringModule):
             Cluster labels.
         """
         X = to_torch(X, device=self.device)
-        C, _ = pairwise_distances(
+        C = pairwise_distances(
             X, self.cluster_centers_, metric=self.metric, backend=None
         )
         _, labels = kmin(C, k=1, dim=1)

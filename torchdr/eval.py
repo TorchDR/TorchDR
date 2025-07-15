@@ -97,7 +97,7 @@ def silhouette_samples(
             if metric == "precomputed":
                 intra_cluster_dists = X[pos_i, :][:, pos_i]
             else:
-                intra_cluster_dists, _ = pairwise_distances(
+                intra_cluster_dists = pairwise_distances(
                     X[pos_i], X[pos_i], metric, backend
                 )
 
@@ -136,7 +136,7 @@ def silhouette_samples(
             if metric == "precomputed":
                 inter_cluster_dists = X[pos_i, :][:, pos_j]
             else:
-                inter_cluster_dists, _ = pairwise_distances(
+                inter_cluster_dists = pairwise_distances(
                     X[pos_i], X[pos_j], metric, backend
                 )
 
