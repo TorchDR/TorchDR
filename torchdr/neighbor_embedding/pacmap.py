@@ -118,6 +118,8 @@ class PACMAP(SampledNeighborEmbedding):
         self.n_further = int(FP_ratio * n_neighbors)
         self.iter_per_phase = iter_per_phase
 
+        self.self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
+
         affinity_in = PACMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
@@ -181,7 +183,7 @@ class PACMAP(SampledNeighborEmbedding):
             indices=self.NN_indices_,
             metric=self.metric_out,
         )
-        Q_near = Q_near / (1e1 + Q_near)
+        Q_near.add_(1e1).reciprocal_().mul_(Q_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
 
         if self.w_MN > 0:
@@ -192,7 +194,6 @@ class PACMAP(SampledNeighborEmbedding):
             mid_near_indices = torch.empty(
                 self.n_samples_in_, self.n_mid_near, device=device
             )
-            self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
             n_possible_idxs = self.n_samples_in_ - 1
 
             if n_possible_idxs < 6:
@@ -208,9 +209,9 @@ class PACMAP(SampledNeighborEmbedding):
                     device=device,
                 )
                 shifts = torch.searchsorted(
-                    self_idxs, mid_near_candidates_indices, right=True
+                    self.self_idxs, mid_near_candidates_indices, right=True
                 )
-                mid_near_candidates_indices += shifts
+                mid_near_candidates_indices.add_(shifts)
                 D_mid_near_candidates = symmetric_pairwise_distances_indices(
                     self.X_,
                     indices=mid_near_candidates_indices,
@@ -224,7 +225,7 @@ class PACMAP(SampledNeighborEmbedding):
                 indices=mid_near_indices,
                 metric=self.metric_out,
             )
-            Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
+            Q_mid_near.add_(1e4).reciprocal_().mul_(Q_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
         else:
             mid_near_loss = 0
@@ -237,5 +238,5 @@ class PACMAP(SampledNeighborEmbedding):
             metric=self.metric_out,
             indices=self.neg_indices_,
         )
-        Q_further = 1 / (1 + Q_further)
+        Q_further.add_(1).reciprocal_()
         return self.w_FP * sum_red(Q_further, dim=(0, 1))
