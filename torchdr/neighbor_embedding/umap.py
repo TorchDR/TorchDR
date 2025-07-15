@@ -121,7 +121,7 @@ class UMAP(SampledNeighborEmbedding):
         spread: float = 1.0,
         a: Optional[float] = None,
         b: Optional[float] = None,
-        lr: float = 1e-1,
+        lr: float = 1e0,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
         optimizer_kwargs: Union[Dict, str] = None,
         scheduler: Optional[
@@ -131,7 +131,7 @@ class UMAP(SampledNeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
-        max_iter: int = 2000,
+        max_iter: int = 1000,
         device: Optional[str] = None,
         backend: Optional[str] = "faiss",
         verbose: bool = False,

@@ -45,7 +45,7 @@ class LargeVis(SampledNeighborEmbedding):
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
+        Default is "LinearLR".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
@@ -55,7 +55,7 @@ class LargeVis(SampledNeighborEmbedding):
     min_grad_norm : float, optional
         Precision threshold at which the algorithm stops, by default 1e-7.
     max_iter : int, optional
-        Number of maximum iterations for the descent algorithm, by default 3000.
+        Number of maximum iterations for the descent algorithm, by default 1000.
     device : str, optional
         Device to use, by default "auto".
     backend : {"keops", "faiss", None}, optional
@@ -100,12 +100,12 @@ class LargeVis(SampledNeighborEmbedding):
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        ] = "LinearLR",
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
-        max_iter: int = 3000,
+        max_iter: int = 1000,
         device: Optional[str] = None,
         backend: Optional[str] = "faiss",
         verbose: bool = False,
