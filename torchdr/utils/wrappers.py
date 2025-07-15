@@ -124,7 +124,7 @@ def handle_type(
     *,
     set_device=True,
     accept_sparse=False,
-    ensure_min_samples=2,
+    ensure_min_samples=1,
     ensure_min_features=1,
     ensure_2d=True,
     **check_array_kwargs,
