@@ -307,7 +307,7 @@ class PHATEAffinity(Affinity):
         affinity = matrix_power(affinity, self.t)
         affinity = -pairwise_distances(
             -affinity.clamp(min=1e-12).log(), metric="euclidean", backend=self.backend
-        )[0]
+        )
         return affinity
 
 
@@ -445,7 +445,6 @@ class UMAPAffinity(SparseAffinity):
                     + matrix_transpose(affinity_matrix)
                     - affinity_matrix * matrix_transpose(affinity_matrix)
                 )
-                indices = None
 
         return (affinity_matrix, indices) if return_indices else affinity_matrix
 
