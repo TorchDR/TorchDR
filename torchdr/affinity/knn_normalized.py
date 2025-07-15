@@ -403,7 +403,7 @@ class UMAPAffinity(SparseAffinity):
         if self.sparsity:
             if self.verbose:
                 self.logger.info(
-                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors."
+                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)

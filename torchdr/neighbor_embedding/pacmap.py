@@ -155,6 +155,9 @@ class PACMAP(SampledNeighborEmbedding):
         self.self_idxs = torch.arange(
             self.X_.shape[0], device=self.X_.device
         ).unsqueeze(1)
+        self.mid_near_indices = torch.empty(
+            self.X_.shape[0], self.n_mid_near, device=self.X_.device
+        )
         return super()._fit_transform(X, y)
 
     def _set_weights(self):
@@ -191,10 +194,6 @@ class PACMAP(SampledNeighborEmbedding):
             # Attractive loss with mid-near points :
             # we sample 6 mid-near points for each sample
             # and keep the second closest in terms of input space distance
-            device = getattr(self.NN_indices_, "device", "cpu")
-            mid_near_indices = torch.empty(
-                self.n_samples_in_, self.n_mid_near, device=device
-            )
             n_possible_idxs = self.n_samples_in_ - 1
 
             if n_possible_idxs < 6:
@@ -207,7 +206,7 @@ class PACMAP(SampledNeighborEmbedding):
                     1,
                     n_possible_idxs,
                     (self.n_samples_in_, 6),
-                    device=device,
+                    device=getattr(self.NN_indices_, "device", "cpu"),
                 )
                 shifts = torch.searchsorted(
                     self.self_idxs, mid_near_candidates_indices, right=True
@@ -219,11 +218,13 @@ class PACMAP(SampledNeighborEmbedding):
                     metric=self.metric_in,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
+                self.mid_near_indices[:, i] = idxs[
+                    :, 1
+                ]  # Retrieve the second closest point
 
             Q_mid_near = 1 + symmetric_pairwise_distances_indices(
                 self.embedding_,
-                indices=mid_near_indices,
+                indices=self.mid_near_indices,
                 metric=self.metric_out,
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)

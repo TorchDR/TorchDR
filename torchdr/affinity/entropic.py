@@ -243,7 +243,7 @@ class EntropicAffinity(SparseLogAffinity):
         if self.sparsity:
             if self.verbose:
                 self.logger.info(
-                    f"Sparsity mode enabled, computing {k} nearest neighbors."
+                    f"Sparsity mode enabled, computing {k} nearest neighbors..."
                 )
             k = check_neighbor_param(k, n_samples_in)
             # when using sparsity, we construct a reduced distance matrix
