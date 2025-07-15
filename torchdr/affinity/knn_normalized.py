@@ -120,7 +120,7 @@ class SelfTuningAffinity(LogAffinity):
         log_affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix in log domain.
         """
-        C, _ = self._distance_matrix(X)
+        C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
@@ -217,7 +217,7 @@ class MAGICAffinity(Affinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        C, _ = self._distance_matrix(X)
+        C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
         self.sigma_ = minK_values[:, -1]
@@ -297,7 +297,7 @@ class PHATEAffinity(Affinity):
 
     @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
-        C, _ = self._distance_matrix(X)
+        C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.k, dim=1)
         self.sigma_ = minK_values[:, -1]
@@ -407,9 +407,9 @@ class UMAPAffinity(SparseAffinity):
                 )
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, n_neighbors)
-            C_, indices = self._distance_matrix(X, k=n_neighbors)
+            C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
         else:
-            C_, indices = self._distance_matrix(X)
+            C_, indices = self._distance_matrix(X, return_indices=True)
 
         self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
@@ -524,7 +524,7 @@ class PACMAPAffinity(SparseAffinity):
         if self.verbose:
             self.logger.info(f"Sparsity mode enabled, computing {k} nearest neighbors.")
 
-        C_, temp_indices = self._distance_matrix(X, k=k)
+        C_, temp_indices = self._distance_matrix(X, k=k, return_indices=True)
 
         # Compute rho as the average distance between the 4th to 6th neighbors
         sq_neighbor_distances, _ = kmin(C_, k=6, dim=1)

@@ -145,7 +145,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        C, _ = self._distance_matrix(X)
+        C = self._distance_matrix(X)
         if self.base_kernel == "student":
             C = (1 + C).log()
 

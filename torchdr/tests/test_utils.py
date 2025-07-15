@@ -94,7 +94,7 @@ def test_pairwise_distances(dtype, metric):
     x = x / x.max() - 0.1
     y = y / y.max() - 0.1
 
-    C, _ = pairwise_distances(x, y, metric=metric, backend=None)
+    C = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
 
@@ -152,10 +152,10 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     indices = torch.randint(0, n, (n, 10))
 
     # --- check consistency with symmetric_pairwise_distances ---
-    C_indices, _ = symmetric_pairwise_distances_indices(x, indices, metric=metric)
+    C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full, _ = pairwise_distances(x, metric=metric, backend=None)
+    C_full = pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
