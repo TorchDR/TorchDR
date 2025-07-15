@@ -17,7 +17,8 @@
 
 **TorchDR** is an open-source PyTorch library for **dimensionality reduction (DR)**. It provides **GPU-accelerated** implementations of popular DR algorithms in a single unified framework.
 
-DR aims to construct a low-dimensional representation (or embedding) of an input dataset that best preserves its intrinsic geometry encoded via a pairwise affinity matrix. **TorchDR** provides a general framework for solving problems of this form while leveraging the latest advances of the PyTorch ecosystem.
+DR aims to **construct a low-dimensional representation (or embedding)** of an input dataset that **best preserves its intrinsic geometry** encoded via a pairwise affinity matrix. **TorchDR** provides a general framework for solving problems of this form while leveraging the latest advances of the PyTorch ecosystem.
+
 
 ## Key Features
 
@@ -45,7 +46,7 @@ x = fetch_openml("mnist_784").data.astype("float32")
 z = UMAP(n_neighbors=30).fit_transform(x)
 ```
 
-## 🚀 GPU Acceleration
+### 🚀 GPU Acceleration
 
 **TorchDR** is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
 
@@ -55,7 +56,7 @@ z_gpu = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
 
 ### 🔥 PyTorch 2.0+ torch.compile Support
 
-For an additional performance boost on modern PyTorch versions, TorchDR supports `torch.compile`. Just add the `compile=True` flag as follows:
+**TorchDR** supports `torch.compile` for an additional performance boost on modern PyTorch versions. Just add the `compile=True` flag as follows:
 
 ```python
 z_gpu_compile = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(x)
@@ -65,7 +66,7 @@ z_gpu_compile = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(
 
 The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
 
-- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations.
+- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations **(Recommended)**.
 - To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
 - Finally, setting `backend=None` will use raw PyTorch for all computations.
 
