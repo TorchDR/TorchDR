@@ -1,3 +1,20 @@
+Version 0.3 (2025-07-15)
+------------------------
+
+- Improve UMAP via direct gradient computation and edge masking `PR #198 <https://github.com/TorchDR/TorchDR/pull/198>`_.
+- Support for torch.compile `PR #194 <https://github.com/TorchDR/TorchDR/pull/194>`_.
+- Automatically handle duplicates `PR #188 <https://github.com/TorchDR/TorchDR/pull/188>`_.
+- Standardize logging `PR #187 <https://github.com/TorchDR/TorchDR/pull/187>`_.
+- Make affinity_out optional in AffinityMatcher `PR #186 <https://github.com/TorchDR/TorchDR/pull/186>`_.
+- Implement PHATE algorithm `PR #185 <https://github.com/TorchDR/TorchDR/pull/185>`_.
+- Implement PACMAP algorithm `PR #182 <https://github.com/TorchDR/TorchDR/pull/182>`_.
+- COSNE support for hyperbolic embeddings `PR #178 <https://github.com/TorchDR/TorchDR/pull/178>`_.
+- Allow for any Torch optimizer or scheduler `PR #174 <https://github.com/TorchDR/TorchDR/pull/174>`_.
+- Ensure compatibility with python 3.8+ `PR #173 <https://github.com/TorchDR/TorchDR/pull/173>`_.
+
+
+Version 0.2 (2025-02-07)
+------------------------
 
 - FAISS support for KNN `PR #160 <https://github.com/TorchDR/TorchDR/pull/160>`_.
 - CIFAR examples with DINOv2 features `PR #158 <https://github.com/TorchDR/TorchDR/pull/158>`_.
