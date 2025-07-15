@@ -134,7 +134,7 @@ class PHATE(AffinityMatcher):
                 self.embedding_,
                 metric="sqeuclidean",
                 backend=self.backend,
-            )[0]
+            )
             .clamp(min=1e-12)
             .sqrt()
         )  # for numerical stability

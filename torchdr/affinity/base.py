@@ -109,7 +109,9 @@ class Affinity(ABC):
         )
 
     @handle_keops
-    def _distance_matrix(self, X: torch.Tensor, k: int = None):
+    def _distance_matrix(
+        self, X: torch.Tensor, k: int = None, return_indices: bool = False
+    ):
         r"""Compute the pairwise distance matrix from the input data.
 
         It uses the specified metric and optionally leveraging KeOps
@@ -121,6 +123,9 @@ class Affinity(ABC):
             Input data.
         k : int, optional
             Number of nearest neighbors to compute the distance matrix. Default is None.
+        return_indices : bool, optional
+            Whether to return the indices of the k-nearest neighbors.
+            Default is False.
 
         Returns
         -------
@@ -136,6 +141,7 @@ class Affinity(ABC):
             backend=self.backend_,
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
+            return_indices=return_indices,
         )
 
 
@@ -529,7 +535,7 @@ class UnnormalizedAffinity(Affinity):
             X = to_torch(X, device=self.device)
             if Y is not None:
                 Y = to_torch(Y, device=self.device)
-        C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
     def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
@@ -692,7 +698,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             X = to_torch(X, device=self.device)
             if Y is not None:
                 Y = to_torch(Y, device=self.device)
-        C, _ = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
+        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:
             return log_affinity

@@ -422,6 +422,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
         return loss
 
+    @torch.no_grad()
     def _compute_gradients(self):
         # triggered when _use_direct_gradients is True
         gradients = (

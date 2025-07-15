@@ -99,12 +99,7 @@ class DRModule(BaseEstimator, ABC):
             "[TorchDR] ERROR : _fit_transform method is not implemented."
         )
 
-    @handle_type(
-        accept_sparse=False,
-        ensure_min_samples=2,
-        ensure_min_features=1,
-        ensure_2d=True,
-    )
+    @handle_type()
     def fit(self, X: ArrayLike, y: Optional[Any] = None) -> "DRModule":
         """Fit the dimensionality reduction model from the input data.
 
@@ -124,12 +119,7 @@ class DRModule(BaseEstimator, ABC):
         self.fit_transform(X, y=y)
         return self
 
-    @handle_type(
-        accept_sparse=False,
-        ensure_min_samples=2,
-        ensure_min_features=1,
-        ensure_2d=True,
-    )
+    @handle_type()
     def fit_transform(self, X: ArrayLike, y: Optional[Any] = None) -> ArrayLike:
         """Fit the dimensionality reduction model and transform the input data.
 

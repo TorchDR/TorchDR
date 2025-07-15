@@ -152,6 +152,12 @@ class PACMAP(SampledNeighborEmbedding):
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         self.X_ = X  # Keep input data to compute mid-near loss
         self._set_weights()
+        self.self_idxs = torch.arange(
+            self.X_.shape[0], device=self.X_.device
+        ).unsqueeze(1)
+        self.mid_near_indices = torch.empty(
+            self.X_.shape[0], self.n_mid_near, device=self.X_.device
+        )
         return super()._fit_transform(X, y)
 
     def _set_weights(self):
@@ -176,26 +182,18 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _compute_attractive_loss(self):
         # Attractive loss with nearest neighbors
-        Q_near = (
-            1
-            + symmetric_pairwise_distances_indices(
-                self.embedding_,
-                indices=self.NN_indices_,
-                metric=self.metric_out,
-            )[0]
+        Q_near = 1 + symmetric_pairwise_distances_indices(
+            self.embedding_,
+            indices=self.NN_indices_,
+            metric=self.metric_out,
         )
-        Q_near = Q_near / (1e1 + Q_near)
+        Q_near = Q_near / (10 + Q_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
 
         if self.w_MN > 0:
             # Attractive loss with mid-near points :
             # we sample 6 mid-near points for each sample
             # and keep the second closest in terms of input space distance
-            device = getattr(self.NN_indices_, "device", "cpu")
-            mid_near_indices = torch.empty(
-                self.n_samples_in_, self.n_mid_near, device=device
-            )
-            self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
             n_possible_idxs = self.n_samples_in_ - 1
 
             if n_possible_idxs < 6:
@@ -208,27 +206,26 @@ class PACMAP(SampledNeighborEmbedding):
                     1,
                     n_possible_idxs,
                     (self.n_samples_in_, 6),
-                    device=device,
+                    device=getattr(self.NN_indices_, "device", "cpu"),
                 )
                 shifts = torch.searchsorted(
-                    self_idxs, mid_near_candidates_indices, right=True
+                    self.self_idxs, mid_near_candidates_indices, right=True
                 )
-                mid_near_candidates_indices += shifts
+                mid_near_candidates_indices.add_(shifts)
                 D_mid_near_candidates = symmetric_pairwise_distances_indices(
                     self.X_,
                     indices=mid_near_candidates_indices,
                     metric=self.metric_in,
-                )[0]
+                )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
+                self.mid_near_indices[:, i] = idxs[
+                    :, 1
+                ]  # Retrieve the second closest point
 
-            Q_mid_near = (
-                1
-                + symmetric_pairwise_distances_indices(
-                    self.embedding_,
-                    indices=mid_near_indices,
-                    metric=self.metric_out,
-                )[0]
+            Q_mid_near = 1 + symmetric_pairwise_distances_indices(
+                self.embedding_,
+                indices=self.mid_near_indices,
+                metric=self.metric_out,
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
@@ -238,13 +235,10 @@ class PACMAP(SampledNeighborEmbedding):
         return near_loss + mid_near_loss
 
     def _compute_repulsive_loss(self):
-        Q_further = (
-            1
-            + symmetric_pairwise_distances_indices(
-                self.embedding_,
-                metric=self.metric_out,
-                indices=self.neg_indices_,
-            )[0]
+        Q_further = 1 + symmetric_pairwise_distances_indices(
+            self.embedding_,
+            metric=self.metric_out,
+            indices=self.neg_indices_,
         )
         Q_further = 1 / (1 + Q_further)
         return self.w_FP * sum_red(Q_further, dim=(0, 1))

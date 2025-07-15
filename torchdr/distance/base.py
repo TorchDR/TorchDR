@@ -20,6 +20,7 @@ def pairwise_distances(
     backend: Optional[str] = None,
     exclude_diag: bool = False,
     k: Optional[int] = None,
+    return_indices: bool = False,
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -39,6 +40,9 @@ def pairwise_distances(
         Only used when k is not None. Default is False.
     k : int, optional
         If not None, return only the k-nearest neighbors.
+    return_indices : bool, optional
+        Whether to return the indices of the k-nearest neighbors.
+        Default is False.
 
     Returns
     -------
@@ -65,13 +69,17 @@ def pairwise_distances(
             X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
         )
 
-    return C, indices
+    if return_indices:
+        return C, indices
+    else:
+        return C
 
 
 def symmetric_pairwise_distances_indices(
     X: torch.Tensor,
     indices: torch.Tensor,
     metric: str = "sqeuclidean",
+    return_indices: bool = False,
 ):
     r"""Compute pairwise distances for a subset of pairs given by indices.
 
@@ -86,6 +94,9 @@ def symmetric_pairwise_distances_indices(
         Indices of the pairs for which to compute the distances.
     metric : str, optional
         Metric to use for computing distances. The default is "sqeuclidean".
+    return_indices : bool, optional
+        Whether to return the indices of the pairs for which to compute the distances.
+        Default is False.
 
     Returns
     -------
@@ -113,4 +124,7 @@ def symmetric_pairwise_distances_indices(
     else:
         raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
 
-    return C_indices, indices
+    if return_indices:
+        return C_indices, indices
+    else:
+        return C_indices

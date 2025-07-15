@@ -302,7 +302,7 @@ def test_entropic_affinity(dtype, metric, sparsity, backend, compile=False):
     check_entropy(log_P + math.log(n), target_entropy, dim=1, tol=tol, log=True)
 
     # -- check bounds on the root of entropic affinities --
-    C, _ = affinity._distance_matrix(to_torch(X, device=DEVICE))
+    C = affinity._distance_matrix(to_torch(X, device=DEVICE))
     perp_tensor = torch.tensor(perp, dtype=getattr(torch, dtype), device=DEVICE)
     begin, end = _bounds_entropic_affinity(
         C, perplexity=perp_tensor, device=DEVICE, dtype=getattr(torch, dtype)

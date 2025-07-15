@@ -94,7 +94,7 @@ def test_pairwise_distances(dtype, metric):
     x = x / x.max() - 0.1
     y = y / y.max() - 0.1
 
-    C, _ = pairwise_distances(x, y, metric=metric, backend=None)
+    C = pairwise_distances(x, y, metric=metric, backend=None)
     check_shape(C, (n, m))
 
 
@@ -107,16 +107,16 @@ def test_pairwise_distances_keops(dtype, metric):
     y = torch.randn(m, p, dtype=dtype)
 
     # --- check consistency between torch and keops ---
-    C, _ = pairwise_distances(x, y, metric=metric, backend=None)
-    C_keops, _ = pairwise_distances(x, y, metric=metric, backend="keops")
+    C = pairwise_distances(x, y, metric=metric, backend=None)
+    C_keops = pairwise_distances(x, y, metric=metric, backend="keops")
     check_shape(C_keops, (n, m))
 
     check_similarity_torch_keops(C, C_keops, K=10)
 
     # --- check consistency between torch and keops with kNN search ---
     k = 10
-    C, _ = pairwise_distances(x, y, k=k, metric=metric, backend=None)
-    C_keops, _ = pairwise_distances(x, y, k=k, metric=metric, backend="keops")
+    C = pairwise_distances(x, y, k=k, metric=metric, backend=None)
+    C_keops = pairwise_distances(x, y, k=k, metric=metric, backend="keops")
     check_shape(C_keops, (n, k))
 
     torch.testing.assert_close(C, C_keops, rtol=1e-5, atol=1e-5)
@@ -133,10 +133,10 @@ def test_pairwise_distances_faiss(dtype, metric, exclude_diag):
 
     # --- check consistency between torch and faiss ---
     k = 10
-    C, _ = pairwise_distances(
+    C = pairwise_distances(
         x, y, k=k, metric=metric, backend=None, exclude_diag=exclude_diag
     )
-    C_faiss, _ = pairwise_distances(
+    C_faiss = pairwise_distances(
         x, y, k=k, metric=metric, backend="faiss", exclude_diag=exclude_diag
     )
     check_shape(C_faiss, (n, k))
@@ -152,10 +152,10 @@ def test_symmetric_pairwise_distances_indices(dtype, metric):
     indices = torch.randint(0, n, (n, 10))
 
     # --- check consistency with symmetric_pairwise_distances ---
-    C_indices, _ = symmetric_pairwise_distances_indices(x, indices, metric=metric)
+    C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
-    C_full, _ = pairwise_distances(x, metric=metric, backend=None)
+    C_full = pairwise_distances(x, metric=metric, backend=None)
     C_full_indices = C_full.gather(1, indices)
 
     check_similarity(C_indices, C_full_indices)
