@@ -15,14 +15,12 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/TorchDR/TorchDR/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main)
 [![codecov](https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg)](https://codecov.io/gh/torchdr/torchdr)
 
-**TorchDR** is an open-source PyTorch library for **dimensionality reduction (DR)**. It provides **GPU-accelerated** implementations of popular DR algorithms in a single unified framework.
-
-DR aims to **construct a low-dimensional representation (or embedding)** of an input dataset that **best preserves its intrinsic geometry** encoded via a pairwise affinity matrix. **TorchDR** provides a general framework for solving problems of this form while leveraging the latest advances of the PyTorch ecosystem.
+**TorchDR** is an open-source library for **dimensionality reduction (DR)** built on PyTorch. DR constructs **low-dimensional representations (or embeddings)** that **best preserve the intrinsic geometry of an input dataset** encoded via a pairwise affinity matrix. **TorchDR** provides GPU-accelerated implementations of popular DR algorithms in a unified framework, ensuring high performance by leveraging the latest advances of the PyTorch ecosystem.
 
 
 ## Key Features
 
-🚀 **Blazing Fast**: engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity** and negative sampling.
+🚀 **Blazing Fast**: engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity and negative sampling.
 
 🧩 **Modular by Design**: very component is designed to be easily customized, extended, or replaced to fit your specific needs.
 
