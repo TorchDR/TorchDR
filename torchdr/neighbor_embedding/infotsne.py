@@ -45,7 +45,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         which sets appropriate momentum values for SGD based on early exaggeration phase.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
+        Default is "LinearLR".
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
@@ -72,11 +72,11 @@ class InfoTSNE(SampledNeighborEmbedding):
     metric_out : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the output affinity, by default 'sqeuclidean'.
     early_exaggeration_coeff : float, optional
-        Factor for the early exaggeration phase, by default None.
+        Factor for the early exaggeration phase, by default 12.
     early_exaggeration_iter : int, optional
-        Number of iterations for the early exaggeration phase, by default None.
+        Number of iterations for the early exaggeration phase, by default 250.
     n_negatives : int, optional
-        Number of negative samples for the noise-contrastive loss, by default 50.
+        Number of negative samples for the noise-contrastive loss, by default 300.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
@@ -98,22 +98,22 @@ class InfoTSNE(SampledNeighborEmbedding):
         optimizer_kwargs: Union[Dict, str] = "auto",
         scheduler: Optional[
             Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
+        ] = "LinearLR",
         scheduler_kwargs: Optional[Dict] = None,
         init: str = "pca",
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
-        max_iter: int = 2000,
+        max_iter: int = 1000,
         device: Optional[str] = None,
         backend: Optional[str] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: Optional[float] = None,
-        early_exaggeration_iter: Optional[int] = None,
+        early_exaggeration_coeff: Optional[float] = 12,
+        early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
         metric_in: str = "sqeuclidean",
         metric_out: str = "sqeuclidean",
-        n_negatives: int = 50,
+        n_negatives: int = 300,
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = False,
