@@ -179,13 +179,12 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _compute_attractive_loss(self):
         # Attractive loss with nearest neighbors
-        Q_near = symmetric_pairwise_distances_indices(
+        Q_near = 1 + symmetric_pairwise_distances_indices(
             self.embedding_,
             indices=self.NN_indices_,
             metric=self.metric_out,
         )
-        Q_near.add_(1)
-        Q_near.add_(1e1).reciprocal_().mul_(Q_near)
+        Q_near = Q_near / (10 + Q_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
 
         if self.w_MN > 0:
@@ -222,13 +221,12 @@ class PACMAP(SampledNeighborEmbedding):
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 mid_near_indices[:, i] = idxs[:, 1]  # Retrieve the second closest point
 
-            Q_mid_near = symmetric_pairwise_distances_indices(
+            Q_mid_near = 1 + symmetric_pairwise_distances_indices(
                 self.embedding_,
                 indices=mid_near_indices,
                 metric=self.metric_out,
             )
-            Q_mid_near.add_(1)
-            Q_mid_near.add_(1e4).reciprocal_().mul_(Q_mid_near)
+            Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
         else:
             mid_near_loss = 0
@@ -236,11 +234,10 @@ class PACMAP(SampledNeighborEmbedding):
         return near_loss + mid_near_loss
 
     def _compute_repulsive_loss(self):
-        Q_further = symmetric_pairwise_distances_indices(
+        Q_further = 1 + symmetric_pairwise_distances_indices(
             self.embedding_,
             metric=self.metric_out,
             indices=self.neg_indices_,
         )
-        Q_further.add_(1)
-        Q_further.add_(1).reciprocal_()
+        Q_further = 1 / (1 + Q_further)
         return self.w_FP * sum_red(Q_further, dim=(0, 1))

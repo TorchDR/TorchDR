@@ -82,7 +82,7 @@ def test_silhouette_score_precomputed(dtype, backend):
     # perfect silhouette
     n = 10
     Id = torch.eye(n, device=DEVICE, dtype=getattr(torch, dtype))
-    CI, _ = pairwise_distances(Id, Id, "euclidean")
+    CI = pairwise_distances(Id, Id, "euclidean")
     ones = torch.ones(n, device=DEVICE, dtype=getattr(torch, dtype))
 
     y_I2 = []
