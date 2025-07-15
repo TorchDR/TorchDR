@@ -15,17 +15,29 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/TorchDR/TorchDR/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main)
 [![codecov](https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg)](https://codecov.io/gh/torchdr/torchdr)
 
-`TorchDR` is an open-source **dimensionality reduction (DR)** library using PyTorch. It provides **GPU-accelerated** implementations of popular DR algorithms in a single unified framework.
+**TorchDR** is an open-source PyTorch library for **dimensionality reduction (DR)**. It provides **GPU-accelerated** implementations of popular DR algorithms in a single unified framework.
 
-DR aims to construct a **low-dimensional representation (or embedding)** of an input dataset that best preserves its **geometry encoded via a pairwise affinity matrix**. To this end, DR methods **optimize the embedding** such that its **associated pairwise affinity matrix matches the input affinity**. `TorchDR` provides a general framework for solving problems of this form. Defining a DR algorithm solely requires choosing or implementing an *Affinity* object for the input data and an objective function.
+DR aims to construct a low-dimensional representation (or embedding) of an input dataset that best preserves its intrinsic geometry encoded via a pairwise affinity matrix. **TorchDR** provides a general framework for solving problems of this form while leveraging the latest advances of the PyTorch ecosystem.
 
+## Key Features
 
-## Benefits of TorchDR
+🚀 Blazing Fast: Engineered for speed with full GPU acceleration, torch.compile support, and optimized algorithms leveraging sparsity and negative sampling.
 
-- **Speed**: supports **GPU acceleration**, leverages **sparsity** and **contrastive learning** / **negative sampling** techniques.
-- **Modularity**: all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
-- **Memory efficiency**: relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
-- **Compatibility**: implemented methods are fully **compatible** with the `sklearn` and `torch` ecosystems.
+🧩 Modular by Design: With a clean, Python-based architecture, every component is designed to be easily customized, extended, or replaced to fit your specific needs.
+
+🪶 Memory-Efficient: Process massive datasets without memory overflows. Natively handles sparse data and supports memory-efficient symbolic operations via KeOps.
+
+🤝 Seamless Integration: Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows.
+
+📦 Minimal Dependencies: The core requires only PyTorch, NumPy, and scikit-learn. Optional features like high-speed k-NN search or symbolic computation can be unlocked by installing Faiss or KeOps.
+
+<!-- ## Key Features
+
+- **Speed** : supports **GPU acceleration**, leverages **sparsity**, **contrastive learning** / **negative sampling** techniques and **torch compile**.
+- **Modularity** : all of it is written in **Python** in a **highly modular** way, making it easy to create or transform components.
+- **Memory efficiency** : relies on **sparsity** and/or **symbolic tensors** to **avoid memory overflows**.
+- **Compatibility** : implemented methods are fully **compatible** with the `sklearn` and `torch` ecosystems.
+- **Minimal dependencies** : requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic tensor ops. -->
 
 
 ## Getting Started
