@@ -118,8 +118,6 @@ class PACMAP(SampledNeighborEmbedding):
         self.n_further = int(FP_ratio * n_neighbors)
         self.iter_per_phase = iter_per_phase
 
-        self.self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
-
         affinity_in = PACMAPAffinity(
             n_neighbors=n_neighbors,
             metric=metric_in,
@@ -154,6 +152,9 @@ class PACMAP(SampledNeighborEmbedding):
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         self.X_ = X  # Keep input data to compute mid-near loss
         self._set_weights()
+        self.self_idxs = torch.arange(
+            self.X_.shape[0], device=self.X_.device
+        ).unsqueeze(1)
         return super()._fit_transform(X, y)
 
     def _set_weights(self):

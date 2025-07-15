@@ -293,8 +293,8 @@ class KMeans(ClusteringModule):
             # Compute probabilities proportional to squared distances
             probs = closest_dist_sq / torch.sum(closest_dist_sq)
             probs = torch.clamp(probs, min=0)
-            # Normalize probabilities
-            probs = probs / probs.sum()
+            # Normalize probabilities and ensure 1D
+            probs = (probs / probs.sum()).flatten()
             # Sample the next centroid index using torch.multinomial
             center_id = torch.multinomial(probs, num_samples=1).item()
             centers[c] = X[center_id]
