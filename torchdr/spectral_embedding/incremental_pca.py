@@ -264,12 +264,7 @@ class IncrementalPCA(DRModule):
             self.noise_variance_ = torch.tensor(0.0, device=X.device)
         return self
 
-    @handle_type(
-        accept_sparse=False,
-        ensure_min_samples=1,
-        ensure_min_features=1,
-        ensure_2d=True,
-    )
+    @handle_type()
     def transform(self, X: Union[torch.Tensor, np.ndarray]):
         """Apply dimensionality reduction to `X`.
 

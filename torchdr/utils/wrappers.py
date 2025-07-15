@@ -119,7 +119,16 @@ def wrap_vectors(func):
     return wrapper
 
 
-def handle_type(_func=None, *, set_device=True, **check_array_kwargs):
+def handle_type(
+    _func=None,
+    *,
+    set_device=True,
+    accept_sparse=False,
+    ensure_min_samples=2,
+    ensure_min_features=1,
+    ensure_2d=True,
+    **check_array_kwargs,
+):
     """
     Convert input to torch and optionally set device specified by self.
 
@@ -131,8 +140,16 @@ def handle_type(_func=None, *, set_device=True, **check_array_kwargs):
         The function to be wrapped.
     set_device : bool, default=True
         If True, set the device to self.device if it is not None.
+    accept_sparse : bool, default=False
+        Whether to accept sparse matrices.
+    ensure_min_samples : int, default=2
+        Minimum number of samples required.
+    ensure_min_features : int, default=1
+        Minimum number of features required.
+    ensure_2d : bool, default=True
+        Whether to ensure 2D input.
     **check_array_kwargs : dict
-        Keyword arguments to be passed to the check_array function.
+        Additional keyword arguments to be passed to the check_array function.
     """
 
     def decorator_handle_type(func):
@@ -144,6 +161,10 @@ def handle_type(_func=None, *, set_device=True, **check_array_kwargs):
                 X,
                 device=device,
                 return_backend_device=True,
+                accept_sparse=accept_sparse,
+                ensure_min_samples=ensure_min_samples,
+                ensure_min_features=ensure_min_features,
+                ensure_2d=ensure_2d,
                 **check_array_kwargs,
             )
             output = func(self, X_, *args, **kwargs)
