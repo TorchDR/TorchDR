@@ -237,10 +237,10 @@ class UMAP(SampledNeighborEmbedding):
         ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
-        grad = self.embedding_.unsqueeze(1).sub(self.embedding_[self.NN_indices_])
-        grad.mul_(D.unsqueeze(-1).expand_as(grad))
+        diff = self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
+        grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
-        return grad.sum(dim=1)
+        return grad
 
     def _compute_repulsive_gradients(self):
         D = symmetric_pairwise_distances_indices(
@@ -261,7 +261,7 @@ class UMAP(SampledNeighborEmbedding):
         filtered_edges = col_idx[None, :].ge(neg_counts[:, None])
         D.masked_fill_(filtered_edges, 0)
 
-        grad = self.embedding_.unsqueeze(1).sub(self.embedding_[self.neg_indices_])
-        grad.mul_(D.unsqueeze(-1).expand_as(grad))
+        diff = self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
+        grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
-        return grad.sum(dim=1)
+        return grad
