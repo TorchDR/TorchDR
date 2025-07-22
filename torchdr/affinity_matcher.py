@@ -229,11 +229,23 @@ class AffinityMatcher(DRModule):
                 )
             if isinstance(self.affinity_in, SparseAffinity):
                 affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
-                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
+                # LazyTensors (from keops backend) can't be registered as buffers
+                if self.affinity_in.backend == "keops":
+                    self.affinity_in_ = affinity_matrix
+                else:
+                    self.register_buffer(
+                        "affinity_in_", affinity_matrix, persistent=False
+                    )
                 self.register_buffer("NN_indices_", nn_indices, persistent=False)
             else:
                 affinity_matrix = self.affinity_in(X)
-                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
+                # LazyTensors (from keops backend) can't be registered as buffers
+                if self.affinity_in.backend == "keops":
+                    self.affinity_in_ = affinity_matrix
+                else:
+                    self.register_buffer(
+                        "affinity_in_", affinity_matrix, persistent=False
+                    )
 
         self.on_affinity_computation_end()
 
@@ -475,6 +487,11 @@ class AffinityMatcher(DRModule):
     def clear_memory(self):
         """Clear all training-related memory including buffers and optimizer state."""
         super().clear_memory()
+
+        # Clear affinity_in_ if it's a LazyTensor (from keops backend)
+        if hasattr(self, "affinity_in_") and isinstance(self.affinity_in, Affinity):
+            if self.affinity_in.backend == "keops":
+                delattr(self, "affinity_in_")
 
         if isinstance(self.affinity_in, Affinity):
             self.affinity_in.clear_memory()
