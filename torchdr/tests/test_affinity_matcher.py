@@ -221,7 +221,7 @@ def test_different_schedulers():
     model_step._init_embedding(torch.rand(5, 2))
     model_step._set_params()
     model_step._set_learning_rate()
-    model_step._set_optimizer()
+    model_step._configure_optimizer()
     model_step._configure_scheduler()
     assert isinstance(model_step.scheduler_, StepLR)
 
@@ -235,7 +235,7 @@ def test_different_schedulers():
     model_exp._init_embedding(torch.rand(5, 2))
     model_exp._set_params()
     model_exp._set_learning_rate()
-    model_exp._set_optimizer()
+    model_exp._configure_optimizer()
     model_exp._configure_scheduler()
     assert isinstance(model_exp.scheduler_, ExponentialLR)
 
