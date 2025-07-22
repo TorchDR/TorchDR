@@ -9,6 +9,7 @@ from typing import Union, Any
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from torchdr.utils import (
     LazyTensorType,
@@ -24,7 +25,7 @@ from torchdr.distance import (
 )
 
 
-class Affinity(ABC):
+class Affinity(nn.Module, ABC):
     r"""Base class for affinity matrices.
 
     Parameters
@@ -59,6 +60,8 @@ class Affinity(ABC):
         compile: bool = False,
         _pre_processed: bool = False,
     ):
+        super().__init__()
+
         self.log = {}
         self.metric = metric
         self.zero_diag = bool_arg(zero_diag)
@@ -143,6 +146,16 @@ class Affinity(ABC):
             k=k,
             return_indices=return_indices,
         )
+
+    def clear_memory(self):
+        """Clear non-persistent buffers to free memory."""
+        if hasattr(self, "_non_persistent_buffers_set"):
+            for name in list(self._non_persistent_buffers_set):
+                if hasattr(self, name):
+                    delattr(self, name)
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 class LogAffinity(Affinity):

@@ -123,12 +123,16 @@ class SelfTuningAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
-        self.sigma_ = minK_values[:, -1]
+        sigma = minK_values[:, -1]
+        self.register_buffer("sigma_", sigma, persistent=False)
         log_affinity_matrix = _log_P_SelfTuning(C, self.sigma_)
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
+            log_normalization = logsumexp_red(
                 log_affinity_matrix, self.normalization_dim
+            )
+            self.register_buffer(
+                "log_normalization_", log_normalization, persistent=False
             )
             log_affinity_matrix -= self.log_normalization_
 
@@ -220,7 +224,8 @@ class MAGICAffinity(Affinity):
         C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.K, dim=1)
-        self.sigma_ = minK_values[:, -1]
+        sigma = minK_values[:, -1]
+        self.register_buffer("sigma_", sigma, persistent=False)
         affinity_matrix = _log_P_MAGIC(C, self.sigma_).exp()
         affinity_matrix = (affinity_matrix + matrix_transpose(affinity_matrix)) / 2
         affinity_matrix = affinity_matrix / sum_red(affinity_matrix, dim=1)
@@ -300,7 +305,8 @@ class PHATEAffinity(Affinity):
         C = self._distance_matrix(X)
 
         minK_values, _ = kmin(C, k=self.k, dim=1)
-        self.sigma_ = minK_values[:, -1]
+        sigma = minK_values[:, -1]
+        self.register_buffer("sigma_", sigma, persistent=False)
         affinity = _log_P_PHATE(C, self.sigma_, self.alpha).exp()
         affinity = (affinity + matrix_transpose(affinity)) / 2
         affinity = affinity / sum_red(affinity, dim=1)
@@ -411,7 +417,8 @@ class UMAPAffinity(SparseAffinity):
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
-        self.rho_ = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
+        rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
+        self.register_buffer("rho_", rho, persistent=False)
 
         log_n_neighbors = torch.log2(
             torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
@@ -421,13 +428,14 @@ class UMAPAffinity(SparseAffinity):
             log_marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1)
             return log_marg.exp().squeeze() - log_n_neighbors
 
-        self.eps_ = binary_search(
+        eps = binary_search(
             f=marginal_gap,
             n=n_samples_in,
             max_iter=self.max_iter,
             dtype=X.dtype,
             device=X.device,
         )
+        self.register_buffer("eps_", eps, persistent=False)
 
         # Compute log affinity matrix
         log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
@@ -527,7 +535,8 @@ class PACMAPAffinity(SparseAffinity):
 
         # Compute rho as the average distance between the 4th to 6th neighbors
         sq_neighbor_distances, _ = kmin(C_, k=6, dim=1)
-        self.rho_ = torch.sqrt(sq_neighbor_distances)[:, 3:6].mean(dim=1).contiguous()
+        rho = torch.sqrt(sq_neighbor_distances)[:, 3:6].mean(dim=1).contiguous()
+        self.register_buffer("rho_", rho, persistent=False)
 
         rho_i = self.rho_.unsqueeze(1)  # Shape: (n_samples, 1)
         rho_j = self.rho_[temp_indices]  # Shape: (n_samples, k)

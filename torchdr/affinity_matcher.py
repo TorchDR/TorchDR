@@ -236,6 +236,8 @@ class AffinityMatcher(DRModule):
                 self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
 
         self.on_affinity_computation_end()
+        if isinstance(self.affinity_in, Affinity):
+            self.affinity_in.clear_memory()
 
         # --- Embedding optimization ---
 
@@ -474,10 +476,13 @@ class AffinityMatcher(DRModule):
 
     def clear_memory(self):
         """Clear all training-related memory including buffers and optimizer state."""
-        # Clear non-persistent buffers from parent class
         super().clear_memory()
 
-        # Clear optimizer and related attributes specific to AffinityMatcher
+        if isinstance(self.affinity_in, Affinity):
+            self.affinity_in.clear_memory()
+        if isinstance(self.affinity_out, Affinity):
+            self.affinity_out.clear_memory()
+
         for attr in ["optimizer_", "scheduler_", "params_", "lr_"]:
             if hasattr(self, attr):
                 delattr(self, attr)
