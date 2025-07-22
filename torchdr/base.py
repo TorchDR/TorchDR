@@ -153,7 +153,10 @@ class DRModule(BaseEstimator, nn.Module, ABC):
                     "performing DR on unique data."
                 )
                 embedding_unique = self._fit_transform(X_unique, y=y)
-                self.embedding_ = embedding_unique[inverse_indices]
+                if isinstance(self.embedding_, torch.nn.Parameter):
+                    self.embedding_.data = embedding_unique[inverse_indices]
+                else:
+                    self.embedding_ = embedding_unique[inverse_indices]
             else:
                 self.embedding_ = self._fit_transform(X, y=y)
         else:
@@ -201,7 +204,6 @@ class DRModule(BaseEstimator, nn.Module, ABC):
 
     def clear_memory(self):
         """Clear non-persistent buffers to free memory after training."""
-        # Clear non-persistent buffers (training data)
         if hasattr(self, "_non_persistent_buffers_set"):
             for name in list(self._non_persistent_buffers_set):
                 if hasattr(self, name):

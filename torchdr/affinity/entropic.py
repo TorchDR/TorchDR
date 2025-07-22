@@ -680,8 +680,7 @@ class SinkhornAffinity(LogAffinity):
             for k in range(self.max_iter):
                 # well conditioned symmetric Sinkhorn iteration (Feydy et al. 2019)
                 reduction = -sum_matrix_vector(log_K, self.dual_).logsumexp(0).squeeze()
-                dual_updated = 0.5 * (self.dual_ + reduction)
-                self.register_buffer("dual_", dual_updated, persistent=False)
+                self.dual_ = 0.5 * (self.dual_ + reduction)
 
                 check_NaNs(self.dual_, msg="ERROR Affinity: NaN at iter {k}.")
 

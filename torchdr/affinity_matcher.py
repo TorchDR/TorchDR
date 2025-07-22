@@ -236,6 +236,8 @@ class AffinityMatcher(DRModule):
                 self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
 
         self.on_affinity_computation_end()
+
+        # Clear input affinity memory after computation
         if isinstance(self.affinity_in, Affinity):
             self.affinity_in.clear_memory()
 
