@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 
 import torch
+import torch.nn as nn
 import numpy as np
 from sklearn.base import BaseEstimator
 
@@ -21,7 +22,7 @@ from typing import Optional, Any, TypeVar
 ArrayLike = TypeVar("ArrayLike", torch.Tensor, np.ndarray)
 
 
-class DRModule(BaseEstimator, ABC):
+class DRModule(BaseEstimator, nn.Module, ABC):
     """Base class for DR methods.
 
     Each children class should implement the fit_transform method.
@@ -56,6 +57,8 @@ class DRModule(BaseEstimator, ABC):
         process_duplicates: bool = True,
         **kwargs,
     ):
+        super().__init__()
+
         self.n_components = n_components
         self.device = device
         self.backend = backend
@@ -150,7 +153,10 @@ class DRModule(BaseEstimator, ABC):
                     "performing DR on unique data."
                 )
                 embedding_unique = self._fit_transform(X_unique, y=y)
-                self.embedding_ = embedding_unique[inverse_indices]
+                if isinstance(self.embedding_, torch.nn.Parameter):
+                    self.embedding_.data = embedding_unique[inverse_indices]
+                else:
+                    self.embedding_ = embedding_unique[inverse_indices]
             else:
                 self.embedding_ = self._fit_transform(X, y=y)
         else:
@@ -195,3 +201,13 @@ class DRModule(BaseEstimator, ABC):
             )
 
         return self.embedding_
+
+    def clear_memory(self):
+        """Clear non-persistent buffers to free memory after training."""
+        if hasattr(self, "_non_persistent_buffers_set"):
+            for name in list(self._non_persistent_buffers_set):
+                if hasattr(self, name):
+                    delattr(self, name)
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

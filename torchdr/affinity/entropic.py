@@ -262,7 +262,7 @@ class EntropicAffinity(SparseLogAffinity):
         )
         begin = begin + 1e-6  # avoid numerical issues
 
-        self.eps_ = binary_search(
+        eps = binary_search(
             f=entropy_gap,
             n=n_samples_in,
             begin=begin,
@@ -271,9 +271,11 @@ class EntropicAffinity(SparseLogAffinity):
             dtype=X.dtype,
             device=X.device,
         )
+        self.register_buffer("eps_", eps, persistent=False)
 
         log_affinity_matrix = _log_Pe(C_, self.eps_)
-        self.log_normalization_ = logsumexp_red(log_affinity_matrix, dim=1)
+        log_normalization = logsumexp_red(log_affinity_matrix, dim=1)
+        self.register_buffer("log_normalization_", log_normalization, persistent=False)
         log_affinity_matrix -= self.log_normalization_
 
         log_affinity_matrix -= torch.log(
@@ -392,7 +394,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         self.max_iter = max_iter
         self.check_interval = check_interval
         self.optimizer = optimizer
-        self.n_iter_ = 0
+        self.n_iter_ = torch.tensor(0, dtype=torch.long)
 
     @compile_if_requested
     def _compute_log_affinity(self, X: torch.Tensor):
@@ -421,8 +423,10 @@ class SymmetricEntropicAffinity(LogAffinity):
         one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         # dual variables, size (n_samples)
-        self.eps_ = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
-        self.mu_ = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
+        eps = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
+        mu = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
+        self.register_buffer("eps_", eps, persistent=False)
+        self.register_buffer("mu_", mu, persistent=False)
 
         if self.optimizer == "LBFGS":
             self.eps_.requires_grad = True
@@ -661,11 +665,12 @@ class SinkhornAffinity(LogAffinity):
         log_K = -C / self.eps
 
         # Performs warm-start if a dual variable f is provided
-        self.dual_ = (
+        dual = (
             torch.zeros(n_samples_in, dtype=X.dtype, device=X.device)
             if init_dual is None
             else init_dual
         )
+        self.register_buffer("dual_", dual, persistent=False)
 
         context_manager = (
             contextlib.nullcontext() if self.with_grad else torch.no_grad()
@@ -773,8 +778,11 @@ class NormalizedGaussianAffinity(LogAffinity):
         log_affinity_matrix = -C / self.sigma
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
+            log_normalization = logsumexp_red(
                 log_affinity_matrix, self.normalization_dim
+            )
+            self.register_buffer(
+                "log_normalization_", log_normalization, persistent=False
             )
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
@@ -869,8 +877,11 @@ class NormalizedStudentAffinity(LogAffinity):
         )
 
         if self.normalization_dim is not None:
-            self.log_normalization_ = logsumexp_red(
+            log_normalization = logsumexp_red(
                 log_affinity_matrix, self.normalization_dim
+            )
+            self.register_buffer(
+                "log_normalization_", log_normalization, persistent=False
             )
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 

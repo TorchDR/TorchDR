@@ -213,8 +213,10 @@ class UMAP(SampledNeighborEmbedding):
         self.affinity_in_.masked_fill_(
             small_affinity_edges, float("inf")
         )  # avoid updating these edges
-        self.epochs_per_sample = self.affinity_in_
-        self.epoch_of_next_sample = self.epochs_per_sample.clone()
+        self.register_buffer("epochs_per_sample", self.affinity_in_, persistent=False)
+        self.register_buffer(
+            "epoch_of_next_sample", self.epochs_per_sample.clone(), persistent=False
+        )
 
     def _compute_attractive_gradients(self):
         D = symmetric_pairwise_distances_indices(
@@ -231,7 +233,8 @@ class UMAP(SampledNeighborEmbedding):
         # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
         # (higher affinity → smaller epochs_per_sample) get updated more often.
         # Use tensor iteration counter from base class for torch compile compatibility
-        self.mask_affinity_in_ = self.epoch_of_next_sample <= self.n_iter_ + 1
+        mask_affinity_in = self.epoch_of_next_sample <= self.n_iter_ + 1
+        self.register_buffer("mask_affinity_in_", mask_affinity_in, persistent=False)
         self.epoch_of_next_sample[self.mask_affinity_in_] += self.epochs_per_sample[
             self.mask_affinity_in_
         ]

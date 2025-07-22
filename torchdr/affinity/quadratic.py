@@ -129,7 +129,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         self.optimizer = optimizer
         self.lr = lr
         self.base_kernel = base_kernel
-        self.n_iter_ = 0
+        self.n_iter_ = torch.tensor(0, dtype=torch.long)
 
     @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
@@ -153,11 +153,12 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         one = torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
 
         # Performs warm-start if an initial dual variable is provided
-        self.dual_ = (
+        dual = (
             torch.ones(n_samples_in, dtype=X.dtype, device=X.device)
             if self.init_dual is None
             else self.init_dual
         )
+        self.register_buffer("dual_", dual, persistent=False)
 
         optimizer_class = getattr(torch.optim, self.optimizer)
         optimizer = optimizer_class([self.dual_], lr=self.lr)
