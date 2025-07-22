@@ -214,7 +214,8 @@ class TSNEkhorn(NeighborEmbedding):
         log_Q = self.affinity_out(
             self.embedding_, log=True, init_dual=self.dual_sinkhorn_
         )
-        self.dual_sinkhorn_ = self.affinity_out.dual_.detach()
+        dual_sinkhorn = self.affinity_out.dual_.detach()
+        self.register_buffer("dual_sinkhorn_", dual_sinkhorn, persistent=False)
 
         attractive_term = cross_entropy_loss(self.affinity_in_, log_Q, log=True)
         if self.unrolling:

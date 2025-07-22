@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 
 import torch
+import torch.nn as nn
 import numpy as np
 from sklearn.base import BaseEstimator
 
@@ -21,7 +22,7 @@ from typing import Optional, Any, TypeVar
 ArrayLike = TypeVar("ArrayLike", torch.Tensor, np.ndarray)
 
 
-class DRModule(BaseEstimator, ABC):
+class DRModule(BaseEstimator, nn.Module, ABC):
     """Base class for DR methods.
 
     Each children class should implement the fit_transform method.
@@ -56,6 +57,8 @@ class DRModule(BaseEstimator, ABC):
         process_duplicates: bool = True,
         **kwargs,
     ):
+        super().__init__()
+
         self.n_components = n_components
         self.device = device
         self.backend = backend
@@ -195,3 +198,14 @@ class DRModule(BaseEstimator, ABC):
             )
 
         return self.embedding_
+
+    def clear_memory(self):
+        """Clear non-persistent buffers to free memory after training."""
+        # Clear non-persistent buffers (training data)
+        if hasattr(self, "_non_persistent_buffers_set"):
+            for name in list(self._non_persistent_buffers_set):
+                if hasattr(self, name):
+                    delattr(self, name)
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

@@ -221,18 +221,19 @@ class AffinityMatcher(DRModule):
                     "(n_samples, n_samples)."
                 )
             check_nonnegativity(X)
-            self.affinity_in_ = X
+            self.register_buffer("affinity_in_", X, persistent=False)
         else:
             if self.verbose:
                 self.logger.info(
                     f"----- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} -----"
                 )
             if isinstance(self.affinity_in, SparseAffinity):
-                self.affinity_in_, self.NN_indices_ = self.affinity_in(
-                    X, return_indices=True
-                )
+                affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
+                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
+                self.register_buffer("NN_indices_", nn_indices, persistent=False)
             else:
-                self.affinity_in_ = self.affinity_in(X)
+                affinity_matrix = self.affinity_in(X)
+                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
 
         self.on_affinity_computation_end()
 
@@ -244,8 +245,8 @@ class AffinityMatcher(DRModule):
         self._init_embedding(X)
         self._set_params()
         self._set_learning_rate()
-        self._set_optimizer()
-        self._set_scheduler()
+        self._configure_optimizer()
+        self._configure_scheduler()
 
         grad_norm = float("nan")
         for step in range(self.max_iter):
@@ -283,6 +284,9 @@ class AffinityMatcher(DRModule):
                             f"{grad_norm:.2e}."
                         )
                     break
+
+        # Always clear memory after training
+        self.clear_memory()
 
         return self.embedding_
 
@@ -353,7 +357,7 @@ class AffinityMatcher(DRModule):
         self.params_ = [{"params": self.embedding_}]
         return self.params_
 
-    def _set_optimizer(self):
+    def _configure_optimizer(self):
         if isinstance(self.optimizer, str):
             # Try to get the optimizer from torch.optim
             try:
@@ -386,13 +390,13 @@ class AffinityMatcher(DRModule):
         else:
             self.lr_ = self.lr
 
-    def _set_scheduler(self, n_iter: Optional[int] = None):
+    def _configure_scheduler(self, n_iter: Optional[int] = None):
         n_iter = n_iter or self.max_iter
 
         if not hasattr(self, "optimizer_"):
             raise ValueError(
                 "[TorchDR] ERROR : optimizer not set. "
-                "Please call _set_optimizer before _set_scheduler."
+                "Please call _configure_optimizer before _configure_scheduler."
             )
 
         # If scheduler is None, don't create a scheduler
@@ -467,3 +471,13 @@ class AffinityMatcher(DRModule):
             )
 
         return self.embedding_.requires_grad_()
+
+    def clear_memory(self):
+        """Clear all training-related memory including buffers and optimizer state."""
+        # Clear non-persistent buffers from parent class
+        super().clear_memory()
+
+        # Clear optimizer and related attributes specific to AffinityMatcher
+        for attr in ["optimizer_", "scheduler_", "params_", "lr_"]:
+            if hasattr(self, attr):
+                delattr(self, attr)

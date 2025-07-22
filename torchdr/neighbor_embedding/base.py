@@ -169,8 +169,8 @@ class NeighborEmbedding(AffinityMatcher):
             self.early_exaggeration_coeff_ = 1
             # reinitialize optim
             self._set_learning_rate()
-            self._set_optimizer()
-            self._set_scheduler()
+            self._configure_optimizer()
+            self._configure_scheduler()
 
         return self
 
@@ -220,7 +220,7 @@ class NeighborEmbedding(AffinityMatcher):
         else:
             self.lr_ = self.lr
 
-    def _set_optimizer(self):
+    def _configure_optimizer(self):
         if isinstance(self.optimizer, str):
             # Get optimizer directly from torch.optim
             try:
@@ -253,12 +253,12 @@ class NeighborEmbedding(AffinityMatcher):
         self.optimizer_ = optimizer_class(self.params_, lr=self.lr_, **optimizer_kwargs)
         return self.optimizer_
 
-    def _set_scheduler(self):
+    def _configure_scheduler(self):
         if self.early_exaggeration_coeff_ > 1:
             n_iter = min(self.early_exaggeration_iter, self.max_iter)
         else:
             n_iter = self.max_iter - self.early_exaggeration_iter
-        super()._set_scheduler(n_iter)
+        super()._configure_scheduler(n_iter)
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
@@ -599,9 +599,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
                 exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
         else:
             exclude = self_idxs
-        self.exclude_, _ = exclude.sort(dim=1)  # sort exclude so searchsorted works
+        exclude_sorted, _ = exclude.sort(dim=1)  # sort exclude so searchsorted works
+        self.register_buffer(
+            "negative_exclusion_indices_", exclude_sorted, persistent=False
+        )
 
-        n_possible = self.n_samples_in_ - self.exclude_.shape[1]
+        n_possible = self.n_samples_in_ - self.negative_exclusion_indices_.shape[1]
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
                 f"[TorchDR] ERROR : requested {self.n_negatives} negatives but "
@@ -613,9 +616,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         super().on_training_step_start()
         negatives = torch.randint(
             1,
-            self.n_samples_in_ - self.exclude_.shape[1],
+            self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
             (self.n_samples_in_, self.n_negatives),
             device=self.embedding_.device,
         )
-        shifts = torch.searchsorted(self.exclude_, negatives, right=True)
-        self.neg_indices_ = negatives + shifts
+        shifts = torch.searchsorted(
+            self.negative_exclusion_indices_, negatives, right=True
+        )
+        neg_indices = negatives + shifts
+        self.register_buffer("neg_indices_", neg_indices, persistent=False)

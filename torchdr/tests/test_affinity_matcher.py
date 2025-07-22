@@ -62,12 +62,12 @@ def test_convergence_reached():
     assert model.n_iter_ < 2  # should converge in less than 2 iterations
 
 
-def test_scheduler_not_set_optimizer():
+def test_scheduler_not_configure_optimizer():
     model = AffinityMatcher(
         affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
     )
     with pytest.raises(ValueError):
-        model._set_scheduler()
+        model._configure_scheduler()
 
 
 def test_scheduler_invalid_type():
@@ -77,7 +77,7 @@ def test_scheduler_invalid_type():
         scheduler="invalid_scheduler",
     )
     with pytest.raises(ValueError):
-        model._set_scheduler()
+        model._configure_scheduler()
 
 
 def test_lr_auto_warning():
@@ -111,7 +111,7 @@ def test_optimizer_invalid_string():
     model._set_params()
     model._set_learning_rate()
     with pytest.raises(ValueError):
-        model._set_optimizer()
+        model._configure_optimizer()
 
 
 def test_optimizer_invalid_class():
@@ -127,7 +127,7 @@ def test_optimizer_invalid_class():
     model._set_params()
     model._set_learning_rate()
     with pytest.raises(ValueError):
-        model._set_optimizer()
+        model._configure_optimizer()
 
 
 def test_init_embedding_methods():
