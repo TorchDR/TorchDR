@@ -17,6 +17,7 @@ from torchdr.utils import (
     to_torch,
     bool_arg,
     set_logger,
+    with_mixed_precision,
 )
 
 from torchdr.distance import (
@@ -44,6 +45,11 @@ class Affinity(nn.Module, ABC):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the affinity matrix computation. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -58,6 +64,7 @@ class Affinity(nn.Module, ABC):
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__()
@@ -72,8 +79,25 @@ class Affinity(nn.Module, ABC):
         self.compile = compile
         self._pre_processed = _pre_processed
 
+        # Normalize precision parameter
+        if precision in [32, "32-true"]:
+            self.precision = "32-true"
+            self.compute_dtype = torch.float32
+        elif precision in [16, "16-mixed"]:
+            self.precision = "16-mixed"
+            self.compute_dtype = torch.float16
+        elif precision == "bf16-mixed":
+            self.precision = "bf16-mixed"
+            self.compute_dtype = torch.bfloat16
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR: Invalid precision '{precision}'. "
+                "Must be one of: '32-true', 32, '16-mixed', 16, 'bf16-mixed'"
+            )
+
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
+    @with_mixed_precision
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
 
@@ -87,8 +111,6 @@ class Affinity(nn.Module, ABC):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
@@ -145,6 +167,7 @@ class Affinity(nn.Module, ABC):
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
             return_indices=return_indices,
+            faiss_dtype=self.compute_dtype if hasattr(self, "compute_dtype") else None,
         )
 
     def clear_memory(self):
@@ -175,6 +198,8 @@ class LogAffinity(Affinity):
         If True, prints additional information during computation. Default is False.
     compile : bool, optional
         Whether to compile the affinity matrix computation. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -189,6 +214,7 @@ class LogAffinity(Affinity):
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -199,9 +225,11 @@ class LogAffinity(Affinity):
             verbose=verbose,
             random_state=random_state,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 
+    @with_mixed_precision
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
     ):
@@ -221,13 +249,10 @@ class LogAffinity(Affinity):
             The computed log affinity matrix if `log` is True, otherwise the
             exponentiated log affinity matrix.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
         log_affinity = self._compute_log_affinity(X, **kwargs)
-        if log:
-            return log_affinity
-        else:
-            return log_affinity.exp()
+        if not log:
+            log_affinity = log_affinity.exp()
+        return log_affinity
 
     def _compute_log_affinity(self, X: torch.Tensor, **kwargs):
         r"""Compute the log affinity matrix from the input data.
@@ -276,6 +301,8 @@ class SparseAffinity(Affinity):
         Whether to compile the affinity matrix computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -291,6 +318,7 @@ class SparseAffinity(Affinity):
         compile: bool = False,
         sparsity: bool = True,
         random_state: float = None,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -301,6 +329,7 @@ class SparseAffinity(Affinity):
             verbose=verbose,
             random_state=random_state,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.sparsity = sparsity
@@ -315,6 +344,7 @@ class SparseAffinity(Affinity):
         """Set the sparsity of the affinity matrix."""
         self._sparsity = bool_arg(value)
 
+    @with_mixed_precision
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
     ):
@@ -333,8 +363,6 @@ class SparseAffinity(Affinity):
             If return_indices is True, returns the indices of the non-zero elements
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
         return self._compute_sparse_affinity(X, return_indices, **kwargs)
 
     def _compute_sparse_affinity(
@@ -394,6 +422,7 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
         and skips the `to_torch` conversion. Default is False.
     """
 
+    @with_mixed_precision
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -426,21 +455,20 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
             If return_indices is True, returns the indices of the non-zero elements
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
-
         if return_indices:
             log_affinity, indices = self._compute_sparse_log_affinity(
                 X, return_indices, **kwargs
             )
-            affinity_to_return = log_affinity if log else log_affinity.exp()
-            return (affinity_to_return, indices)
+            if not log:
+                log_affinity = log_affinity.exp()
+            return (log_affinity, indices)
         else:
             log_affinity = self._compute_sparse_log_affinity(
                 X, return_indices, **kwargs
             )
-            affinity_to_return = log_affinity if log else log_affinity.exp()
-            return affinity_to_return
+            if not log:
+                log_affinity = log_affinity.exp()
+            return log_affinity
 
     def _compute_sparse_log_affinity(
         self, X: torch.Tensor, return_indices: bool = False, **kwargs
@@ -492,6 +520,11 @@ class UnnormalizedAffinity(Affinity):
         If True, prints additional information during computation. Default is False.
     compile : bool, optional
         Whether to compile the affinity matrix computation. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -506,6 +539,7 @@ class UnnormalizedAffinity(Affinity):
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -516,10 +550,12 @@ class UnnormalizedAffinity(Affinity):
             verbose=verbose,
             random_state=random_state,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self._pre_processed = _pre_processed
 
+    @with_mixed_precision
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -544,10 +580,8 @@ class UnnormalizedAffinity(Affinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
-            if Y is not None:
-                Y = to_torch(Y, device=self.device)
+        if Y is not None and not self._pre_processed:
+            Y = to_torch(Y, device=self.device)
         C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         return self._affinity_formula(C)
 
@@ -652,6 +686,11 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         If True, prints additional information during computation. Default is False.
     compile : bool, optional
         Whether to compile the affinity matrix computation. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -666,6 +705,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -676,9 +716,11 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
             verbose=verbose,
             random_state=random_state,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 
+    @with_mixed_precision
     def __call__(
         self,
         X: Union[torch.Tensor, np.ndarray],
@@ -707,10 +749,8 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
             The computed affinity matrix.
         """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
-            if Y is not None:
-                Y = to_torch(Y, device=self.device)
+        if Y is not None and not self._pre_processed:
+            Y = to_torch(Y, device=self.device)
         C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
         log_affinity = self._log_affinity_formula(C)
         if log:

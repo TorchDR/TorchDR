@@ -21,6 +21,7 @@ def pairwise_distances(
     exclude_diag: bool = False,
     k: Optional[int] = None,
     return_indices: bool = False,
+    faiss_dtype: Optional[torch.dtype] = None,
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -43,6 +44,10 @@ def pairwise_distances(
     return_indices : bool, optional
         Whether to return the indices of the k-nearest neighbors.
         Default is False.
+    faiss_dtype : torch.dtype, optional
+        Dtype for FAISS internal distance computations and storage on GPU.
+        If torch.float16 or torch.bfloat16, enables float16 mode in FAISS GPU indices.
+        Default is None (use standard float32).
 
     Returns
     -------
@@ -58,7 +63,12 @@ def pairwise_distances(
     elif backend == "faiss":
         if k is not None:
             C, indices = pairwise_distances_faiss(
-                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
+                X=X,
+                Y=Y,
+                metric=metric,
+                k=k,
+                exclude_diag=exclude_diag,
+                faiss_dtype=faiss_dtype,
             )
         else:
             raise ValueError(

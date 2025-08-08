@@ -92,6 +92,7 @@ class SelfTuningAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -101,6 +102,7 @@ class SelfTuningAffinity(LogAffinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.K = K
@@ -194,6 +196,7 @@ class MAGICAffinity(Affinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -203,6 +206,7 @@ class MAGICAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.K = K
@@ -279,6 +283,7 @@ class PHATEAffinity(Affinity):
         alpha: float = 10.0,
         t: int = 5,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         if backend == "faiss" or backend == "keops":
@@ -293,6 +298,7 @@ class PHATEAffinity(Affinity):
             verbose=verbose,
             compile=compile,
             zero_diag=False,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 
@@ -369,6 +375,7 @@ class UMAPAffinity(SparseAffinity):
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -383,6 +390,7 @@ class UMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=sparsity,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 
@@ -493,6 +501,7 @@ class PACMAPAffinity(SparseAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -505,6 +514,7 @@ class PACMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=True,  # PACMAP uses sparsity mode
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 

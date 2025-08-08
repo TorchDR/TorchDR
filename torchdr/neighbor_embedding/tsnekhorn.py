@@ -106,6 +106,11 @@ class TSNEkhorn(NeighborEmbedding):
         Interval for checking the convergence of the algorithm, by default 50.
     jit_compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -139,6 +144,7 @@ class TSNEkhorn(NeighborEmbedding):
         symmetric_affinity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         **kwargs,
     ):
         self.metric_in = metric_in
@@ -163,6 +169,7 @@ class TSNEkhorn(NeighborEmbedding):
                 backend=backend,
                 verbose=verbose,
                 zero_diag=False,
+                precision=precision,
             )
         else:
             affinity_in = EntropicAffinity(
@@ -172,6 +179,7 @@ class TSNEkhorn(NeighborEmbedding):
                 device=device,
                 backend=backend,
                 verbose=verbose,
+                precision=precision,
             )
         affinity_out = SinkhornAffinity(
             metric=metric_out,
@@ -181,6 +189,7 @@ class TSNEkhorn(NeighborEmbedding):
             base_kernel="student",
             with_grad=unrolling,
             max_iter=5,
+            precision=precision,
         )
 
         super().__init__(
@@ -204,6 +213,7 @@ class TSNEkhorn(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
             **kwargs,
         )
 

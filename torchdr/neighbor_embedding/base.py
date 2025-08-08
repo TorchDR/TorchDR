@@ -87,6 +87,8 @@ class NeighborEmbedding(AffinityMatcher):
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    precision : str or int, optional
+        Precision to use for the computation. Default is "32-true".
     """  # noqa: E501
 
     def __init__(
@@ -114,6 +116,7 @@ class NeighborEmbedding(AffinityMatcher):
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         **kwargs: Any,
     ):
         self.early_exaggeration_iter = early_exaggeration_iter
@@ -158,6 +161,7 @@ class NeighborEmbedding(AffinityMatcher):
             random_state=random_state,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
             **kwargs,
         )
 
@@ -329,6 +333,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    precision : str or int, optional
+        Precision to use for the computation. Default is "32-true".
     """  # noqa: E501
 
     def __init__(
@@ -357,6 +363,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseAffinity):
@@ -398,6 +406,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def _compute_attractive_loss(self):
@@ -524,6 +534,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Whether to discard nearest neighbors from negative sampling. Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    precision : str or int, optional
+        Precision to use for the computation. Default is "32-true".
     """  # noqa: E501
 
     def __init__(
@@ -554,6 +566,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         self.n_negatives = n_negatives
         self.discard_NNs = discard_NNs
@@ -581,6 +595,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             repulsion_strength=repulsion_strength,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def on_affinity_computation_end(self):
@@ -611,6 +627,15 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
                 f"only {n_possible} available."
             )
 
+        # Pre-allocate neg_indices_ buffer for efficiency
+        self.register_buffer(
+            "neg_indices_",
+            torch.empty(
+                (self.n_samples_in_, self.n_negatives), dtype=torch.long, device=device
+            ),
+            persistent=False,
+        )
+
     def on_training_step_start(self):
         """Sample negatives."""
         super().on_training_step_start()
@@ -623,5 +648,4 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         shifts = torch.searchsorted(
             self.negative_exclusion_indices_, negatives, right=True
         )
-        neg_indices = negatives + shifts
-        self.register_buffer("neg_indices_", neg_indices, persistent=False)
+        self.neg_indices_ = negatives + shifts

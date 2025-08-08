@@ -6,6 +6,7 @@
 
 import functools
 import torch
+from functools import wraps
 
 from .keops import LazyTensor, is_lazy_tensor, pykeops
 from .validation import check_array
@@ -217,6 +218,32 @@ def handle_keops(func):
                     self.backend_ = "keops"
 
         return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def with_mixed_precision(func):
+    """Decorator to apply autocast for mixed precision if enabled.
+
+    This decorator handles the to_torch conversion and autocast context
+    for any method that takes X as its first positional argument.
+    """
+
+    @wraps(func)
+    def wrapper(self, X, *args, **kwargs):
+        # Convert to torch if needed
+        if not self._pre_processed:
+            X = to_torch(X, device=self.device)
+
+        # Setup autocast context
+        use_amp = hasattr(self, "compute_dtype") and self.compute_dtype != torch.float32
+        device_type = "cuda" if X.is_cuda else "cpu"
+        dtype = self.compute_dtype if use_amp else None
+
+        # Call the original function within autocast context
+        with torch.amp.autocast(device_type=device_type, dtype=dtype, enabled=use_amp):
+            result = func(self, X, *args, **kwargs)
+        return result
 
     return wrapper
 

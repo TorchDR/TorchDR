@@ -4,7 +4,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 
@@ -110,6 +110,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -119,6 +120,7 @@ class DoublyStochasticQuadraticAffinity(Affinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.eps = eps
