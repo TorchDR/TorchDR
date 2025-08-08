@@ -164,11 +164,8 @@ class AffinityMatcher(DRModule):
         self.init = init
         self.init_scaling = init_scaling
 
-        # Parse precision settings (PyTorch Lightning compatible)
         self._setup_precision(precision)
-
-        # Initialize grad_scaler to None (will be set during _fit_transform if needed)
-        self.grad_scaler = None
+        self.grad_scaler = None  # will be set during _fit_transform if needed
 
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
@@ -202,10 +199,8 @@ class AffinityMatcher(DRModule):
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
     def _setup_precision(self, precision: Union[str, int]):
-        """Setup precision settings compatible with PyTorch Lightning."""
         self.precision = precision
 
-        # Parse precision string/int to determine AMP settings
         if precision in ["32-true", 32]:
             self.use_amp = False
             self.amp_dtype = None
@@ -222,21 +217,6 @@ class AffinityMatcher(DRModule):
             )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
-        """Fit the model from data in X.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data.
-        y : None
-            Ignored.
-
-        Returns
-        -------
-        embedding_ : torch.Tensor
-            The embedding of the input data.
-        """
         self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- Input affinity computation ---
@@ -337,7 +317,6 @@ class AffinityMatcher(DRModule):
                             )
                         break
 
-        # Always clear memory after training
         self.clear_memory()
 
         return self.embedding_
