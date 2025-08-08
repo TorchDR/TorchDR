@@ -99,6 +99,12 @@ class AffinityMatcher(DRModule):
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    precision : str or int, default="32-true"
+        Precision mode for training. Options:
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Automatic mixed precision with float16
+        - "bf16-mixed": Automatic mixed precision with bfloat16
+        Compatible with PyTorch Lightning precision naming.
     """  # noqa: E501
 
     def __init__(
@@ -126,6 +132,7 @@ class AffinityMatcher(DRModule):
         random_state: Optional[float] = None,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         **kwargs,
     ):
         super().__init__(
@@ -157,6 +164,12 @@ class AffinityMatcher(DRModule):
         self.init = init
         self.init_scaling = init_scaling
 
+        # Parse precision settings (PyTorch Lightning compatible)
+        self._setup_precision(precision)
+
+        # Initialize grad_scaler to None (will be set during _fit_transform if needed)
+        self.grad_scaler = None
+
         # --- check affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
@@ -187,6 +200,26 @@ class AffinityMatcher(DRModule):
         self.kwargs_affinity_out = kwargs_affinity_out
 
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
+
+    def _setup_precision(self, precision: Union[str, int]):
+        """Setup precision settings compatible with PyTorch Lightning."""
+        self.precision = precision
+
+        # Parse precision string/int to determine AMP settings
+        if precision in ["32-true", 32]:
+            self.use_amp = False
+            self.amp_dtype = None
+        elif precision in ["16-mixed", 16]:
+            self.use_amp = True
+            self.amp_dtype = torch.float16
+        elif precision == "bf16-mixed":
+            self.use_amp = True
+            self.amp_dtype = torch.bfloat16
+        else:
+            raise ValueError(
+                f"[TorchDR] ERROR: Unsupported precision '{precision}'. "
+                "Supported values: '32-true', 32, '16-mixed', 16, 'bf16-mixed'"
+            )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
@@ -260,6 +293,10 @@ class AffinityMatcher(DRModule):
         self._configure_optimizer()
         self._configure_scheduler()
 
+        # Initialize GradScaler now that we have the embedding device
+        if self.use_amp:
+            self.grad_scaler = torch.amp.GradScaler(device=self.embedding_.device.type)
+
         grad_norm = float("nan")
         for step in range(self.max_iter):
             self.n_iter_.fill_(step)
@@ -282,20 +319,23 @@ class AffinityMatcher(DRModule):
                     msg_parts.append(f"Loss: {loss.item():.2e}")
                 msg_parts.append(f"Grad norm: {grad_norm:.2e}")
                 msg_parts.append(f"LR: {lr:.2e}")
+                if self.use_amp:
+                    msg_parts.append(f"Scale: {self.grad_scaler.get_scale():.0f}")
 
                 msg = " | ".join(msg_parts)
                 self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
-                grad_norm = self.embedding_.grad.norm(2).item()
-                if grad_norm < self.min_grad_norm:
-                    if self.verbose:
-                        self.logger.info(
-                            f"Convergence reached at iter {self.n_iter_} with grad norm: "
-                            f"{grad_norm:.2e}."
-                        )
-                    break
+                if self.embedding_.grad is not None:
+                    grad_norm = self.embedding_.grad.norm(2).item()
+                    if grad_norm < self.min_grad_norm:
+                        if self.verbose:
+                            self.logger.info(
+                                f"Convergence reached at iter {self.n_iter_} with grad norm: "
+                                f"{grad_norm:.2e}."
+                            )
+                        break
 
         # Always clear memory after training
         self.clear_memory()
@@ -307,15 +347,40 @@ class AffinityMatcher(DRModule):
         self.optimizer_.zero_grad(set_to_none=True)
 
         if getattr(self, "_use_direct_gradients", False):
-            gradients = self._compute_gradients()
-            if gradients is not None:
-                self.embedding_.grad = gradients
-            loss = None
-        else:
-            loss = self._compute_loss()
-            loss.backward()
+            device_type = self.embedding_.device.type
+            with torch.amp.autocast(
+                device_type=device_type, dtype=self.amp_dtype, enabled=self.use_amp
+            ):
+                gradients = self._compute_gradients()
 
-        self.optimizer_.step()
+            if gradients is None:
+                raise ValueError(
+                    f"[TorchDR] ERROR: _compute_gradients returned None at iteration {self.n_iter_}. "
+                    "Direct gradient computation must return valid gradients."
+                )
+
+            # Ensure gradients match embedding dtype (important for mixed precision)
+            if gradients.dtype != self.embedding_.dtype:
+                gradients = gradients.to(dtype=self.embedding_.dtype)
+
+            self.embedding_.grad = gradients
+            loss = None
+            self.optimizer_.step()
+        else:
+            device_type = self.embedding_.device.type
+            with torch.amp.autocast(
+                device_type=device_type, dtype=self.amp_dtype, enabled=self.use_amp
+            ):
+                loss = self._compute_loss()
+
+            if self.use_amp:
+                self.grad_scaler.scale(loss).backward()
+                self.grad_scaler.step(self.optimizer_)
+                self.grad_scaler.update()
+            else:
+                loss.backward()
+                self.optimizer_.step()
+
         if self.scheduler_ is not None:
             self.scheduler_.step()
         return loss
@@ -498,6 +563,6 @@ class AffinityMatcher(DRModule):
         if isinstance(self.affinity_out, Affinity):
             self.affinity_out.clear_memory()
 
-        for attr in ["optimizer_", "scheduler_", "params_", "lr_"]:
+        for attr in ["optimizer_", "scheduler_", "params_", "lr_", "grad_scaler"]:
             if hasattr(self, attr):
                 delattr(self, attr)

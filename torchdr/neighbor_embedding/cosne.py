@@ -72,6 +72,11 @@ class COSNE(SparseNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Number of iterations between checks for convergence, by default 50.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -101,6 +106,8 @@ class COSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         self.metric_in = metric_in
         self.metric_out = "sqhyperbolic"
@@ -118,6 +125,7 @@ class COSNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            precision=precision,
         )
         affinity_out = CauchyAffinity(
             metric=self.metric_out,
@@ -125,6 +133,7 @@ class COSNE(SparseNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
+            precision=precision,
         )
 
         super().__init__(
@@ -148,6 +157,8 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:

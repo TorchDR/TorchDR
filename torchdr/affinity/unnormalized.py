@@ -50,6 +50,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
         backend: Optional[str] = None,
         verbose: bool = True,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -59,6 +60,7 @@ class GaussianAffinity(UnnormalizedLogAffinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.sigma = sigma
@@ -95,6 +97,8 @@ class StudentAffinity(UnnormalizedLogAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the formula.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity computations. Default is "32-true".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -109,6 +113,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -118,6 +123,7 @@ class StudentAffinity(UnnormalizedLogAffinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.degrees_of_freedom = degrees_of_freedom
@@ -258,6 +264,11 @@ class ScalarProductAffinity(NegativeCostAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the formula.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -269,6 +280,7 @@ class ScalarProductAffinity(NegativeCostAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -278,5 +290,6 @@ class ScalarProductAffinity(NegativeCostAffinity):
             verbose=verbose,
             zero_diag=False,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )

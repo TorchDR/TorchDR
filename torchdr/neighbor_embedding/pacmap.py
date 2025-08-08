@@ -78,6 +78,11 @@ class PACMAP(SampledNeighborEmbedding):
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -107,6 +112,8 @@ class PACMAP(SampledNeighborEmbedding):
         iter_per_phase: int = 100,
         discard_NNs: bool = True,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         self.n_neighbors = n_neighbors
         self.metric_in = metric_in
@@ -124,6 +131,7 @@ class PACMAP(SampledNeighborEmbedding):
             device=device,
             backend=backend,
             verbose=verbose,
+            precision=precision,
         )
 
         super().__init__(
@@ -147,6 +155,8 @@ class PACMAP(SampledNeighborEmbedding):
             n_negatives=self.n_further,
             discard_NNs=discard_NNs,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):

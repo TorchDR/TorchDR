@@ -80,6 +80,11 @@ class SNE(SparseNeighborEmbedding):
         Interval for checking the convergence of the algorithm.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -109,6 +114,8 @@ class SNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -124,12 +131,14 @@ class SNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            precision=precision,
         )
         affinity_out = GaussianAffinity(
             metric=metric_out,
             device=device,
             backend=backend,
             verbose=False,
+            precision=precision,
         )
 
         super().__init__(
@@ -153,6 +162,8 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def _compute_repulsive_loss(self):

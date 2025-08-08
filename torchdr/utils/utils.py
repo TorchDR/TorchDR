@@ -121,7 +121,13 @@ def cross_entropy_loss(P, Q, log=False):
     if log:
         return -sum_red(P * Q, dim=(0, 1))
     else:
-        return -sum_red(P * Q.log(), dim=(0, 1))
+        # Add dtype-aware epsilon to prevent log(0) and handle float16
+        dtype = Q.dtype if hasattr(Q, "dtype") else torch.float32
+        if dtype == torch.float16:
+            eps = 1e-4  # Larger epsilon for float16 stability
+        else:
+            eps = torch.finfo(dtype).eps * 100
+        return -sum_red(P * (Q + eps).log(), dim=(0, 1))
 
 
 def square_loss(P, Q):
@@ -165,9 +171,21 @@ def entropy(P, log=True, dim=1):
         The entropy values with the specified dimension reduced.
     """
     if log:
-        return -(P.exp() * (P - 1)).sum(dim).squeeze()
+        # For log-domain: H = -sum(exp(log_p) * log_p)
+        # Clamp to prevent exp overflow with float16
+        if hasattr(P, "dtype") and P.dtype == torch.float16:
+            P_clamped = P.clamp(max=10.0)  # exp(10) ≈ 22026, safe for float16
+            return -(P_clamped.exp() * (P_clamped - 1)).sum(dim).squeeze()
+        else:
+            return -(P.exp() * (P - 1)).sum(dim).squeeze()
     else:
-        return -(P * (P.log() - 1)).sum(dim).squeeze()
+        # Add dtype-aware epsilon for log operation
+        dtype = P.dtype if hasattr(P, "dtype") else torch.float32
+        if dtype == torch.float16:
+            eps = 1e-4
+        else:
+            eps = torch.finfo(dtype).eps * 100
+        return -(P * ((P + eps).log() - 1)).sum(dim).squeeze()
 
 
 def kmin(A, k=1, dim=0):

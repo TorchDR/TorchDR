@@ -89,6 +89,11 @@ class LargeVis(SampledNeighborEmbedding):
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -120,6 +125,8 @@ class LargeVis(SampledNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = True,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
+        **kwargs,
     ):
         self.metric_in = metric_in
         self.metric_out = metric_out
@@ -135,11 +142,13 @@ class LargeVis(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            precision=precision,
         )
         affinity_out = StudentAffinity(
             metric=metric_out,
             device=device,
             verbose=False,
+            precision=precision,
         )
 
         super().__init__(
@@ -165,6 +174,8 @@ class LargeVis(SampledNeighborEmbedding):
             check_interval=check_interval,
             discard_NNs=discard_NNs,
             compile=compile,
+            precision=precision,
+            **kwargs,
         )
 
     def _compute_repulsive_loss(self):

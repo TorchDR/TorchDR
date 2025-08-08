@@ -197,6 +197,7 @@ class EntropicAffinity(SparseLogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         self.perplexity = perplexity
@@ -210,6 +211,7 @@ class EntropicAffinity(SparseLogAffinity):
             verbose=verbose,
             sparsity=sparsity,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
 
@@ -376,6 +378,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         backend: Optional[str] = None,
         verbose: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -385,6 +388,7 @@ class SymmetricEntropicAffinity(LogAffinity):
             backend=backend,
             verbose=verbose,
             compile=compile,
+            precision=precision,
             _pre_processed=_pre_processed,
         )
         self.perplexity = perplexity
@@ -621,6 +625,7 @@ class SinkhornAffinity(LogAffinity):
         verbose: bool = False,
         with_grad: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         _pre_processed: bool = False,
     ):
         super().__init__(
@@ -629,6 +634,7 @@ class SinkhornAffinity(LogAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            precision=precision,
             compile=compile,
             _pre_processed=_pre_processed,
         )

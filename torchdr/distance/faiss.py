@@ -21,6 +21,7 @@ def pairwise_distances_faiss(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     exclude_diag: bool = False,
+    faiss_dtype: torch.dtype = None,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -46,6 +47,10 @@ def pairwise_distances_faiss(
     exclude_diag : bool, default False
         When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
         is excluded from the k results.
+    faiss_dtype : torch.dtype, optional
+        Dtype for FAISS internal distance computations and storage on GPU.
+        If torch.float16 or torch.bfloat16, enables float16 mode in FAISS GPU indices.
+        Default is None (use standard float32).
 
     Returns
     -------
@@ -70,8 +75,16 @@ def pairwise_distances_faiss(
         k = int(k)
 
     # Convert input tensor X to a NumPy array.
-    dtype = X.dtype
-    X_np = X.detach().cpu().numpy().astype(np.float32)
+    # Store the original dtype to convert back later
+    original_dtype = X.dtype
+
+    # Use the provided faiss_dtype if given for internal FAISS computations
+    # This only affects GPU storage/computation, not the output dtype
+    faiss_internal_dtype = faiss_dtype if faiss_dtype is not None else torch.float32
+
+    # FAISS Python interface only accepts float32, but we can enable float16 storage on GPU
+    # Convert to float32 for FAISS (required by the Python interface)
+    X_np = X.detach().cpu().to(torch.float32).numpy()
     n, d = X_np.shape
 
     # If Y is not provided, reuse X_np for Y_np.
@@ -79,7 +92,7 @@ def pairwise_distances_faiss(
         Y_np = X_np
         do_exclude = exclude_diag
     else:
-        Y_np = Y.detach().cpu().numpy().astype(np.float32)
+        Y_np = Y.detach().cpu().to(torch.float32).numpy()
         do_exclude = False
 
     # Set up the FAISS index depending on the metric.
@@ -99,7 +112,23 @@ def pairwise_distances_faiss(
     if device.type == "cuda":
         if hasattr(faiss, "StandardGpuResources"):
             res = faiss.StandardGpuResources()
-            index = faiss.index_cpu_to_gpu(res, 0, index)
+
+            # Enable float16 storage on GPU for reduced precision inputs
+            if faiss_internal_dtype in [torch.float16, torch.bfloat16]:
+                if hasattr(faiss, "GpuIndexFlatConfig"):
+                    config = faiss.GpuIndexFlatConfig()
+                    config.useFloat16 = True
+                    config.device = device.index if device.index is not None else 0
+
+                    if metric == "angular":
+                        index = faiss.GpuIndexFlatIP(res, d, config)
+                    else:  # euclidean or sqeuclidean
+                        index = faiss.GpuIndexFlatL2(res, d, config)
+                else:
+                    # Fallback if GpuIndexFlatConfig not available
+                    index = faiss.index_cpu_to_gpu(res, 0, index)
+            else:
+                index = faiss.index_cpu_to_gpu(res, 0, index)
         else:
             warnings.warn(
                 "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
@@ -133,8 +162,9 @@ def pairwise_distances_faiss(
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    # Convert back to torch tensors.
-    distances = torch.from_numpy(D).to(device).to(dtype)
+    # Convert back to torch tensors with the original dtype
+    # Note: FAISS returns float32, but we convert back to match input dtype
+    distances = torch.from_numpy(D).to(device).to(original_dtype)
     indices = torch.from_numpy(Ind).to(device).long()
 
     return distances, indices

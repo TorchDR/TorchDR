@@ -111,6 +111,11 @@ class UMAP(SampledNeighborEmbedding):
         Default is False.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    precision : {"32-true", "16-mixed", "bf16-mixed", 32, 16}, optional
+        Precision mode for affinity and gradient computations. Default is "32-true".
+        - "32-true" or 32: Full precision (float32)
+        - "16-mixed" or 16: Mixed precision with float16
+        - "bf16-mixed": Mixed precision with bfloat16
     """  # noqa: E501
 
     def __init__(
@@ -142,6 +147,7 @@ class UMAP(SampledNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
+        precision: Union[str, int] = "32-true",
         **kwargs,
     ):
         self.n_neighbors = n_neighbors
@@ -172,6 +178,7 @@ class UMAP(SampledNeighborEmbedding):
             verbose=verbose,
             sparsity=self.sparsity,
             compile=compile,
+            precision=precision,
         )
 
         super().__init__(
@@ -194,6 +201,7 @@ class UMAP(SampledNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             n_negatives=self.n_negatives,
+            precision=precision,
             **kwargs,
         )
 
@@ -218,6 +226,14 @@ class UMAP(SampledNeighborEmbedding):
             "epoch_of_next_sample", self.epochs_per_sample.clone(), persistent=False
         )
 
+        # Pre-allocate mask_affinity_in_ buffer for efficiency
+        mask_shape = self.epochs_per_sample.shape
+        self.register_buffer(
+            "mask_affinity_in_",
+            torch.empty(mask_shape, dtype=torch.bool, device=self.device),
+            persistent=False,
+        )
+
     def _compute_attractive_gradients(self):
         D = symmetric_pairwise_distances_indices(
             self.embedding_,
@@ -233,8 +249,7 @@ class UMAP(SampledNeighborEmbedding):
         # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
         # (higher affinity → smaller epochs_per_sample) get updated more often.
         # Use tensor iteration counter from base class for torch compile compatibility
-        mask_affinity_in = self.epoch_of_next_sample <= self.n_iter_ + 1
-        self.register_buffer("mask_affinity_in_", mask_affinity_in, persistent=False)
+        self.mask_affinity_in_ = self.epoch_of_next_sample <= self.n_iter_ + 1
         self.epoch_of_next_sample[self.mask_affinity_in_] += self.epochs_per_sample[
             self.mask_affinity_in_
         ]
