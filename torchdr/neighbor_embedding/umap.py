@@ -78,9 +78,8 @@ class UMAP(SampledNeighborEmbedding):
     scheduler_kwargs : dict, 'auto', or None, optional
         Additional keyword arguments for the scheduler. Default is 'auto', which
         corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    init : {'normal', 'pca', 'umap_spectral'} or torch.Tensor of shape (n_samples, output_dim), optional
-        Initialization for the embedding Z, default 'pca'. 'umap_spectral' uses the
-        original UMAP package's spectral initialization.
+    init : {'normal', 'pca'} or torch.Tensor of shape (n_samples, output_dim), optional
+        Initialization for the embedding Z, default 'pca'.
     init_scaling : float, optional
         Scaling factor for the initialization, by default 1e-4.
     min_grad_norm : float, optional
@@ -232,7 +231,6 @@ class UMAP(SampledNeighborEmbedding):
 
         # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
         # (higher affinity → smaller epochs_per_sample) get updated more often.
-        # Use tensor iteration counter from base class for torch compile compatibility
         mask_affinity_in = self.epoch_of_next_sample <= self.n_iter_ + 1
         self.register_buffer("mask_affinity_in_", mask_affinity_in, persistent=False)
         self.epoch_of_next_sample[self.mask_affinity_in_] += self.epochs_per_sample[
