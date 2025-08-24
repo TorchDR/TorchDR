@@ -22,6 +22,7 @@ from torchdr.utils import (
 from torchdr.distance import (
     pairwise_distances,
     symmetric_pairwise_distances_indices,
+    FaissConfig,
 )
 
 
@@ -37,8 +38,14 @@ class Affinity(nn.Module, ABC):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
+          (e.g., FaissConfig(use_float16=True, temp_memory=2.0))
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -54,7 +61,7 @@ class Affinity(nn.Module, ABC):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
@@ -66,7 +73,15 @@ class Affinity(nn.Module, ABC):
         self.metric = metric
         self.zero_diag = bool_arg(zero_diag)
         self.device = device
-        self.backend = backend
+
+        # Store the original backend parameter
+        self._backend_orig = backend
+        # Parse backend parameter for internal use
+        if isinstance(backend, FaissConfig):
+            self.backend = "faiss"
+        else:
+            self.backend = backend
+
         self.verbose = bool_arg(verbose)
         self.random_state = random_state
         self.compile = compile
@@ -138,10 +153,16 @@ class Affinity(nn.Module, ABC):
             is returned. Otherwise, a torch.Tensor is returned.
         """
         # The `@handle_keops` decorator sets `self.backend_`, which is used below.
+        # If we have a FaissConfig, use the original backend parameter
+        backend_to_use = (
+            self._backend_orig
+            if isinstance(self._backend_orig, FaissConfig)
+            else self.backend_
+        )
         return pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=self.backend_,
+            backend=backend_to_use,
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
             return_indices=return_indices,
@@ -168,8 +189,13 @@ class LogAffinity(Affinity):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
@@ -185,7 +211,7 @@ class LogAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
@@ -267,8 +293,13 @@ class SparseAffinity(Affinity):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
@@ -286,7 +317,7 @@ class SparseAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig] = None,
         verbose: bool = False,
         compile: bool = False,
         sparsity: bool = True,
@@ -380,8 +411,13 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
         If "auto", uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
@@ -485,8 +521,13 @@ class UnnormalizedAffinity(Affinity):
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
@@ -502,7 +543,7 @@ class UnnormalizedAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
@@ -612,7 +653,13 @@ class UnnormalizedAffinity(Affinity):
         # Note: The `backend_` attribute is set by the `@handle_keops` decorator.
 
         elif Y is not None:  # Case 1: Cross-distance matrix
-            return pairwise_distances(X, Y, metric=self.metric, backend=self.backend_)
+            # If we have a FaissConfig, use the original backend parameter
+            backend_to_use = (
+                self._backend_orig
+                if isinstance(self._backend_orig, FaissConfig)
+                else self.backend_
+            )
+            return pairwise_distances(X, Y, metric=self.metric, backend=backend_to_use)
 
         elif indices is not None:  # Case 2: Sparse self-distance matrix
             return symmetric_pairwise_distances_indices(
@@ -620,10 +667,16 @@ class UnnormalizedAffinity(Affinity):
             )
 
         else:  # Case 3: Full self-distance matrix (with or without the diagonal)
+            # If we have a FaissConfig, use the original backend parameter
+            backend_to_use = (
+                self._backend_orig
+                if isinstance(self._backend_orig, FaissConfig)
+                else self.backend_
+            )
             return pairwise_distances(
                 X,
                 metric=self.metric,
-                backend=self.backend_,
+                backend=backend_to_use,
                 exclude_diag=self.zero_diag,  # infinite distance is zero affinity
             )
 
@@ -645,8 +698,13 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
     device : str, optional
         The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
         If "auto", it uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         If True, prints additional information during computation. Default is False.
@@ -662,7 +720,7 @@ class UnnormalizedLogAffinity(UnnormalizedAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,

@@ -7,11 +7,88 @@
 import torch
 import numpy as np
 import warnings
-from typing import Union
+from typing import Union, Optional, Dict, Any, List
+from dataclasses import dataclass, field
 
 from torchdr.utils.faiss import faiss
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
+
+
+@dataclass
+class FaissConfig:
+    """Configuration for FAISS k-NN computation.
+
+    Parameters
+    ----------
+    use_float16 : bool, default=False
+        Use float16 precision for GPU storage and computation. Reduces memory
+        usage by ~50% and often improves performance on modern GPUs
+        (compute capability 3.5+). Only applies to GPU mode.
+    temp_memory : Union[str, float], default='auto'
+        GPU temporary memory allocation in GB.
+        - 'auto': Use FAISS default (~18% of GPU memory)
+        - float/int: Explicit size in GB (e.g., 2.0 for 2GB)
+        - 0: Disable pre-allocation (use cudaMalloc on demand)
+        Only applies to GPU mode.
+    device : Union[int, List[int]], default=0
+        GPU device ID(s) to use.
+        - int: Single GPU device ID
+        - List[int]: Multiple GPU device IDs for multi-GPU support
+        Only applies when input is on CUDA.
+    shard : bool, default=False
+        For multi-GPU: if True, splits dataset across GPUs (for large datasets);
+        if False, replicates across GPUs (for throughput). Only used when
+        device is a list of multiple GPUs.
+    index_type : str, default='Flat'
+        Type of FAISS index to use:
+        - 'Flat': Exact brute-force search
+        - 'IVF': Inverted file index for approximate search (requires nlist parameter)
+        Currently only 'Flat' is fully supported.
+    nprobe : int, default=1
+        Number of clusters to search in IVF indexes. Higher values increase
+        accuracy but decrease speed. Only used with index_type='IVF'.
+    nlist : int, default=100
+        Number of clusters for IVF indexes. Typical values range from
+        sqrt(n) to 4*sqrt(n) where n is the dataset size.
+        Only used with index_type='IVF'.
+
+    Attributes
+    ----------
+    gpu_resources : Dict[int, Any]
+        Dictionary mapping device IDs to their GPU resources (created on demand).
+
+    Examples
+    --------
+    >>> # Basic float16 configuration for memory efficiency
+    >>> config = FaissConfig(use_float16=True)
+
+    >>> # Multi-GPU configuration with sharding for large datasets
+    >>> config = FaissConfig(device=[0, 1, 2, 3], shard=True, use_float16=True)
+
+    >>> # Custom memory allocation for large batch operations
+    >>> config = FaissConfig(temp_memory=4.0, use_float16=True)  # 4GB temp memory
+
+    >>> # Memory-constrained environment
+    >>> config = FaissConfig(temp_memory=0.5, use_float16=True)  # 512MB only
+
+    Notes
+    -----
+    - Float16 is recommended for datasets > 1M vectors or when GPU memory is limited
+    - Multi-GPU with sharding is ideal for datasets that don't fit on a single GPU
+    - Increasing temp_memory helps with large batch operations but reduces memory
+      available for data storage
+    - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
+    """
+
+    use_float16: bool = False
+    temp_memory: Union[str, float] = "auto"
+    device: Union[int, List[int]] = 0
+    shard: bool = False
+    index_type: str = "Flat"
+    nprobe: int = 1
+    nlist: int = 100
+    gpu_resources: Dict[int, Any] = field(default_factory=dict, init=False, repr=False)
 
 
 @torch.compiler.disable
@@ -21,6 +98,7 @@ def pairwise_distances_faiss(
     Y: torch.Tensor = None,
     metric: str = "sqeuclidean",
     exclude_diag: bool = False,
+    config: Optional[FaissConfig] = None,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -36,16 +114,19 @@ def pairwise_distances_faiss(
     ----------
     X : torch.Tensor of shape (n, d)
         Query dataset.
-    Y : torch.Tensor of shape (m, d), optional
-        Database dataset. If None, Y is set equal to X.
-    metric : str, default "euclidean"
-        One of "euclidean", "sqeuclidean", or "angular".
-    k : int or torch.Tensor, optional
+    k : int or torch.Tensor
         Number of nearest neighbors to return. If tensor, will be converted to int.
         (If `exclude_diag` is True in a self–search, then k+1 neighbors are retrieved first.)
+    Y : torch.Tensor of shape (m, d), optional
+        Database dataset. If None, Y is set equal to X.
+    metric : str, default "sqeuclidean"
+        One of "euclidean", "sqeuclidean", or "angular".
     exclude_diag : bool, default False
         When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
         is excluded from the k results.
+    config : FaissConfig, optional
+        Configuration object for FAISS. If None, uses default settings.
+        See FaissConfig documentation for available options.
 
     Returns
     -------
@@ -56,6 +137,27 @@ def pairwise_distances_faiss(
         For metric=="angular", distances are the (normalized) inner product scores.
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torchdr.distance.faiss import pairwise_distances_faiss, FaissConfig
+
+    >>> # Basic usage with default settings
+    >>> X = torch.randn(1000, 128).cuda()
+    >>> distances, indices = pairwise_distances_faiss(X, k=10)
+
+    >>> # Use float16 for memory efficiency
+    >>> config = FaissConfig(use_float16=True)
+    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
+
+    >>> # Multi-GPU configuration
+    >>> config = FaissConfig(device=[0, 1], shard=True, use_float16=True)
+    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
+
+    >>> # Custom memory allocation for large batches
+    >>> config = FaissConfig(temp_memory=4.0)  # 4GB temp memory
+    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
     """
     if metric not in LIST_METRICS_FAISS:
         raise ValueError(
@@ -63,18 +165,18 @@ def pairwise_distances_faiss(
             "are supported for FAISS."
         )
 
-    # Convert k to integer if it's a tensor (for FAISS compatibility)
+    if config is None:
+        config = FaissConfig()
+
     if isinstance(k, torch.Tensor):
         k = int(k.item())
     else:
         k = int(k)
 
-    # Convert input tensor X to a NumPy array.
     dtype = X.dtype
     X_np = X.detach().cpu().numpy().astype(np.float32)
     n, d = X_np.shape
 
-    # If Y is not provided, reuse X_np for Y_np.
     if Y is None or Y is X:
         Y_np = X_np
         do_exclude = exclude_diag
@@ -82,59 +184,115 @@ def pairwise_distances_faiss(
         Y_np = Y.detach().cpu().numpy().astype(np.float32)
         do_exclude = False
 
-    # Set up the FAISS index depending on the metric.
+    if config.index_type == "IVF":
+        raise NotImplementedError(
+            "[TorchDR] IVF indexes are not yet fully supported. "
+            "Please use index_type='Flat' for now."
+        )
+
     if metric == "angular":
-        # Use the inner product index. Note: FAISS returns negative inner products.
         index = faiss.IndexFlatIP(d)
-
     elif metric in {"euclidean", "sqeuclidean"}:
-        # Use the L2 index. Note: FAISS returns squared distances.
         index = faiss.IndexFlatL2(d)
-
     else:
-        # This branch should never be reached due to the initial check.
         raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
 
     device = X.device
     if device.type == "cuda":
         if hasattr(faiss, "StandardGpuResources"):
-            res = faiss.StandardGpuResources()
-            index = faiss.index_cpu_to_gpu(res, 0, index)
+            index = _setup_gpu_index(index, config, d)
         else:
             warnings.warn(
                 "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
                 "This may be slow. For faster performance, install `faiss-gpu`."
             )
 
-    # Add the database vectors to the index.
     index.add(Y_np)
 
-    # If self-search and excluding self, search for one extra neighbor.
     if do_exclude:
         k_search = k + 1
     else:
         k_search = k
 
-    # Perform the search.
-    D, Ind = index.search(X_np, k_search)  # D: (n, k_search), I: (n, k_search)
+    D, Ind = index.search(X_np, k_search)
 
-    # For "euclidean", take the square root of the squared distances.
     if metric == "euclidean":
         D = np.sqrt(D)
-    # For "angular", negate the inner products.
     elif metric == "angular":
         D = -D
-    # For "sqeuclidean", leave the distances as returned (i.e. squared).
 
-    # If doing self–search with self–exclusion, remove the self neighbor from the results.
     if do_exclude:
-        # In a self-search, FAISS returns the query point itself as the first neighbor.
-        # We searched for k+1 neighbors, so we discard the first column.
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    # Convert back to torch tensors.
     distances = torch.from_numpy(D).to(device).to(dtype)
     indices = torch.from_numpy(Ind).to(device).long()
 
     return distances, indices
+
+
+def _setup_gpu_index(index, config: FaissConfig, d: int):
+    """Set up GPU index with configuration options.
+
+    Parameters
+    ----------
+    index : faiss.Index
+        CPU index to convert to GPU.
+    config : FaissConfig
+        Configuration object with GPU settings.
+    d : int
+        Dimension of the vectors.
+
+    Returns
+    -------
+    gpu_index : faiss.GpuIndex
+        Configured GPU index.
+    """
+    devices = config.device if isinstance(config.device, list) else [config.device]
+
+    if len(devices) == 1:
+        device_id = devices[0]
+
+        if device_id not in config.gpu_resources:
+            res = faiss.StandardGpuResources()
+
+            if config.temp_memory != "auto":
+                temp_memory_bytes = int(config.temp_memory * 1024**3)
+                res.setTempMemory(temp_memory_bytes)
+
+            config.gpu_resources[device_id] = res
+        else:
+            res = config.gpu_resources[device_id]
+
+        if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
+            flat_config = faiss.GpuIndexFlatConfig()
+            flat_config.useFloat16 = config.use_float16
+            flat_config.device = device_id
+
+            if isinstance(index, faiss.IndexFlatL2):
+                gpu_index = faiss.GpuIndexFlatL2(res, d, flat_config)
+            else:
+                gpu_index = faiss.GpuIndexFlatIP(res, d, flat_config)
+        else:
+            gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
+
+    else:
+        gpu_resources = []
+        for device_id in devices:
+            if device_id not in config.gpu_resources:
+                res = faiss.StandardGpuResources()
+
+                if config.temp_memory != "auto":
+                    temp_memory_bytes = int(config.temp_memory * 1024**3)
+                    res.setTempMemory(temp_memory_bytes)
+
+                config.gpu_resources[device_id] = res
+            gpu_resources.append(config.gpu_resources[device_id])
+
+        co = faiss.GpuMultipleClonerOptions()
+        co.shard = config.shard
+        co.useFloat16 = config.use_float16
+
+        gpu_index = faiss.index_cpu_to_gpu_multiple(gpu_resources, devices, index, co)
+
+    return gpu_index

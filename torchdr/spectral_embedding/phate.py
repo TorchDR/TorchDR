@@ -6,12 +6,12 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Optional
+from typing import Optional, Union
 
 from torchdr.affinity import PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.utils import square_loss
-from torchdr.distance import pairwise_distances
+from torchdr.distance import pairwise_distances, FaissConfig
 
 
 class PHATE(AffinityMatcher):
@@ -57,8 +57,13 @@ class PHATE(AffinityMatcher):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
@@ -84,13 +89,13 @@ class PHATE(AffinityMatcher):
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
         metric_in: str = "euclidean",
     ):
-        if backend == "faiss" or backend == "keops":
+        if isinstance(backend, FaissConfig) or backend == "faiss" or backend == "keops":
             raise ValueError(
                 f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
             )

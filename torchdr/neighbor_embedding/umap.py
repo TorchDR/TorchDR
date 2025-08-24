@@ -10,7 +10,7 @@ import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.distance import symmetric_pairwise_distances_indices
+from torchdr.distance import symmetric_pairwise_distances_indices, FaissConfig
 
 from scipy.optimize import curve_fit
 
@@ -88,8 +88,13 @@ class UMAP(SampledNeighborEmbedding):
         Number of maximum iterations for the descent algorithm. by default 2000.
     device : str, optional
         Device to use, by default "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
@@ -132,7 +137,7 @@ class UMAP(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
         device: Optional[str] = None,
-        backend: Optional[str] = "faiss",
+        backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
         max_iter_affinity: int = 100,

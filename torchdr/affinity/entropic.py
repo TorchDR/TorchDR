@@ -13,6 +13,7 @@ import torch
 
 from torchdr.affinity.base import LogAffinity, SparseLogAffinity
 from typing import Union, Tuple, Optional
+from torchdr.distance import FaissConfig
 from torchdr.utils import (
     matrix_transpose,
     check_NaNs,
@@ -174,8 +175,13 @@ class EntropicAffinity(SparseLogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -194,7 +200,7 @@ class EntropicAffinity(SparseLogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         _pre_processed: bool = False,
@@ -349,8 +355,13 @@ class SymmetricEntropicAffinity(LogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -373,7 +384,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         _pre_processed: bool = False,
@@ -593,8 +604,13 @@ class SinkhornAffinity(LogAffinity):
         Whether to set the diagonal of the distance matrix to 0.
     device : str, optional
         Device to use for computation.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -617,7 +633,7 @@ class SinkhornAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         with_grad: bool = False,
         compile: bool = False,
@@ -720,8 +736,13 @@ class NormalizedGaussianAffinity(LogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity.
@@ -740,7 +761,7 @@ class NormalizedGaussianAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
         compile: bool = False,
@@ -815,8 +836,13 @@ class NormalizedStudentAffinity(LogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity.
@@ -835,7 +861,7 @@ class NormalizedStudentAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         normalization_dim: Union[int, Tuple[int, ...]] = (0, 1),
         compile: bool = False,

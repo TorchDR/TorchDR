@@ -9,7 +9,7 @@ from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
 from torchdr.utils import kmin, sum_red
-from torchdr.distance import symmetric_pairwise_distances_indices
+from torchdr.distance import symmetric_pairwise_distances_indices, FaissConfig
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -54,8 +54,13 @@ class PACMAP(SampledNeighborEmbedding):
         Number of maximum iterations for the descent algorithm, by default 450.
     device : str, optional
         Device to use, by default "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
@@ -96,7 +101,7 @@ class PACMAP(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 450,
         device: Optional[str] = None,
-        backend: Optional[str] = "faiss",
+        backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
         metric_in: str = "sqeuclidean",

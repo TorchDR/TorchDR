@@ -10,6 +10,7 @@ from typing import Tuple, Union, Optional
 import torch
 
 from torchdr.affinity.base import Affinity, LogAffinity, SparseAffinity
+from torchdr.distance import FaissConfig
 from torchdr.utils import (
     matrix_transpose,
     kmin,
@@ -70,8 +71,13 @@ class SelfTuningAffinity(LogAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -89,7 +95,7 @@ class SelfTuningAffinity(LogAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         _pre_processed: bool = False,
@@ -173,8 +179,13 @@ class MAGICAffinity(Affinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -191,7 +202,7 @@ class MAGICAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: Optional[str] = None,
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         _pre_processed: bool = False,
@@ -273,7 +284,7 @@ class PHATEAffinity(Affinity):
         self,
         metric: str = "euclidean",
         device: str = None,
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         k: int = 5,
         alpha: float = 10.0,
@@ -343,8 +354,13 @@ class UMAPAffinity(SparseAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -365,7 +381,7 @@ class UMAPAffinity(SparseAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
@@ -472,8 +488,13 @@ class PACMAPAffinity(SparseAffinity):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -490,7 +511,7 @@ class PACMAPAffinity(SparseAffinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         _pre_processed: bool = False,

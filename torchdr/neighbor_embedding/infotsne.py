@@ -10,6 +10,7 @@ import torch
 from torchdr.affinity import EntropicAffinity, StudentAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import logsumexp_red
+from torchdr.distance import FaissConfig
 
 
 class InfoTSNE(SampledNeighborEmbedding):
@@ -58,8 +59,13 @@ class InfoTSNE(SampledNeighborEmbedding):
         Number of maximum iterations for the descent algorithm, by default 1000.
     device : str, optional
         Device to use, by default "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is "faiss".
     verbose : bool, optional
         Verbosity, by default False.
@@ -105,7 +111,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
         device: Optional[str] = None,
-        backend: Optional[str] = "faiss",
+        backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
         early_exaggeration_coeff: Optional[float] = 12,
