@@ -118,6 +118,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
         compile: bool = False,
         _pre_processed: bool = False,
     ):
+        # DoublyStochasticQuadraticAffinity doesn't use k-NN, so fall back to None if FAISS is used
+        # but keep "keops" for memory efficiency
+        if isinstance(backend, FaissConfig) or backend == "faiss":
+            backend = None
+
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,

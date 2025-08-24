@@ -129,7 +129,6 @@ class COSNE(SparseNeighborEmbedding):
             metric=self.metric_out,
             gamma=gamma,
             device=device,
-            backend=backend,
             verbose=verbose,
         )
 

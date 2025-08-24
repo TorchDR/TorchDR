@@ -134,7 +134,6 @@ class SNE(SparseNeighborEmbedding):
         affinity_out = GaussianAffinity(
             metric=metric_out,
             device=device,
-            backend=backend,
             verbose=False,
         )
 
