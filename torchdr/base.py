@@ -16,8 +16,9 @@ from torchdr.utils import (
     set_logger,
     handle_type,
 )
+from torchdr.distance import FaissConfig
 
-from typing import Optional, Any, TypeVar
+from typing import Optional, Any, TypeVar, Union
 
 ArrayLike = TypeVar("ArrayLike", torch.Tensor, np.ndarray)
 
@@ -33,8 +34,13 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         Number of dimensions for the embedding. Default is 2.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
@@ -50,7 +56,7 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         self,
         n_components: int = 2,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         compile: bool = False,

@@ -20,6 +20,7 @@ from torchdr.affinity import (
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
 )
+from torchdr.distance import FaissConfig
 
 
 class KernelPCA(DRModule):
@@ -33,8 +34,13 @@ class KernelPCA(DRModule):
         Number of components to project the input data onto.
     device : str, default="auto"
         Device on which the computations are performed.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, default=False
         Whether to print information during the computations.
@@ -49,7 +55,7 @@ class KernelPCA(DRModule):
         affinity: Affinity = GaussianAffinity(),
         n_components: int = 2,
         device: str = "auto",
-        backend: str = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: float = None,
         nodiag: bool = False,

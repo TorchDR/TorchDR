@@ -5,19 +5,19 @@
 # License: BSD 3-Clause License
 
 import torch
-from typing import Optional
+from typing import Optional, Union
 
 
 from .torch import pairwise_distances_torch
 from .keops import pairwise_distances_keops
-from .faiss import pairwise_distances_faiss
+from .faiss import pairwise_distances_faiss, FaissConfig
 
 
 def pairwise_distances(
     X: torch.Tensor,
     Y: Optional[torch.Tensor] = None,
     metric: str = "euclidean",
-    backend: Optional[str] = None,
+    backend: Optional[Union[str, FaissConfig]] = None,
     exclude_diag: bool = False,
     k: Optional[int] = None,
     return_indices: bool = False,
@@ -32,8 +32,12 @@ def pairwise_distances(
         Input data. If None, Y is set to X.
     metric : str, optional
         Metric to use. Default is "euclidean".
-    backend : {'keops', 'faiss', None}, optional
-        Backend to use for computation.
+    backend : {'keops', 'faiss', None} or FaissConfig, optional
+        Backend to use for computation. Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         If None, use standard torch operations.
     exclude_diag : bool, optional
         Whether to exclude the diagonal from the distance matrix.
@@ -50,15 +54,40 @@ def pairwise_distances(
         Pairwise distances.
     indices : torch.Tensor, optional
         Indices of the k-nearest neighbors. Only returned if k is not None.
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torchdr.distance import pairwise_distances, FaissConfig
+
+    >>> # Basic usage
+    >>> X = torch.randn(1000, 128)
+    >>> distances = pairwise_distances(X, k=10, backend='faiss')
+
+    >>> # With float16 precision for GPU
+    >>> config = FaissConfig(use_float16=True)
+    >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
+
+    >>> # Using FaissConfig with custom settings
+    >>> config = FaissConfig(use_float16=True, temp_memory=2.0)
+    >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
     """
-    if backend == "keops":
+    # Parse backend parameter
+    if isinstance(backend, FaissConfig):
+        backend_str = "faiss"
+        config = backend
+    else:
+        backend_str = backend
+        config = None
+
+    if backend_str == "keops":
         C, indices = pairwise_distances_keops(
             X=X, Y=Y, metric=metric, exclude_diag=exclude_diag, k=k
         )
-    elif backend == "faiss":
+    elif backend_str == "faiss":
         if k is not None:
             C, indices = pairwise_distances_faiss(
-                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
+                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, config=config
             )
         else:
             raise ValueError(

@@ -13,6 +13,7 @@ from torchdr.affinity import (
     EntropicAffinity,
     CauchyAffinity,
 )
+from torchdr.distance import FaissConfig
 from torchdr.utils import logsumexp_red, RiemannianAdam
 
 
@@ -52,8 +53,13 @@ class COSNE(SparseNeighborEmbedding):
         Number of maximum iterations for the descent algorithm, by default 2000.
     device : str, optional
         Device to use, by default "auto".
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        Can be:
+        - "keops": Use KeOps for memory-efficient symbolic computations
+        - "faiss": Use FAISS for fast k-NN computations with default settings
+        - None: Use standard PyTorch operations
+        - FaissConfig object: Use FAISS with custom configuration
         Default is None.
     verbose : bool, optional
         Verbosity, by default False.
@@ -91,7 +97,7 @@ class COSNE(SparseNeighborEmbedding):
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
         device: str = "auto",
-        backend: Optional[str] = None,
+        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 12.0,
@@ -123,7 +129,6 @@ class COSNE(SparseNeighborEmbedding):
             metric=self.metric_out,
             gamma=gamma,
             device=device,
-            backend=backend,
             verbose=verbose,
         )
 
