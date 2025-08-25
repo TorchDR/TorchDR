@@ -12,8 +12,7 @@ from torchdr.affinity.base import SparseAffinity, SparseLogAffinity
 from torchdr.affinity.entropic import EntropicAffinity
 from torchdr.affinity.knn_normalized import UMAPAffinity
 from torchdr.distance.faiss import FaissConfig, pairwise_distances_faiss
-from torchdr.utils import check_neighbor_param
-from torchdr.utils.operators import logsumexp_red
+from torchdr.utils import check_neighbor_param, logsumexp_red
 
 
 class MultiGPUAffinityMixin:
@@ -152,6 +151,7 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
         zero_diag: bool = True,
         verbose: bool = False,
         compile: bool = False,
+        shard: bool = True,
     ):
         """Initialize multi-GPU entropic affinity.
 
@@ -174,6 +174,10 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
             Whether to print progress messages.
         compile : bool, default=False
             Whether to use torch.compile for optimization (requires PyTorch 2.0+).
+        shard : bool, default=True
+            Whether to use IndexShards (True) or IndexReplicas (False) for FAISS multi-GPU.
+            - True (default): Shard data across GPUs (faster, less memory)
+            - False: Replicate data across GPUs (specific high-throughput scenarios)
 
         Notes
         -----
@@ -181,6 +185,7 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
         The 'device' parameter from EntropicAffinity is replaced by 'devices'.
         """
         MultiGPUSparseLogAffinity.__init__(self, devices=devices)
+        self.shard = shard
 
         # Multi-GPU only works with FAISS backend
         EntropicAffinity.__init__(
@@ -207,6 +212,7 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
         config = FaissConfig(
             device=self.devices if self.is_multi_gpu else self.devices[0],
             output_device="cpu",  # Keep output on CPU for memory efficiency
+            shard=self.shard if self.is_multi_gpu else False,
         )
 
         C_cpu, indices_cpu = pairwise_distances_faiss(
@@ -286,6 +292,7 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
+        shard: bool = True,
     ):
         """Initialize multi-GPU UMAP affinity.
 
@@ -310,6 +317,10 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
             Whether to use torch.compile for optimization (requires PyTorch 2.0+).
         symmetrize : bool, default=True
             Whether to symmetrize the affinity matrix.
+        shard : bool, default=True
+            Whether to use IndexShards (True) or IndexReplicas (False) for FAISS multi-GPU.
+            - True (default): Shard data across GPUs (faster, less memory)
+            - False: Replicate data across GPUs (specific high-throughput scenarios)
 
         Notes
         -----
@@ -317,6 +328,7 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
         The 'device' parameter from UMAPAffinity is replaced by 'devices'.
         """
         MultiGPUSparseAffinity.__init__(self, devices=devices)
+        self.shard = shard
 
         # Multi-GPU only works with FAISS backend
         UMAPAffinity.__init__(
@@ -344,6 +356,7 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
         config = FaissConfig(
             device=self.devices if self.is_multi_gpu else self.devices[0],
             output_device="cpu",  # Keep output on CPU for memory efficiency
+            shard=self.shard if self.is_multi_gpu else False,
         )
 
         C_cpu, indices_cpu = pairwise_distances_faiss(

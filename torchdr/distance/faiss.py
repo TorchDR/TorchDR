@@ -36,10 +36,25 @@ class FaissConfig:
         - int: Single GPU device ID
         - List[int]: Multiple GPU device IDs for multi-GPU support
         Only applies when input is on CUDA.
-    shard : bool, default=False
-        For multi-GPU: if True, splits dataset across GPUs (for large datasets);
-        if False, replicates across GPUs (for throughput). Only used when
-        device is a list of multiple GPUs.
+    shard : bool, default=True
+        Controls the multi-GPU pattern when device is a list of GPUs:
+
+        - True (default): **IndexShards** - Sharding pattern
+          * Dataset is split across GPUs (each GPU stores a disjoint subset)
+          * Each query is broadcast to all GPUs
+          * Each GPU searches only its shard
+          * Best for: Most use cases, especially large datasets
+          * Example: 4M vectors on 4 GPUs → each GPU stores 1M vectors
+          * Typically 1.5-2x faster than replication
+
+        - False: **IndexReplicas** - Replication pattern
+          * Each GPU stores a complete copy of the index
+          * Queries are distributed across GPUs for load balancing
+          * Each GPU searches the full dataset
+          * Example: 1M vectors on 4 GPUs → each GPU stores all 1M vectors
+          * Best for: Specific high-throughput query scenarios
+
+        Only used when device is a list of multiple GPUs.
     index_type : str, default='Flat'
         Type of FAISS index to use:
         - 'Flat': Exact brute-force search
@@ -89,7 +104,7 @@ class FaissConfig:
     use_float16: bool = False
     temp_memory: Union[str, float] = "auto"
     device: Union[int, List[int]] = 0
-    shard: bool = False
+    shard: bool = True
     index_type: str = "Flat"
     nprobe: int = 1
     nlist: int = 100
@@ -298,8 +313,10 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
             gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
 
     else:
-        # Use IndexReplicas for multi-GPU support (works around SWIG binding issues)
-        gpu_indexes = []
+        # Multi-GPU setup using FAISS's recommended approach
+
+        # Build GPU resources for each device
+        gpu_resources = []
         for device_id in devices:
             if device_id not in config.gpu_resources:
                 res = faiss.StandardGpuResources()
@@ -312,26 +329,19 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
             else:
                 res = config.gpu_resources[device_id]
 
-            # Create a GPU index for this device
-            if isinstance(index, faiss.IndexFlatL2) or isinstance(
-                index, faiss.IndexFlatIP
-            ):
-                flat_config = faiss.GpuIndexFlatConfig()
-                flat_config.useFloat16 = config.use_float16
-                flat_config.device = device_id
+            gpu_resources.append(res)
 
-                if isinstance(index, faiss.IndexFlatL2):
-                    gpu_idx = faiss.GpuIndexFlatL2(res, d, flat_config)
-                else:
-                    gpu_idx = faiss.GpuIndexFlatIP(res, d, flat_config)
-            else:
-                gpu_idx = faiss.index_cpu_to_gpu(res, device_id, index)
+        # Configure multi-GPU cloning options
+        co = faiss.GpuMultipleClonerOptions()
+        co.shard = config.shard  # True for IndexShards, False for IndexReplicas
+        co.useFloat16 = config.use_float16
 
-            gpu_indexes.append(gpu_idx)
+        # For IVF indexes, we could also set:
+        # co.common_ivf_quantizer = True  # to share quantizer across GPUs
 
-        # Create IndexReplicas for multi-GPU parallelism
-        gpu_index = faiss.IndexReplicas()
-        for idx in gpu_indexes:
-            gpu_index.addIndex(idx)
+        # Create multi-GPU index using FAISS's Python wrapper
+        gpu_index = faiss.index_cpu_to_gpu_multiple_py(
+            gpu_resources, index, co=co, gpus=devices
+        )
 
     return gpu_index
