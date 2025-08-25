@@ -403,6 +403,57 @@ class UMAPAffinity(SparseAffinity):
         )
 
     @compile_if_requested
+    def _compute_affinity_from_cost(self, C: torch.Tensor, n_samples: int):
+        """Compute UMAP affinity from a cost matrix.
+
+        This is the shared logic for computing UMAP affinity,
+        used by both single-GPU and multi-GPU implementations.
+
+        Parameters
+        ----------
+        C : torch.Tensor of shape (n_samples_chunk, k) or (n_samples, n_samples)
+            Cost/distance matrix (can be full or a chunk).
+        n_samples : int
+            Total number of samples in the dataset.
+
+        Returns
+        -------
+        affinity : torch.Tensor
+            The UMAP affinity matrix for the given cost matrix.
+        rho : torch.Tensor
+            The minimum distance for each sample.
+        eps : torch.Tensor
+            The optimal bandwidth for each sample.
+        """
+        device = C.device
+        dtype = C.dtype
+        n_samples_tensor = torch.tensor(n_samples, dtype=dtype, device=device)
+        n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_tensor)
+
+        rho = kmin(C, k=1, dim=1)[0].squeeze().contiguous()
+
+        log_n_neighbors = torch.log2(
+            torch.tensor(n_neighbors, dtype=dtype, device=device)
+        )
+
+        def marginal_gap(eps):
+            log_marg = _log_P_UMAP(C, rho, eps).logsumexp(1)
+            return log_marg.exp().squeeze() - log_n_neighbors
+
+        eps = binary_search(
+            f=marginal_gap,
+            n=C.shape[0],  # Use actual chunk size for binary search
+            max_iter=self.max_iter,
+            dtype=dtype,
+            device=device,
+        )
+
+        log_affinity = _log_P_UMAP(C, rho, eps)
+        affinity = log_affinity.exp()
+
+        return affinity, rho, eps
+
+    @compile_if_requested
     def _compute_sparse_affinity(
         self, X: torch.Tensor, return_indices: bool = True, **kwargs
     ):
@@ -418,7 +469,6 @@ class UMAPAffinity(SparseAffinity):
         self : UMAPAffinityIn
             The fitted instance.
         """
-
         n_samples_in = X.shape[0]
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
@@ -427,35 +477,14 @@ class UMAPAffinity(SparseAffinity):
                 self.logger.info(
                     f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
                 )
-            # when using sparsity, we construct a reduced distance matrix
-            # of shape (n_samples, n_neighbors)
             C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
-        rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
+        affinity_matrix, rho, eps = self._compute_affinity_from_cost(C_, n_samples_in)
+
         self.register_buffer("rho_", rho, persistent=False)
-
-        log_n_neighbors = torch.log2(
-            torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
-        )
-
-        def marginal_gap(eps):
-            log_marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1)
-            return log_marg.exp().squeeze() - log_n_neighbors
-
-        eps = binary_search(
-            f=marginal_gap,
-            n=n_samples_in,
-            max_iter=self.max_iter,
-            dtype=X.dtype,
-            device=X.device,
-        )
         self.register_buffer("eps_", eps, persistent=False)
-
-        # Compute log affinity matrix
-        log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
-        affinity_matrix = log_affinity_matrix.exp()
 
         # symmetrize if requested : P = P + P^T - P * P^T
         if self.symmetrize:

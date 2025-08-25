@@ -52,6 +52,11 @@ class FaissConfig:
         Number of clusters for IVF indexes. Typical values range from
         sqrt(n) to 4*sqrt(n) where n is the dataset size.
         Only used with index_type='IVF'.
+    output_device : Optional[str], default=None
+        Device to place the output tensors on.
+        - None: Use the same device as input X
+        - 'cpu': Force output to CPU (memory efficient for multi-GPU)
+        - 'cuda:N': Place output on specific GPU N
 
     Attributes
     ----------
@@ -88,6 +93,7 @@ class FaissConfig:
     index_type: str = "Flat"
     nprobe: int = 1
     nlist: int = 100
+    output_device: Optional[str] = None
     gpu_resources: Dict[int, Any] = field(default_factory=dict, init=False, repr=False)
 
 
@@ -127,6 +133,8 @@ def pairwise_distances_faiss(
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
         See FaissConfig documentation for available options.
+        The output_device parameter can be used to control where results are placed
+        (e.g., 'cpu' for memory-efficient multi-GPU operations).
 
     Returns
     -------
@@ -157,6 +165,10 @@ def pairwise_distances_faiss(
 
     >>> # Custom memory allocation for large batches
     >>> config = FaissConfig(temp_memory=4.0)  # 4GB temp memory
+    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
+
+    >>> # Memory-efficient multi-GPU: keep results on CPU
+    >>> config = FaissConfig(device=[0, 1], output_device='cpu')
     >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
     """
     if metric not in LIST_METRICS_FAISS:
@@ -225,8 +237,17 @@ def pairwise_distances_faiss(
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    distances = torch.from_numpy(D).to(device).to(dtype)
-    indices = torch.from_numpy(Ind).to(device).long()
+    # Determine output device
+    if config.output_device is not None:
+        if config.output_device == "cpu":
+            output_device = torch.device("cpu")
+        else:
+            output_device = torch.device(config.output_device)
+    else:
+        output_device = device
+
+    distances = torch.from_numpy(D).to(output_device).to(dtype)
+    indices = torch.from_numpy(Ind).to(output_device).long()
 
     return distances, indices
 
@@ -277,7 +298,8 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
             gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
 
     else:
-        gpu_resources = []
+        # Use IndexReplicas for multi-GPU support (works around SWIG binding issues)
+        gpu_indexes = []
         for device_id in devices:
             if device_id not in config.gpu_resources:
                 res = faiss.StandardGpuResources()
@@ -287,12 +309,29 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
                     res.setTempMemory(temp_memory_bytes)
 
                 config.gpu_resources[device_id] = res
-            gpu_resources.append(config.gpu_resources[device_id])
+            else:
+                res = config.gpu_resources[device_id]
 
-        co = faiss.GpuMultipleClonerOptions()
-        co.shard = config.shard
-        co.useFloat16 = config.use_float16
+            # Create a GPU index for this device
+            if isinstance(index, faiss.IndexFlatL2) or isinstance(
+                index, faiss.IndexFlatIP
+            ):
+                flat_config = faiss.GpuIndexFlatConfig()
+                flat_config.useFloat16 = config.use_float16
+                flat_config.device = device_id
 
-        gpu_index = faiss.index_cpu_to_gpu_multiple(gpu_resources, devices, index, co)
+                if isinstance(index, faiss.IndexFlatL2):
+                    gpu_idx = faiss.GpuIndexFlatL2(res, d, flat_config)
+                else:
+                    gpu_idx = faiss.GpuIndexFlatIP(res, d, flat_config)
+            else:
+                gpu_idx = faiss.index_cpu_to_gpu(res, device_id, index)
+
+            gpu_indexes.append(gpu_idx)
+
+        # Create IndexReplicas for multi-GPU parallelism
+        gpu_index = faiss.IndexReplicas()
+        for idx in gpu_indexes:
+            gpu_index.addIndex(idx)
 
     return gpu_index
