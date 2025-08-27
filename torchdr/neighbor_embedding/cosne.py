@@ -9,11 +9,8 @@ from typing import Dict, Optional, Union, Type, Any
 import torch
 
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.affinity import (
-    EntropicAffinity,
-    CauchyAffinity,
-)
-from torchdr.distance import FaissConfig
+from torchdr.affinity import EntropicAffinity
+from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.utils import logsumexp_red, RiemannianAdam
 
 
@@ -125,16 +122,9 @@ class COSNE(SparseNeighborEmbedding):
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = CauchyAffinity(
-            metric=self.metric_out,
-            gamma=gamma,
-            device=device,
-            verbose=verbose,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=RiemannianAdam,
             optimizer_kwargs=optimizer_kwargs,
@@ -161,8 +151,11 @@ class COSNE(SparseNeighborEmbedding):
         return super()._fit_transform(X)
 
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True)
-        rep_loss = logsumexp_red(log_Q, dim=(0, 1))  # torch.tensor([0])
+        distances_hyperbolic = pairwise_distances(
+            self.embedding_, metric="sqhyperbolic", backend=self.backend
+        )
+        log_Q = (self.gamma / (distances_hyperbolic + self.gamma**2)).log()
+        rep_loss = logsumexp_red(log_Q, dim=(0, 1))
         Y_norm = (self.embedding_**2).sum(-1)
         Y_norm = torch.arccosh(1 + 2 * (Y_norm / (1 - Y_norm)) + 1e-8) ** 2
         distance_term = ((self.X_norm - Y_norm) ** 2).mean()

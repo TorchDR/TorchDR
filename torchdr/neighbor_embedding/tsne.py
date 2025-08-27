@@ -7,9 +7,9 @@
 from typing import Dict, Optional, Union, Type
 import torch
 
-from torchdr.affinity import EntropicAffinity, StudentAffinity
+from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.distance import FaissConfig
+from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.utils import logsumexp_red
 
 
@@ -132,15 +132,8 @@ class TSNE(SparseNeighborEmbedding):
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = StudentAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -163,5 +156,8 @@ class TSNE(SparseNeighborEmbedding):
         )
 
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True)
+        distances_sq = pairwise_distances(
+            self.embedding_, metric="sqeuclidean", backend=self.backend
+        )
+        log_Q = -(1 + distances_sq).log()
         return logsumexp_red(log_Q, dim=(0, 1))

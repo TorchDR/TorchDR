@@ -7,7 +7,7 @@
 from typing import Dict, Union, Optional, Type
 import torch
 
-from torchdr.affinity import EntropicAffinity, StudentAffinity
+from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import logsumexp_red
 from torchdr.distance import FaissConfig
@@ -140,15 +140,9 @@ class InfoTSNE(SampledNeighborEmbedding):
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = StudentAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -172,5 +166,9 @@ class InfoTSNE(SampledNeighborEmbedding):
         )
 
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True, indices=self.neg_indices_)
+        embedding_negatives = self.embedding_[self.neg_indices_]
+        distances_sq = torch.sum(
+            (self.embedding_.unsqueeze(1) - embedding_negatives) ** 2, dim=-1
+        )
+        log_Q = -(1 + distances_sq).log()
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

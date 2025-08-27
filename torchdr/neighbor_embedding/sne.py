@@ -7,10 +7,10 @@
 from typing import Dict, Optional, Union, Type
 import torch
 
-from torchdr.affinity import EntropicAffinity, GaussianAffinity
+from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.utils import logsumexp_red
-from torchdr.distance import FaissConfig
+from torchdr.distance import FaissConfig, pairwise_distances
 
 
 class SNE(SparseNeighborEmbedding):
@@ -131,15 +131,9 @@ class SNE(SparseNeighborEmbedding):
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = GaussianAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -161,5 +155,7 @@ class SNE(SparseNeighborEmbedding):
         )
 
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True)
-        return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_
+        distances_sq = pairwise_distances(
+            self.embedding_, metric="sqeuclidean", backend=self.backend
+        )
+        return logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_

@@ -352,19 +352,42 @@ class LargeVisMultiGPU(LargeVis):
 
         current_device = torch.cuda.current_device()
 
-        # Sample negatives for this chunk
-        # Each point in the chunk samples from the entire dataset
-        negatives = torch.randint(
-            0,
-            self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
-            (self.chunk_size_, self.n_negatives),
-            device=f"cuda:{current_device}",
-        )
+        # Fast path for k=1 (only excluding self-indices)
+        if self.negative_exclusion_indices_.shape[1] == 1:
+            # Sample from [0, n-1) for each point in the chunk
+            negatives = torch.randint(
+                0,
+                self.n_samples_in_ - 1,
+                (self.chunk_size_, self.n_negatives),
+                device=f"cuda:{current_device}",
+            )
+            # Global indices for points in this chunk
+            global_self_idx = torch.arange(
+                self.chunk_start_,
+                self.chunk_start_ + self.chunk_size_,
+                device=f"cuda:{current_device}",
+            ).unsqueeze(1)
+            # Shift indices >= global_self_idx by 1 to skip self
+            neg_indices = negatives + (negatives >= global_self_idx).long()
+        else:
+            # General case: use searchsorted for multiple exclusions
+            # Sample negatives for all points in chunk
+            negatives = torch.randint(
+                1,
+                self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
+                (self.chunk_size_, self.n_negatives),
+                device=f"cuda:{current_device}",
+            )
 
-        # Adjust for excluded indices
-        shifts = torch.searchsorted(
-            self.negative_exclusion_indices_, negatives, right=True
-        )
-        neg_indices = negatives + shifts
+            # Apply searchsorted row-wise
+            # negative_exclusion_indices_ has shape (chunk_size, num_exclusions)
+            # negatives has shape (chunk_size, n_negatives)
+            # We need to apply searchsorted for each row independently
+            neg_indices = torch.zeros_like(negatives)
+            for i in range(self.chunk_size_):
+                shifts = torch.searchsorted(
+                    self.negative_exclusion_indices_[i], negatives[i], right=True
+                )
+                neg_indices[i] = negatives[i] + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)

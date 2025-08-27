@@ -7,7 +7,7 @@
 from typing import Dict, Optional, Union, Type
 import torch
 
-from torchdr.affinity import EntropicAffinity, StudentAffinity
+from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_red
 from torchdr.distance import FaissConfig
@@ -80,10 +80,8 @@ class LargeVis(SampledNeighborEmbedding):
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the repulsive loss.
     sparsity : bool, optional
@@ -119,38 +117,30 @@ class LargeVis(SampledNeighborEmbedding):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         n_negatives: int = 5,
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = True,
         compile: bool = False,
     ):
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = StudentAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
 
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -174,11 +164,23 @@ class LargeVis(SampledNeighborEmbedding):
         )
 
     def _compute_repulsive_loss(self):
-        Q = self.affinity_out(self.embedding_, indices=self.neg_indices_)
+        embedding_negatives = self.embedding_[
+            self.neg_indices_
+        ]  # (n, n_negatives, n_components)
+        distances_sq = torch.sum(
+            (self.embedding_.unsqueeze(1) - embedding_negatives) ** 2, dim=-1
+        )
+        Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 
     def _compute_attractive_loss(self):
-        Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
+        embedding_neighbors = self.embedding_[
+            self.NN_indices_
+        ]  # (n, n_neighbors, n_components)
+        distances_sq = torch.sum(
+            (self.embedding_.unsqueeze(1) - embedding_neighbors) ** 2, dim=-1
+        )
+        Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.affinity_in_, Q)

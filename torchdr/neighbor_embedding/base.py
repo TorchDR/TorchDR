@@ -630,14 +630,32 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     def on_training_step_start(self):
         """Sample negatives."""
         super().on_training_step_start()
-        negatives = torch.randint(
-            1,
-            self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
-            (self.n_samples_in_, self.n_negatives),
-            device=self.embedding_.device,
-        )
-        shifts = torch.searchsorted(
-            self.negative_exclusion_indices_, negatives, right=True
-        )
-        neg_indices = negatives + shifts
+
+        # Fast path for k=1 (only excluding self-indices)
+        if self.negative_exclusion_indices_.shape[1] == 1:
+            # Sample from [0, n-1) for each point
+            negatives = torch.randint(
+                0,
+                self.n_samples_in_ - 1,
+                (self.n_samples_in_, self.n_negatives),
+                device=self.embedding_.device,
+            )
+            # Shift indices >= self_idx by 1 to skip self
+            self_idx = torch.arange(
+                self.n_samples_in_, device=self.embedding_.device
+            ).unsqueeze(1)
+            neg_indices = negatives + (negatives >= self_idx).long()
+        else:
+            # General case: use searchsorted for multiple exclusions
+            negatives = torch.randint(
+                1,
+                self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
+                (self.n_samples_in_, self.n_negatives),
+                device=self.embedding_.device,
+            )
+            shifts = torch.searchsorted(
+                self.negative_exclusion_indices_, negatives, right=True
+            )
+            neg_indices = negatives + shifts
+
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
