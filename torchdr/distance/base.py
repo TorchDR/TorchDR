@@ -21,6 +21,7 @@ def pairwise_distances(
     exclude_diag: bool = False,
     k: Optional[int] = None,
     return_indices: bool = False,
+    indices: Optional[torch.Tensor] = None,
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -47,6 +48,9 @@ def pairwise_distances(
     return_indices : bool, optional
         Whether to return the indices of the k-nearest neighbors.
         Default is False.
+    indices : torch.Tensor of shape (n_samples, n_neighbors), optional
+        If provided, compute distances only for these specific pairs.
+        Cannot be used with Y or k parameters.
 
     Returns
     -------
@@ -72,6 +76,21 @@ def pairwise_distances(
     >>> config = FaissConfig(use_float16=True, temp_memory=2.0)
     >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
     """
+    if indices is not None:
+        if Y is not None:
+            raise ValueError(
+                "[TorchDR] ERROR: Cannot provide both Y and indices parameters. "
+                "indices is for computing sparse distances within X."
+            )
+        if k is not None:
+            raise ValueError(
+                "[TorchDR] ERROR: Cannot provide both k and indices parameters. "
+                "indices means neighbors are already specified."
+            )
+        return symmetric_pairwise_distances_indices(
+            X, indices, metric=metric, return_indices=return_indices
+        )
+
     # Parse backend parameter
     if isinstance(backend, FaissConfig):
         backend_str = "faiss"
@@ -90,8 +109,9 @@ def pairwise_distances(
                 X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, config=config
             )
         else:
-            raise ValueError(
-                "[TorchDR] ERROR : k must be provided when using `backend=faiss`."
+            # Fall back to PyTorch when FAISS is specified but k is not provided
+            C, indices = pairwise_distances_torch(
+                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
             )
     else:
         C, indices = pairwise_distances_torch(

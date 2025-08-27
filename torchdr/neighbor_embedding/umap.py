@@ -10,7 +10,7 @@ import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.distance import symmetric_pairwise_distances_indices, FaissConfig
+from torchdr.distance import pairwise_distances, FaissConfig
 
 from scipy.optimize import curve_fit
 
@@ -102,10 +102,8 @@ class UMAP(SampledNeighborEmbedding):
         Random seed for reproducibility, by default None.
     max_iter_affinity : int, optional
         Number of maximum iterations for the input affinity computation.
-    metric_in : {'euclidean', 'manhattan'}, optional
-        Metric to use for the input affinity, by default 'euclidean'.
-    metric_out : {'euclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'euclidean'.
+    metric : {'euclidean', 'manhattan'}, optional
+        Metric to use for the input affinity, by default 'sqeuclidean'.
     n_negatives : int, optional
         Number of negative samples for the noise-contrastive loss, by default 10.
     check_interval : int, optional
@@ -141,7 +139,7 @@ class UMAP(SampledNeighborEmbedding):
         verbose: bool = False,
         random_state: Optional[float] = None,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         negative_sample_rate: int = 5,
         check_interval: int = 50,
         discard_NNs: bool = False,
@@ -151,11 +149,10 @@ class UMAP(SampledNeighborEmbedding):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
         self.spread = spread
-        self.metric_in = metric_in
+        self.metric = metric
         self.max_iter_affinity = max_iter_affinity
         self.negative_sample_rate = negative_sample_rate
 
-        self.metric_out = "sqeuclidean"
         self.sparsity = True
         self._use_direct_gradients = True
         self._eps = 1e-3
@@ -169,7 +166,7 @@ class UMAP(SampledNeighborEmbedding):
 
         affinity_in = UMAPAffinity(
             n_neighbors=n_neighbors,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -223,9 +220,10 @@ class UMAP(SampledNeighborEmbedding):
         )
 
     def _compute_attractive_gradients(self):
-        D = symmetric_pairwise_distances_indices(
+        D = pairwise_distances(
             self.embedding_,
-            metric=self.metric_out,
+            metric="sqeuclidean",
+            backend=self.backend,
             indices=self.NN_indices_,
         )
         positive_edges = D > 0
@@ -249,9 +247,10 @@ class UMAP(SampledNeighborEmbedding):
         return grad
 
     def _compute_repulsive_gradients(self):
-        D = symmetric_pairwise_distances_indices(
+        D = pairwise_distances(
             self.embedding_,
-            metric=self.metric_out,
+            metric="sqeuclidean",
+            backend=self.backend,
             indices=self.neg_indices_,
         )
         D_ = 1 + self._a * D**self._b

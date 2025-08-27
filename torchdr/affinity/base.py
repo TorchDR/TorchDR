@@ -21,7 +21,6 @@ from torchdr.utils import (
 
 from torchdr.distance import (
     pairwise_distances,
-    symmetric_pairwise_distances_indices,
     FaissConfig,
 )
 
@@ -662,9 +661,7 @@ class UnnormalizedAffinity(Affinity):
             return pairwise_distances(X, Y, metric=self.metric, backend=backend_to_use)
 
         elif indices is not None:  # Case 2: Sparse self-distance matrix
-            return symmetric_pairwise_distances_indices(
-                X, indices=indices, metric=self.metric
-            )
+            return pairwise_distances(X, metric=self.metric, indices=indices)
 
         else:  # Case 3: Full self-distance matrix (with or without the diagonal)
             # If we have a FaissConfig, use the original backend parameter

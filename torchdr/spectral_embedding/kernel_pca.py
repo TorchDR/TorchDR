@@ -16,7 +16,7 @@ from torchdr.utils import handle_type, svd_flip
 from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalues
 from torchdr.affinity import (
     Affinity,
-    GaussianAffinity,
+    NormalizedGaussianAffinity,
     UnnormalizedAffinity,
     UnnormalizedLogAffinity,
 )
@@ -28,7 +28,7 @@ class KernelPCA(DRModule):
 
     Parameters
     ----------
-    affinity : Affinity, default=GaussianAffinity()
+    affinity : Affinity, default=NormalizedGaussianAffinity(normalization_dim=None)
         Affinity object to compute the kernel matrix.
     n_components : int, default=2
         Number of components to project the input data onto.
@@ -52,7 +52,7 @@ class KernelPCA(DRModule):
 
     def __init__(
         self,
-        affinity: Affinity = GaussianAffinity(),
+        affinity: Affinity = NormalizedGaussianAffinity(normalization_dim=None),
         n_components: int = 2,
         device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,

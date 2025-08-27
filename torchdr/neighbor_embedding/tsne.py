@@ -10,7 +10,7 @@ import torch
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.distance import FaissConfig, pairwise_distances
-from torchdr.utils import logsumexp_red
+from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
 class TSNE(SparseNeighborEmbedding):
@@ -76,10 +76,8 @@ class TSNE(SparseNeighborEmbedding):
         Number of iterations for early exaggeration, by default 250.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
@@ -110,22 +108,20 @@ class TSNE(SparseNeighborEmbedding):
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: int = 250,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
         **kwargs,
     ):
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -154,6 +150,16 @@ class TSNE(SparseNeighborEmbedding):
             compile=compile,
             **kwargs,
         )
+
+    def _compute_attractive_loss(self):
+        distances_sq = pairwise_distances(
+            self.embedding_,
+            metric="sqeuclidean",
+            backend=self.backend,
+            indices=self.NN_indices_,
+        )
+        log_Q = -(1 + distances_sq).log()
+        return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
 
     def _compute_repulsive_loss(self):
         distances_sq = pairwise_distances(

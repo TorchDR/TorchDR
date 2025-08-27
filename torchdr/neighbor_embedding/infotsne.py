@@ -9,8 +9,8 @@ import torch
 
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.utils import logsumexp_red
-from torchdr.distance import FaissConfig
+from torchdr.utils import logsumexp_red, cross_entropy_loss
+from torchdr.distance import FaissConfig, pairwise_distances
 
 
 class InfoTSNE(SampledNeighborEmbedding):
@@ -73,10 +73,8 @@ class InfoTSNE(SampledNeighborEmbedding):
         Random seed for reproducibility, by default None.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
     early_exaggeration_coeff : float, optional
         Factor for the early exaggeration phase, by default 12.
     early_exaggeration_iter : int, optional
@@ -117,23 +115,21 @@ class InfoTSNE(SampledNeighborEmbedding):
         early_exaggeration_coeff: Optional[float] = 12,
         early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         n_negatives: int = 300,
         sparsity: bool = True,
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
     ):
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
@@ -165,10 +161,22 @@ class InfoTSNE(SampledNeighborEmbedding):
             compile=compile,
         )
 
+    def _compute_attractive_loss(self):
+        distances_sq = pairwise_distances(
+            self.embedding_,
+            metric="sqeuclidean",
+            backend=self.backend,
+            indices=self.NN_indices_,
+        )
+        log_Q = -(1 + distances_sq).log()
+        return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
+
     def _compute_repulsive_loss(self):
-        embedding_negatives = self.embedding_[self.neg_indices_]
-        distances_sq = torch.sum(
-            (self.embedding_.unsqueeze(1) - embedding_negatives) ** 2, dim=-1
+        distances_sq = pairwise_distances(
+            self.embedding_,
+            metric="sqeuclidean",
+            backend=self.backend,
+            indices=self.neg_indices_,
         )
         log_Q = -(1 + distances_sq).log()
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

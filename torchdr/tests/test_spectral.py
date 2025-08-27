@@ -7,7 +7,7 @@ import pytest
 import torch
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
-from torchdr.affinity import GaussianAffinity, SinkhornAffinity
+from torchdr.affinity import NormalizedGaussianAffinity, SinkhornAffinity
 from torchdr.utils import pykeops
 
 from torchdr import KernelPCA, PHATE
@@ -30,7 +30,9 @@ def test_KernelPCA_sklearn(n_components):
     Y = torch.randn(5, 20)
     Y /= torch.linalg.norm(Y, axis=0, keepdims=True)
     sigma = 2
-    aff = GaussianAffinity(zero_diag=False, sigma=sigma)
+    aff = NormalizedGaussianAffinity(
+        zero_diag=False, sigma=sigma, normalization_dim=None
+    )
     model = KernelPCA(affinity=aff, n_components=n_components)
     rtol = 1e-2  # we might want to take a look at that someday
 

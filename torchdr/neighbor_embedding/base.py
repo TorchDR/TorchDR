@@ -13,11 +13,9 @@ from torchdr.affinity import (
     Affinity,
     SparseAffinity,
     UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
 )
 from torchdr.distance import FaissConfig
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import cross_entropy_loss
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -412,14 +410,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _compute_attractive_loss(self):
-        if isinstance(self.affinity_out, UnnormalizedLogAffinity):
-            log_Q = self.affinity_out(
-                self.embedding_, log=True, indices=self.NN_indices_
-            )
-            return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
-        else:
-            Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
-            return cross_entropy_loss(self.affinity_in_, Q)
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_attractive_loss method must be implemented."
+        )
 
     def _compute_repulsive_loss(self):
         raise NotImplementedError(

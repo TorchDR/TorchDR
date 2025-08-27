@@ -102,13 +102,13 @@ If computations can be performed in log domain, the :meth:`LogAffinity` class sh
 
 Affinities are objects that can directly be called. The outputted affinity matrix is a **square matrix of size (n, n)** where n is the number of input samples.
 
-Here is an example with the :class:`GaussianAffinity <torchdr.GaussianAffinity>`:
+Here is an example with the :class:`NormalizedGaussianAffinity <torchdr.NormalizedGaussianAffinity>`:
 
     >>> import torch, torchdr
     >>>
     >>> n = 100
     >>> data = torch.randn(n, 2)
-    >>> affinity = torchdr.GaussianAffinity()
+    >>> affinity = torchdr.NormalizedGaussianAffinity(normalization_dim=None)
     >>> affinity_matrix = affinity(data)
     >>> print(affinity_matrix.shape)
     (100, 100)
@@ -255,12 +255,12 @@ Many NE methods can be represented within this framework. See below for some exa
    * - :class:`SNE <SNE>`
      - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`GaussianAffinity <GaussianAffinity>`
+     - None
 
    * - :class:`TSNE <TSNE>`
      - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`StudentAffinity <StudentAffinity>`
+     - None
 
    * - :class:`TSNEkhorn <TSNEkhorn>`
      - :math:`\sum_{ij} Q_{ij}`
@@ -270,7 +270,7 @@ Many NE methods can be represented within this framework. See below for some exa
    * - :class:`InfoTSNE <InfoTSNE>`
      - :math:`\sum_i \log(\sum_{j \in \mathrm{Neg}(i)} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`StudentAffinity <StudentAffinity>`
+     - None
 
    * - :class:`UMAP <UMAP>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
@@ -280,7 +280,7 @@ Many NE methods can be represented within this framework. See below for some exa
    * - :class:`LargeVis <LargeVis>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - :class:`StudentAffinity <StudentAffinity>`
+     - None
 
 In the above table, :math:`\mathrm{Neg}(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.

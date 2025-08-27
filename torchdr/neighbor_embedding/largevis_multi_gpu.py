@@ -7,7 +7,6 @@ from typing import Optional, Union, List
 from torchdr.neighbor_embedding.largevis import LargeVis
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.affinity.multi_gpu import EntropicAffinityMultiGPU
-from torchdr.affinity import StudentAffinity
 from torchdr.utils import cross_entropy_loss, sum_red
 
 
@@ -121,11 +120,8 @@ class LargeVisMultiGPU(LargeVis):
             verbose=verbose,
         )
 
-        # Output affinity (StudentAffinity) will be computed on each GPU
-        affinity_out = StudentAffinity(
-            device="cuda",  # Will be set per GPU
-            verbose=verbose,
-        )
+        # Output affinity will be computed directly on each GPU
+        affinity_out = None
 
         # Initialize parent LargeVis
         super().__init__(

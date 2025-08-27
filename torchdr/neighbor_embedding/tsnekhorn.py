@@ -98,10 +98,8 @@ class TSNEkhorn(NeighborEmbedding):
         Precision threshold for the symmetric entropic affinity computation.
     max_iter_affinity_in : int, optional
         Number of maximum iterations for the symmetric entropic affinity computation.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
     unrolling : bool, optional
         Whether to use unrolling for solving inverse OT. If False, uses
         the gap objective. Default is False.
@@ -139,16 +137,14 @@ class TSNEkhorn(NeighborEmbedding):
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
         max_iter_affinity_in: int = 100,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         unrolling: bool = False,
         symmetric_affinity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
         **kwargs,
     ):
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
         self.perplexity = perplexity
         self.lr_affinity_in = lr_affinity_in
         self.eps_square_affinity_in = bool_arg(eps_square_affinity_in)
@@ -162,7 +158,7 @@ class TSNEkhorn(NeighborEmbedding):
                 perplexity=perplexity,
                 lr=lr_affinity_in,
                 eps_square=eps_square_affinity_in,
-                metric=metric_in,
+                metric=metric,
                 tol=tol_affinity_in,
                 max_iter=max_iter_affinity_in,
                 device=device,
@@ -173,14 +169,14 @@ class TSNEkhorn(NeighborEmbedding):
         else:
             affinity_in = EntropicAffinity(
                 perplexity=perplexity,
-                metric=metric_in,
+                metric=metric,
                 max_iter=max_iter_affinity_in,
                 device=device,
                 backend=backend,
                 verbose=verbose,
             )
         affinity_out = SinkhornAffinity(
-            metric=metric_out,
+            metric="sqeuclidean",
             device=device,
             backend=backend,
             verbose=False,
