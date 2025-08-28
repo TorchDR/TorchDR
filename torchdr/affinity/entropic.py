@@ -220,57 +220,6 @@ class EntropicAffinity(SparseLogAffinity):
         )
 
     @compile_if_requested
-    def _compute_log_affinity_from_cost(self, C: torch.Tensor, n_samples: int):
-        """Compute entropic affinity from a cost matrix.
-
-        This is the shared logic for computing entropic affinity,
-        used by both single-GPU and multi-GPU implementations.
-
-        Parameters
-        ----------
-        C : torch.Tensor of shape (n_samples_chunk, k) or (n_samples, n_samples)
-            Cost/distance matrix (can be full or a chunk).
-        n_samples : int
-            Total number of samples in the dataset.
-
-        Returns
-        -------
-        log_affinity : torch.Tensor
-            Log of the entropic affinity matrix for the given cost matrix.
-        eps : torch.Tensor
-            The optimal dual variable epsilon.
-        """
-        device = C.device
-        dtype = C.dtype
-        n_samples_tensor = torch.tensor(n_samples, dtype=dtype, device=device)
-
-        perplexity = check_neighbor_param(self.perplexity, n_samples_tensor)
-        target_entropy = torch.log(perplexity) + 1
-
-        def entropy_gap(eps):  # function to find the root of
-            log_P = _log_Pe(C, eps)
-            log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
-            return entropy(log_P_normalized, log=True) - target_entropy
-
-        begin, end = _bounds_entropic_affinity(
-            C, perplexity, device=device, dtype=dtype
-        )
-        begin = begin + 1e-6  # avoid numerical issues
-
-        eps = binary_search(
-            f=entropy_gap,
-            n=C.shape[0],  # Use actual chunk size for binary search
-            begin=begin,
-            end=end,
-            max_iter=self.max_iter,
-            dtype=dtype,
-            device=device,
-        )
-
-        log_affinity = _log_Pe(C, eps)
-
-        return log_affinity, eps
-
     def _compute_sparse_log_affinity(
         self, X: torch.Tensor, return_indices: bool = True, **kwargs
     ):
@@ -309,9 +258,31 @@ class EntropicAffinity(SparseLogAffinity):
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
-        log_affinity_matrix, eps = self._compute_log_affinity_from_cost(
-            C_, n_samples_in
+        device = C_.device
+        dtype = C_.dtype
+        target_entropy = torch.log(perplexity) + 1
+
+        def entropy_gap(eps):  # function to find the root of
+            log_P = _log_Pe(C_, eps)
+            log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
+            return entropy(log_P_normalized, log=True) - target_entropy
+
+        begin, end = _bounds_entropic_affinity(
+            C_, perplexity, device=device, dtype=dtype
         )
+        begin = begin + 1e-6  # avoid numerical issues
+
+        eps = binary_search(
+            f=entropy_gap,
+            n=C_.shape[0],
+            begin=begin,
+            end=end,
+            max_iter=self.max_iter,
+            dtype=dtype,
+            device=device,
+        )
+
+        log_affinity_matrix = _log_Pe(C_, eps)
         self.register_buffer("eps_", eps, persistent=False)
 
         # Normalize the affinity matrix

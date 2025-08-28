@@ -90,7 +90,7 @@ class LargeVis(SampledNeighborEmbedding):
         Interval for checking convergence, by default 50.
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
-        Default is True.
+        Default is False.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
@@ -121,7 +121,7 @@ class LargeVis(SampledNeighborEmbedding):
         n_negatives: int = 5,
         sparsity: bool = True,
         check_interval: int = 50,
-        discard_NNs: bool = True,
+        discard_NNs: bool = False,
         compile: bool = False,
     ):
         self.metric = metric

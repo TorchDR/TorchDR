@@ -106,7 +106,7 @@ class MultiGPUAffinityMixin:
 
         faiss_config = FaissConfig(
             device=gpu_device,
-            use_float16=True,  # Use float16 for memory efficiency
+            use_float16=False,  # Use float32 for better precision
         )
 
         # Compute k-NN where:
@@ -126,20 +126,12 @@ class MultiGPUAffinityMixin:
             exclude_diag=False,  # Can't use this since X_chunk != X
         )
 
-        # Efficiently remove self-neighbors if zero_diag=True
+        # Remove the closest neighbor (should be self with distance ~0)
+        # This works because X_chunk is a subset of X, so each point finds itself
         if self.zero_diag:
-            # Each point i in chunk has global index start+i
-            global_idx = torch.arange(
-                self.chunk_start_, self.chunk_end_, device=indices.device
-            ).unsqueeze(1)
-
-            # Create mask where indices != self global index
-            mask = indices != global_idx
-
-            # Select k elements per row (excluding self-neighbor)
-            # We know each row has exactly k valid elements after removing 1 self
-            distances = distances[mask].reshape(-1, k)
-            indices = indices[mask].reshape(-1, k)
+            # Discard first column (closest neighbor, which should be self)
+            distances = distances[:, 1:]
+            indices = indices[:, 1:]
 
         if self.verbose:
             self.logger.info(
