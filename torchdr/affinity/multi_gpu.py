@@ -6,13 +6,11 @@ of data independently.
 """
 
 import torch
-from typing import Optional, Union, List
+import torch.distributed as dist
 
-from torchdr.affinity.base import SparseAffinity, SparseLogAffinity
 from torchdr.affinity.entropic import EntropicAffinity
 from torchdr.affinity.knn_normalized import UMAPAffinity
-from torchdr.distance.faiss import FaissConfig, pairwise_distances_faiss
-from torchdr.utils import check_neighbor_param, logsumexp_red
+from torchdr.distance.faiss import pairwise_distances_faiss, FaissConfig
 
 
 class MultiGPUAffinityMixin:
@@ -21,137 +19,154 @@ class MultiGPUAffinityMixin:
     Each GPU processes its own chunk of the affinity matrix independently.
     """
 
-    def __init__(self, devices: Optional[Union[int, List[int]]] = None):
-        """Initialize multi-GPU affinity.
+    def __init__(self, zero_diag: bool = True):
+        """Initialize multi-GPU affinity for distributed mode only.
 
-        Parameters
-        ----------
-        devices : Optional[Union[int, List[int]]], default=None
-            GPU device(s) to use. If None, uses all available GPUs.
-            If int, uses that single GPU. If list, uses specified GPUs.
+        Must be launched with torchrun for distributed execution.
         """
-        if devices is None:
-            n_gpus = torch.cuda.device_count()
-            if n_gpus == 0:
-                raise RuntimeError("No GPUs available for multi-GPU affinity")
-            self.devices = list(range(n_gpus))
-        elif isinstance(devices, int):
-            self.devices = [devices]
-        else:
-            self.devices = devices
+        # Require distributed mode
+        if not dist.is_initialized():
+            raise RuntimeError(
+                "[TorchDR] MultiGPUAffinityMixin requires distributed mode. "
+                "Please launch with torchrun, e.g.: "
+                "torchrun --nproc_per_node=4 your_script.py"
+            )
 
-        self.n_devices = len(self.devices)
-        self.is_multi_gpu = self.n_devices > 1
+        # In distributed mode, each process handles one GPU
+        self.rank = dist.get_rank()
+        self.world_size = dist.get_world_size()
+        self.n_devices = self.world_size
+        self.is_multi_gpu = self.world_size > 1
+        self.zero_diag = zero_diag
 
-    def get_chunk_range(self, n_samples: int, device_id: int) -> tuple:
-        """Get the range of samples for a specific GPU.
+    def _compute_chunk_info(self, n_samples: int):
+        """Compute and store chunk boundaries for this rank.
 
         Parameters
         ----------
         n_samples : int
-            Total number of samples.
-        device_id : int
-            GPU device ID (index in self.devices list).
-
-        Returns
-        -------
-        start : int
-            Start index for this GPU's chunk.
-        end : int
-            End index for this GPU's chunk.
+            Total number of samples in the dataset.
         """
         chunk_size = n_samples // self.n_devices
         remainder = n_samples % self.n_devices
 
-        # First 'remainder' GPUs get chunk_size + 1 samples
-        if device_id < remainder:
-            start = device_id * (chunk_size + 1)
-            end = start + chunk_size + 1
+        # First 'remainder' ranks get chunk_size + 1 samples
+        if self.rank < remainder:
+            self.chunk_start_ = self.rank * (chunk_size + 1)
+            self.chunk_end_ = self.chunk_start_ + chunk_size + 1
         else:
-            start = device_id * chunk_size + remainder
-            end = start + chunk_size
+            self.chunk_start_ = self.rank * chunk_size + remainder
+            self.chunk_end_ = self.chunk_start_ + chunk_size
 
-        return start, end
+        self.chunk_size_ = self.chunk_end_ - self.chunk_start_
 
-    def get_current_device_id(self) -> int:
-        """Get the index of the current GPU in self.devices list.
+    def _distance_matrix(
+        self, X: torch.Tensor, k: int = None, return_indices: bool = False
+    ):
+        """Compute distances for this GPU's chunk of points.
+
+        Each GPU computes k-NN distances where:
+        - Database (keys): Full dataset X
+        - Queries: This GPU's assigned chunk of X
+
+        This way each GPU computes and stores only its rows of the affinity matrix.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Full input data tensor.
+        k : int
+            Number of nearest neighbors. Must be specified.
+        return_indices : bool, default=False
+            Whether to return indices along with distances.
 
         Returns
         -------
-        device_id : int
-            Index in self.devices list corresponding to current CUDA device.
+        distances : torch.Tensor
+            Distance matrix for this GPU's chunk. Shape (chunk_size, k).
+        indices : torch.Tensor, optional
+            Indices of nearest neighbors if return_indices=True.
         """
-        if not torch.cuda.is_available():
-            raise RuntimeError("CUDA not available")
-
-        current_device = torch.cuda.current_device()
-        if current_device not in self.devices:
-            raise RuntimeError(
-                f"Current CUDA device {current_device} not in configured devices {self.devices}"
+        if k is None:
+            raise ValueError(
+                "[TorchDR] Multi-GPU affinity computation requires k to be specified (sparse mode only). "
+                "Full dense affinity matrices are not supported due to memory constraints."
             )
 
-        return self.devices.index(current_device)
+        n_samples = X.shape[0]
+
+        # Compute and store chunk info for this rank
+        self._compute_chunk_info(n_samples)
+
+        # Get this GPU's query chunk
+        X_chunk = X[self.chunk_start_ : self.chunk_end_]
+
+        # In distributed mode with torchrun, each process uses its current device
+        gpu_device = torch.cuda.current_device()
+
+        faiss_config = FaissConfig(
+            device=gpu_device,
+            use_float16=True,  # Use float16 for memory efficiency
+        )
+
+        # Compute k-NN where:
+        # - X_chunk (queries): this GPU's chunk of points
+        # - X (database): full dataset
+        # This gives distances from chunk points to all points in dataset
+        #
+        # Since X_chunk is a slice of X, we need to handle diagonal exclusion manually
+        k_search = k + 1 if self.zero_diag else k
+
+        distances, indices = pairwise_distances_faiss(
+            X_chunk,
+            k=k_search,
+            Y=X,  # Full dataset as database
+            metric=self.metric,
+            config=faiss_config,
+            exclude_diag=False,  # Can't use this since X_chunk != X
+        )
+
+        # Efficiently remove self-neighbors if zero_diag=True
+        if self.zero_diag:
+            # Each point i in chunk has global index start+i
+            global_idx = torch.arange(
+                self.chunk_start_, self.chunk_end_, device=indices.device
+            ).unsqueeze(1)
+
+            # Create mask where indices != self global index
+            mask = indices != global_idx
+
+            # Select k elements per row (excluding self-neighbor)
+            # We know each row has exactly k valid elements after removing 1 self
+            distances = distances[mask].reshape(-1, k)
+            indices = indices[mask].reshape(-1, k)
+
+        if self.verbose:
+            self.logger.info(
+                f"Rank {self.rank}: Computed distances for chunk [{self.chunk_start_}:{self.chunk_end_}] "
+                f"(shape: {distances.shape})"
+            )
+
+        if return_indices:
+            return distances, indices
+        return distances
 
 
-class MultiGPUSparseAffinity(MultiGPUAffinityMixin, SparseAffinity):
-    """Base class for multi-GPU sparse affinity matrices.
+class EntropicAffinityMultiGPU(MultiGPUAffinityMixin, EntropicAffinity):
+    """Multi-GPU Entropic Affinity for distributed training.
 
     Each GPU computes and stores only its chunk of the affinity matrix.
-    """
-
-    def __init__(self, devices: Optional[Union[int, List[int]]] = None, **kwargs):
-        """Initialize multi-GPU sparse affinity.
-
-        Parameters
-        ----------
-        devices : Optional[Union[int, List[int]]], default=None
-            GPU device(s) to use.
-        **kwargs
-            Additional arguments passed to SparseAffinity.
-        """
-        MultiGPUAffinityMixin.__init__(self, devices)
-        SparseAffinity.__init__(self, **kwargs)
-
-
-class MultiGPUSparseLogAffinity(MultiGPUAffinityMixin, SparseLogAffinity):
-    """Base class for multi-GPU sparse log-affinity matrices.
-
-    Each GPU computes and stores only its chunk of the log-affinity matrix.
-    """
-
-    def __init__(self, devices: Optional[Union[int, List[int]]] = None, **kwargs):
-        """Initialize multi-GPU sparse log-affinity.
-
-        Parameters
-        ----------
-        devices : Optional[Union[int, List[int]]], default=None
-            GPU device(s) to use.
-        **kwargs
-            Additional arguments passed to SparseLogAffinity.
-        """
-        MultiGPUAffinityMixin.__init__(self, devices)
-        SparseLogAffinity.__init__(self, **kwargs)
-
-
-class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
-    """Multi-GPU Entropic Affinity.
-
-    Each GPU computes and stores only its chunk of the affinity matrix.
-    The kNN computation uses FAISS multi-GPU, then each GPU processes
-    only its assigned chunk of samples.
+    Must be launched with torchrun for distributed execution.
     """
 
     def __init__(
         self,
         perplexity: float = 30.0,
-        devices: Optional[Union[int, List[int]]] = None,
         max_iter: int = 1000,
-        sparsity: bool = True,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         verbose: bool = False,
         compile: bool = False,
-        shard: bool = True,
     ):
         """Initialize multi-GPU entropic affinity.
 
@@ -159,13 +174,8 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
         ----------
         perplexity : float, default=30.0
             Target perplexity for the affinity matrix.
-        devices : Optional[Union[int, List[int]]], default=None
-            GPU device(s) to use. If None, uses all available GPUs.
-            If int, uses that single GPU. If list, uses specified GPUs.
         max_iter : int, default=1000
             Maximum number of iterations for the binary search.
-        sparsity : bool, default=True
-            Whether to use sparse affinity matrix (with k nearest neighbors).
         metric : str, default="sqeuclidean"
             Distance metric to use. Options: "sqeuclidean", "euclidean", "angular".
         zero_diag : bool, default=True
@@ -174,125 +184,44 @@ class EntropicAffinityMultiGPU(EntropicAffinity, MultiGPUSparseLogAffinity):
             Whether to print progress messages.
         compile : bool, default=False
             Whether to use torch.compile for optimization (requires PyTorch 2.0+).
-        shard : bool, default=True
-            Whether to use IndexShards (True) or IndexReplicas (False) for FAISS multi-GPU.
-            - True (default): Shard data across GPUs (faster, less memory)
-            - False: Replicate data across GPUs (specific high-throughput scenarios)
 
         Notes
         -----
-        Multi-GPU mode requires backend='faiss' and is automatically set.
-        The 'device' parameter from EntropicAffinity is replaced by 'devices'.
+        Requires distributed mode via torchrun.
+        Always uses sparsity=True and backend='faiss'.
         """
-        MultiGPUSparseLogAffinity.__init__(self, devices=devices)
-        self.shard = shard
+        MultiGPUAffinityMixin.__init__(self, zero_diag=zero_diag)
 
-        # Multi-GPU only works with FAISS backend
         EntropicAffinity.__init__(
             self,
             perplexity=perplexity,
             max_iter=max_iter,
-            sparsity=sparsity,
+            sparsity=True,  # Always use sparsity in multi-GPU mode
             metric=metric,
             zero_diag=zero_diag,
-            device="cuda",  # Will be overridden by multi-GPU logic
+            device="cuda",  # Each process uses its assigned GPU
             backend="faiss",  # Force FAISS backend
             verbose=verbose,
             compile=compile,
         )
 
-    def _distance_matrix(
-        self, X: torch.Tensor, k: int = None, return_indices: bool = False
-    ):
-        """Compute distance matrix using FAISS with output on CPU.
 
-        Keeps the full kNN results on CPU to save GPU memory.
-        Each GPU will then load only its chunk.
-        """
-        config = FaissConfig(
-            device=self.devices if self.is_multi_gpu else self.devices[0],
-            output_device="cpu",  # Keep output on CPU for memory efficiency
-            shard=self.shard if self.is_multi_gpu else False,
-        )
-
-        C_cpu, indices_cpu = pairwise_distances_faiss(
-            X, k=k, metric=self.metric, config=config
-        )
-
-        if return_indices:
-            return C_cpu, indices_cpu
-        return C_cpu
-
-    def _compute_sparse_log_affinity(
-        self, X: torch.Tensor, return_indices: bool = True, **kwargs
-    ):
-        """Compute only the current GPU's chunk of the affinity matrix.
-
-        Each GPU processes its assigned chunk independently using the shared
-        affinity computation logic from the parent class.
-        """
-        n_samples = X.shape[0]
-        device_id = self.get_current_device_id() if self.is_multi_gpu else 0
-        start, end = (
-            self.get_chunk_range(n_samples, device_id)
-            if self.is_multi_gpu
-            else (0, n_samples)
-        )
-
-        n_samples_tensor = torch.tensor(n_samples, dtype=X.dtype, device=X.device)
-        perplexity = check_neighbor_param(self.perplexity, n_samples_tensor)
-        k = min(3 * perplexity, n_samples - 1)
-        k = check_neighbor_param(k, n_samples_tensor)
-
-        C_cpu, indices_cpu = self._distance_matrix(X, k=k, return_indices=True)
-
-        current_device = torch.device(f"cuda:{self.devices[device_id]}")
-        C_chunk = C_cpu[start:end].to(current_device)
-        indices_chunk = indices_cpu[start:end].to(current_device)
-
-        log_affinity_chunk, eps_chunk = self._compute_log_affinity_from_cost(
-            C_chunk, n_samples
-        )
-
-        self.register_buffer("eps_", eps_chunk, persistent=False)
-
-        log_normalization = logsumexp_red(log_affinity_chunk, dim=1)
-        self.register_buffer("log_normalization_", log_normalization, persistent=False)
-        log_affinity_chunk -= self.log_normalization_
-
-        log_affinity_chunk -= torch.log(
-            torch.tensor(n_samples, dtype=C_chunk.dtype, device=current_device)
-        )
-
-        self.chunk_start_ = start
-        self.chunk_end_ = end
-        self.chunk_size_ = end - start
-
-        if return_indices:
-            return log_affinity_chunk, indices_chunk
-        return log_affinity_chunk
-
-
-class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
-    """Multi-GPU UMAP Affinity.
+class UMAPAffinityMultiGPU(MultiGPUAffinityMixin, UMAPAffinity):
+    """Multi-GPU UMAP Affinity for distributed training.
 
     Each GPU computes and stores only its chunk of the affinity matrix.
-    The kNN computation uses FAISS multi-GPU, then each GPU processes
-    only its assigned chunk of samples.
+    Must be launched with torchrun for distributed execution.
     """
 
     def __init__(
         self,
         n_neighbors: float = 30.0,
-        devices: Optional[Union[int, List[int]]] = None,
         max_iter: int = 1000,
-        sparsity: bool = True,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
-        shard: bool = True,
     ):
         """Initialize multi-GPU UMAP affinity.
 
@@ -300,13 +229,8 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
         ----------
         n_neighbors : float, default=30.0
             Number of effective nearest neighbors to consider. Similar to perplexity.
-        devices : Optional[Union[int, List[int]]], default=None
-            GPU device(s) to use. If None, uses all available GPUs.
-            If int, uses that single GPU. If list, uses specified GPUs.
         max_iter : int, default=1000
             Maximum number of iterations for the root search.
-        sparsity : bool, default=True
-            Whether to use sparse affinity matrix (with k nearest neighbors).
         metric : str, default="sqeuclidean"
             Distance metric to use. Options: "sqeuclidean", "euclidean", "angular".
         zero_diag : bool, default=True
@@ -316,103 +240,34 @@ class UMAPAffinityMultiGPU(UMAPAffinity, MultiGPUSparseAffinity):
         compile : bool, default=False
             Whether to use torch.compile for optimization (requires PyTorch 2.0+).
         symmetrize : bool, default=True
-            Whether to symmetrize the affinity matrix.
-        shard : bool, default=True
-            Whether to use IndexShards (True) or IndexReplicas (False) for FAISS multi-GPU.
-            - True (default): Shard data across GPUs (faster, less memory)
-            - False: Replicate data across GPUs (specific high-throughput scenarios)
+            Whether to symmetrize the affinity matrix (limited in multi-GPU mode).
 
         Notes
         -----
-        Multi-GPU mode requires backend='faiss' and is automatically set.
-        The 'device' parameter from UMAPAffinity is replaced by 'devices'.
+        Requires distributed mode via torchrun.
+        Always uses sparsity=True and backend='faiss'.
         """
-        MultiGPUSparseAffinity.__init__(self, devices=devices)
-        self.shard = shard
+        MultiGPUAffinityMixin.__init__(self, zero_diag=zero_diag)
 
-        # Multi-GPU only works with FAISS backend
+        # Warn if symmetrization was requested in multi-GPU mode
+        if symmetrize and self.is_multi_gpu:
+            if verbose:
+                print(
+                    "[TorchDR] WARNING: Symmetrization not supported in multi-GPU mode. "
+                    "Setting symmetrize=False. Use single-GPU mode if symmetrization is required."
+                )
+            symmetrize = False
+
         UMAPAffinity.__init__(
             self,
             n_neighbors=n_neighbors,
             max_iter=max_iter,
-            sparsity=sparsity,
+            sparsity=True,  # Always sparse in multi-GPU mode
             metric=metric,
             zero_diag=zero_diag,
-            device="cuda",  # Will be overridden by multi-GPU logic
+            device="cuda",  # Each process uses its assigned GPU
             backend="faiss",  # Force FAISS backend
             verbose=verbose,
             compile=compile,
-            symmetrize=symmetrize,
+            symmetrize=symmetrize,  # Will be False in multi-GPU mode
         )
-
-    def _distance_matrix(
-        self, X: torch.Tensor, k: int = None, return_indices: bool = False
-    ):
-        """Compute distance matrix using FAISS with output on CPU.
-
-        Keeps the full kNN results on CPU to save GPU memory.
-        Each GPU will then load only its chunk.
-        """
-        config = FaissConfig(
-            device=self.devices if self.is_multi_gpu else self.devices[0],
-            output_device="cpu",  # Keep output on CPU for memory efficiency
-            shard=self.shard if self.is_multi_gpu else False,
-        )
-
-        C_cpu, indices_cpu = pairwise_distances_faiss(
-            X, k=k, metric=self.metric, config=config
-        )
-
-        if return_indices:
-            return C_cpu, indices_cpu
-        return C_cpu
-
-    def _compute_sparse_affinity(
-        self, X: torch.Tensor, return_indices: bool = True, **kwargs
-    ):
-        """Compute only the current GPU's chunk of the affinity matrix.
-
-        Each GPU processes its assigned chunk independently using the shared
-        affinity computation logic from the parent class.
-        """
-        n_samples = X.shape[0]
-        device_id = self.get_current_device_id() if self.is_multi_gpu else 0
-        start, end = (
-            self.get_chunk_range(n_samples, device_id)
-            if self.is_multi_gpu
-            else (0, n_samples)
-        )
-
-        n_samples_tensor = torch.tensor(n_samples, dtype=X.dtype, device=X.device)
-        n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_tensor)
-
-        C_cpu, indices_cpu = self._distance_matrix(
-            X, k=n_neighbors, return_indices=True
-        )
-
-        current_device = torch.device(f"cuda:{self.devices[device_id]}")
-        C_chunk = C_cpu[start:end].to(current_device)
-        indices_chunk = indices_cpu[start:end].to(current_device)
-
-        affinity_chunk, rho_chunk, eps_chunk = self._compute_affinity_from_cost(
-            C_chunk, n_samples
-        )
-
-        self.register_buffer("rho_", rho_chunk, persistent=False)
-        self.register_buffer("eps_", eps_chunk, persistent=False)
-
-        # Note: In multi-GPU mode, symmetrization would require communication
-        # between GPUs. For now, we handle non-symmetric chunks.
-        if self.symmetrize and self.is_multi_gpu:
-            self.logger.warning(
-                "Full symmetrization not supported in multi-GPU mode. "
-                "Using asymmetric affinities for efficiency."
-            )
-
-        self.chunk_start_ = start
-        self.chunk_end_ = end
-        self.chunk_size_ = end - start
-
-        if return_indices:
-            return affinity_chunk, indices_chunk
-        return affinity_chunk

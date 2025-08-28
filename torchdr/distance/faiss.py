@@ -7,7 +7,7 @@
 import torch
 import numpy as np
 import warnings
-from typing import Union, Optional, Dict, Any, List
+from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass, field
 
 from torchdr.utils.faiss import faiss
@@ -31,30 +31,9 @@ class FaissConfig:
         - float/int: Explicit size in GB (e.g., 2.0 for 2GB)
         - 0: Disable pre-allocation (use cudaMalloc on demand)
         Only applies to GPU mode.
-    device : Union[int, List[int]], default=0
-        GPU device ID(s) to use.
-        - int: Single GPU device ID
-        - List[int]: Multiple GPU device IDs for multi-GPU support
+    device : int, default=0
+        GPU device ID to use.
         Only applies when input is on CUDA.
-    shard : bool, default=True
-        Controls the multi-GPU pattern when device is a list of GPUs:
-
-        - True (default): **IndexShards** - Sharding pattern
-          * Dataset is split across GPUs (each GPU stores a disjoint subset)
-          * Each query is broadcast to all GPUs
-          * Each GPU searches only its shard
-          * Best for: Most use cases, especially large datasets
-          * Example: 4M vectors on 4 GPUs → each GPU stores 1M vectors
-          * Typically 1.5-2x faster than replication
-
-        - False: **IndexReplicas** - Replication pattern
-          * Each GPU stores a complete copy of the index
-          * Queries are distributed across GPUs for load balancing
-          * Each GPU searches the full dataset
-          * Example: 1M vectors on 4 GPUs → each GPU stores all 1M vectors
-          * Best for: Specific high-throughput query scenarios
-
-        Only used when device is a list of multiple GPUs.
     index_type : str, default='Flat'
         Type of FAISS index to use:
         - 'Flat': Exact brute-force search
@@ -67,11 +46,6 @@ class FaissConfig:
         Number of clusters for IVF indexes. Typical values range from
         sqrt(n) to 4*sqrt(n) where n is the dataset size.
         Only used with index_type='IVF'.
-    output_device : Optional[str], default=None
-        Device to place the output tensors on.
-        - None: Use the same device as input X
-        - 'cpu': Force output to CPU (memory efficient for multi-GPU)
-        - 'cuda:N': Place output on specific GPU N
 
     Attributes
     ----------
@@ -83,8 +57,8 @@ class FaissConfig:
     >>> # Basic float16 configuration for memory efficiency
     >>> config = FaissConfig(use_float16=True)
 
-    >>> # Multi-GPU configuration with sharding for large datasets
-    >>> config = FaissConfig(device=[0, 1, 2, 3], shard=True, use_float16=True)
+    >>> # GPU configuration with specific device
+    >>> config = FaissConfig(device=1, use_float16=True)
 
     >>> # Custom memory allocation for large batch operations
     >>> config = FaissConfig(temp_memory=4.0, use_float16=True)  # 4GB temp memory
@@ -95,7 +69,6 @@ class FaissConfig:
     Notes
     -----
     - Float16 is recommended for datasets > 1M vectors or when GPU memory is limited
-    - Multi-GPU with sharding is ideal for datasets that don't fit on a single GPU
     - Increasing temp_memory helps with large batch operations but reduces memory
       available for data storage
     - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
@@ -103,12 +76,10 @@ class FaissConfig:
 
     use_float16: bool = False
     temp_memory: Union[str, float] = "auto"
-    device: Union[int, List[int]] = 0
-    shard: bool = True
+    device: int = 0
     index_type: str = "Flat"
     nprobe: int = 1
     nlist: int = 100
-    output_device: Optional[str] = None
     gpu_resources: Dict[int, Any] = field(default_factory=dict, init=False, repr=False)
 
 
@@ -148,8 +119,6 @@ def pairwise_distances_faiss(
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
         See FaissConfig documentation for available options.
-        The output_device parameter can be used to control where results are placed
-        (e.g., 'cpu' for memory-efficient multi-GPU operations).
 
     Returns
     -------
@@ -180,10 +149,6 @@ def pairwise_distances_faiss(
 
     >>> # Custom memory allocation for large batches
     >>> config = FaissConfig(temp_memory=4.0)  # 4GB temp memory
-    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
-
-    >>> # Memory-efficient multi-GPU: keep results on CPU
-    >>> config = FaissConfig(device=[0, 1], output_device='cpu')
     >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
     """
     if metric not in LIST_METRICS_FAISS:
@@ -252,17 +217,8 @@ def pairwise_distances_faiss(
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    # Determine output device
-    if config.output_device is not None:
-        if config.output_device == "cpu":
-            output_device = torch.device("cpu")
-        else:
-            output_device = torch.device(config.output_device)
-    else:
-        output_device = device
-
-    distances = torch.from_numpy(D).to(output_device).to(dtype)
-    indices = torch.from_numpy(Ind).to(output_device).long()
+    distances = torch.from_numpy(D).to(device).to(dtype)
+    indices = torch.from_numpy(Ind).to(device).long()
 
     return distances, indices
 
@@ -284,64 +240,30 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
     gpu_index : faiss.GpuIndex
         Configured GPU index.
     """
-    devices = config.device if isinstance(config.device, list) else [config.device]
+    # With torchrun, each process handles exactly one GPU
+    device_id = config.device if isinstance(config.device, int) else config.device[0]
 
-    if len(devices) == 1:
-        device_id = devices[0]
+    if device_id not in config.gpu_resources:
+        res = faiss.StandardGpuResources()
 
-        if device_id not in config.gpu_resources:
-            res = faiss.StandardGpuResources()
+        if config.temp_memory != "auto":
+            temp_memory_bytes = int(config.temp_memory * 1024**3)
+            res.setTempMemory(temp_memory_bytes)
 
-            if config.temp_memory != "auto":
-                temp_memory_bytes = int(config.temp_memory * 1024**3)
-                res.setTempMemory(temp_memory_bytes)
-
-            config.gpu_resources[device_id] = res
-        else:
-            res = config.gpu_resources[device_id]
-
-        if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
-            flat_config = faiss.GpuIndexFlatConfig()
-            flat_config.useFloat16 = config.use_float16
-            flat_config.device = device_id
-
-            if isinstance(index, faiss.IndexFlatL2):
-                gpu_index = faiss.GpuIndexFlatL2(res, d, flat_config)
-            else:
-                gpu_index = faiss.GpuIndexFlatIP(res, d, flat_config)
-        else:
-            gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
-
+        config.gpu_resources[device_id] = res
     else:
-        # Multi-GPU setup using FAISS's recommended approach
+        res = config.gpu_resources[device_id]
 
-        # Build GPU resources for each device
-        gpu_resources = []
-        for device_id in devices:
-            if device_id not in config.gpu_resources:
-                res = faiss.StandardGpuResources()
+    if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
+        flat_config = faiss.GpuIndexFlatConfig()
+        flat_config.useFloat16 = config.use_float16
+        flat_config.device = device_id
 
-                if config.temp_memory != "auto":
-                    temp_memory_bytes = int(config.temp_memory * 1024**3)
-                    res.setTempMemory(temp_memory_bytes)
-
-                config.gpu_resources[device_id] = res
-            else:
-                res = config.gpu_resources[device_id]
-
-            gpu_resources.append(res)
-
-        # Configure multi-GPU cloning options
-        co = faiss.GpuMultipleClonerOptions()
-        co.shard = config.shard  # True for IndexShards, False for IndexReplicas
-        co.useFloat16 = config.use_float16
-
-        # For IVF indexes, we could also set:
-        # co.common_ivf_quantizer = True  # to share quantizer across GPUs
-
-        # Create multi-GPU index using FAISS's Python wrapper
-        gpu_index = faiss.index_cpu_to_gpu_multiple_py(
-            gpu_resources, index, co=co, gpus=devices
-        )
+        if isinstance(index, faiss.IndexFlatL2):
+            gpu_index = faiss.GpuIndexFlatL2(res, d, flat_config)
+        else:
+            gpu_index = faiss.GpuIndexFlatIP(res, d, flat_config)
+    else:
+        gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
 
     return gpu_index
