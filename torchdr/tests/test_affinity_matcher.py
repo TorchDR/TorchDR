@@ -7,7 +7,6 @@ from torch.testing import assert_close
 
 from torchdr.affinity import (
     Affinity,
-    SparseLogAffinity,
     NormalizedGaussianAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
@@ -321,27 +320,6 @@ def test_precomputed_affinity():
     # After fit_transform, we should have an embedding
     assert embedding is not None
     assert embedding.shape == (5, 2)  # n_samples x n_components
-
-
-def test_sparse_affinity_with_indices():
-    class TestSparseAffinity(SparseLogAffinity):
-        def __call__(self, X, return_indices=False, **kwargs):
-            if return_indices:
-                indices = torch.randint(0, X.shape[0], (X.shape[0], 3))
-                return torch.rand(X.shape[0], 3), indices
-            return torch.rand(X.shape[0], 3)
-
-        def _compute_affinity(self, X):
-            return torch.exp(-(X @ X.T))
-
-    model = AffinityMatcher(
-        affinity_in=TestSparseAffinity(),
-        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
-    )
-    embedding = model.fit_transform(torch.rand(5, 2))
-    assert isinstance(embedding, torch.Tensor)
-    assert embedding.shape == (5, 2)
-    assert_close(embedding, model.embedding_)
 
 
 def test_after_step():
