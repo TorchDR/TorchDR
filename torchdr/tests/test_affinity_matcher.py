@@ -9,8 +9,6 @@ from torchdr.affinity import (
     Affinity,
     SparseLogAffinity,
     NormalizedGaussianAffinity,
-    LogAffinity,
-    EntropicAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -294,18 +292,6 @@ def test_loss_with_different_functions():
     model_ce_log.affinity_in_ = torch.rand(5, 5)
     loss = model_ce_log._compute_loss()
     assert isinstance(loss, torch.Tensor)
-
-
-def test_sparse_affinity_warning():
-    affinity_in = EntropicAffinity(sparsity=True, verbose=False)
-    assert affinity_in.sparsity
-    AffinityMatcher(
-        affinity_in=affinity_in,
-        affinity_out=LogAffinity(verbose=False),  # Not UnnormalizedAffinity
-        verbose=True,
-    )
-    # The warning is logged, and sparsity is set to False
-    assert not affinity_in.sparsity
 
 
 def test_fit_and_transform():

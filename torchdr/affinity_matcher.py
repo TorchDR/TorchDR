@@ -342,10 +342,6 @@ class AffinityMatcher(DRModule):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
 
-        # If NN indices are available, restrict output affinity to NNs
-        if getattr(self, "NN_indices_", None) is not None:
-            self.kwargs_affinity_out.setdefault("indices", self.NN_indices_)
-
         Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
 
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)

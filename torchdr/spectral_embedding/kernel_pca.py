@@ -7,13 +7,12 @@
 
 from typing import Union, Any, Optional
 
-import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, svd_flip
+from torchdr.utils import svd_flip
 
-from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalues
+from torchdr.utils import center_kernel, check_nonnegativity_eigenvalues
 from torchdr.affinity import (
     Affinity,
     NormalizedGaussianAffinity,
@@ -122,37 +121,3 @@ class KernelPCA(DRModule):
             self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
         )
         return self.embedding_
-
-    @handle_type()
-    def transform(
-        self, X: Union[torch.Tensor, np.ndarray]
-    ) -> Union[torch.Tensor, np.ndarray]:
-        r"""Project the input data onto the KernelPCA components.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data to project onto the KernelPCA components.
-
-        Returns
-        -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
-        """
-        K = self.affinity(X, self.X_fit_)
-        # center à la sklearn: using fit data for rows and all, new data for col
-        pred_cols = sum_red(K, 1) / self.K_fit_rows_.shape[1]
-        K -= self.K_fit_rows_
-        K -= pred_cols
-        K += self.K_fit_all_
-
-        result = (
-            K
-            @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[: self.n_components].sqrt())
-        )
-        # remove np.inf arising from division by 0 eigenvalues:
-        zero_eigvals = self.eigenvalues_[: self.n_components] == 0
-        if zero_eigvals.any():
-            result[:, zero_eigvals] = 0
-        return result
