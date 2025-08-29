@@ -7,18 +7,17 @@
 from typing import Dict, Optional, Union, Type
 import torch
 
-from torchdr.affinity import EntropicAffinity, GaussianAffinity
+from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.utils import logsumexp_red
-from torchdr.distance import FaissConfig
+from torchdr.utils import logsumexp_red, cross_entropy_loss
+from torchdr.distance import FaissConfig, pairwise_distances
 
 
 class SNE(SparseNeighborEmbedding):
     r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
-    It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Gaussian as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 
@@ -76,10 +75,8 @@ class SNE(SparseNeighborEmbedding):
         Number of iterations for early exaggeration, by default 250.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output computation, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity in the algorithm.
     check_interval : int, optional
@@ -110,36 +107,28 @@ class SNE(SparseNeighborEmbedding):
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
     ):
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
         self.perplexity = perplexity
         self.max_iter_affinity = max_iter_affinity
         self.sparsity = sparsity
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = GaussianAffinity(
-            metric=metric_out,
-            device=device,
-            verbose=False,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
@@ -160,6 +149,17 @@ class SNE(SparseNeighborEmbedding):
             compile=compile,
         )
 
+    def _compute_attractive_loss(self):
+        distances_sq = pairwise_distances(
+            self.embedding_,
+            metric="sqeuclidean",
+            backend=self.backend,
+            indices=self.NN_indices_,
+        )
+        return cross_entropy_loss(self.affinity_in_, -distances_sq, log=True)
+
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True)
-        return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_
+        distances_sq = pairwise_distances(
+            self.embedding_, metric="sqeuclidean", backend=self.backend
+        )
+        return logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_

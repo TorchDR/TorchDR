@@ -9,7 +9,7 @@ from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
 from torchdr.utils import kmin, sum_red
-from torchdr.distance import symmetric_pairwise_distances_indices, FaissConfig
+from torchdr.distance import pairwise_distances, FaissConfig
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -66,10 +66,8 @@ class PACMAP(SampledNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
-    metric_out : {'sqeuclidean', 'manhattan'}, optional
-        Metric to use for the output affinity, by default 'sqeuclidean'.
     MN_ratio : float, optional
         Ratio of mid-near pairs to nearest neighbor pairs, by default 0.5.
     FP_ratio : float, optional
@@ -104,8 +102,7 @@ class PACMAP(SampledNeighborEmbedding):
         backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        metric_in: str = "sqeuclidean",
-        metric_out: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         MN_ratio: float = 0.5,
         FP_ratio: float = 2,
         check_interval: int = 50,
@@ -114,8 +111,7 @@ class PACMAP(SampledNeighborEmbedding):
         compile: bool = False,
     ):
         self.n_neighbors = n_neighbors
-        self.metric_in = metric_in
-        self.metric_out = metric_out
+        self.metric = metric
 
         self.MN_ratio = MN_ratio
         self.FP_ratio = FP_ratio
@@ -125,7 +121,7 @@ class PACMAP(SampledNeighborEmbedding):
 
         affinity_in = PACMAPAffinity(
             n_neighbors=n_neighbors,
-            metric=metric_in,
+            metric=metric,
             device=device,
             backend=backend,
             verbose=verbose,
@@ -189,10 +185,11 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _compute_attractive_loss(self):
         # Attractive loss with nearest neighbors
-        Q_near = 1 + symmetric_pairwise_distances_indices(
+        Q_near = 1 + pairwise_distances(
             self.embedding_,
+            metric="sqeuclidean",
+            backend=self.backend,
             indices=self.NN_indices_,
-            metric=self.metric_out,
         )
         Q_near = Q_near / (10 + Q_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
@@ -219,20 +216,22 @@ class PACMAP(SampledNeighborEmbedding):
                     self.self_idxs, mid_near_candidates_indices, right=True
                 )
                 mid_near_candidates_indices.add_(shifts)
-                D_mid_near_candidates = symmetric_pairwise_distances_indices(
+                D_mid_near_candidates = pairwise_distances(
                     self.X_,
+                    metric=self.metric,
+                    backend=self.backend,
                     indices=mid_near_candidates_indices,
-                    metric=self.metric_in,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 self.mid_near_indices[:, i] = idxs[
                     :, 1
                 ]  # Retrieve the second closest point
 
-            Q_mid_near = 1 + symmetric_pairwise_distances_indices(
+            Q_mid_near = 1 + pairwise_distances(
                 self.embedding_,
+                metric="sqeuclidean",
+                backend=self.backend,
                 indices=self.mid_near_indices,
-                metric=self.metric_out,
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
@@ -242,9 +241,10 @@ class PACMAP(SampledNeighborEmbedding):
         return near_loss + mid_near_loss
 
     def _compute_repulsive_loss(self):
-        Q_further = 1 + symmetric_pairwise_distances_indices(
+        Q_further = 1 + pairwise_distances(
             self.embedding_,
-            metric=self.metric_out,
+            metric="sqeuclidean",
+            backend=self.backend,
             indices=self.neg_indices_,
         )
         Q_further = 1 / (1 + Q_further)

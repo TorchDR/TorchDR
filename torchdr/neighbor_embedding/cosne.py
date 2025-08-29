@@ -9,12 +9,9 @@ from typing import Dict, Optional, Union, Type, Any
 import torch
 
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.affinity import (
-    EntropicAffinity,
-    CauchyAffinity,
-)
-from torchdr.distance import FaissConfig
-from torchdr.utils import logsumexp_red, RiemannianAdam
+from torchdr.affinity import EntropicAffinity
+from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.utils import logsumexp_red, RiemannianAdam, cross_entropy_loss
 
 
 class COSNE(SparseNeighborEmbedding):
@@ -72,7 +69,7 @@ class COSNE(SparseNeighborEmbedding):
         Number of iterations for early exaggeration, by default 250.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
-    metric_in : {'sqeuclidean', 'manhattan'}, optional
+    metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity mode for the input affinity. Default is True.
@@ -103,13 +100,12 @@ class COSNE(SparseNeighborEmbedding):
         early_exaggeration_coeff: float = 12.0,
         early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
-        metric_in: str = "sqeuclidean",
+        metric: str = "sqeuclidean",
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
     ):
-        self.metric_in = metric_in
-        self.metric_out = "sqhyperbolic"
+        self.metric = metric
         self.perplexity = perplexity
         self.lambda1 = lambda1
         self.gamma = gamma
@@ -118,23 +114,16 @@ class COSNE(SparseNeighborEmbedding):
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
-            metric=metric_in,
+            metric=metric,
             max_iter=max_iter_affinity,
             device=device,
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
         )
-        affinity_out = CauchyAffinity(
-            metric=self.metric_out,
-            gamma=gamma,
-            device=device,
-            verbose=verbose,
-        )
-
         super().__init__(
             affinity_in=affinity_in,
-            affinity_out=affinity_out,
+            affinity_out=None,
             n_components=n_components,
             optimizer=RiemannianAdam,
             optimizer_kwargs=optimizer_kwargs,
@@ -160,9 +149,22 @@ class COSNE(SparseNeighborEmbedding):
         self.X_norm = (X**2).sum(-1)
         return super()._fit_transform(X)
 
+    def _compute_attractive_loss(self):
+        distances_hyperbolic = pairwise_distances(
+            self.embedding_,
+            metric="sqhyperbolic",
+            backend=self.backend,
+            indices=self.NN_indices_,
+        )
+        log_Q = (self.gamma / (distances_hyperbolic + self.gamma**2)).log()
+        return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
+
     def _compute_repulsive_loss(self):
-        log_Q = self.affinity_out(self.embedding_, log=True)
-        rep_loss = logsumexp_red(log_Q, dim=(0, 1))  # torch.tensor([0])
+        distances_hyperbolic = pairwise_distances(
+            self.embedding_, metric="sqhyperbolic", backend=self.backend
+        )
+        log_Q = (self.gamma / (distances_hyperbolic + self.gamma**2)).log()
+        rep_loss = logsumexp_red(log_Q, dim=(0, 1))
         Y_norm = (self.embedding_**2).sum(-1)
         Y_norm = torch.arccosh(1 + 2 * (Y_norm / (1 - Y_norm)) + 1e-8) ** 2
         distance_term = ((self.X_norm - Y_norm) ** 2).mean()

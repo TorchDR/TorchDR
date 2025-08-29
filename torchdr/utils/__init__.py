@@ -45,7 +45,6 @@ from .validation import (
 )
 from .wrappers import (
     handle_type,
-    handle_keops,
     to_torch,
     torch_to_backend,
     wrap_vectors,
@@ -98,7 +97,6 @@ __all__ = [
     "torch_to_backend",
     "handle_type",
     "matrix_transpose",
-    "handle_keops",
     "faiss",
     "bool_arg",
     "check_neighbor_param",

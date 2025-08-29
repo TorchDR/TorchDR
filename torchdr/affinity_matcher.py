@@ -13,7 +13,6 @@ from torchdr.affinity import (
     Affinity,
     LogAffinity,
     SparseAffinity,
-    UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
 from torchdr.distance import FaissConfig
@@ -179,14 +178,6 @@ class AffinityMatcher(DRModule):
                 raise ValueError(
                     "[TorchDR] ERROR : affinity_out must be an Affinity instance when not None."
                 )
-            if getattr(self.affinity_in, "sparsity", False) and not isinstance(
-                affinity_out, UnnormalizedAffinity
-            ):
-                self.logger.warning(
-                    "affinity_out must be a UnnormalizedAffinity "
-                    "when affinity_in is sparse. Setting sparsity = False in affinity_in."
-                )
-                self.affinity_in.sparsity = False  # turn off sparsity
             affinity_out._pre_processed = True
 
         self.affinity_out = affinity_out
@@ -235,6 +226,7 @@ class AffinityMatcher(DRModule):
                 )
             if isinstance(self.affinity_in, SparseAffinity):
                 affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
+
                 # LazyTensors (from keops backend) can't be registered as buffers
                 if self.affinity_in.backend == "keops":
                     self.affinity_in_ = affinity_matrix
@@ -349,10 +341,6 @@ class AffinityMatcher(DRModule):
         ):
             self.kwargs_affinity_out.setdefault("log", True)
             self.kwargs_loss.setdefault("log", True)
-
-        # If NN indices are available, restrict output affinity to NNs
-        if getattr(self, "NN_indices_", None) is not None:
-            self.kwargs_affinity_out.setdefault("indices", self.NN_indices_)
 
         Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
 

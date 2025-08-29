@@ -7,7 +7,7 @@
 import functools
 import torch
 
-from .keops import LazyTensor, is_lazy_tensor, pykeops
+from .keops import LazyTensor, is_lazy_tensor
 from .validation import check_array
 
 import warnings
@@ -177,48 +177,6 @@ def handle_type(
         return decorator_handle_type
     else:
         return decorator_handle_type(_func)
-
-
-def handle_keops(func):
-    """Set the backend_ attribute to 'keops' if an OutOfMemoryError is encountered.
-
-    If backend is set to 'keops', backend_ is also set to 'keops' and nothing is done.
-    Otherwise, the function is called and if an OutOfMemoryError is encountered,
-    backend_ is set to 'keops' and the function is called again.
-    """
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # if indices are provided, we do not use KeOps
-        if kwargs.get("indices", None) is not None:
-            return func(self, *args, **kwargs)
-
-        if not hasattr(self, "backend_"):
-            self.backend_ = self.backend
-            if self.backend_ != "keops":
-                try:
-                    return func(self, *args, **kwargs)
-
-                except torch.cuda.OutOfMemoryError:
-                    msg = (
-                        f"Out of memory encountered, setting backend to 'keops' "
-                        f"for {self.__class__.__name__} object."
-                    )
-                    if hasattr(self, "logger") and self.logger is not None:
-                        self.logger.warning(msg)
-                    else:
-                        warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
-                    if not pykeops:
-                        raise ValueError(
-                            "[TorchDR] ERROR : pykeops is not installed. "
-                            "To use `backend='keops'`, please run `pip install pykeops` "
-                            "or `pip install torchdr[all]`. "
-                        )
-                    self.backend_ = "keops"
-
-        return func(self, *args, **kwargs)
-
-    return wrapper
 
 
 def compile_if_requested(func):

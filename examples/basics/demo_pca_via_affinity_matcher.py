@@ -13,8 +13,27 @@ and using the AffinityMatcher class. Both approaches lead to the same solution.
 
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_digits
+import torch
 
-from torchdr import AffinityMatcher, ScalarProductAffinity, PCA
+from torchdr import AffinityMatcher, PCA
+from torchdr.affinity import Affinity
+
+
+class ScalarProductAffinity(Affinity):
+    """Compute the scalar product affinity matrix X @ X.T."""
+
+    def __init__(self, device="auto", backend=None, verbose=False):
+        super().__init__(
+            metric="angular",
+            device=device,
+            backend=backend,
+            verbose=verbose,
+            zero_diag=False,
+        )
+
+    def _compute_affinity(self, X):
+        return X @ X.T
+
 
 # %%
 # Load toy images

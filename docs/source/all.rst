@@ -109,9 +109,6 @@ Simple Affinities
    :toctree: gen_modules/
    :template: myclass_template.rst
 
-   GaussianAffinity
-   StudentAffinity
-   ScalarProductAffinity
    NormalizedGaussianAffinity
    NormalizedStudentAffinity
 

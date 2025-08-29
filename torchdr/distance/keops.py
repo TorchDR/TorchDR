@@ -20,6 +20,7 @@ def pairwise_distances_keops(
     metric: str = "sqeuclidean",
     k: int = None,
     exclude_diag: bool = False,
+    device: str = "auto",
 ):
     r"""Compute pairwise distances between points using KeOps LazyTensors.
 
@@ -41,6 +42,10 @@ def pairwise_distances_keops(
     exclude_diag : bool, default False
         If True and Y is not provided, the self–distance (diagonal entries) are set to infinity,
         excluding the self index from the k nearest neighbors.
+    device : str, default="auto"
+        Device to use for computation. If "auto", keeps data on its current device.
+        Otherwise, temporarily moves data to specified device for computation.
+        Output remains on the computation device.
 
     Returns
     -------
@@ -54,6 +59,13 @@ def pairwise_distances_keops(
     # Check metric support.
     if metric not in LIST_METRICS_KEOPS:
         raise ValueError(f"[TorchDR] ERROR : The '{metric}' distance is not supported.")
+
+    # Move to computation device if needed
+    # The moved tensors will be garbage collected after function returns
+    if device != "auto" and str(X.device) != device:
+        X = X.to(device)
+        if Y is not None and Y is not X:
+            Y = Y.to(device)
 
     # If Y is not provided, use X and decide about self–exclusion.
     if Y is None or Y is X:
@@ -86,6 +98,8 @@ def pairwise_distances_keops(
 
     if k is not None:
         C_knn, indices = kmin(C, k=k, dim=1)
+        # Output stays on computation device (not moved back)
         return C_knn, indices
     else:
+        # Output stays on computation device (not moved back)
         return C, None
