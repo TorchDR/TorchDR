@@ -9,8 +9,6 @@ from .base import (
     LogAffinity,
     SparseAffinity,
     SparseLogAffinity,
-    UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
 )
 from .entropic import (
     EntropicAffinity,
@@ -32,8 +30,6 @@ __all__ = [
     "Affinity",
     "SparseAffinity",
     "LogAffinity",
-    "UnnormalizedAffinity",
-    "UnnormalizedLogAffinity",
     "SparseLogAffinity",
     "NormalizedGaussianAffinity",
     "NormalizedStudentAffinity",

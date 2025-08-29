@@ -22,6 +22,7 @@ def pairwise_distances(
     k: Optional[int] = None,
     return_indices: bool = False,
     indices: Optional[torch.Tensor] = None,
+    device: str = "auto",
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -51,6 +52,10 @@ def pairwise_distances(
     indices : torch.Tensor of shape (n_samples, n_neighbors), optional
         If provided, compute distances only for these specific pairs.
         Cannot be used with Y or k parameters.
+    device : str, default="auto"
+        Device to use for computation. If "auto", keeps data on its current device.
+        Otherwise, temporarily moves data to specified device for computation.
+        Output remains on the computation device. Used with backend=None (torch) and backend="keops".
 
     Returns
     -------
@@ -101,21 +106,27 @@ def pairwise_distances(
 
     if backend_str == "keops":
         C, indices = pairwise_distances_keops(
-            X=X, Y=Y, metric=metric, exclude_diag=exclude_diag, k=k
+            X=X, Y=Y, metric=metric, exclude_diag=exclude_diag, k=k, device=device
         )
     elif backend_str == "faiss":
         if k is not None:
             C, indices = pairwise_distances_faiss(
-                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, config=config
+                X=X,
+                Y=Y,
+                metric=metric,
+                k=k,
+                exclude_diag=exclude_diag,
+                config=config,
+                device=device,
             )
         else:
             # Fall back to PyTorch when FAISS is specified but k is not provided
             C, indices = pairwise_distances_torch(
-                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
+                X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, device=device
             )
     else:
         C, indices = pairwise_distances_torch(
-            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag
+            X=X, Y=Y, metric=metric, k=k, exclude_diag=exclude_diag, device=device
         )
 
     if return_indices:

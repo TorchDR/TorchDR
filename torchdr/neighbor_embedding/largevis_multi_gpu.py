@@ -50,7 +50,6 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
-        gradient_compression: str = None,
     ):
         """Initialize multi-GPU LargeVis for distributed training.
 
@@ -96,12 +95,7 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
             Interval for convergence checks.
         compile : bool, default=False
             Whether to use torch.compile.
-        gradient_compression : str, optional
-            Gradient compression for faster all_reduce communication.
-            Options: None (no compression), "fp16", "bf16".
-            bf16 maintains better numerical stability than fp16.
         """
-        self.gradient_compression = gradient_compression
         # Check that we're in distributed mode (launched with torchrun)
         if not dist.is_initialized():
             raise RuntimeError(
@@ -221,7 +215,6 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
         """Override training step to handle multi-GPU gradient synchronization.
 
         After computing gradients, use all_reduce to sum them across GPUs.
-        Optionally uses gradient compression for faster communication.
         """
         self.optimizer_.zero_grad(set_to_none=True)
 
@@ -230,21 +223,7 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
 
         # Synchronize gradients across all ranks if multi-GPU
         if self.world_size > 1:
-            if self.gradient_compression == "fp16":
-                # Create fp16 copy for communication
-                grad_compressed = self.embedding_.grad.half()
-                dist.all_reduce(grad_compressed, op=dist.ReduceOp.SUM)
-                # Copy back to original gradient tensor (preserves dtype)
-                self.embedding_.grad.copy_(grad_compressed)
-            elif self.gradient_compression == "bf16":
-                # Create bf16 copy for communication
-                grad_compressed = self.embedding_.grad.bfloat16()
-                dist.all_reduce(grad_compressed, op=dist.ReduceOp.SUM)
-                # Copy back to original gradient tensor (preserves dtype)
-                self.embedding_.grad.copy_(grad_compressed)
-            else:
-                # No compression
-                dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
+            dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()
         if self.scheduler_ is not None:

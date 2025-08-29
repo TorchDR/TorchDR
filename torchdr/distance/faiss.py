@@ -91,6 +91,7 @@ def pairwise_distances_faiss(
     metric: str = "sqeuclidean",
     exclude_diag: bool = False,
     config: Optional[FaissConfig] = None,
+    device: str = "auto",
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -119,6 +120,10 @@ def pairwise_distances_faiss(
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
         See FaissConfig documentation for available options.
+    device : str, default="auto"
+        Device to use for computation. If "auto", uses input device.
+        If "cuda", uses FAISS GPU. If "cpu", uses FAISS CPU.
+        Output remains on the specified device.
 
     Returns
     -------
@@ -189,8 +194,14 @@ def pairwise_distances_faiss(
     else:
         raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
 
-    device = X.device
-    if device.type == "cuda":
+    # Determine computation device
+    if device == "auto":
+        compute_device = X.device
+    else:
+        compute_device = torch.device(device)
+
+    # Use GPU FAISS if requested and available
+    if compute_device.type == "cuda":
         if hasattr(faiss, "StandardGpuResources"):
             index = _setup_gpu_index(index, config, d)
         else:
@@ -217,8 +228,8 @@ def pairwise_distances_faiss(
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    distances = torch.from_numpy(D).to(device).to(dtype)
-    indices = torch.from_numpy(Ind).to(device).long()
+    distances = torch.from_numpy(D).to(compute_device).to(dtype)
+    indices = torch.from_numpy(Ind).to(compute_device).long()
 
     return distances, indices
 
