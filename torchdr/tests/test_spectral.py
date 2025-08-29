@@ -65,12 +65,9 @@ def test_KernelPCA_no_transform():
     model.fit(X)
     model.fit_transform(X)
 
-    match = (
-        "can only be used when `affinity` is an UnnormalizedAffinity or "
-        "UnnormalizedLogAffinity"
-    )
-    with pytest.raises(ValueError, match=match):
-        model.transform(X)  # cannot use transform.
+    # Transform should now work even with SinkhornAffinity
+    transformed = model.transform(X)
+    assert transformed.shape == (X.shape[0], n_components)
 
 
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")

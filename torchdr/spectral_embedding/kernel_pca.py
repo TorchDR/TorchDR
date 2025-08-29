@@ -17,8 +17,6 @@ from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalue
 from torchdr.affinity import (
     Affinity,
     NormalizedGaussianAffinity,
-    UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
 )
 from torchdr.distance import FaissConfig
 
@@ -141,15 +139,6 @@ class KernelPCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
-        if not isinstance(
-            self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)
-        ):
-            aff_name = self.affinity.__class__.__name__
-            raise ValueError(
-                "KernelPCA.transform can only be used when `affinity` is "
-                "an UnnormalizedAffinity or UnnormalizedLogAffinity. "
-                f"{aff_name} is not. Use the fit_transform method instead."
-            )
         K = self.affinity(X, self.X_fit_)
         # center à la sklearn: using fit data for rows and all, new data for col
         pred_cols = sum_red(K, 1) / self.K_fit_rows_.shape[1]

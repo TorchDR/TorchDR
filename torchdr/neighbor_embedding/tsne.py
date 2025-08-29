@@ -16,9 +16,8 @@ from torchdr.utils import logsumexp_red, cross_entropy_loss
 class TSNE(SparseNeighborEmbedding):
     r"""t-Stochastic Neighbor Embedding (t-SNE) introduced in :cite:`van2008visualizing`.
 
-    It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Student as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 

@@ -12,7 +12,6 @@ import torch
 from torchdr.affinity import (
     Affinity,
     SparseAffinity,
-    UnnormalizedAffinity,
 )
 from torchdr.distance import FaissConfig
 from torchdr.affinity_matcher import AffinityMatcher
@@ -279,7 +278,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is sparse. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -374,15 +373,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
                 "must be a sparse affinity."
             )
 
-        # check affinity affinity_out (only if not None)
-        if affinity_out is not None and not isinstance(
-            affinity_out, UnnormalizedAffinity
-        ):
-            raise NotImplementedError(
-                "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
-                "must be an UnnormalizedAffinity object or None."
-            )
-
         self.repulsion_strength = repulsion_strength
 
         super().__init__(
@@ -462,10 +452,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a
-    :class:`~torchdr.SparseAffinity` and the output affinity matrix is an
-    :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
-    can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is sparse.
+    In such cases, the attractive term can be computed with linear complexity.
 
     **Fast repulsion.** A stochastic estimation of the repulsive term is used
     to reduce its complexity to linear.

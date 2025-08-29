@@ -13,7 +13,6 @@ from torchdr.affinity import (
     Affinity,
     LogAffinity,
     SparseAffinity,
-    UnnormalizedAffinity,
 )
 from torchdr.base import DRModule
 from torchdr.distance import FaissConfig
@@ -179,14 +178,6 @@ class AffinityMatcher(DRModule):
                 raise ValueError(
                     "[TorchDR] ERROR : affinity_out must be an Affinity instance when not None."
                 )
-            if getattr(self.affinity_in, "sparsity", False) and not isinstance(
-                affinity_out, UnnormalizedAffinity
-            ):
-                self.logger.warning(
-                    "affinity_out must be a UnnormalizedAffinity "
-                    "when affinity_in is sparse. Setting sparsity = False in affinity_in."
-                )
-                self.affinity_in.sparsity = False  # turn off sparsity
             affinity_out._pre_processed = True
 
         self.affinity_out = affinity_out

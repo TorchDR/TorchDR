@@ -16,10 +16,10 @@ from sklearn.datasets import load_digits
 import torch
 
 from torchdr import AffinityMatcher, PCA
-from torchdr.affinity.base import UnnormalizedAffinity
+from torchdr.affinity import Affinity
 
 
-class ScalarProductAffinity(UnnormalizedAffinity):
+class ScalarProductAffinity(Affinity):
     """Compute the scalar product affinity matrix X @ X.T."""
 
     def __init__(self, device="auto", backend=None, verbose=False):
@@ -31,8 +31,8 @@ class ScalarProductAffinity(UnnormalizedAffinity):
             zero_diag=False,
         )
 
-    def _affinity_formula(self, C):
-        return -C
+    def _compute_affinity(self, X):
+        return X @ X.T
 
 
 # %%

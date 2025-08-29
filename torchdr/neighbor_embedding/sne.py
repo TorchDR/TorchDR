@@ -16,9 +16,8 @@ from torchdr.distance import FaissConfig, pairwise_distances
 class SNE(SparseNeighborEmbedding):
     r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
-    It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.GaussianAffinity` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Gaussian as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 

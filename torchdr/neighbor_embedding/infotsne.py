@@ -16,9 +16,8 @@ from torchdr.distance import FaissConfig, pairwise_distances
 class InfoTSNE(SampledNeighborEmbedding):
     r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
-    It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Student as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 

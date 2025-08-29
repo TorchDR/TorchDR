@@ -16,9 +16,8 @@ from torchdr.distance import FaissConfig, pairwise_distances
 class LargeVis(SampledNeighborEmbedding):
     r"""LargeVis algorithm introduced in :cite:`tang2016visualizing`.
 
-    It uses a :class:`~torchdr.EntropicAffinity` as input
-    affinity :math:`\mathbf{P}` and a :class:`~torchdr.StudentAffinity` as output
-    affinity :math:`\mathbf{Q}`.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Student as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 

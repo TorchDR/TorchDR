@@ -39,8 +39,7 @@ def find_ab_params(spread, min_dist):
 class UMAP(SampledNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
-    It uses a :class:`~torchdr.UMAPAffinity` as input
-    affinity :math:`\mathbf{P}`.
+    It uses a :class:`~torchdr.UMAPAffinity` as input affinity :math:`\mathbf{P}`.
 
     The loss function is defined as:
 
