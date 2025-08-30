@@ -7,11 +7,7 @@ from torch.testing import assert_close
 
 from torchdr.affinity import (
     Affinity,
-    ScalarProductAffinity,
-    SparseLogAffinity,
-    GaussianAffinity,
-    LogAffinity,
-    EntropicAffinity,
+    NormalizedGaussianAffinity,
 )
 from torchdr.affinity_matcher import AffinityMatcher
 
@@ -19,8 +15,8 @@ from torchdr.affinity_matcher import AffinityMatcher
 def test_invalid_loss_fn():
     with pytest.raises(ValueError):
         AffinityMatcher(
-            affinity_in=GaussianAffinity(),
-            affinity_out=GaussianAffinity(),
+            affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+            affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
             loss_fn="invalid_loss",
         )
 
@@ -28,16 +24,25 @@ def test_invalid_loss_fn():
 def test_invalid_affinity_out():
     # Test that affinity_out must be an Affinity instance when not None
     with pytest.raises(ValueError):
-        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out="invalid_affinity")
+        AffinityMatcher(
+            affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+            affinity_out="invalid_affinity",
+        )
 
 
 def test_invalid_affinity_in():
     with pytest.raises(ValueError):
-        AffinityMatcher(affinity_in=None, affinity_out=GaussianAffinity())
+        AffinityMatcher(
+            affinity_in=None,
+            affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        )
 
 
 def test_affinity_in_precomputed_shape_error():
-    model = AffinityMatcher(affinity_in="precomputed", affinity_out=GaussianAffinity())
+    model = AffinityMatcher(
+        affinity_in="precomputed",
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+    )
     with pytest.raises(ValueError):
         model.fit_transform(torch.rand(5, 4))
 
@@ -64,7 +69,8 @@ def test_convergence_reached():
 
 def test_scheduler_not_configure_optimizer():
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
     )
     with pytest.raises(ValueError):
         model._configure_scheduler()
@@ -72,8 +78,8 @@ def test_scheduler_not_configure_optimizer():
 
 def test_scheduler_invalid_type():
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         scheduler="invalid_scheduler",
     )
     with pytest.raises(ValueError):
@@ -82,8 +88,8 @@ def test_scheduler_invalid_type():
 
 def test_lr_auto_warning():
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         lr="auto",
         verbose=True,
     )
@@ -93,8 +99,8 @@ def test_lr_auto_warning():
 
 def test_init_embedding_invalid():
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         init="invalid_init",
     )
     with pytest.raises(ValueError):
@@ -103,8 +109,8 @@ def test_init_embedding_invalid():
 
 def test_optimizer_invalid_string():
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         optimizer="InvalidOptimizer",
     )
     model._init_embedding(torch.rand(5, 2))
@@ -119,8 +125,8 @@ def test_optimizer_invalid_class():
         pass
 
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         optimizer=NotAnOptimizer,
     )
     model._init_embedding(torch.rand(5, 2))
@@ -135,21 +141,27 @@ def test_init_embedding_methods():
 
     # Test normal initialization
     model_normal = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity(), init="normal"
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        init="normal",
     )
     model_normal._init_embedding(X)
     assert model_normal.embedding_.shape == (5, 2)
 
     # Test random initialization (alias for normal)
     model_random = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity(), init="random"
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        init="random",
     )
     model_random._init_embedding(X)
     assert model_random.embedding_.shape == (5, 2)
 
     # Test PCA initialization
     model_pca = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity(), init="pca"
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        init="pca",
     )
     model_pca._init_embedding(X)
     assert model_pca.embedding_.shape == (5, 2)
@@ -157,8 +169,8 @@ def test_init_embedding_methods():
     # Test tensor initialization
     init_tensor = torch.ones((5, 2))
     model_tensor = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         init=init_tensor,
     )
     model_tensor._init_embedding(X)
@@ -167,7 +179,9 @@ def test_init_embedding_methods():
     # Test numpy array initialization
     init_array = np.ones((5, 2))
     model_array = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity(), init=init_array
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        init=init_array,
     )
     model_array._init_embedding(X)
     assert model_array.embedding_.shape == (5, 2)
@@ -176,8 +190,8 @@ def test_init_embedding_methods():
 def test_different_optimizers():
     # Test string optimizer
     model_adam = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         optimizer="Adam",
     )
     model_adam._init_embedding(torch.rand(5, 2))
@@ -188,7 +202,9 @@ def test_different_optimizers():
 
     # Test optimizer class
     model_sgd = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity(), optimizer=SGD
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
+        optimizer=SGD,
     )
     model_sgd._init_embedding(torch.rand(5, 2))
     model_sgd._set_params()
@@ -198,8 +214,8 @@ def test_different_optimizers():
 
     # Test optimizer with kwargs
     model_sgd_kwargs = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         optimizer="SGD",
         optimizer_kwargs={"momentum": 0.9},
     )
@@ -213,8 +229,8 @@ def test_different_optimizers():
 def test_different_schedulers():
     # Test string scheduler
     model_step = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         scheduler="StepLR",
         scheduler_kwargs={"step_size": 10},
     )
@@ -227,8 +243,8 @@ def test_different_schedulers():
 
     # Test scheduler class
     model_exp = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         scheduler=ExponentialLR,
         scheduler_kwargs={"gamma": 0.9},
     )
@@ -245,8 +261,8 @@ def test_loss_with_different_functions():
 
     # Test square loss
     model_square = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         loss_fn="square_loss",
     )
     model_square._init_embedding(X)
@@ -256,8 +272,8 @@ def test_loss_with_different_functions():
 
     # Test cross entropy loss
     model_ce = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=ScalarProductAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         loss_fn="cross_entropy_loss",
     )
     model_ce._init_embedding(X)
@@ -267,8 +283,8 @@ def test_loss_with_different_functions():
 
     # Test cross entropy loss with LogAffinity
     model_ce_log = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         loss_fn="cross_entropy_loss",
     )
     model_ce_log._init_embedding(X)
@@ -277,23 +293,11 @@ def test_loss_with_different_functions():
     assert isinstance(loss, torch.Tensor)
 
 
-def test_sparse_affinity_warning():
-    affinity_in = EntropicAffinity(sparsity=True, verbose=False)
-    assert affinity_in.sparsity
-    AffinityMatcher(
-        affinity_in=affinity_in,
-        affinity_out=LogAffinity(verbose=False),  # Not UnnormalizedAffinity
-        verbose=True,
-    )
-    # The warning is logged, and sparsity is set to False
-    assert not affinity_in.sparsity
-
-
 def test_fit_and_transform():
     # Test that fit_transform returns the embedding
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(),
-        affinity_out=GaussianAffinity(),
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         max_iter=2,
     )
     X = torch.rand(5, 2)
@@ -309,7 +313,7 @@ def test_precomputed_affinity():
 
     model = AffinityMatcher(
         affinity_in="precomputed",
-        affinity_out=GaussianAffinity(),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
         max_iter=2,  # Small value for quick test
     )
     embedding = model.fit_transform(X_affinity)
@@ -318,31 +322,12 @@ def test_precomputed_affinity():
     assert embedding.shape == (5, 2)  # n_samples x n_components
 
 
-def test_sparse_affinity_with_indices():
-    class TestSparseAffinity(SparseLogAffinity):
-        def __call__(self, X, return_indices=False, **kwargs):
-            if return_indices:
-                indices = torch.randint(0, X.shape[0], (X.shape[0], 3))
-                return torch.rand(X.shape[0], 3), indices
-            return torch.rand(X.shape[0], 3)
-
-        def _compute_affinity(self, X):
-            return torch.exp(-(X @ X.T))
-
-    model = AffinityMatcher(
-        affinity_in=TestSparseAffinity(), affinity_out=GaussianAffinity()
-    )
-    embedding = model.fit_transform(torch.rand(5, 2))
-    assert isinstance(embedding, torch.Tensor)
-    assert embedding.shape == (5, 2)
-    assert_close(embedding, model.embedding_)
-
-
 def test_after_step():
     # This is a placeholder test for _additional_updates method
     # which currently does nothing in the base class
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=GaussianAffinity()
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=NormalizedGaussianAffinity(normalization_dim=None),
     )
     # Just ensure it doesn't raise an error
     model.on_training_step_end()
@@ -350,7 +335,10 @@ def test_after_step():
 
 def test_affinity_out_none_requires_custom_loss():
     # Test that affinity_out=None requires a custom _loss method
-    model = AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=None)
+    model = AffinityMatcher(
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=None,
+    )
     X = torch.rand(5, 2)
     # Just do minimal setup needed for _loss() to be callable
     model._init_embedding(X)
@@ -367,7 +355,9 @@ def test_affinity_out_none_with_custom_loss():
             return (self.embedding_**2).sum()
 
     model = CustomAffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=2
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=None,
+        max_iter=2,
     )
     X = torch.rand(5, 2)
     embedding = model.fit_transform(X)
@@ -377,20 +367,27 @@ def test_affinity_out_none_with_custom_loss():
 
 def test_affinity_out_none_default():
     # Test that affinity_out defaults to None when not specified
-    model = AffinityMatcher(affinity_in=GaussianAffinity())
+    model = AffinityMatcher(
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None)
+    )
     assert model.affinity_out is None
 
 
 def test_affinity_out_invalid_type():
     # Test that affinity_out must be an Affinity instance when not None
     with pytest.raises(ValueError, match="affinity_out must be an Affinity instance"):
-        AffinityMatcher(affinity_in=GaussianAffinity(), affinity_out=42)
+        AffinityMatcher(
+            affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+            affinity_out=42,
+        )
 
 
 def test_affinity_out_none_fit_without_custom_loss():
     # Test that fitting with affinity_out=None fails if no custom _loss is provided
     model = AffinityMatcher(
-        affinity_in=GaussianAffinity(), affinity_out=None, max_iter=1
+        affinity_in=NormalizedGaussianAffinity(normalization_dim=None),
+        affinity_out=None,
+        max_iter=1,
     )
     X = torch.rand(5, 2)
     with pytest.raises(ValueError, match="affinity_out is not set"):

@@ -12,12 +12,9 @@ import torch
 from torchdr.affinity import (
     Affinity,
     SparseAffinity,
-    UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
 )
 from torchdr.distance import FaissConfig
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import cross_entropy_loss
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -281,7 +278,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a :class:`~torchdr.SparseAffinity` and the output affinity matrix is an :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is sparse. In such cases, the attractive term can be computed with linear complexity.
 
     Parameters
     ----------
@@ -376,15 +373,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
                 "must be a sparse affinity."
             )
 
-        # check affinity affinity_out (only if not None)
-        if affinity_out is not None and not isinstance(
-            affinity_out, UnnormalizedAffinity
-        ):
-            raise NotImplementedError(
-                "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_out "
-                "must be an UnnormalizedAffinity object or None."
-            )
-
         self.repulsion_strength = repulsion_strength
 
         super().__init__(
@@ -412,14 +400,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
     def _compute_attractive_loss(self):
-        if isinstance(self.affinity_out, UnnormalizedLogAffinity):
-            log_Q = self.affinity_out(
-                self.embedding_, log=True, indices=self.NN_indices_
-            )
-            return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
-        else:
-            Q = self.affinity_out(self.embedding_, indices=self.NN_indices_)
-            return cross_entropy_loss(self.affinity_in_, Q)
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_attractive_loss method must be implemented."
+        )
 
     def _compute_repulsive_loss(self):
         raise NotImplementedError(
@@ -469,10 +452,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
     parameter.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is a
-    :class:`~torchdr.SparseAffinity` and the output affinity matrix is an
-    :class:`~torchdr.UnnormalizedAffinity`. In such cases, the attractive term
-    can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix is sparse.
+    In such cases, the attractive term can be computed with linear complexity.
 
     **Fast repulsion.** A stochastic estimation of the repulsive term is used
     to reduce its complexity to linear.
@@ -630,14 +611,32 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     def on_training_step_start(self):
         """Sample negatives."""
         super().on_training_step_start()
-        negatives = torch.randint(
-            1,
-            self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
-            (self.n_samples_in_, self.n_negatives),
-            device=self.embedding_.device,
-        )
-        shifts = torch.searchsorted(
-            self.negative_exclusion_indices_, negatives, right=True
-        )
-        neg_indices = negatives + shifts
+
+        # Fast path for k=1 (only excluding self-indices)
+        if self.negative_exclusion_indices_.shape[1] == 1:
+            # Sample from [0, n-1) for each point
+            negatives = torch.randint(
+                0,
+                self.n_samples_in_ - 1,
+                (self.n_samples_in_, self.n_negatives),
+                device=self.embedding_.device,
+            )
+            # Shift indices >= self_idx by 1 to skip self
+            self_idx = torch.arange(
+                self.n_samples_in_, device=self.embedding_.device
+            ).unsqueeze(1)
+            neg_indices = negatives + (negatives >= self_idx).long()
+        else:
+            # General case: use searchsorted for multiple exclusions
+            negatives = torch.randint(
+                1,
+                self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
+                (self.n_samples_in_, self.n_negatives),
+                device=self.embedding_.device,
+            )
+            shifts = torch.searchsorted(
+                self.negative_exclusion_indices_, negatives, right=True
+            )
+            neg_indices = negatives + shifts
+
         self.register_buffer("neg_indices_", neg_indices, persistent=False)

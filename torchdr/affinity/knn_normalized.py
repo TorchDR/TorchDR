@@ -418,7 +418,6 @@ class UMAPAffinity(SparseAffinity):
         self : UMAPAffinityIn
             The fitted instance.
         """
-
         n_samples_in = X.shape[0]
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
@@ -427,35 +426,33 @@ class UMAPAffinity(SparseAffinity):
                 self.logger.info(
                     f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
                 )
-            # when using sparsity, we construct a reduced distance matrix
-            # of shape (n_samples, n_neighbors)
             C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
         rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
-        self.register_buffer("rho_", rho, persistent=False)
 
         log_n_neighbors = torch.log2(
             torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
         )
 
         def marginal_gap(eps):
-            log_marg = _log_P_UMAP(C_, self.rho_, eps).logsumexp(1)
+            log_marg = _log_P_UMAP(C_, rho, eps).logsumexp(1)
             return log_marg.exp().squeeze() - log_n_neighbors
 
         eps = binary_search(
             f=marginal_gap,
-            n=n_samples_in,
+            n=C_.shape[0],
             max_iter=self.max_iter,
             dtype=X.dtype,
             device=X.device,
         )
-        self.register_buffer("eps_", eps, persistent=False)
 
-        # Compute log affinity matrix
-        log_affinity_matrix = _log_P_UMAP(C_, self.rho_, self.eps_)
-        affinity_matrix = log_affinity_matrix.exp()
+        log_affinity = _log_P_UMAP(C_, rho, eps)
+        affinity_matrix = log_affinity.exp()
+
+        self.register_buffer("rho_", rho, persistent=False)
+        self.register_buffer("eps_", eps, persistent=False)
 
         # symmetrize if requested : P = P + P^T - P * P^T
         if self.symmetrize:

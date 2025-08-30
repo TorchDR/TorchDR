@@ -7,7 +7,7 @@ import pytest
 import torch
 from sklearn.decomposition import KernelPCA as skKernelPCA
 
-from torchdr.affinity import GaussianAffinity, SinkhornAffinity
+from torchdr.affinity import NormalizedGaussianAffinity, SinkhornAffinity
 from torchdr.utils import pykeops
 
 from torchdr import KernelPCA, PHATE
@@ -27,28 +27,28 @@ def test_KernelPCA_sklearn(n_components):
     X = torch.randn(10, 20)
     X /= torch.linalg.norm(X, axis=0, keepdims=True)
     # otherwise all points at distance 1
-    Y = torch.randn(5, 20)
-    Y /= torch.linalg.norm(Y, axis=0, keepdims=True)
     sigma = 2
-    aff = GaussianAffinity(zero_diag=False, sigma=sigma)
+    aff = NormalizedGaussianAffinity(
+        zero_diag=False, sigma=sigma, normalization_dim=None
+    )
     model = KernelPCA(affinity=aff, n_components=n_components)
     rtol = 1e-2  # we might want to take a look at that someday
 
-    # fit then transform does same as fit_transform:
+    # Test fit_transform
     res_1 = model.fit_transform(X)
+
+    # Test that fit then fit_transform gives same result
     model.fit(X)
-    res_2 = model.transform(X)
+    res_2 = model.fit_transform(X)
     np.testing.assert_allclose(res_1, res_2, rtol=rtol, atol=1e-5)
 
-    # same results as sklearn for Gaussian kernel
-    res_Y = model.transform(Y)
+    # Compare with sklearn for Gaussian kernel (fit_transform only)
     model_sk = skKernelPCA(
         n_components=n_components, kernel="rbf", gamma=1 / sigma
     ).fit(X)
     X_sk = model_sk.transform(X)
-    Y_sk = model_sk.transform(Y)
-    np.testing.assert_allclose(X_sk, res_1, rtol=rtol)
-    np.testing.assert_allclose(Y_sk, res_Y, rtol=rtol)
+    # NB: signs can be opposite, so we test allclose on absolute values
+    np.testing.assert_allclose(np.abs(X_sk), np.abs(res_1), rtol=rtol)
 
 
 def test_KernelPCA_no_transform():
@@ -59,16 +59,10 @@ def test_KernelPCA_no_transform():
     aff = SinkhornAffinity(zero_diag=False)
     model = KernelPCA(affinity=aff, n_components=n_components)
 
-    # this should work fine:
+    # Test that fit and fit_transform work
     model.fit(X)
-    model.fit_transform(X)
-
-    match = (
-        "can only be used when `affinity` is an UnnormalizedAffinity or "
-        "UnnormalizedLogAffinity"
-    )
-    with pytest.raises(ValueError, match=match):
-        model.transform(X)  # cannot use transform.
+    result = model.fit_transform(X)
+    assert result.shape == (X.shape[0], n_components)
 
 
 @pytest.mark.skipif(not pykeops, reason="pykeops is not available")

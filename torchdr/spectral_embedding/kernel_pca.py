@@ -7,18 +7,15 @@
 
 from typing import Union, Any, Optional
 
-import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, svd_flip
+from torchdr.utils import svd_flip
 
-from torchdr.utils import sum_red, center_kernel, check_nonnegativity_eigenvalues
+from torchdr.utils import center_kernel, check_nonnegativity_eigenvalues
 from torchdr.affinity import (
     Affinity,
-    GaussianAffinity,
-    UnnormalizedAffinity,
-    UnnormalizedLogAffinity,
+    NormalizedGaussianAffinity,
 )
 from torchdr.distance import FaissConfig
 
@@ -28,7 +25,7 @@ class KernelPCA(DRModule):
 
     Parameters
     ----------
-    affinity : Affinity, default=GaussianAffinity()
+    affinity : Affinity, default=NormalizedGaussianAffinity(normalization_dim=None)
         Affinity object to compute the kernel matrix.
     n_components : int, default=2
         Number of components to project the input data onto.
@@ -52,7 +49,7 @@ class KernelPCA(DRModule):
 
     def __init__(
         self,
-        affinity: Affinity = GaussianAffinity(),
+        affinity: Affinity = NormalizedGaussianAffinity(normalization_dim=None),
         n_components: int = 2,
         device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
@@ -124,46 +121,3 @@ class KernelPCA(DRModule):
             self.eigenvectors_ * self.eigenvalues_[: self.n_components].sqrt()
         )
         return self.embedding_
-
-    @handle_type()
-    def transform(
-        self, X: Union[torch.Tensor, np.ndarray]
-    ) -> Union[torch.Tensor, np.ndarray]:
-        r"""Project the input data onto the KernelPCA components.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data to project onto the KernelPCA components.
-
-        Returns
-        -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
-        """
-        if not isinstance(
-            self.affinity, (UnnormalizedAffinity, UnnormalizedLogAffinity)
-        ):
-            aff_name = self.affinity.__class__.__name__
-            raise ValueError(
-                "KernelPCA.transform can only be used when `affinity` is "
-                "an UnnormalizedAffinity or UnnormalizedLogAffinity. "
-                f"{aff_name} is not. Use the fit_transform method instead."
-            )
-        K = self.affinity(X, self.X_fit_)
-        # center à la sklearn: using fit data for rows and all, new data for col
-        pred_cols = sum_red(K, 1) / self.K_fit_rows_.shape[1]
-        K -= self.K_fit_rows_
-        K -= pred_cols
-        K += self.K_fit_all_
-
-        result = (
-            K
-            @ self.eigenvectors_
-            @ torch.diag(1 / self.eigenvalues_[: self.n_components].sqrt())
-        )
-        # remove np.inf arising from division by 0 eigenvalues:
-        zero_eigvals = self.eigenvalues_[: self.n_components] == 0
-        if zero_eigvals.any():
-            result[:, zero_eigvals] = 0
-        return result

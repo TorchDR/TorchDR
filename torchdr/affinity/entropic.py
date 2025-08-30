@@ -241,9 +241,9 @@ class EntropicAffinity(SparseLogAffinity):
         indices : torch.Tensor or None
             Indices of the nearest neighbors if sparsity is used.
         """
-        n_samples_in = torch.tensor(X.shape[0], dtype=X.dtype, device=X.device)
-        perplexity = check_neighbor_param(self.perplexity, n_samples_in)
-        target_entropy = torch.log(perplexity) + 1
+        n_samples_in = X.shape[0]
+        n_samples_tensor = torch.tensor(n_samples_in, dtype=X.dtype, device=X.device)
+        perplexity = check_neighbor_param(self.perplexity, n_samples_tensor)
 
         k = 3 * perplexity
         if self.sparsity:
@@ -251,12 +251,14 @@ class EntropicAffinity(SparseLogAffinity):
                 self.logger.info(
                     f"Sparsity mode enabled, computing {k} nearest neighbors..."
                 )
-            k = check_neighbor_param(k, n_samples_in)
+            k = check_neighbor_param(k, n_samples_tensor)
             # when using sparsity, we construct a reduced distance matrix
             # of shape (n_samples, k)
             C_, indices = self._distance_matrix(X, k=k, return_indices=True)
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
+
+        target_entropy = torch.log(perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
             log_P = _log_Pe(C_, eps)
@@ -270,23 +272,27 @@ class EntropicAffinity(SparseLogAffinity):
 
         eps = binary_search(
             f=entropy_gap,
-            n=n_samples_in,
+            n=C_.shape[0],
             begin=begin,
             end=end,
             max_iter=self.max_iter,
             dtype=X.dtype,
             device=X.device,
         )
+
+        log_affinity_matrix = _log_Pe(C_, eps)
         self.register_buffer("eps_", eps, persistent=False)
 
-        log_affinity_matrix = _log_Pe(C_, self.eps_)
+        # Normalize the affinity matrix
         log_normalization = logsumexp_red(log_affinity_matrix, dim=1)
         self.register_buffer("log_normalization_", log_normalization, persistent=False)
         log_affinity_matrix -= self.log_normalization_
 
+        # Final normalization: sum of each row is 1/n so that total sum is 1
         log_affinity_matrix -= torch.log(
-            n_samples_in
-        )  # sum of each row is 1/n so that total sum is 1
+            torch.tensor(n_samples_in, dtype=X.dtype, device=X.device)
+        )
+
         return (log_affinity_matrix, indices) if return_indices else log_affinity_matrix
 
 

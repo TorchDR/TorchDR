@@ -12,8 +12,6 @@ import torch
 import torch.nn as nn
 
 from torchdr.utils import (
-    LazyTensorType,
-    handle_keops,
     to_torch,
     bool_arg,
     set_logger,
@@ -21,7 +19,6 @@ from torchdr.utils import (
 
 from torchdr.distance import (
     pairwise_distances,
-    symmetric_pairwise_distances_indices,
     FaissConfig,
 )
 
@@ -103,7 +100,7 @@ class Affinity(nn.Module, ABC):
             The computed affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device=self.device)
+            X = to_torch(X, device="auto")  # Preserve input device
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
@@ -126,7 +123,6 @@ class Affinity(nn.Module, ABC):
             "[TorchDR] ERROR : `_compute_affinity` method is not implemented."
         )
 
-    @handle_keops
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
     ):
@@ -152,12 +148,11 @@ class Affinity(nn.Module, ABC):
             value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        # The `@handle_keops` decorator sets `self.backend_`, which is used below.
-        # If we have a FaissConfig, use the original backend parameter
+        # Use the backend directly - either FaissConfig or string backend
         backend_to_use = (
             self._backend_orig
             if isinstance(self._backend_orig, FaissConfig)
-            else self.backend_
+            else self.backend
         )
         return pairwise_distances(
             X=X,
@@ -166,6 +161,7 @@ class Affinity(nn.Module, ABC):
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
             return_indices=return_indices,
+            device=self.device,  # Pass computation device (can be "auto")
         )
 
     def clear_memory(self):
@@ -248,7 +244,7 @@ class LogAffinity(Affinity):
             exponentiated log affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device=self.device)
+            X = to_torch(X, device="auto")  # Preserve input device
         log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
@@ -365,7 +361,7 @@ class SparseAffinity(Affinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device=self.device)
+            X = to_torch(X, device="auto")  # Preserve input device
         return self._compute_sparse_affinity(X, return_indices, **kwargs)
 
     def _compute_sparse_affinity(
@@ -463,7 +459,7 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device=self.device)
+            X = to_torch(X, device="auto")  # Preserve input device
 
         if return_indices:
             log_affinity, indices = self._compute_sparse_log_affinity(
@@ -502,296 +498,4 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_sparse_log_affinity` method is "
             "not implemented."
-        )
-
-
-class UnnormalizedAffinity(Affinity):
-    r"""Base class for unnormalized affinities.
-
-    These affinities are defined using a closed-form formula on the pairwise distance
-    matrix and can be directly applied to a subset of the data by providing indices.
-
-    Parameters
-    ----------
-    metric : str, optional
-        The distance metric to use for computing pairwise distances.
-        Default is "sqeuclidean".
-    zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero. Default is True.
-    device : str, optional
-        The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
-        If "auto", it uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
-    compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
-    _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
-    """
-
-    def __init__(
-        self,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = "auto",
-        backend: Union[str, FaissConfig] = None,
-        verbose: bool = False,
-        random_state: float = None,
-        compile: bool = False,
-        _pre_processed: bool = False,
-    ):
-        super().__init__(
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            random_state=random_state,
-            compile=compile,
-            _pre_processed=_pre_processed,
-        )
-        self._pre_processed = _pre_processed
-
-    def __call__(
-        self,
-        X: Union[torch.Tensor, np.ndarray],
-        Y: Union[torch.Tensor, np.ndarray] = None,
-        indices: torch.Tensor = None,
-        **kwargs,
-    ):
-        r"""Compute the affinity matrix from the input data.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-            Input data.
-        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
-            Second input data. If None, uses `Y=X`. Default is None.
-        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
-            Indices of pairs to compute. If None, computes the full affinity matrix.
-            Default is None.
-
-        Returns
-        -------
-        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            The computed affinity matrix.
-        """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
-            if Y is not None:
-                Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
-        return self._affinity_formula(C)
-
-    def _affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        r"""Compute the affinity from the distance matrix.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        C : torch.Tensor or pykeops.torch.LazyTensor
-            Pairwise distance matrix.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_affinity_formula` method is not implemented by the subclass,
-            a NotImplementedError is raised.
-        """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : `_affinity_formula` method is not implemented."
-        )
-
-    @handle_keops
-    def _distance_matrix(
-        self,
-        X: Union[torch.Tensor, np.ndarray],
-        Y: Union[torch.Tensor, np.ndarray] = None,
-        indices: torch.Tensor = None,
-    ):
-        r"""Compute the pairwise distance matrix from the input data.
-
-        It uses the specified metric and optionally leveraging KeOps
-        for memory efficient computation.
-        It supports computing the full pairwise distance matrix, the pairwise
-        distance matrix for a given set of indices, and the cross-distance
-        matrix between two datasets.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-            Input data.
-        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
-            Second input data. If None, uses `Y=X`. Default is None.
-        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
-            Indices of pairs to compute. If None, computes the full pairwise distance
-            matrix. Default is None.
-
-        Returns
-        -------
-        C : torch.Tensor or pykeops.torch.LazyTensor
-            The pairwise distance matrix. The type of the returned matrix depends on the
-            value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
-            is returned. Otherwise, a torch.Tensor is returned.
-        """
-        if Y is not None and indices is not None:
-            raise NotImplementedError(
-                "[TorchDR] ERROR : transform method cannot be called with both Y "
-                "and indices at the same time."
-            )
-
-        # Note: The `backend_` attribute is set by the `@handle_keops` decorator.
-
-        elif Y is not None:  # Case 1: Cross-distance matrix
-            # If we have a FaissConfig, use the original backend parameter
-            backend_to_use = (
-                self._backend_orig
-                if isinstance(self._backend_orig, FaissConfig)
-                else self.backend_
-            )
-            return pairwise_distances(X, Y, metric=self.metric, backend=backend_to_use)
-
-        elif indices is not None:  # Case 2: Sparse self-distance matrix
-            return symmetric_pairwise_distances_indices(
-                X, indices=indices, metric=self.metric
-            )
-
-        else:  # Case 3: Full self-distance matrix (with or without the diagonal)
-            # If we have a FaissConfig, use the original backend parameter
-            backend_to_use = (
-                self._backend_orig
-                if isinstance(self._backend_orig, FaissConfig)
-                else self.backend_
-            )
-            return pairwise_distances(
-                X,
-                metric=self.metric,
-                backend=backend_to_use,
-                exclude_diag=self.zero_diag,  # infinite distance is zero affinity
-            )
-
-
-class UnnormalizedLogAffinity(UnnormalizedAffinity):
-    r"""Base class for unnormalized affinities in log domain.
-
-    These log affinities are defined using a closed-form formula on the pairwise
-    distance matrix and can be directly applied to a subset of the data by providing
-    indices.
-
-    Parameters
-    ----------
-    metric : str, optional
-        The distance metric to use for computing pairwise distances.
-        Default is "sqeuclidean".
-    zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero. Default is True.
-    device : str, optional
-        The device to use for computation, e.g., "cuda" for GPU or "cpu" for CPU.
-        If "auto", it uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
-    compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
-    _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
-    """
-
-    def __init__(
-        self,
-        metric: str = "sqeuclidean",
-        zero_diag: bool = True,
-        device: str = "auto",
-        backend: Union[str, FaissConfig] = None,
-        verbose: bool = False,
-        random_state: float = None,
-        compile: bool = False,
-        _pre_processed: bool = False,
-    ):
-        super().__init__(
-            metric=metric,
-            zero_diag=zero_diag,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            random_state=random_state,
-            compile=compile,
-            _pre_processed=_pre_processed,
-        )
-
-    def __call__(
-        self,
-        X: Union[torch.Tensor, np.ndarray],
-        Y: Union[torch.Tensor, np.ndarray] = None,
-        indices: torch.Tensor = None,
-        log: bool = False,
-        **kwargs,
-    ):
-        r"""Compute the affinity matrix in log domain from the input data.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples_x, n_features)
-            Input data.
-        Y : torch.Tensor or np.ndarray of shape (n_samples_y, n_features), optional
-            Second input data. If None, uses `Y=X`. Default is None.
-        indices : torch.Tensor of shape (n_samples_x, batch_size), optional
-            Indices of pairs to compute. If None, computes the full affinity matrix.
-            Default is None.
-        log : bool, optional
-            If True, returns the log of the affinity matrix. Else, returns
-            the affinity matrix by exponentiating the log affinity matrix.
-
-        Returns
-        -------
-        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            The computed affinity matrix.
-        """
-        if not self._pre_processed:
-            X = to_torch(X, device=self.device)
-            if Y is not None:
-                Y = to_torch(Y, device=self.device)
-        C = self._distance_matrix(X=X, Y=Y, indices=indices, **kwargs)
-        log_affinity = self._log_affinity_formula(C)
-        if log:
-            return log_affinity
-        else:
-            return log_affinity.exp()
-
-    def _log_affinity_formula(self, C: Union[torch.Tensor, LazyTensorType]):
-        r"""Compute the log affinity from the distance matrix.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        C : torch.Tensor or pykeops.torch.LazyTensor
-            Pairwise distance matrix.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_log_affinity_formula` method is not implemented by the subclass,
-            a NotImplementedError is raised.
-        """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : `_log_affinity_formula` method is not implemented."
         )
