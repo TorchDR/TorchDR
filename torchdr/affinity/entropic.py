@@ -258,8 +258,6 @@ class EntropicAffinity(SparseLogAffinity):
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
-        device = C_.device
-        dtype = C_.dtype
         target_entropy = torch.log(perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
@@ -268,7 +266,7 @@ class EntropicAffinity(SparseLogAffinity):
             return entropy(log_P_normalized, log=True) - target_entropy
 
         begin, end = _bounds_entropic_affinity(
-            C_, perplexity, device=device, dtype=dtype
+            C_, perplexity, device=X.device, dtype=X.dtype
         )
         begin = begin + 1e-6  # avoid numerical issues
 
@@ -278,8 +276,8 @@ class EntropicAffinity(SparseLogAffinity):
             begin=begin,
             end=end,
             max_iter=self.max_iter,
-            dtype=dtype,
-            device=device,
+            dtype=X.dtype,
+            device=X.device,
         )
 
         log_affinity_matrix = _log_Pe(C_, eps)
