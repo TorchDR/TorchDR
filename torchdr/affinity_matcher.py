@@ -185,6 +185,21 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
+    def _get_device(self, X: torch.Tensor):
+        """Get the target device for computations.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor to infer device from if self.device is "auto".
+
+        Returns
+        -------
+        torch.device
+            The device to use for computations.
+        """
+        return X.device if self.device == "auto" else self.device
+
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
 
@@ -437,15 +452,14 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            # Use X's device if self.device is "auto", otherwise use self.device
-            target_device = X.device if self.device == "auto" else self.device
+            target_device = self._get_device(X)
             embedding_ = embedding_.to(device=target_device, dtype=X.dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=X.device if self.device == "auto" else self.device,
+                device=self._get_device(X),
                 dtype=X.dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -461,7 +475,7 @@ class AffinityMatcher(DRModule):
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=X.device if self.device == "auto" else self.device,
+                device=self._get_device(X),
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
             poincare_ball = PoincareBallManifold()
