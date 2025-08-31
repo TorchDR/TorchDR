@@ -35,6 +35,7 @@ Spectral Embedding
 
    PCA
    IncrementalPCA
+   ExactIncrementalPCA
    KernelPCA
    PHATE
 
