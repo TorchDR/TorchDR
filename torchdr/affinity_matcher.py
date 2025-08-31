@@ -185,21 +185,6 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
-    def _get_device(self, X: torch.Tensor):
-        """Get the target device for computations.
-
-        Parameters
-        ----------
-        X : torch.Tensor
-            Input tensor to infer device from if self.device is "auto".
-
-        Returns
-        -------
-        torch.device
-            The device to use for computations.
-        """
-        return X.device if self.device == "auto" else self.device
-
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
 
