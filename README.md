@@ -52,6 +52,8 @@ z = UMAP(n_neighbors=30).fit_transform(x)
 z_gpu = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
 ```
 
+**Device Management**: By default (`device="auto"`), computations use the input data's device. For optimal memory management, you can keep input data on CPU while specifying `device="cuda"` to perform computations on GPU - TorchDR will handle transfers automatically.
+
 ### 🔥 PyTorch 2.0+ torch.compile Support
 
 **TorchDR** supports `torch.compile` for an additional performance boost on modern PyTorch versions. Just add the `compile=True` flag as follows:
@@ -85,7 +87,7 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ### Spectral Embedding
 
-**TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
+**TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`ExactIncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.ExactIncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
 
 
 ## Benchmarks

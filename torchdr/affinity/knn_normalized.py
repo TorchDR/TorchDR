@@ -432,8 +432,9 @@ class UMAPAffinity(SparseAffinity):
 
         rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
+        target_device = self._get_device(X)
         log_n_neighbors = torch.log2(
-            torch.tensor(n_neighbors, dtype=X.dtype, device=X.device)
+            torch.tensor(n_neighbors, dtype=X.dtype, device=target_device)
         )
 
         def marginal_gap(eps):
@@ -445,7 +446,7 @@ class UMAPAffinity(SparseAffinity):
             n=C_.shape[0],
             max_iter=self.max_iter,
             dtype=X.dtype,
-            device=X.device,
+            device=target_device,
         )
 
         log_affinity = _log_P_UMAP(C_, rho, eps)

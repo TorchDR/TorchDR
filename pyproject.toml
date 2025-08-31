@@ -68,7 +68,8 @@ test = [
     "numpydoc",
     "pytest-cov",
     "codecov",
-    "matplotlib"
+    "matplotlib",
+    "torchmetrics"
 ]
 
 keops = [
@@ -83,6 +84,7 @@ dev = [
     "codecov",
     "pykeops",
     "pre-commit",
+    "torchmetrics",
 ]
 
 doc = [

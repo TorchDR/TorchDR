@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from torchdr.utils import prod_matrix_vector, to_torch
-from torchdr.distance import pairwise_distances
+from torchdr.distance import pairwise_distances, FaissConfig
 from typing import Union, Optional
 
 admissible_LIST_METRICS = ["euclidean", "manhattan", "hyperbolic", "precomputed"]
@@ -24,7 +24,7 @@ def silhouette_samples(
     weights: Optional[Union[torch.Tensor, np.ndarray]] = None,
     metric: str = "euclidean",
     device: Optional[str] = None,
-    backend: Optional[str] = None,
+    backend: Optional[Union[str, FaissConfig]] = None,
     warn: bool = True,
 ):
     r"""Compute the silhouette coefficients for each data sample.
@@ -54,8 +54,12 @@ def silhouette_samples(
         The default is 'euclidean'.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        - "keops": Memory-efficient symbolic computations
+        - "faiss": Fast approximate nearest neighbors
+        - None: Standard PyTorch operations
+        - FaissConfig object: FAISS with custom configuration
         Default is None.
     warn : bool, optional
         Whether to output warnings when edge cases are identified.
@@ -98,7 +102,7 @@ def silhouette_samples(
                 intra_cluster_dists = X[pos_i, :][:, pos_i]
             else:
                 intra_cluster_dists = pairwise_distances(
-                    X[pos_i], X[pos_i], metric, backend
+                    X[pos_i], X[pos_i], metric=metric, backend=backend, device=device
                 )
 
             if weights is None:
@@ -137,7 +141,7 @@ def silhouette_samples(
                 inter_cluster_dists = X[pos_i, :][:, pos_j]
             else:
                 inter_cluster_dists = pairwise_distances(
-                    X[pos_i], X[pos_j], metric, backend
+                    X[pos_i], X[pos_j], metric=metric, backend=backend, device=device
                 )
 
             if weights is None:
@@ -170,7 +174,7 @@ def silhouette_score(
     weights: Optional[Union[torch.Tensor, np.ndarray]] = None,
     metric: str = "euclidean",
     device: Optional[str] = None,
-    backend: Optional[str] = None,
+    backend: Optional[Union[str, FaissConfig]] = None,
     sample_size: Optional[int] = None,
     random_state: Optional[int] = None,
     warn: bool = True,
@@ -202,8 +206,12 @@ def silhouette_score(
         The default is 'euclidean'.
     device : str, optional
         Device to use for computations.
-    backend : {"keops", "faiss", None}, optional
+    backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
+        - "keops": Memory-efficient symbolic computations
+        - "faiss": Fast approximate nearest neighbors
+        - None: Standard PyTorch operations
+        - FaissConfig object: FAISS with custom configuration
         Default is None.
     sample_size : int, optional
         Number of samples to use when computing the score on a random subset.
@@ -219,6 +227,9 @@ def silhouette_score(
     silhouette_score : float
         mean silhouette coefficients for all samples.
     """
+    # Track original input type
+    input_is_numpy = not isinstance(X, torch.Tensor)
+
     if sample_size is None:
         coefficients = silhouette_samples(
             X, labels, weights, metric, device, backend, warn
@@ -243,5 +254,9 @@ def silhouette_score(
         )
 
     silhouette_score = coefficients.mean()
+
+    # Preserve input type
+    if input_is_numpy:
+        silhouette_score = silhouette_score.detach().cpu().numpy().item()
 
     return silhouette_score

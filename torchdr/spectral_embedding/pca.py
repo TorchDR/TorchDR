@@ -69,8 +69,9 @@ class PCA(DRModule):
             Projected data.
         """
         original_device = X.device
-        if self.device != "auto" and self.device is not None:
-            X_compute = X.to(self.device)
+        target_device = self._get_device(X)
+        if target_device != X.device:
+            X_compute = X.to(target_device)
         else:
             X_compute = X
 
@@ -84,7 +85,7 @@ class PCA(DRModule):
         self.embedding_ = U[:, : self.n_components] * S[: self.n_components]
 
         # Move embedding back to original device, but keep parameters on compute device
-        if X.device != X_compute.device:
+        if original_device != X_compute.device:
             self.embedding_ = self.embedding_.to(original_device)
 
         return self.embedding_

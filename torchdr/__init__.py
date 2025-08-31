@@ -35,7 +35,6 @@ from .affinity_matcher import AffinityMatcher
 
 # import DR methods
 from .base import DRModule
-from .clustering import KMeans
 from .eval import silhouette_samples, silhouette_score
 from .neighbor_embedding import (
     SNE,
@@ -50,7 +49,13 @@ from .neighbor_embedding import (
     TSNEkhorn,
     PACMAP,
 )
-from .spectral_embedding import IncrementalPCA, KernelPCA, PCA, PHATE
+from .spectral_embedding import (
+    IncrementalPCA,
+    ExactIncrementalPCA,
+    KernelPCA,
+    PCA,
+    PHATE,
+)
 
 # import utils
 from .utils import binary_search, false_position
@@ -77,12 +82,11 @@ __all__ = [
     "DoublyStochasticQuadraticAffinity",
     "UMAPAffinity",
     "DRModule",
-    "KMeans",
     "AffinityMatcher",
-    "BatchedAffinityMatcher",
     "PCA",
     "KernelPCA",
     "IncrementalPCA",
+    "ExactIncrementalPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
     "SampledNeighborEmbedding",
