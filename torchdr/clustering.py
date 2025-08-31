@@ -17,7 +17,7 @@ from torchdr.utils import (
     seed_everything,
     set_logger,
     bool_arg,
-    handle_type,
+    handle_input_output,
 )
 from torchdr.distance import pairwise_distances
 
@@ -102,7 +102,7 @@ class ClusteringModule(BaseEstimator, ABC):
         """
         raise NotImplementedError
 
-    @handle_type()
+    @handle_input_output()
     def fit(self, X: ArrayLike, y: Optional[Any] = None):
         """Fit the clustering model.
 
@@ -120,7 +120,7 @@ class ClusteringModule(BaseEstimator, ABC):
         """
         return self._fit(X, y)
 
-    @handle_type()
+    @handle_input_output()
     def fit_predict(self, X: ArrayLike, y: Optional[Any] = None):
         """Fit the clustering model and output the predicted labels.
 
@@ -332,7 +332,7 @@ class KMeans(ClusteringModule):
 
         return centers
 
-    @handle_type()
+    @handle_input_output()
     def predict(self, X: ArrayLike):
         """Predict the closest cluster each sample in X belongs to.
 

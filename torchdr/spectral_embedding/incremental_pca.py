@@ -12,12 +12,16 @@ import torch
 
 from torchdr.base import DRModule
 from torchdr.utils import (
-    handle_type,
+    handle_input_output,
     svd_flip,
     to_torch,
+    restore_original_format,
+    validate_tensor,
 )
 
-from typing import Union, Any
+from typing import Any, TypeVar
+
+ArrayLike = TypeVar("ArrayLike", torch.Tensor, np.ndarray)
 
 
 class IncrementalPCA(DRModule):
@@ -26,8 +30,64 @@ class IncrementalPCA(DRModule):
     This class provides methods to fit the model on data incrementally in batches,
     and to transform new data based on the principal components learned during the fitting process.
 
-    It is partially useful when the dataset to be decomposed is too large to fit in memory.
+    It is particularly useful when the dataset to be decomposed is too large to fit in memory.
     Adapted from `Scikit-learn Incremental PCA <https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/decomposition/_incremental_pca.py>`_.
+
+    Memory Management Strategy:
+    - Data is processed in batches to avoid loading entire dataset into memory
+    - Each batch is temporarily moved to computation device (GPU if specified)
+    - Model parameters (mean_, components_) are kept on computation device
+    - Only the current batch needs to fit in GPU memory, not the full dataset
+
+    Examples
+    --------
+    Using with PyTorch DataLoader for true out-of-core learning::
+
+        from torch.utils.data import DataLoader, TensorDataset
+
+        # Create a DataLoader for a huge dataset
+        dataset = TensorDataset(huge_X_tensor, huge_y_tensor)
+        dataloader = DataLoader(dataset, batch_size=1000, shuffle=True)
+
+        # Fit incrementally using DataLoader
+        ipca = IncrementalPCA(n_components=50, device='cuda')
+        for batch in dataloader:
+            X_batch = batch[0]  # DataLoader returns (X, y) tuples
+            ipca.partial_fit(X_batch)
+
+        # Transform new data in batches
+        test_loader = DataLoader(test_dataset, batch_size=1000)
+        for batch in test_loader:
+            X_batch = batch[0]
+            X_transformed = ipca.transform(X_batch)
+            # Process transformed batch...
+
+    Using with data generators for streaming large files::
+
+        import pandas as pd
+
+        def data_generator():
+            # Read huge CSV in chunks
+            for chunk in pd.read_csv('huge_file.csv', chunksize=1000):
+                yield torch.tensor(chunk.values, dtype=torch.float32)
+
+        ipca = IncrementalPCA(n_components=50)
+        for batch in data_generator():
+            ipca.partial_fit(batch)
+
+    Using with HDF5 or memory-mapped arrays::
+
+        import h5py
+
+        with h5py.File('huge_dataset.h5', 'r') as f:
+            X = f['data']  # HDF5 dataset, not loaded into memory
+            n_samples = X.shape[0]
+            batch_size = 1000
+
+            ipca = IncrementalPCA(n_components=100)
+            for i in range(0, n_samples, batch_size):
+                batch = torch.tensor(X[i:i+batch_size])
+                ipca.partial_fit(batch)
 
     Parameters
     ----------
@@ -114,29 +174,46 @@ class IncrementalPCA(DRModule):
             )
 
     def _validate_data(self, X) -> torch.Tensor:
-        valid_dtypes = [torch.float32, torch.float64]
+        """Validate and prepare input data for processing.
 
+        Ensures the input is a torch tensor with appropriate dtype and shape.
+        Does NOT move data to computation device - that happens per batch.
+
+        Parameters
+        ----------
+        X : array-like
+            Input data to validate.
+
+        Returns
+        -------
+        torch.Tensor
+            Validated tensor on its original device.
+        """
+        # Convert to tensor if needed
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
+            X = to_torch(X)
         elif self.copy:
             X = X.clone()
 
-        n_samples, n_features = X.shape
-        if self.n_components is None:
-            pass
-        elif self.n_components > n_features:
-            raise ValueError(
-                f"n_components={self.n_components} invalid for "
-                "n_features={n_features}, need more rows than columns "
-                "for IncrementalPCA processing."
-            )
-        elif self.n_components > n_samples:
+        # Use standard validation
+        X = validate_tensor(
+            X,
+            ensure_2d=True,
+            ensure_min_samples=1,
+            ensure_min_features=1,
+            max_components=self.n_components,
+        )
+
+        # IncrementalPCA-specific validation for batch size
+        n_samples = X.shape[0]
+        if self.n_components is not None and self.n_components > n_samples:
             raise ValueError(
                 f"n_components={self.n_components} must be less or equal "
-                "to the batch number of samples {n_samples}."
+                f"to the batch number of samples {n_samples}."
             )
 
-        if X.dtype not in valid_dtypes:
+        # Ensure float dtype (validate_tensor doesn't handle dtype conversion)
+        if X.dtype not in [torch.float32, torch.float64]:
             X = X.to(torch.float32)
 
         return X
@@ -145,6 +222,43 @@ class IncrementalPCA(DRModule):
     def _incremental_mean_and_var(
         X, last_mean, last_variance, last_sample_count
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Incrementally compute mean and variance using Welford's algorithm.
+
+        This method implements a numerically stable algorithm for computing running
+        statistics without needing access to all previous data. It works by:
+
+        1. Computing the sum of the new batch in float64 for precision
+        2. Combining it with the previous sum (mean * count) from past batches
+        3. Using Welford's update formula to compute variance, which involves:
+           - Computing deviation of each point from the batch mean
+           - Applying a correction term to avoid numerical cancellation
+           - Combining with previous variance using weighted averaging
+
+        The algorithm uses float64 internally because:
+        - Sums of millions of float32 values accumulate significant rounding error
+        - The variance formula involves subtracting large similar numbers (catastrophic cancellation)
+        - Each batch compounds any numerical errors from previous batches
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Current batch of data (n_samples, n_features).
+        last_mean : torch.Tensor or None
+            Mean from previous batches (n_features,). None on first batch.
+        last_variance : torch.Tensor or None
+            Variance from previous batches (n_features,). None on first batch.
+        last_sample_count : torch.Tensor
+            Number of samples seen in previous batches. 0 on first batch.
+
+        Returns
+        -------
+        updated_mean : torch.Tensor
+            Updated mean including current batch (n_features,).
+        updated_variance : torch.Tensor
+            Updated variance including current batch (n_features,).
+        updated_sample_count : torch.Tensor
+            Total number of samples seen (scalar).
+        """
         if X.shape[0] == 0:
             return last_mean, last_variance, last_sample_count
 
@@ -193,10 +307,18 @@ class IncrementalPCA(DRModule):
     def partial_fit(self, X, check_input=True):
         """Fit incrementally the model with batch data `X`.
 
+        This method updates the PCA model with a new batch of data without
+        requiring access to previously seen data. It maintains running statistics
+        (mean, variance) and incrementally updates the principal components.
+
+        The batch X should already be on the computation device when called
+        from _fit_transform. When called directly, X can be on any device.
+
         Parameters
         ----------
         X : torch.Tensor
             The batch input data tensor with shape (n_samples, n_features).
+            Should fit in memory/GPU memory.
         check_input : bool, optional
             If True, validates the input. Defaults to True.
 
@@ -204,6 +326,35 @@ class IncrementalPCA(DRModule):
         -------
         IncrementalPCA:
             The updated IPCA model after processing the batch.
+
+        Examples
+        --------
+        Basic usage with manual batching::
+
+            ipca = IncrementalPCA(n_components=10)
+            for i in range(0, len(X), batch_size):
+                ipca.partial_fit(X[i:i+batch_size])
+
+        With PyTorch DataLoader (recommended for large datasets)::
+
+            from torch.utils.data import DataLoader
+            dataloader = DataLoader(dataset, batch_size=256)
+
+            ipca = IncrementalPCA(n_components=50)
+            for batch in dataloader:
+                # Handle DataLoader's (X, y) tuple format
+                X_batch = batch[0] if isinstance(batch, tuple) else batch
+                ipca.partial_fit(X_batch)
+
+        Notes
+        -----
+        - Parameters (mean_, components_, etc.) are stored on the computation device,
+          which is either self.device (if specified) or the device of the first batch
+          (if self.device == "auto").
+        - Uses Welford's algorithm for numerically stable incremental mean/variance.
+        - SVD is performed on augmented matrix containing previous components
+          and current batch to update the decomposition.
+        - This is the recommended method for fitting with DataLoader or generators.
         """
         first_pass = not hasattr(self, "components_")
 
@@ -215,7 +366,9 @@ class IncrementalPCA(DRModule):
         if first_pass:
             self.mean_ = None
             self.var_ = None
-            self.n_samples_seen_ = torch.tensor([0], device=X.device)
+            # Store on computation device (either self.device or X.device if auto)
+            param_device = X.device if self.device == "auto" else self.device
+            self.n_samples_seen_ = torch.tensor([0], device=param_device)
             self.n_features_ = n_features
             if not self.n_components:
                 self.n_components = min(n_samples, n_features)
@@ -261,78 +414,145 @@ class IncrementalPCA(DRModule):
         if self.n_components not in (n_samples, n_features):
             self.noise_variance_ = explained_variance[self.n_components :].mean()
         else:
-            self.noise_variance_ = torch.tensor(0.0, device=X.device)
+            # Use same device as other parameters
+            self.noise_variance_ = torch.tensor(0.0, device=self.mean_.device)
         return self
 
-    @handle_type()
-    def transform(self, X: Union[torch.Tensor, np.ndarray]):
+    @handle_input_output()
+    def transform(self, X: ArrayLike) -> ArrayLike:
         """Apply dimensionality reduction to `X`.
 
-        The input data `X` is projected on the first principal components
-        previously extracted from a training set.
+        Projects input data onto the principal components learned during fitting.
+        Unlike fit, this processes the full input at once, not in batches.
+
+        Device Management:
+        - If X and parameters are on different devices, X is temporarily moved
+          to parameters' device for computation
+        - Result is moved back to X's original device
+        - This avoids moving parameters which would be inefficient for repeated transforms
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray
-            New data tensor with shape (n_samples, n_features) to be transformed.
+        X : ArrayLike
+            New data with shape (n_samples, n_features) to be transformed.
+            Can be on any device.
 
         Returns
         -------
-        torch.Tensor:
-            Transformed data tensor with shape (n_samples, n_components).
+        ArrayLike
+            Transformed data with shape (n_samples, n_components).
+            Will be on the same device and format as input X.
         """
-        return (X - self.mean_.to(X.dtype)) @ self.components_.to(X.dtype).T
+        # Move input to the same device as the model parameters for computation
+        if self.mean_.device != X.device:
+            X_compute = X.to(self.mean_.device)
+            # Ensure dtype compatibility after moving
+            mean = (
+                self.mean_.to(X_compute.dtype)
+                if self.mean_.dtype != X_compute.dtype
+                else self.mean_
+            )
+            components = (
+                self.components_.to(X_compute.dtype)
+                if self.components_.dtype != X_compute.dtype
+                else self.components_
+            )
+            result = (X_compute - mean) @ components.T
+            # Move result back to original device
+            return result.to(X.device)
+        else:
+            # Ensure dtype compatibility
+            mean = self.mean_.to(X.dtype) if self.mean_.dtype != X.dtype else self.mean_
+            components = (
+                self.components_.to(X.dtype)
+                if self.components_.dtype != X.dtype
+                else self.components_
+            )
+            return (X - mean) @ components.T
 
-    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
+    def _fit_transform(self, X: ArrayLike, y: Optional[Any] = None) -> ArrayLike:
         """Fit the model with X and apply the dimensionality reduction on X.
+
+        This is the main entry point that orchestrates batch processing:
+        1. Splits data into batches (only batches need to fit in GPU memory)
+        2. Moves each batch to computation device
+        3. Calls partial_fit to incrementally update the model
+        4. After fitting all batches, transforms the full dataset
+
+        Memory Strategy:
+        - Full dataset X stays on its original device (typically CPU)
+        - Only individual batches are moved to GPU for processing
+        - This allows processing datasets larger than GPU memory
+        - Final transform operates on full dataset (already in memory)
 
         Parameters
         ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+        X : ArrayLike of shape (n_samples, n_features)
             Data on which to fit the PCA model and project onto the components.
+            Should fit in CPU memory but may be too large for GPU memory.
         y : Optional[Any], default=None
             Target values (None for unsupervised transformations).
 
         Returns
         -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
+        ArrayLike of shape (n_samples, n_components)
+            Projected data. Will be on the same device/backend as input.
         """
-        X = to_torch(X, device="auto")
-        X = self._validate_data(X)
-        n_samples, n_features = X.shape
+        # Track original format for output conversion
+        X_, input_backend, input_device = to_torch(X, return_backend_device=True)
+
+        # Validate the tensor
+        X_ = self._validate_data(X_)
+        n_samples, n_features = X_.shape
         if self.batch_size is None:
             self.batch_size = 5 * n_features
+
+        # Determine computation device
+        compute_device = X_.device if self.device == "auto" else self.device
 
         for batch in self.gen_batches(
             n_samples, self.batch_size, min_batch_size=self.n_components or 0
         ):
-            X_batch = X[batch].to(X.device if self.device == "auto" else self.device)
+            # Move batch to computation device if needed
+            X_batch = X_[batch]
+            if X_batch.device != compute_device:
+                X_batch = X_batch.to(compute_device)
             self.partial_fit(X_batch, check_input=False)
 
-        self.embedding_ = self.transform(X)
+        # Transform and convert back to original format
+        self.embedding_ = self.transform(X_)
+        self.embedding_ = restore_original_format(
+            self.embedding_, backend=input_backend, device=input_device
+        )
         return self.embedding_
 
     @staticmethod
     def gen_batches(n: int, batch_size: int, min_batch_size: int = 0):
         """Generate slices containing `batch_size` elements from 0 to `n`.
 
+        Used to split the dataset into manageable batches that fit in GPU memory.
         The last slice may contain less than `batch_size` elements, when
         `batch_size` does not divide `n`.
 
         Parameters
         ----------
         n : int
-            Size of the sequence.
+            Total size of the dataset.
         batch_size : int
-            Number of elements in each batch.
+            Number of samples in each batch. Should be chosen to fit in GPU memory.
         min_batch_size : int, optional
-            Minimum number of elements in each batch. Defaults to 0.
+            Minimum number of samples in each batch. Used to ensure batches
+            have enough samples for meaningful statistics. Defaults to 0.
 
         Yields
         ------
         slice:
-            A slice of `batch_size` elements.
+            A slice object representing indices [start:end] for the current batch.
+
+        Examples
+        --------
+        >>> list(IncrementalPCA.gen_batches(10, 3))
+        [slice(0, 3), slice(3, 6), slice(6, 9), slice(9, 10)]
         """
         start = 0
         for _ in range(int(n // batch_size)):

@@ -19,7 +19,7 @@ from torchdr.distance import (
 from torchdr.utils import (
     binary_search,
     center_kernel,
-    check_array,
+    validate_tensor,
     check_shape,
     check_similarity,
     check_similarity_torch_keops,
@@ -1105,37 +1105,36 @@ def test_matrix_power(use_lazy, power, exc):
         torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-6)
 
 
-# ====== Test check_array ======
-class TestCheckArray:
-    def test_check_array_numpy(self):
+# ====== Test validate_tensor ======
+class TestValidateTensor:
+    def test_validate_tensor_expects_tensor(self):
         X = np.random.randn(10, 5)
-        X_torch = check_array(X, device="cpu")
-        assert isinstance(X_torch, torch.Tensor)
-        assert_close(torch.from_numpy(X).to(X_torch.dtype), X_torch)
+        with pytest.raises(ValueError, match="validate_tensor expects a torch.Tensor"):
+            validate_tensor(X)
 
-    def test_check_array_tensor(self):
+    def test_validate_tensor_tensor(self):
         X = torch.randn(10, 5)
-        X_torch = check_array(X, device="cpu")
-        assert X is X_torch  # Should be the same object
+        X_validated = validate_tensor(X)
+        assert X is X_validated  # Should be the same object
 
     def test_ensure_2d(self):
         X = torch.randn(10)
-        X_2d = check_array(X, ensure_2d=True)
+        X_2d = validate_tensor(X, ensure_2d=True)
         assert X_2d.ndim == 2
         assert X_2d.shape == (10, 1)
 
     def test_min_samples_features(self):
         X = torch.randn(1, 1)
         with pytest.raises(ValueError):
-            check_array(X, ensure_min_samples=2)
+            validate_tensor(X, ensure_min_samples=2)
         with pytest.raises(ValueError):
-            check_array(X, ensure_min_features=2)
+            validate_tensor(X, ensure_min_features=2)
 
     def test_accept_sparse(self):
         X = torch.randn(10, 5).to_sparse()
         with pytest.raises(ValueError):
-            check_array(X, accept_sparse=False)
-        X_sparse = check_array(X, accept_sparse=True)
+            validate_tensor(X, accept_sparse=False)
+        X_sparse = validate_tensor(X, accept_sparse=True)
         assert X_sparse.is_sparse
 
 
@@ -1143,27 +1142,24 @@ class TestCheckArray:
 class TestToTorch:
     def test_to_torch_numpy(self):
         X = np.random.randn(10, 5)
-        X_torch = to_torch(X, device="cpu")
+        X_torch, backend, device = to_torch(X, return_backend_device=True)
         assert isinstance(X_torch, torch.Tensor)
+        assert backend == "numpy"
+        assert device == "cpu"
         assert_close(torch.from_numpy(X), X_torch)
 
     def test_to_torch_tensor(self):
         X = torch.randn(10, 5)
-        X_torch = to_torch(X, device="cpu")
-        assert X is X_torch  # Should be the same object
+        X_torch, backend, device = to_torch(X, return_backend_device=True)
+        assert backend == "torch"
+        assert device == X.device
 
-    def test_to_torch_kwargs(self):
-        X = torch.randn(10)
-        X_2d = to_torch(X, ensure_2d=True)
-        assert X_2d.ndim == 2
-        assert X_2d.shape == (10, 1)
-
-    def test_to_torch_complex_error(self):
+    def test_validate_complex_error(self):
         X = torch.randn(10, 5, dtype=torch.cfloat)
-        with pytest.raises(ValueError):
-            to_torch(X)
+        with pytest.raises(ValueError, match="complex tensors are not supported"):
+            validate_tensor(X)
 
-    def test_to_torch_infinite_error(self):
+    def test_validate_infinite_error(self):
         X = torch.tensor([1.0, float("inf")])
-        with pytest.raises(ValueError):
-            to_torch(X)
+        with pytest.raises(ValueError, match="infinite values"):
+            validate_tensor(X)

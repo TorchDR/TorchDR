@@ -92,11 +92,8 @@ class KernelPCA(DRModule):
         embedding_ : torch.Tensor of shape (n_samples, n_components)
             Projected data.
         """
-        self.X_fit_ = X.clone()
         K = self.affinity(X)
-        K, _, col_mean, mean = center_kernel(K, return_all=True)
-        self.K_fit_rows_ = col_mean
-        self.K_fit_all_ = mean
+        K = center_kernel(K, return_all=False)
 
         eigvals, eigvecs = torch.linalg.eigh(K)
         eigvals = check_nonnegativity_eigenvalues(eigvals)
