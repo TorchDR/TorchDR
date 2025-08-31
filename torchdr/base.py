@@ -84,6 +84,21 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         self.embedding_ = None
         self.is_fitted_ = False
 
+    def _get_device(self, X: torch.Tensor):
+        """Get the target device for computations.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor to infer device from if self.device is "auto".
+
+        Returns
+        -------
+        torch.device
+            The device to use for computations.
+        """
+        return X.device if self.device == "auto" else self.device
+
     @abstractmethod
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the dimensionality reduction model and transform the input data.

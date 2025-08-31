@@ -274,11 +274,13 @@ class IncrementalPCA(DRModule):
                 "last_variance should not be None if last_sample_count > 0."
             )
 
-        new_sample_count = torch.tensor([X.shape[0]], device=X.device)
+        # Use device of last_sample_count which is always provided and on the right device
+        device = last_sample_count.device
+        new_sample_count = torch.tensor([X.shape[0]], device=device)
         updated_sample_count = last_sample_count + new_sample_count
 
         if last_mean is None:
-            last_sum = torch.zeros(X.shape[1], dtype=torch.float64, device=X.device)
+            last_sum = torch.zeros(X.shape[1], dtype=torch.float64, device=device)
         else:
             last_sum = last_mean * last_sample_count
 
@@ -370,8 +372,8 @@ class IncrementalPCA(DRModule):
         if first_pass:
             self.mean_ = None
             self.var_ = None
-            # Store on computation device (either self.device or X.device if auto)
-            param_device = X.device if self.device == "auto" else self.device
+            # Store on computation device
+            param_device = self._get_device(X)
             self.n_samples_seen_ = torch.tensor([0], device=param_device)
             self.n_features_ = n_features
             if not self.n_components:
@@ -512,7 +514,7 @@ class IncrementalPCA(DRModule):
             self.batch_size = 5 * n_features
 
         # Determine computation device
-        compute_device = X_.device if self.device == "auto" else self.device
+        compute_device = self._get_device(X_)
 
         for batch in self.gen_batches(
             n_samples, self.batch_size, min_batch_size=self.n_components or 0
@@ -769,7 +771,7 @@ class ExactIncrementalPCA(DRModule):
             self._XtX = torch.zeros(
                 (self.n_features_in_, self.n_features_in_),
                 dtype=X.dtype,
-                device=X.device,
+                device=self._get_device(X),
             )
 
         self._XtX += X_centered.T @ X_centered
