@@ -50,7 +50,13 @@ from .neighbor_embedding import (
     TSNEkhorn,
     PACMAP,
 )
-from .spectral_embedding import IncrementalPCA, KernelPCA, PCA, PHATE
+from .spectral_embedding import (
+    IncrementalPCA,
+    ExactIncrementalPCA,
+    KernelPCA,
+    PCA,
+    PHATE,
+)
 
 # import utils
 from .utils import binary_search, false_position
@@ -83,6 +89,7 @@ __all__ = [
     "PCA",
     "KernelPCA",
     "IncrementalPCA",
+    "ExactIncrementalPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
     "SampledNeighborEmbedding",
