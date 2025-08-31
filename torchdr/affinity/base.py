@@ -78,6 +78,21 @@ class Affinity(nn.Module, ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
+    def _get_device(self, X: torch.Tensor):
+        """Get the target device for computations.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor to infer device from if self.device is "auto".
+
+        Returns
+        -------
+        torch.device
+            The device to use for computations.
+        """
+        return X.device if self.device == "auto" else self.device
+
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
 

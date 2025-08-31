@@ -13,7 +13,7 @@ from sklearn.decomposition import IncrementalPCA as SkIncrementalPCA
 from sklearn.model_selection import train_test_split
 from torch.testing import assert_close
 
-from torchdr import IncrementalPCA
+from torchdr import IncrementalPCA, ExactIncrementalPCA, PCA
 
 torch.manual_seed(1999)
 
@@ -199,3 +199,181 @@ def test_incremental_pca_on_digits(n_components):
 
     assert_allclose(X_train_sklearn_fit, X_train_fit, rtol=1e-5, atol=1e-5)
     assert_allclose(X_test_sklearn_fit, X_test_fit, rtol=1e-5, atol=1e-5)
+
+
+# ================ Tests for ExactIncrementalPCA ================
+
+
+def test_exact_incremental_pca_vs_pca():
+    """Test that ExactIncrementalPCA gives same results as regular PCA."""
+    n_components = 2
+    X = torch.tensor(iris.data, dtype=torch.float32)
+
+    # Regular PCA
+    pca = PCA(n_components=n_components)
+    pca.fit(X)
+    X_pca = pca.transform(X)
+
+    # ExactIncrementalPCA with single batch
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca.compute_mean([X])
+    exact_ipca.fit([X])
+    X_exact = exact_ipca.transform(X)
+
+    # Compare reconstructions (components might have different signs)
+    reconstruction_pca = X_pca @ pca.components_ + pca.mean_
+    reconstruction_exact = X_exact @ exact_ipca.components_ + exact_ipca.mean_
+
+    # Check reconstructions are similar (allow more tolerance due to different algorithms)
+    assert_close(reconstruction_pca, reconstruction_exact, rtol=1e-2, atol=1e-2)
+
+    # Check explained variance is in descending order
+    assert torch.all(
+        exact_ipca.explained_variance_[:-1] >= exact_ipca.explained_variance_[1:]
+    ), "Explained variance should be in descending order"
+
+
+def test_exact_incremental_pca_batches():
+    """Test that batched processing gives same results as single batch."""
+    n_components = 2
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    batch_size = X.shape[0] // 3
+
+    # Single batch
+    exact_ipca_single = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca_single.compute_mean([X])
+    exact_ipca_single.fit([X])
+    X_single = exact_ipca_single.transform(X)
+
+    # Multiple batches
+    batches = [X[i : i + batch_size] for i in range(0, X.shape[0], batch_size)]
+    exact_ipca_batched = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca_batched.compute_mean(batches)
+    exact_ipca_batched.fit(batches)
+    X_batched = exact_ipca_batched.transform(X)
+
+    # Compare reconstructions
+    reconstruction_single = (
+        X_single @ exact_ipca_single.components_ + exact_ipca_single.mean_
+    )
+    reconstruction_batched = (
+        X_batched @ exact_ipca_batched.components_ + exact_ipca_batched.mean_
+    )
+
+    assert_close(reconstruction_single, reconstruction_batched, rtol=1e-5, atol=1e-5)
+
+
+def test_exact_incremental_pca_check_projection():
+    """Test that the projection of data is correct."""
+    n, p = 100, 3
+    X = torch.randn(n, p, dtype=torch.float64) * 0.1
+    X[:10] += torch.tensor([3, 4, 5])
+    Xt = 0.1 * torch.randn(1, p, dtype=torch.float64) + torch.tensor([3, 4, 5])
+
+    # Get the reconstruction
+    exact_ipca = ExactIncrementalPCA(n_components=2)
+    exact_ipca.compute_mean([X])
+    exact_ipca.fit([X])
+    Yt = exact_ipca.transform(Xt)
+
+    # Normalize
+    Yt /= torch.sqrt((Yt**2).sum())
+
+    # Make sure that the first element of Yt is ~1
+    assert_close(torch.abs(Yt[0][0]).item(), 1.0, atol=1e-1, rtol=1e-1)
+
+
+def test_exact_incremental_pca_validation():
+    """Test validation of n_components."""
+    X = torch.tensor([[0, 1, 0], [1, 0, 0]], dtype=torch.float32)
+    n_features = X.shape[1]
+
+    # Test that n_components <= n_features
+    n_components = 4
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca.compute_mean([X])
+    # Should work since we clamp n_components internally
+    exact_ipca.fit([X])
+    assert exact_ipca.components_.shape[0] <= n_features
+
+
+def test_exact_incremental_pca_partial_fit():
+    """Test partial_fit method."""
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+    batch_size = 50
+
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+
+    # First compute mean (required)
+    exact_ipca.compute_mean([X])
+
+    # Then use partial_fit for each batch
+    for i in range(0, X.shape[0], batch_size):
+        batch = X[i : i + batch_size]
+        exact_ipca.partial_fit(batch)
+
+    # Compute components after all batches
+    exact_ipca._compute_components()
+
+    # Transform and check shape
+    X_transformed = exact_ipca.transform(X)
+    assert X_transformed.shape == (X.shape[0], n_components)
+
+
+def test_exact_incremental_pca_fit_transform():
+    """Test fit_transform method."""
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+    X_transformed = exact_ipca.fit_transform(X)
+
+    assert X_transformed.shape == (X.shape[0], n_components)
+
+    # Check that fit_transform gives same result as fit then transform
+    exact_ipca2 = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca2.compute_mean([X])
+    exact_ipca2.fit([X])
+    X_transformed2 = exact_ipca2.transform(X)
+
+    # Compare reconstructions (components might have different signs)
+    reconstruction1 = X_transformed @ exact_ipca.components_ + exact_ipca.mean_
+    reconstruction2 = X_transformed2 @ exact_ipca2.components_ + exact_ipca2.mean_
+
+    assert_close(reconstruction1, reconstruction2, rtol=1e-4, atol=1e-4)
+
+
+def test_exact_incremental_pca_mean_not_computed():
+    """Test error when mean is not computed before partial_fit."""
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    exact_ipca = ExactIncrementalPCA(n_components=2)
+
+    with pytest.raises(ValueError, match="Mean must be computed first"):
+        exact_ipca.partial_fit(X)
+
+
+def test_exact_incremental_pca_different_dtypes():
+    """Test with different data types."""
+    X32 = torch.tensor(iris.data, dtype=torch.float32)
+    X64 = torch.tensor(iris.data, dtype=torch.float64)
+    n_components = 2
+
+    # Float32
+    exact_ipca32 = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca32.compute_mean([X32])
+    exact_ipca32.fit([X32])
+    X_transformed32 = exact_ipca32.transform(X32)
+
+    # Float64
+    exact_ipca64 = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca64.compute_mean([X64])
+    exact_ipca64.fit([X64])
+    X_transformed64 = exact_ipca64.transform(X64)
+
+    # Check shapes
+    assert X_transformed32.shape == (X32.shape[0], n_components)
+    assert X_transformed64.shape == (X64.shape[0], n_components)
+
+    # Results should be similar despite different precision
+    assert_close(X_transformed32.double(), X_transformed64, rtol=1e-4, atol=1e-4)

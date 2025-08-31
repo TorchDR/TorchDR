@@ -154,11 +154,12 @@ class PACMAP(SampledNeighborEmbedding):
         # Keep input data to compute mid-near loss
         self.register_buffer("X_", X, persistent=False)
         self._set_weights()
-        self_idxs = torch.arange(self.X_.shape[0], device=self.X_.device).unsqueeze(1)
+        target_device = self._get_device(X)
+        self_idxs = torch.arange(self.X_.shape[0], device=target_device).unsqueeze(1)
         self.register_buffer("self_idxs", self_idxs, persistent=False)
 
         mid_near_indices = torch.empty(
-            self.X_.shape[0], self.n_mid_near, device=self.X_.device
+            self.X_.shape[0], self.n_mid_near, device=target_device
         )
         self.register_buffer("mid_near_indices", mid_near_indices, persistent=False)
         return super()._fit_transform(X, y)
