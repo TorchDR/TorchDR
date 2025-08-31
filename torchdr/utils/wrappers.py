@@ -8,9 +8,14 @@ import functools
 import torch
 
 from .keops import LazyTensor, is_lazy_tensor
-from .validation import check_array
+from .validation import validate_tensor
 
 import warnings
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 def output_contiguous(func):
@@ -32,29 +37,26 @@ def output_contiguous(func):
 
 
 @output_contiguous
-def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs):
-    """Convert input to torch tensor and specified device while performing some checks.
+def to_torch(x, return_backend_device=False):
+    """Convert input to torch tensor without changing device.
 
-    If device="auto", the device is set to the device of the input x.
+    Handles conversion from numpy arrays, pandas DataFrames, and lists to torch tensors.
+    Preserves the original device and tracks the backend for later restoration.
     """
+    if pd is not None and isinstance(x, pd.DataFrame):
+        x = x.values
+
     if isinstance(x, torch.Tensor):
         input_backend = "torch"
         input_device = x.device
+        x_ = x
     else:
         input_backend = "numpy"
         input_device = "cpu"
-
-    if device == "auto":
-        target_device = input_device
-    else:
-        target_device = device
-
-    x_ = check_array(x, device=target_device, **check_array_kwargs)
-
-    if torch.is_complex(x_):
-        raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
-    if not torch.isfinite(x_).all():
-        raise ValueError("[TorchDR] ERROR : input contains infinite values.")
+        try:
+            x_ = torch.as_tensor(x)
+        except (TypeError, ValueError):
+            raise ValueError("Input could not be converted to a tensor.")
 
     if not x_.dtype.is_floating_point:
         x_ = x_.float()
@@ -65,8 +67,8 @@ def to_torch(x, device="auto", return_backend_device=False, **check_array_kwargs
         return x_
 
 
-def torch_to_backend(x, backend="torch", device="cpu"):
-    """Convert a torch tensor to specified backend and device."""
+def restore_original_format(x, backend="torch", device="cpu"):
+    """Restore output to original format (numpy array or torch tensor with original device)."""
     if not isinstance(x, torch.Tensor):
         return x  # Return as is if not a tensor
 
@@ -119,10 +121,9 @@ def wrap_vectors(func):
     return wrapper
 
 
-def handle_type(
+def handle_input_output(
     _func=None,
     *,
-    set_device=True,
     accept_sparse=False,
     ensure_min_samples=1,
     ensure_min_features=1,
@@ -130,16 +131,15 @@ def handle_type(
     **check_array_kwargs,
 ):
     """
-    Convert input to torch and optionally set device specified by self.
+    Handle input conversion to torch and output conversion back to original format.
 
-    Then convert the output to the input backend and device.
+    Converts input to torch tensor for processing while preserving the original
+    device, then converts output back to the original backend and device.
 
     Parameters
     ----------
     _func : callable, optional
         The function to be wrapped.
-    set_device : bool, default=True
-        If True, set the device to self.device if it is not None.
     accept_sparse : bool, default=False
         Whether to accept sparse matrices.
     ensure_min_samples : int, default=2
@@ -149,34 +149,40 @@ def handle_type(
     ensure_2d : bool, default=True
         Whether to ensure 2D input.
     **check_array_kwargs : dict
-        Additional keyword arguments to be passed to the check_array function.
+        Additional keyword arguments to be passed to the validate_tensor function.
     """
 
-    def decorator_handle_type(func):
+    def decorator_handle_input_output(func):
         @functools.wraps(func)
         def wrapper(self, X, *args, **kwargs):
-            # Use self.device if set_device is True, else leave device unset (None)
-            device = self.device if set_device else "auto"
+            # Convert to torch tensor
             X_, input_backend, input_device = to_torch(
                 X,
-                device=device,
                 return_backend_device=True,
+            )
+
+            # Validate the tensor
+            X_ = validate_tensor(
+                X_,
                 accept_sparse=accept_sparse,
                 ensure_min_samples=ensure_min_samples,
                 ensure_min_features=ensure_min_features,
                 ensure_2d=ensure_2d,
                 **check_array_kwargs,
             )
+
             output = func(self, X_, *args, **kwargs)
-            return torch_to_backend(output, backend=input_backend, device=input_device)
+            return restore_original_format(
+                output, backend=input_backend, device=input_device
+            )
 
         return wrapper
 
-    # Support both @handle_type and @handle_type(...)
+    # Support both @handle_input_output and @handle_input_output(...)
     if _func is None:
-        return decorator_handle_type
+        return decorator_handle_input_output
     else:
-        return decorator_handle_type(_func)
+        return decorator_handle_input_output(_func)
 
 
 def compile_if_requested(func):

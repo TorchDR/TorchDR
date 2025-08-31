@@ -70,15 +70,7 @@ class Affinity(nn.Module, ABC):
         self.metric = metric
         self.zero_diag = bool_arg(zero_diag)
         self.device = device
-
-        # Store the original backend parameter
-        self._backend_orig = backend
-        # Parse backend parameter for internal use
-        if isinstance(backend, FaissConfig):
-            self.backend = "faiss"
-        else:
-            self.backend = backend
-
+        self.backend = backend
         self.verbose = bool_arg(verbose)
         self.random_state = random_state
         self.compile = compile
@@ -100,7 +92,7 @@ class Affinity(nn.Module, ABC):
             The computed affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
@@ -148,16 +140,10 @@ class Affinity(nn.Module, ABC):
             value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
             is returned. Otherwise, a torch.Tensor is returned.
         """
-        # Use the backend directly - either FaissConfig or string backend
-        backend_to_use = (
-            self._backend_orig
-            if isinstance(self._backend_orig, FaissConfig)
-            else self.backend
-        )
         return pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=backend_to_use,
+            backend=self.backend,
             exclude_diag=self.zero_diag,  # infinite distance means zero affinity
             k=k,
             return_indices=return_indices,
@@ -244,7 +230,7 @@ class LogAffinity(Affinity):
             exponentiated log affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)
         log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
@@ -361,7 +347,7 @@ class SparseAffinity(Affinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)
         return self._compute_sparse_affinity(X, return_indices, **kwargs)
 
     def _compute_sparse_affinity(
@@ -459,7 +445,7 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)
 
         if return_indices:
             log_affinity, indices = self._compute_sparse_log_affinity(

@@ -257,74 +257,81 @@ def check_neighbor_param(n_neighbors, n_samples):
     return n_neighbors
 
 
-def check_array(
-    array,
+def validate_tensor(
+    tensor,
     accept_sparse=False,
     ensure_min_samples=1,
     ensure_min_features=1,
     ensure_2d=True,
-    device=None,
+    max_components=None,
 ):
-    """Input validation on an array, list, or tensor.
+    """Validate a torch tensor.
 
-    This function is a PyTorch-centric equivalent of scikit-learn's
-    check_array utility.
+    This function validates an already-converted torch tensor.
 
     Parameters
     ----------
-    array : object
-        Input object to check / convert.
+    tensor : torch.Tensor
+        Input tensor to validate.
     accept_sparse : bool, default=False
-        Whether to accept sparse matrices.
+        Whether to accept sparse tensors.
     ensure_min_samples : int, default=1
-        Make sure that the array has at least `ensure_min_samples` samples.
+        Make sure that the tensor has at least `ensure_min_samples` samples.
     ensure_min_features : int, default=1
-        Make sure that the array has at least `ensure_min_features` features.
+        Make sure that the tensor has at least `ensure_min_features` features.
     ensure_2d : bool, default=True
-        Whether to raise an error if the array is not 2D.
-    device : str, default=None
-        Device to which the tensor is moved.
+        Whether to raise an error if the tensor is not 2D.
+    max_components : int, optional
+        If provided, ensures that n_features >= max_components.
+        Useful for dimensionality reduction methods.
 
     Returns
     -------
-    array_converted : torch.Tensor
-        The converted and validated array.
+    tensor_validated : torch.Tensor
+        The validated tensor (may be reshaped if ensure_2d=True).
     """
-    if pd is not None and isinstance(array, pd.DataFrame):
-        array = array.values
+    # Validate it's a tensor
+    if not isinstance(tensor, torch.Tensor):
+        raise ValueError(
+            "validate_tensor expects a torch.Tensor, got {}".format(type(tensor))
+        )
 
-    if not isinstance(array, torch.Tensor):
-        try:
-            array = torch.as_tensor(array)
-        except (TypeError, ValueError):
-            raise ValueError("Input could not be converted to a tensor.")
+    if torch.is_complex(tensor):
+        raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
 
-    if device is not None:
-        array = array.to(device)
+    # Check for infinite values (skip for sparse tensors as isfinite doesn't work on them)
+    if not tensor.is_sparse and not torch.isfinite(tensor).all():
+        raise ValueError("[TorchDR] ERROR : input contains infinite values.")
 
-    if not accept_sparse and array.is_sparse:
-        raise ValueError("Sparse matrices are not accepted.")
+    if not accept_sparse and tensor.is_sparse:
+        raise ValueError("Sparse tensors are not accepted.")
 
     if ensure_2d:
-        if array.ndim == 0:
-            raise ValueError("Expected 2D array, got scalar array instead.")
-        elif array.ndim == 1:
-            array = array.reshape(-1, 1)
+        if tensor.ndim == 0:
+            raise ValueError("Expected 2D tensor, got scalar tensor instead.")
+        elif tensor.ndim == 1:
+            tensor = tensor.reshape(-1, 1)
 
-        if array.ndim != 2:
-            raise ValueError(f"Expected 2D array, got {array.ndim}D array instead.")
+        if tensor.ndim != 2:
+            raise ValueError(f"Expected 2D tensor, got {tensor.ndim}D tensor instead.")
 
-    n_samples, n_features = array.shape
+    n_samples, n_features = tensor.shape
     if n_samples < ensure_min_samples:
         raise ValueError(
-            f"Found array with {n_samples} samples, but a minimum of "
+            f"Found tensor with {n_samples} samples, but a minimum of "
             f"{ensure_min_samples} is required."
         )
 
     if n_features < ensure_min_features:
         raise ValueError(
-            f"Found array with {n_features} features, but a minimum of "
+            f"Found tensor with {n_features} features, but a minimum of "
             f"{ensure_min_features} is required."
         )
 
-    return array
+    if max_components is not None and max_components > n_features:
+        raise ValueError(
+            f"n_components={max_components} is invalid for n_features={n_features}. "
+            f"The number of components cannot exceed the number of features."
+        )
+
+    return tensor

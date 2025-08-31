@@ -14,7 +14,7 @@ from sklearn.base import BaseEstimator
 from torchdr.utils import (
     seed_everything,
     set_logger,
-    handle_type,
+    handle_input_output,
 )
 from torchdr.distance import FaissConfig
 
@@ -108,7 +108,7 @@ class DRModule(BaseEstimator, nn.Module, ABC):
             "[TorchDR] ERROR : _fit_transform method is not implemented."
         )
 
-    @handle_type()
+    @handle_input_output()
     def fit(self, X: ArrayLike, y: Optional[Any] = None) -> "DRModule":
         """Fit the dimensionality reduction model from the input data.
 
@@ -128,7 +128,7 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         self.fit_transform(X, y=y)
         return self
 
-    @handle_type()
+    @handle_input_output()
     def fit_transform(self, X: ArrayLike, y: Optional[Any] = None) -> ArrayLike:
         """Fit the dimensionality reduction model and transform the input data.
 

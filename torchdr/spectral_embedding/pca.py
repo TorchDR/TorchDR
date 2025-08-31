@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from torchdr.base import DRModule
-from torchdr.utils import handle_type, svd_flip
+from torchdr.utils import handle_input_output, svd_flip
 
 
 class PCA(DRModule):
@@ -68,16 +68,28 @@ class PCA(DRModule):
         embedding_ : torch.Tensor of shape (n_samples, n_components)
             Projected data.
         """
-        self.mean_ = X.mean(0, keepdim=True)
+        original_device = X.device
+        if self.device != "auto" and self.device is not None:
+            X_compute = X.to(self.device)
+        else:
+            X_compute = X
+
+        self.mean_ = X_compute.mean(0, keepdim=True)
         U, S, V = torch.linalg.svd(
-            X - self.mean_, full_matrices=False, driver=self.svd_driver
+            X_compute - self.mean_, full_matrices=False, driver=self.svd_driver
         )
         U, V = svd_flip(U, V)  # flip eigenvectors' sign to enforce deterministic output
         self.components_ = V[: self.n_components]
+
         self.embedding_ = U[:, : self.n_components] * S[: self.n_components]
+
+        # Move embedding back to original device, but keep parameters on compute device
+        if X.device != X_compute.device:
+            self.embedding_ = self.embedding_.to(original_device)
+
         return self.embedding_
 
-    @handle_type()
+    @handle_input_output()
     def transform(
         self, X: Union[torch.Tensor, np.ndarray]
     ) -> Union[torch.Tensor, np.ndarray]:
@@ -93,4 +105,9 @@ class PCA(DRModule):
         X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
             Projected data.
         """
-        return (X - self.mean_) @ self.components_.T
+        if self.mean_.device != X.device:
+            X_compute = X.to(self.mean_.device)
+            result = (X_compute - self.mean_) @ self.components_.T
+            return result.to(X.device)
+        else:
+            return (X - self.mean_) @ self.components_.T
