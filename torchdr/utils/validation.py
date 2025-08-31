@@ -299,7 +299,8 @@ def validate_tensor(
     if torch.is_complex(tensor):
         raise ValueError("[TorchDR] ERROR : complex tensors are not supported.")
 
-    if not torch.isfinite(tensor).all():
+    # Check for infinite values (skip for sparse tensors as isfinite doesn't work on them)
+    if not tensor.is_sparse and not torch.isfinite(tensor).all():
         raise ValueError("[TorchDR] ERROR : input contains infinite values.")
 
     if not accept_sparse and tensor.is_sparse:

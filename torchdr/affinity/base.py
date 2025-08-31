@@ -100,7 +100,7 @@ class Affinity(nn.Module, ABC):
             The computed affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)  # Convert to torch, preserve original device
         return self._compute_affinity(X, **kwargs)
 
     def _compute_affinity(self, X: torch.Tensor):
@@ -244,7 +244,7 @@ class LogAffinity(Affinity):
             exponentiated log affinity matrix.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)  # Convert to torch, preserve original device
         log_affinity = self._compute_log_affinity(X, **kwargs)
         if log:
             return log_affinity
@@ -361,7 +361,7 @@ class SparseAffinity(Affinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)  # Convert to torch, preserve original device
         return self._compute_sparse_affinity(X, return_indices, **kwargs)
 
     def _compute_sparse_affinity(
@@ -459,7 +459,7 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
             in the affinity matrix if sparsity is enabled. Otherwise, returns None.
         """
         if not self._pre_processed:
-            X = to_torch(X, device="auto")  # Preserve input device
+            X = to_torch(X)  # Convert to torch, preserve original device
 
         if return_indices:
             log_affinity, indices = self._compute_sparse_log_affinity(
