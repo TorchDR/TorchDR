@@ -78,7 +78,7 @@ class Affinity(nn.Module, ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-    def _get_device(self, X: torch.Tensor):
+    def _get_compute_device(self, X: torch.Tensor):
         """Get the target device for computations.
 
         Parameters

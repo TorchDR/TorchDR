@@ -242,7 +242,7 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         n_samples_in = X.shape[0]
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         n_samples_tensor = torch.tensor(
             n_samples_in, dtype=X.dtype, device=target_device
         )
@@ -440,7 +440,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         n_samples_in = X.shape[0]
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = (
             torch.log(torch.tensor(perplexity, dtype=X.dtype, device=target_device)) + 1
@@ -700,7 +700,7 @@ class SinkhornAffinity(LogAffinity):
         n_samples_in = C.shape[0]
         log_K = -C / self.eps
 
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         # Performs warm-start if a dual variable f is provided
         dual = (
             torch.zeros(n_samples_in, dtype=X.dtype, device=target_device)
