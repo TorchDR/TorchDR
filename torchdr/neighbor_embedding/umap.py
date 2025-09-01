@@ -10,7 +10,7 @@ import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.distance import pairwise_distances, FaissConfig
+from torchdr.distance import pairwise_distances_indexed, FaissConfig
 
 from scipy.optimize import curve_fit
 
@@ -219,11 +219,10 @@ class UMAP(SampledNeighborEmbedding):
         )
 
     def _compute_attractive_gradients(self):
-        D = pairwise_distances(
+        D = pairwise_distances_indexed(
             self.embedding_,
+            key_indices=self.NN_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.NN_indices_,
         )
         positive_edges = D > 0
         D_ = 1 + self._a * D**self._b
@@ -246,11 +245,10 @@ class UMAP(SampledNeighborEmbedding):
         return grad
 
     def _compute_repulsive_gradients(self):
-        D = pairwise_distances(
+        D = pairwise_distances_indexed(
             self.embedding_,
+            key_indices=self.neg_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.neg_indices_,
         )
         D_ = 1 + self._a * D**self._b
         D.add_(self._eps)
