@@ -221,6 +221,7 @@ class PACMAP(SampledNeighborEmbedding):
                     self.X_,
                     key_indices=mid_near_candidates_indices,
                     metric=self.metric,
+                    device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
                 self.mid_near_indices[:, i] = idxs[
