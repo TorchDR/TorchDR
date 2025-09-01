@@ -14,7 +14,7 @@ from torchdr.distance import (
     LIST_METRICS_KEOPS,
     LIST_METRICS_FAISS,
     pairwise_distances,
-    symmetric_pairwise_distances_indices,
+    pairwise_distances_indexed,
 )
 from torchdr.utils import (
     binary_search,
@@ -146,13 +146,13 @@ def test_pairwise_distances_faiss(dtype, metric, exclude_diag):
 
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
-def test_symmetric_pairwise_distances_indices(dtype, metric):
+def test_pairwise_distances_indexed(dtype, metric):
     n, p = 100, 20
     x = torch.randn(n, p, dtype=dtype)
     indices = torch.randint(0, n, (n, 10))
 
-    # --- check consistency with symmetric_pairwise_distances ---
-    C_indices = symmetric_pairwise_distances_indices(x, indices, metric=metric)
+    # --- check consistency with pairwise_distances_indexed ---
+    C_indices = pairwise_distances_indexed(x, key_indices=indices, metric=metric)
     check_shape(C_indices, (n, 10))
 
     C_full = pairwise_distances(x, metric=metric, backend=None)

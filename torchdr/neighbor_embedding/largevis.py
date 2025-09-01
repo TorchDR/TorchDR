@@ -10,7 +10,7 @@ import torch
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_red
-from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
 class LargeVis(SampledNeighborEmbedding):
@@ -163,22 +163,20 @@ class LargeVis(SampledNeighborEmbedding):
         )
 
     def _compute_repulsive_loss(self):
-        distances_sq = pairwise_distances(
+        distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            key_indices=self.neg_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.neg_indices_,
         )
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return -sum_red((1 - Q).log(), dim=(0, 1)) / self.n_samples_in_
 
     def _compute_attractive_loss(self):
-        distances_sq = pairwise_distances(
+        distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            key_indices=self.NN_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.NN_indices_,
         )
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)

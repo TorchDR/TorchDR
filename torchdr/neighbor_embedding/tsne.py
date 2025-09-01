@@ -9,7 +9,7 @@ import torch
 
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
-from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
@@ -151,11 +151,10 @@ class TSNE(SparseNeighborEmbedding):
         )
 
     def _compute_attractive_loss(self):
-        distances_sq = pairwise_distances(
+        distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            key_indices=self.NN_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.NN_indices_,
         )
         log_Q = -(1 + distances_sq).log()
         return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
