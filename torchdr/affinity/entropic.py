@@ -276,10 +276,15 @@ class EntropicAffinity(SparseLogAffinity):
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(
-            C_, perplexity, device=target_device, dtype=X.dtype
-        )
-        begin = begin + 1e-6  # avoid numerical issues
+        # Bounds are only valid for single-GPU mode
+        if self.is_multi_gpu:
+            begin = None
+            end = None
+        else:
+            begin, end = _bounds_entropic_affinity(
+                C_, perplexity, device=target_device, dtype=X.dtype
+            )
+            begin = begin + 1e-6  # avoid numerical issues
 
         eps = binary_search(
             f=entropy_gap,

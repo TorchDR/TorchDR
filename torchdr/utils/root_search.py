@@ -160,6 +160,8 @@ def init_bounds(
         if b.shape != (n,):
             raise ValueError(f"begin tensor must have shape ({n},), got {b.shape}")
     else:
+        if begin is None:
+            begin = 1.0
         b = torch.full((n,), float(begin), dtype=dtype, device=device)
 
     if isinstance(end, torch.Tensor):
@@ -167,6 +169,8 @@ def init_bounds(
         if e.shape != (n,):
             raise ValueError(f"end tensor must have shape ({n},), got {e.shape}")
     else:
+        if end is None:
+            end = 1.0
         e = torch.full((n,), float(end), dtype=dtype, device=device)
 
     # shrink `b` downward until f(b) ≤ 0, pulling `e` in with it

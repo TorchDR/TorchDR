@@ -525,6 +525,7 @@ class SparseAffinity(Affinity):
             backend=faiss_config,
             exclude_diag=False,  # Can't use since X_chunk != X
             return_indices=True,
+            device=self.device,
         )
 
         # Remove self-distances if needed

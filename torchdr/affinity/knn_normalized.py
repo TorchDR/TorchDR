@@ -536,10 +536,17 @@ class PACMAPAffinity(SparseAffinity):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
-        distributed: Union[bool, str] = "auto",
+        distributed: Union[bool, str] = False,
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
+
+        # TODO: Fix multi-GPU support for PACMAPAffinity
+        # The current implementation has issues with index handling in distributed mode
+        if distributed:
+            raise ValueError(
+                "[TorchDR] ERROR : PACMAPAffinity does not support distributed."
+            )
 
         super().__init__(
             metric=metric,
