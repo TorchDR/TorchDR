@@ -368,6 +368,12 @@ class UMAPAffinity(SparseAffinity):
         Whether to compile the computation. Default is False.
     symmetrize : bool, optional
         Whether to symmetrize the affinity matrix. Default is True.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -385,11 +391,11 @@ class UMAPAffinity(SparseAffinity):
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
+        distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
         self.max_iter = max_iter
-        self.symmetrize = symmetrize
 
         super().__init__(
             metric=metric,
@@ -399,8 +405,20 @@ class UMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=sparsity,
             compile=compile,
+            distributed=distributed,
             _pre_processed=_pre_processed,
         )
+
+        # Warn if symmetrization was requested in multi-GPU mode
+        if symmetrize and self.is_multi_gpu:
+            if self.verbose:
+                self.logger.warning(
+                    "Symmetrization not supported in multi-GPU mode. "
+                    "Setting symmetrize=False. Use single-GPU mode if symmetrization is required."
+                )
+            symmetrize = False
+
+        self.symmetrize = symmetrize
 
     @compile_if_requested
     def _compute_sparse_affinity(
@@ -498,6 +516,12 @@ class PACMAPAffinity(SparseAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the computation. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -512,6 +536,7 @@ class PACMAPAffinity(SparseAffinity):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -524,6 +549,7 @@ class PACMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=True,  # PACMAP uses sparsity mode
             compile=compile,
+            distributed=distributed,
             _pre_processed=_pre_processed,
         )
 
