@@ -152,9 +152,10 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         # Keep input data to compute mid-near loss
-        self.register_buffer("X_", X, persistent=False)
+        target_device = self._get_compute_device(X)
+        X_on_device = X.to(target_device) if target_device != X.device else X
+        self.register_buffer("X_", X_on_device, persistent=False)
         self._set_weights()
-        target_device = self._get_device(X)
         self_idxs = torch.arange(self.X_.shape[0], device=target_device).unsqueeze(1)
         self.register_buffer("self_idxs", self_idxs, persistent=False)
 

@@ -373,7 +373,7 @@ class IncrementalPCA(DRModule):
             self.mean_ = None
             self.var_ = None
             # Store on computation device
-            param_device = self._get_device(X)
+            param_device = self._get_compute_device(X)
             self.n_samples_seen_ = torch.tensor([0], device=param_device)
             self.n_features_ = n_features
             if not self.n_components:
@@ -514,7 +514,7 @@ class IncrementalPCA(DRModule):
             self.batch_size = 5 * n_features
 
         # Determine computation device
-        compute_device = self._get_device(X_)
+        compute_device = self._get_compute_device(X_)
 
         for batch in self.gen_batches(
             n_samples, self.batch_size, min_batch_size=self.n_components or 0
@@ -771,7 +771,7 @@ class ExactIncrementalPCA(DRModule):
             self._XtX = torch.zeros(
                 (self.n_features_in_, self.n_features_in_),
                 dtype=X.dtype,
-                device=self._get_device(X),
+                device=self._get_compute_device(X),
             )
 
         self._XtX += X_centered.T @ X_centered

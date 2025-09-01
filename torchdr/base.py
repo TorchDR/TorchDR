@@ -84,7 +84,7 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         self.embedding_ = None
         self.is_fitted_ = False
 
-    def _get_device(self, X: torch.Tensor):
+    def _get_compute_device(self, X: torch.Tensor):
         """Get the target device for computations.
 
         Parameters
