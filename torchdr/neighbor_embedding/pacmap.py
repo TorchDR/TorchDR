@@ -160,7 +160,7 @@ class PACMAP(SampledNeighborEmbedding):
         self.register_buffer("self_idxs", self_idxs, persistent=False)
 
         mid_near_indices = torch.empty(
-            self.X_.shape[0], self.n_mid_near, device=target_device
+            self.X_.shape[0], self.n_mid_near, device=target_device, dtype=torch.long
         )
         self.register_buffer("mid_near_indices", mid_near_indices, persistent=False)
         return super()._fit_transform(X, y)

@@ -220,7 +220,7 @@ def pairwise_distances_indexed(
     if key_indices is None:
         Y_keys = Y
     elif key_indices.dim() == 1:
-        Y_keys = Y[key_indices]
+        Y_keys = Y[key_indices.long()]
     elif key_indices.dim() == 2:
         # Each query has specific keys
         if query_indices is not None and query_indices.dim() == 1:
@@ -228,7 +228,9 @@ def pairwise_distances_indexed(
             assert key_indices.shape[0] == len(query_indices), (
                 f"key_indices first dim {key_indices.shape[0]} must match number of queries {len(query_indices)}"
             )
-        Y_keys = Y[key_indices]  # Shape: (n_queries, n_keys_per_query, n_features)
+        Y_keys = Y[
+            key_indices.long()
+        ]  # Shape: (n_queries, n_keys_per_query, n_features)
     else:
         raise ValueError(f"key_indices must be 1D or 2D, got {key_indices.dim()}D")
 
