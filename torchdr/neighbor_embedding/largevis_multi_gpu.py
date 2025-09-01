@@ -8,6 +8,7 @@ from typing import Optional, Union
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.affinity.multi_gpu import EntropicAffinityMultiGPU
 from torchdr.utils import cross_entropy_loss, sum_red
+from torchdr.distance import pairwise_distances_indexed
 
 
 class LargeVisMultiGPU(SampledNeighborEmbedding):
@@ -174,18 +175,15 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
         """
         chunk_start, chunk_size = self._get_chunk_info()
 
-        # Get this rank's chunk of the embedding
-        embedding_chunk = self.embedding_[chunk_start : chunk_start + chunk_size]
-
-        # NN_indices_ contains global indices of neighbors for this chunk
-        # Shape: NN_indices_ is [chunk_size, k], embedding_neighbors will be [chunk_size, k, n_components]
-        embedding_neighbors = self.embedding_[self.NN_indices_]
-
-        # Compute pairwise distances between chunk points and their neighbors
-        # embedding_chunk: [chunk_size, n_components] -> [chunk_size, 1, n_components]
-        # embedding_neighbors: [chunk_size, k, n_components]
-        distances_sq = torch.sum(
-            (embedding_chunk.unsqueeze(1) - embedding_neighbors) ** 2, dim=-1
+        # Use pairwise_distances_indexed for efficient computation
+        chunk_indices = torch.arange(
+            chunk_start, chunk_start + chunk_size, device=self.device
+        )
+        distances_sq = pairwise_distances_indexed(
+            self.embedding_,
+            query_indices=chunk_indices,
+            key_indices=self.NN_indices_,
+            metric="sqeuclidean",
         )
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
@@ -199,13 +197,15 @@ class LargeVisMultiGPU(SampledNeighborEmbedding):
         """
         chunk_start, chunk_size = self._get_chunk_info()
 
-        embedding_chunk = self.embedding_[chunk_start : chunk_start + chunk_size]
-
-        # Note: We can't use pairwise_distances with indices parameter here because
-        # neg_indices_ contains global indices, not indices relative to embedding_chunk
-        embedding_negatives = self.embedding_[self.neg_indices_]
-        distances_sq = torch.sum(
-            (embedding_chunk.unsqueeze(1) - embedding_negatives) ** 2, dim=-1
+        # Use pairwise_distances_indexed for efficient computation
+        chunk_indices = torch.arange(
+            chunk_start, chunk_start + chunk_size, device=self.device
+        )
+        distances_sq = pairwise_distances_indexed(
+            self.embedding_,
+            query_indices=chunk_indices,
+            key_indices=self.neg_indices_,
+            metric="sqeuclidean",
         )
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)

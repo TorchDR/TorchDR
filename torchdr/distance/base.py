@@ -21,10 +21,18 @@ def pairwise_distances(
     exclude_diag: bool = False,
     k: Optional[int] = None,
     return_indices: bool = False,
-    indices: Optional[torch.Tensor] = None,
     device: str = "auto",
 ):
     r"""Compute pairwise distances between two tensors.
+
+    This is the main distance computation function that supports multiple backends
+    for efficient computation. It can compute:
+    - Full pairwise distance matrices between X and Y (or X and itself)
+    - k-nearest neighbor distances when k is specified
+    - Distances with various metrics (euclidean, manhattan, angular, etc.)
+
+    For computing distances between specific indexed subsets, use
+    pairwise_distances_indexed instead.
 
     Parameters
     ----------
@@ -49,9 +57,6 @@ def pairwise_distances(
     return_indices : bool, optional
         Whether to return the indices of the k-nearest neighbors.
         Default is False.
-    indices : torch.Tensor of shape (n_samples, n_neighbors), optional
-        If provided, compute distances only for these specific pairs.
-        Cannot be used with Y or k parameters.
     device : str, default="auto"
         Device to use for computation. If "auto", keeps data on its current device.
         Otherwise, temporarily moves data to specified device for computation.
@@ -81,21 +86,6 @@ def pairwise_distances(
     >>> config = FaissConfig(use_float16=True, temp_memory=2.0)
     >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
     """
-    if indices is not None:
-        if Y is not None:
-            raise ValueError(
-                "[TorchDR] ERROR: Cannot provide both Y and indices parameters. "
-                "indices is for computing sparse distances within X."
-            )
-        if k is not None:
-            raise ValueError(
-                "[TorchDR] ERROR: Cannot provide both k and indices parameters. "
-                "indices means neighbors are already specified."
-            )
-        return symmetric_pairwise_distances_indices(
-            X, indices, metric=metric, return_indices=return_indices
-        )
-
     # Parse backend parameter
     if isinstance(backend, FaissConfig):
         backend_str = "faiss"
@@ -135,56 +125,155 @@ def pairwise_distances(
         return C
 
 
-def symmetric_pairwise_distances_indices(
+def pairwise_distances_indexed(
     X: torch.Tensor,
-    indices: torch.Tensor,
+    query_indices: Optional[torch.Tensor] = None,
+    key_indices: Optional[torch.Tensor] = None,
+    Y: Optional[torch.Tensor] = None,
     metric: str = "sqeuclidean",
-    return_indices: bool = False,
+    backend: Optional[Union[str, FaissConfig]] = None,
+    device: str = "auto",
 ):
-    r"""Compute pairwise distances for a subset of pairs given by indices.
+    r"""Compute pairwise distances between indexed subsets of tensors.
 
-    The output distance matrix has shape (n, k) and its (i,j) element is the
-    distance between X[i] and Y[indices[i, j]].
+    This function efficiently computes distances between specific subsets of points
+    selected by indices, rather than computing the full pairwise distance matrix.
+    It's particularly useful for:
+    - Computing distances to specific neighbors only (e.g., k-NN indices)
+    - Multi-GPU scenarios where each GPU processes a chunk of data
+    - Negative sampling where distances are needed only to sampled points
+
+    The function allows flexible indexing of both query points (from X) and
+    key points (from Y or X if Y is None).
 
     Parameters
     ----------
-    X : torch.Tensor of shape (n, p)
-        Input dataset.
-    indices : torch.Tensor of shape (n, k)
-        Indices of the pairs for which to compute the distances.
+    X : torch.Tensor of shape (n_samples, n_features)
+        Input data containing query points.
+    query_indices : torch.Tensor of shape (n_queries,) or (n_queries, k), optional
+        Indices of rows from X to use as queries.
+        - If 1D: selects rows X[query_indices] as queries
+        - If 2D: for each row i, uses X[query_indices[i, :]] as multiple queries
+        - If None: uses all rows of X as queries
+    key_indices : torch.Tensor of shape (n_keys,) or (n_queries, n_keys), optional
+        Indices of rows from Y (or X if Y is None) to use as keys.
+        - If 1D: selects rows as keys for all queries
+        - If 2D: for each query i, uses specific keys at key_indices[i, :]
+        - If None: uses all rows of Y (or X) as keys
+    Y : torch.Tensor of shape (m_samples, n_features), optional
+        Input data containing key points. If None, uses X for keys.
     metric : str, optional
-        Metric to use for computing distances. The default is "sqeuclidean".
-    return_indices : bool, optional
-        Whether to return the indices of the pairs for which to compute the distances.
-        Default is False.
+        Metric to use for distance computation. Default is "sqeuclidean".
+        Supported: "sqeuclidean", "euclidean", "manhattan", "angular", "sqhyperbolic"
+    backend : {'keops', 'faiss', None} or FaissConfig, optional
+        Backend to use for computation. Currently only None (torch) is supported
+        for indexed operations.
+    device : str, default="auto"
+        Device to use for computation.
 
     Returns
     -------
-    C_indices : torch.Tensor of shape (n, k)
-        Pairwise distances matrix for the subset of pairs.
-    indices : torch.Tensor of shape (n, k)
-        Indices of the pairs for which to compute the distances.
+    distances : torch.Tensor
+        Pairwise distances with shape determined by input indices:
+        - query_indices=None, key_indices=None: (n_samples, m_samples)
+        - query_indices=1D, key_indices=None: (n_queries, m_samples)
+        - query_indices=None, key_indices=1D: (n_samples, n_keys)
+        - query_indices=1D, key_indices=1D: (n_queries, n_keys)
+        - query_indices=2D, key_indices=2D: (n_queries, n_keys_per_query)
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torchdr.distance import pairwise_distances_indexed
+
+    >>> # Compute distances from chunk to negatives (multi-GPU use case)
+    >>> X = torch.randn(1000, 128)
+    >>> chunk_indices = torch.arange(100, 200)  # GPU's chunk
+    >>> neg_indices = torch.randint(0, 1000, (100, 5))  # Negative samples
+    >>> distances = pairwise_distances_indexed(
+    ...     X, query_indices=chunk_indices, key_indices=neg_indices
+    ... )
+    >>> distances.shape
+    torch.Size([100, 5])
     """
-    X_indices = X[indices.int()]  # Shape (n, k, p)
+    if Y is None:
+        Y = X
 
-    if metric == "sqeuclidean":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1)
-    elif metric == "euclidean":
-        C_indices = torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1).sqrt()
-    elif metric == "manhattan":
-        C_indices = torch.sum(torch.abs(X.unsqueeze(1) - X_indices), dim=-1)
-    elif metric == "angular":
-        C_indices = -torch.sum(X.unsqueeze(1) * X_indices, dim=-1)
-    elif metric == "sqhyperbolic":
-        X_indices_norm = (X_indices**2).sum(-1)
-        X_norm = (X**2).sum(-1)
-        C_indices = torch.relu(torch.sum((X.unsqueeze(1) - X_indices) ** 2, dim=-1))
-        denom = (1 - X_norm).unsqueeze(-1) * (1 - X_indices_norm)
-        C_indices = torch.arccosh(1 + 2 * (C_indices / denom) + 1e-8) ** 2
-    else:
-        raise NotImplementedError(f"Metric '{metric}' is not (yet) implemented.")
+    # Handle device placement
+    if device != "auto":
+        X = X.to(device)
+        Y = Y.to(device)
+        if query_indices is not None:
+            query_indices = query_indices.to(device)
+        if key_indices is not None:
+            key_indices = key_indices.to(device)
 
-    if return_indices:
-        return C_indices, indices
+    # Extract query points
+    if query_indices is None:
+        X_queries = X
+    elif query_indices.dim() == 1:
+        X_queries = X[query_indices]
+    else:  # 2D indices
+        raise NotImplementedError("2D query indices not yet supported")
+
+    # Extract key points
+    if key_indices is None:
+        Y_keys = Y
+    elif key_indices.dim() == 1:
+        Y_keys = Y[key_indices]
+    elif key_indices.dim() == 2:
+        # Each query has specific keys
+        if query_indices is not None and query_indices.dim() == 1:
+            # Ensure key_indices has same first dimension as number of queries
+            assert key_indices.shape[0] == len(query_indices), (
+                f"key_indices first dim {key_indices.shape[0]} must match number of queries {len(query_indices)}"
+            )
+        Y_keys = Y[key_indices]  # Shape: (n_queries, n_keys_per_query, n_features)
     else:
-        return C_indices
+        raise ValueError(f"key_indices must be 1D or 2D, got {key_indices.dim()}D")
+
+    # Compute distances based on shapes
+    if Y_keys.dim() == 2:
+        # Standard case: queries x keys
+        if metric == "sqeuclidean":
+            distances = torch.cdist(X_queries, Y_keys, p=2) ** 2
+        elif metric == "euclidean":
+            distances = torch.cdist(X_queries, Y_keys, p=2)
+        elif metric == "manhattan":
+            distances = torch.cdist(X_queries, Y_keys, p=1)
+        elif metric == "angular":
+            distances = -torch.mm(X_queries, Y_keys.t())
+        elif metric == "sqhyperbolic":
+            X_norm = (X_queries**2).sum(-1, keepdim=True)
+            Y_norm = (Y_keys**2).sum(-1, keepdim=True).t()
+            distances = torch.relu(torch.cdist(X_queries, Y_keys, p=2) ** 2)
+            denom = (1 - X_norm) * (1 - Y_norm)
+            distances = torch.arccosh(1 + 2 * (distances / denom) + 1e-8) ** 2
+        else:
+            raise NotImplementedError(
+                f"Metric '{metric}' not implemented for indexed distances"
+            )
+    else:  # Y_keys.dim() == 3
+        # Each query has specific keys
+        if metric == "sqeuclidean":
+            distances = torch.sum((X_queries.unsqueeze(1) - Y_keys) ** 2, dim=-1)
+        elif metric == "euclidean":
+            distances = torch.sum((X_queries.unsqueeze(1) - Y_keys) ** 2, dim=-1).sqrt()
+        elif metric == "manhattan":
+            distances = torch.sum(torch.abs(X_queries.unsqueeze(1) - Y_keys), dim=-1)
+        elif metric == "angular":
+            distances = -torch.sum(X_queries.unsqueeze(1) * Y_keys, dim=-1)
+        elif metric == "sqhyperbolic":
+            Y_keys_norm = (Y_keys**2).sum(-1)
+            X_norm = (X_queries**2).sum(-1, keepdim=True)
+            distances = torch.relu(
+                torch.sum((X_queries.unsqueeze(1) - Y_keys) ** 2, dim=-1)
+            )
+            denom = (1 - X_norm) * (1 - Y_keys_norm)
+            distances = torch.arccosh(1 + 2 * (distances / denom) + 1e-8) ** 2
+        else:
+            raise NotImplementedError(
+                f"Metric '{metric}' not implemented for indexed distances"
+            )
+
+    return distances
