@@ -437,14 +437,14 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            target_device = self._get_device(X)
+            target_device = self._get_compute_device(X)
             embedding_ = embedding_.to(device=target_device, dtype=X.dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_device(X),
+                device=self._get_compute_device(X),
                 dtype=X.dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -455,12 +455,15 @@ class AffinityMatcher(DRModule):
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
+            target_device = self._get_compute_device(X)
+            if embedding_.device != target_device:
+                embedding_ = embedding_.to(target_device)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_device(X),
+                device=self._get_compute_device(X),
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
             poincare_ball = PoincareBallManifold()

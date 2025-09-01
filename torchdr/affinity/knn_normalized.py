@@ -432,7 +432,7 @@ class UMAPAffinity(SparseAffinity):
 
         rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         log_n_neighbors = torch.log2(
             torch.tensor(n_neighbors, dtype=X.dtype, device=target_device)
         )
