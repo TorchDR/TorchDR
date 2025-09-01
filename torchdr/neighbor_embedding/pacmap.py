@@ -190,6 +190,7 @@ class PACMAP(SampledNeighborEmbedding):
         Q_near = 1 + pairwise_distances_indexed(
             self.embedding_,
             key_indices=self.NN_indices_,
+            backend=self.backend,
             metric="sqeuclidean",
         )
         Q_near = Q_near / (10 + Q_near)
@@ -220,6 +221,7 @@ class PACMAP(SampledNeighborEmbedding):
                 D_mid_near_candidates = pairwise_distances_indexed(
                     self.X_,
                     key_indices=mid_near_candidates_indices,
+                    backend=self.backend,
                     metric=self.metric,
                     device=self.device,
                 )
@@ -231,6 +233,7 @@ class PACMAP(SampledNeighborEmbedding):
             Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,
                 key_indices=self.mid_near_indices,
+                backend=self.backend,
                 metric="sqeuclidean",
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
@@ -243,6 +246,7 @@ class PACMAP(SampledNeighborEmbedding):
     def _compute_repulsive_loss(self):
         Q_further = 1 + pairwise_distances_indexed(
             self.embedding_,
+            backend=self.backend,
             key_indices=self.neg_indices_,
             metric="sqeuclidean",
         )
