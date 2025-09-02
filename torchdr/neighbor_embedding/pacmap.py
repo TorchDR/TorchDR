@@ -226,9 +226,7 @@ class PACMAP(SampledNeighborEmbedding):
                     device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                self.mid_near_indices[:, i] = idxs[
-                    :, 1
-                ]  # Retrieve the second closest point
+                self.mid_near_indices[:, i] = idxs[:, 1]
 
             Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,

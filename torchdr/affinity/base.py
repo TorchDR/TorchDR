@@ -304,6 +304,12 @@ class SparseAffinity(Affinity):
         Whether to compile the affinity matrix computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -318,9 +324,72 @@ class SparseAffinity(Affinity):
         verbose: bool = False,
         compile: bool = False,
         sparsity: bool = True,
+        distributed: Union[bool, str] = "auto",
         random_state: float = None,
         _pre_processed: bool = False,
     ):
+        # Auto-detect distributed mode
+        if distributed == "auto":
+            self.distributed = torch.distributed.is_initialized()
+        else:
+            self.distributed = distributed
+
+        # Validate and configure for distributed mode
+        if self.distributed:
+            if not torch.distributed.is_initialized():
+                raise RuntimeError(
+                    "[TorchDR] distributed=True requires launching with torchrun. "
+                    "Example: torchrun --nproc_per_node=4 your_script.py"
+                )
+
+            # Initialize distributed properties
+            self.rank = torch.distributed.get_rank()
+            self.world_size = torch.distributed.get_world_size()
+            self.is_multi_gpu = self.world_size > 1
+
+            # Force sparsity and faiss backend for distributed mode
+            self._sparsity_forced = not sparsity
+            if self._sparsity_forced:
+                sparsity = True
+
+            self._backend_forced = backend not in ["faiss", None] and not isinstance(
+                backend, FaissConfig
+            )
+            if self._backend_forced:
+                self._original_backend = backend
+                backend = "faiss"
+            elif backend is None:
+                backend = "faiss"
+
+            if device == "cpu":
+                raise ValueError(
+                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
+                )
+
+            # Prepare FAISS configuration for distributed mode
+            gpu_device = torch.cuda.current_device()
+            if isinstance(backend, FaissConfig):
+                # Copy all parameters from the user's config, but override device
+                self._distributed_faiss_config = FaissConfig(
+                    use_float16=backend.use_float16,
+                    temp_memory=backend.temp_memory,
+                    device=gpu_device,  # Override with current GPU
+                    index_type=backend.index_type,
+                    nprobe=backend.nprobe,
+                    nlist=backend.nlist,
+                )
+            else:
+                # Create default config for this GPU
+                self._distributed_faiss_config = FaissConfig(
+                    use_float16=False,  # Better precision for affinity computations
+                    temp_memory="auto",
+                    device=gpu_device,
+                )
+        else:
+            self.is_multi_gpu = False
+            self.rank = 0
+            self.world_size = 1
+
         super().__init__(
             metric=metric,
             zero_diag=zero_diag,
@@ -333,6 +402,21 @@ class SparseAffinity(Affinity):
         )
         self.sparsity = sparsity
 
+        # Log warnings after logger is initialized
+        if self.distributed and self.verbose:
+            if self._sparsity_forced:
+                self.logger.warning(
+                    "Distributed mode requires sparsity=True, enabling sparsity."
+                )
+            if self._backend_forced:
+                self.logger.warning(
+                    f"Distributed mode requires FAISS backend, switching from '{self._original_backend}' to 'faiss'."
+                )
+            if self.is_multi_gpu:
+                self.logger.info(
+                    f"Distributed mode enabled: rank {self.rank}/{self.world_size}"
+                )
+
     @property
     def sparsity(self):
         """Return the sparsity of the affinity matrix."""
@@ -342,6 +426,122 @@ class SparseAffinity(Affinity):
     def sparsity(self, value):
         """Set the sparsity of the affinity matrix."""
         self._sparsity = bool_arg(value)
+
+    def _compute_chunk_info(self, n_samples: int):
+        """Compute chunk boundaries for this rank in distributed mode.
+
+        Parameters
+        ----------
+        n_samples : int
+            Total number of samples in the dataset.
+        """
+        chunk_size = n_samples // self.world_size
+        remainder = n_samples % self.world_size
+
+        # First 'remainder' ranks get chunk_size + 1 samples
+        if self.rank < remainder:
+            self.chunk_start_ = self.rank * (chunk_size + 1)
+            self.chunk_end_ = self.chunk_start_ + chunk_size + 1
+        else:
+            self.chunk_start_ = self.rank * chunk_size + remainder
+            self.chunk_end_ = self.chunk_start_ + chunk_size
+
+        self.chunk_size_ = self.chunk_end_ - self.chunk_start_
+
+    def _distance_matrix(
+        self, X: torch.Tensor, k: int = None, return_indices: bool = False
+    ):
+        """Override to handle distributed computation transparently.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input data tensor.
+        k : int, optional
+            Number of nearest neighbors.
+        return_indices : bool, default=False
+            Whether to return indices along with distances.
+
+        Returns
+        -------
+        distances : torch.Tensor
+            Distance matrix.
+        indices : torch.Tensor, optional
+            Indices if return_indices=True.
+        """
+        # Use distributed computation if we're in multi-GPU mode
+        if self.distributed and self.is_multi_gpu:
+            if k is None:
+                raise ValueError(
+                    "[TorchDR] Distributed mode requires sparse computation with k-NN. "
+                    "k cannot be None in distributed mode."
+                )
+            return self._distributed_distance_matrix(X, k, return_indices)
+
+        # Fall back to standard computation
+        return super()._distance_matrix(X, k, return_indices)
+
+    def _distributed_distance_matrix(
+        self, X: torch.Tensor, k: int, return_indices: bool = False
+    ):
+        """Compute distances for this GPU's chunk of points.
+
+        Each GPU computes k-NN distances where:
+        - Database (keys): Full dataset X
+        - Queries: This GPU's assigned chunk of X
+
+        This way each GPU computes and stores only its rows of the affinity matrix.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Full input data tensor.
+        k : int
+            Number of nearest neighbors.
+        return_indices : bool, default=False
+            Whether to return indices along with distances.
+
+        Returns
+        -------
+        distances : torch.Tensor
+            Distance matrix for this GPU's chunk. Shape (chunk_size, k).
+        indices : torch.Tensor, optional
+            Indices of nearest neighbors if return_indices=True.
+        """
+        n_samples = X.shape[0]
+        self._compute_chunk_info(n_samples)
+        X_chunk = X[self.chunk_start_ : self.chunk_end_]
+
+        # Since X_chunk is a subset of X, we need to handle diagonal exclusion
+        k_search = k + 1 if self.zero_diag else k
+
+        # Compute k-NN: queries=chunk, database=full dataset
+        faiss_config = self._distributed_faiss_config
+        distances, indices = pairwise_distances(
+            X=X_chunk,
+            Y=X,  # Full dataset as database
+            k=k_search,
+            metric=self.metric,
+            backend=faiss_config,
+            exclude_diag=False,  # Can't use since X_chunk != X
+            return_indices=True,
+            device=self.device,
+        )
+
+        # Remove self-distances if needed
+        if self.zero_diag:
+            distances = distances[:, 1:]
+            indices = indices[:, 1:]
+
+        if self.verbose:
+            self.logger.info(
+                f"Rank {self.rank}: Computed distances for chunk [{self.chunk_start_}:{self.chunk_end_}] "
+                f"(shape: {distances.shape})"
+            )
+
+        if return_indices:
+            return distances, indices
+        return distances
 
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
@@ -422,6 +622,12 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
         Whether to compile the affinity matrix computation. Default is False.
     sparsity : bool or 'auto', optional
         Whether to compute the affinity matrix in a sparse format. Default is "auto".
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
