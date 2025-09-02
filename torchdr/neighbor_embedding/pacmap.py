@@ -81,6 +81,12 @@ class PACMAP(SampledNeighborEmbedding):
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -109,7 +115,11 @@ class PACMAP(SampledNeighborEmbedding):
         iter_per_phase: int = 100,
         discard_NNs: bool = True,
         compile: bool = False,
+        distributed: Union[bool, str] = False,
     ):
+        if distributed:
+            raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
+
         self.n_neighbors = n_neighbors
         self.metric = metric
 
@@ -148,6 +158,7 @@ class PACMAP(SampledNeighborEmbedding):
             n_negatives=self.n_further,
             discard_NNs=discard_NNs,
             compile=compile,
+            distributed=distributed,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):

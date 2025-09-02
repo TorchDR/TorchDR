@@ -8,6 +8,7 @@
 
 import numpy as np
 import torch
+import torch.distributed as dist
 
 from torchdr.affinity import (
     Affinity,
@@ -312,6 +313,10 @@ class AffinityMatcher(DRModule):
         else:
             loss = self._compute_loss()
             loss.backward()
+
+        # Optional gradient synchronization for distributed multi-GPU
+        if getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None:
+            dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()
         if self.scheduler_ is not None:

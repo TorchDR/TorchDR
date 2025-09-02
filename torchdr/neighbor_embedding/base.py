@@ -5,9 +5,11 @@
 # License: BSD 3-Clause License
 
 import warnings
+import os
 import numpy as np
 from typing import Any, Dict, Union, Optional, Type
 import torch
+import torch.distributed as dist
 
 from torchdr.affinity import (
     Affinity,
@@ -460,6 +462,11 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
     This is done by sampling a fixed number of negative samples
     :attr:`n_negatives` for each point.
 
+    **Multi-GPU training.** When launched with torchrun, this class supports
+    distributed multi-GPU training. Each rank processes its chunk of the input
+    affinity, the embedding is replicated across ranks, and gradients are
+    synchronized during optimization.
+
     Parameters
     ----------
     affinity_in : Affinity
@@ -521,6 +528,12 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         Whether to discard nearest neighbors from negative sampling. Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -551,10 +564,8 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
     ):
-        self.n_negatives = n_negatives
-        self.discard_NNs = discard_NNs
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -580,27 +591,77 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             compile=compile,
         )
 
-    def on_affinity_computation_end(self):
-        """Prepare for negative sampling by sampling samples' indices to exclude."""
-        super().on_affinity_computation_end()
-        device = getattr(self.NN_indices_, "device", "cpu")
-        self_idxs = torch.arange(self.n_samples_in_, device=device).unsqueeze(1)
+        self.n_negatives = n_negatives
+        self.discard_NNs = discard_NNs
 
+        if distributed == "auto":
+            self.distributed = dist.is_initialized()
+        else:
+            self.distributed = bool(distributed)
+
+        if self.distributed:
+            if not dist.is_initialized():
+                raise RuntimeError(
+                    "[TorchDR] distributed=True requires launching with torchrun. "
+                    "Example: torchrun --nproc_per_node=4 your_script.py"
+                )
+
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+            self.is_multi_gpu = self.world_size > 1
+
+            # Bind to local CUDA device
+            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            if torch.cuda.is_available():
+                torch.cuda.set_device(local_rank)
+            if self.device == "cpu":
+                raise ValueError(
+                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
+                )
+            self.device = torch.device(f"cuda:{local_rank}")
+        else:
+            self.rank = 0
+            self.world_size = 1
+            self.is_multi_gpu = False
+
+    def on_affinity_computation_end(self):
+        """Prepare for negative sampling by building per-row exclusion indices.
+
+        Unified logic for single- and multi-GPU using chunk bounds.
+        """
+        super().on_affinity_computation_end()
+
+        self.chunk_indices_ = self.get_chunk_indices()
+
+        # Build global self indices
+        global_self_idx = self.chunk_indices_.unsqueeze(1)
+        chunk_size = len(global_self_idx)
+
+        # Optionally include NN indices (rows aligned with local slice)
         if self.discard_NNs:
             if not hasattr(self, "NN_indices_"):
                 self.logger.warning(
                     "NN_indices_ not found. Cannot discard NNs from negative sampling."
                 )
-                exclude = self_idxs
+                exclude = global_self_idx
             else:
-                exclude = torch.cat([self_idxs, self.NN_indices_], dim=1)
+                nn_rows = self.NN_indices_
+                if nn_rows.shape[0] != chunk_size:
+                    raise ValueError(
+                        f"[TorchDR] ERROR: In distributed mode, expected NN_indices_ to have "
+                        f"{chunk_size} rows for chunk size, but got {nn_rows.shape[0]}."
+                    )
+                exclude = torch.cat([global_self_idx, nn_rows], dim=1)
         else:
-            exclude = self_idxs
-        exclude_sorted, _ = exclude.sort(dim=1)  # sort exclude so searchsorted works
+            exclude = global_self_idx
+
+        # Sort per-row exclusions for searchsorted
+        exclude_sorted, _ = exclude.sort(dim=1)
         self.register_buffer(
             "negative_exclusion_indices_", exclude_sorted, persistent=False
         )
 
+        # Safety check on number of available negatives
         n_possible = self.n_samples_in_ - self.negative_exclusion_indices_.shape[1]
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
@@ -609,34 +670,80 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             )
 
     def on_training_step_start(self):
-        """Sample negatives."""
+        """Sample negatives using a unified path for single- and multi-GPU."""
         super().on_training_step_start()
 
-        # Fast path for k=1 (only excluding self-indices)
-        if self.negative_exclusion_indices_.shape[1] == 1:
-            # Sample from [0, n-1) for each point
+        chunk_size = len(self.chunk_indices_)
+        device = self.embedding_.device
+
+        exclusion = self.negative_exclusion_indices_
+        excl_width = exclusion.shape[1]
+
+        # Only excluding self-indices
+        if excl_width == 1:
             negatives = torch.randint(
                 0,
                 self.n_samples_in_ - 1,
-                (self.n_samples_in_, self.n_negatives),
-                device=self.embedding_.device,
+                (chunk_size, self.n_negatives),
+                device=device,
             )
-            # Shift indices >= self_idx by 1 to skip self
-            self_idx = torch.arange(
-                self.n_samples_in_, device=self.embedding_.device
-            ).unsqueeze(1)
+            self_idx = self.chunk_indices_.unsqueeze(1)
             neg_indices = negatives + (negatives >= self_idx).long()
+
+        # Excluding self-indices and NNs indices (computed in on_affinity_computation_end)
         else:
-            # General case: use searchsorted for multiple exclusions
             negatives = torch.randint(
                 1,
-                self.n_samples_in_ - self.negative_exclusion_indices_.shape[1],
-                (self.n_samples_in_, self.n_negatives),
-                device=self.embedding_.device,
+                self.n_samples_in_ - excl_width,
+                (chunk_size, self.n_negatives),
+                device=device,
             )
-            shifts = torch.searchsorted(
-                self.negative_exclusion_indices_, negatives, right=True
-            )
+            shifts = torch.searchsorted(exclusion, negatives, right=True)
             neg_indices = negatives + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
+
+    def get_chunk_indices(self):
+        """Return chunk indices for current rank as a torch tensor.
+
+        Falls back to full dataset when not in distributed mode.
+
+        Returns
+        -------
+        indices : torch.Tensor
+            1D tensor of indices for this rank's chunk.
+        """
+        if hasattr(self.affinity_in, "chunk_start_"):
+            chunk_start = self.affinity_in.chunk_start_
+            chunk_size = self.affinity_in.chunk_size_
+        elif hasattr(self, "chunk_start_"):
+            chunk_start = self.chunk_start_
+            chunk_size = self.chunk_size_
+        else:
+            chunk_start = 0
+            chunk_size = self.n_samples_in_
+
+        return torch.arange(chunk_start, chunk_start + chunk_size, device=self.device)
+
+    def _init_embedding(self, X: torch.Tensor):
+        """Initialize embedding across ranks (broadcast from rank 0)."""
+        if self.world_size > 1:
+            if self.rank == 0:
+                super()._init_embedding(X)
+            else:
+                n = X.shape[0]
+                self.embedding_ = torch.empty(
+                    (n, self.n_components),
+                    device=self.device,
+                    dtype=X.dtype,
+                    requires_grad=True,
+                )
+
+            if not self.embedding_.is_contiguous():
+                self.embedding_ = self.embedding_.contiguous()
+
+            dist.broadcast(self.embedding_, src=0)
+            self.embedding_ = self.embedding_.detach().requires_grad_(True)
+            return self.embedding_
+        else:
+            return super()._init_embedding(X)
