@@ -22,6 +22,9 @@ from torchdr.distance import (
     FaissConfig,
 )
 
+import os
+import torch.distributed as dist
+
 
 class Affinity(nn.Module, ABC):
     r"""Base class for affinity matrices.
@@ -328,24 +331,31 @@ class SparseAffinity(Affinity):
         random_state: float = None,
         _pre_processed: bool = False,
     ):
-        # Auto-detect distributed mode
         if distributed == "auto":
-            self.distributed = torch.distributed.is_initialized()
+            self.distributed = dist.is_initialized()
         else:
-            self.distributed = distributed
+            self.distributed = bool(distributed)
 
-        # Validate and configure for distributed mode
         if self.distributed:
-            if not torch.distributed.is_initialized():
+            if not dist.is_initialized():
                 raise RuntimeError(
                     "[TorchDR] distributed=True requires launching with torchrun. "
                     "Example: torchrun --nproc_per_node=4 your_script.py"
                 )
 
-            # Initialize distributed properties
-            self.rank = torch.distributed.get_rank()
-            self.world_size = torch.distributed.get_world_size()
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
             self.is_multi_gpu = self.world_size > 1
+
+            # Bind to local CUDA device
+            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            if torch.cuda.is_available():
+                torch.cuda.set_device(local_rank)
+            if device == "cpu":
+                raise ValueError(
+                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
+                )
+            device = torch.device(f"cuda:{local_rank}")
 
             # Force sparsity and faiss backend for distributed mode
             self._sparsity_forced = not sparsity
@@ -361,19 +371,13 @@ class SparseAffinity(Affinity):
             elif backend is None:
                 backend = "faiss"
 
-            if device == "cpu":
-                raise ValueError(
-                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
-                )
-
             # Prepare FAISS configuration for distributed mode
-            gpu_device = torch.cuda.current_device()
             if isinstance(backend, FaissConfig):
                 # Copy all parameters from the user's config, but override device
                 self._distributed_faiss_config = FaissConfig(
                     use_float16=backend.use_float16,
                     temp_memory=backend.temp_memory,
-                    device=gpu_device,  # Override with current GPU
+                    device=local_rank,  # Override with current GPU
                     index_type=backend.index_type,
                     nprobe=backend.nprobe,
                     nlist=backend.nlist,
@@ -383,12 +387,12 @@ class SparseAffinity(Affinity):
                 self._distributed_faiss_config = FaissConfig(
                     use_float16=False,  # Better precision for affinity computations
                     temp_memory="auto",
-                    device=gpu_device,
+                    device=local_rank,
                 )
         else:
-            self.is_multi_gpu = False
             self.rank = 0
             self.world_size = 1
+            self.is_multi_gpu = False
 
         super().__init__(
             metric=metric,
@@ -402,7 +406,6 @@ class SparseAffinity(Affinity):
         )
         self.sparsity = sparsity
 
-        # Log warnings after logger is initialized
         if self.distributed and self.verbose:
             if self._sparsity_forced:
                 self.logger.warning(
