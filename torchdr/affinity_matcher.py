@@ -8,6 +8,7 @@
 
 import numpy as np
 import torch
+import torch.distributed as dist
 
 from torchdr.affinity import (
     Affinity,
@@ -307,11 +308,24 @@ class AffinityMatcher(DRModule):
         if getattr(self, "_use_direct_gradients", False):
             gradients = self._compute_gradients()
             if gradients is not None:
-                self.embedding_.grad = gradients
+                if getattr(self, "world_size", 1) > 1:  # multi-GPU
+                    gathered = [
+                        torch.zeros_like(gradients)
+                        for _ in range(dist.get_world_size())
+                    ]
+                    dist.all_gather(gathered, gradients)
+                    full_gradients = torch.cat(gathered, dim=0)
+                    self.embedding_.grad = full_gradients
+                else:
+                    self.embedding_.grad = gradients
             loss = None
         else:
             loss = self._compute_loss()
             loss.backward()
+            if (
+                getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None
+            ):  # multi-GPU
+                dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()
         if self.scheduler_ is not None:
