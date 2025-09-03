@@ -22,7 +22,7 @@ from torchdr.utils import (
     binary_search,
     compile_if_requested,
 )
-from torchdr.utils.sparse import sym_sparse_op
+from torchdr.utils.sparse import symmetrize_sparse, distributed_symmetrize_sparse
 from torchdr.distance import pairwise_distances
 
 
@@ -396,6 +396,7 @@ class UMAPAffinity(SparseAffinity):
     ):
         self.n_neighbors = n_neighbors
         self.max_iter = max_iter
+        self.symmetrize = symmetrize
 
         super().__init__(
             metric=metric,
@@ -408,17 +409,6 @@ class UMAPAffinity(SparseAffinity):
             distributed=distributed,
             _pre_processed=_pre_processed,
         )
-
-        # Warn if symmetrization was requested in multi-GPU mode
-        if symmetrize and self.is_multi_gpu:
-            if self.verbose:
-                self.logger.warning(
-                    "Symmetrization not supported in multi-GPU mode. "
-                    "Setting symmetrize=False. Use single-GPU mode if symmetrization is required."
-                )
-            symmetrize = False
-
-        self.symmetrize = symmetrize
 
     @compile_if_requested
     def _compute_sparse_affinity(
@@ -475,10 +465,23 @@ class UMAPAffinity(SparseAffinity):
 
         # symmetrize if requested : P = P + P^T - P * P^T
         if self.symmetrize:
+            self.logger.info("Symmetrizing affinity matrix...")
             if self.sparsity:
-                affinity_matrix, indices = sym_sparse_op(
-                    affinity_matrix, indices, mode="sum_minus_prod"
-                )
+                if self.is_multi_gpu:
+                    # Use distributed symmetrization for multi-GPU
+                    affinity_matrix, indices = distributed_symmetrize_sparse(
+                        values=affinity_matrix,
+                        indices=indices,
+                        chunk_start=self.chunk_start_,
+                        chunk_size=self.chunk_size_,
+                        n_total=X.shape[0],
+                        mode="sum_minus_prod",
+                    )
+                else:
+                    # Use local symmetrization for single GPU
+                    affinity_matrix, indices = symmetrize_sparse(
+                        affinity_matrix, indices, mode="sum_minus_prod"
+                    )
             else:
                 affinity_matrix = (
                     affinity_matrix
