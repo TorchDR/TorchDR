@@ -1,4 +1,5 @@
 import torch
+import torch.distributed as dist
 from typing import Tuple, Literal
 
 
@@ -107,23 +108,30 @@ def pack_to_rowwise(
     indices_out : torch.LongTensor
         Padded indices tensor of shape (n, k_out), with -1 for unused slots.
     """
+    # Handle empty case
+    if i_out.numel() == 0:
+        return torch.zeros((n, 0), dtype=v_out.dtype, device=v_out.device), torch.zeros(
+            (n, 0), dtype=torch.long, device=v_out.device
+        )
+
     counts = torch.bincount(i_out, minlength=n)
-    max_k_out = counts.max()
+    max_k_out = counts.max().item()
+
+    if max_k_out == 0:
+        return torch.zeros((n, 0), dtype=v_out.dtype, device=v_out.device), torch.zeros(
+            (n, 0), dtype=torch.long, device=v_out.device
+        )
 
     values_out = torch.zeros((n, max_k_out), dtype=v_out.dtype, device=v_out.device)
     indices_out = torch.full((n, max_k_out), -1, dtype=torch.long, device=v_out.device)
 
-    M_all = i_out.numel()
-    pos = torch.arange(M_all, device=v_out.device)
+    # More efficient slot computation using cumsum
+    row_offsets = torch.zeros(n + 1, dtype=torch.long, device=v_out.device)
+    row_offsets[1:] = counts.cumsum(0)
 
-    is_new = torch.cat(
-        [torch.tensor([True], device=v_out.device), i_out[1:] != i_out[:-1]]
-    )
-    row_starts = torch.nonzero(is_new, as_tuple=False).flatten()
-
-    grp = torch.searchsorted(row_starts, pos, right=True) - 1
-    slot = pos - row_starts[grp]
-    flat_pos = i_out * max_k_out + slot
+    # Compute slots within each row directly
+    slots = torch.arange(i_out.numel(), device=v_out.device) - row_offsets[i_out]
+    flat_pos = i_out * max_k_out + slots
 
     values_out.view(-1).scatter_(0, flat_pos, v_out)
     indices_out.view(-1).scatter_(0, flat_pos, j_out)
@@ -131,7 +139,34 @@ def pack_to_rowwise(
     return values_out, indices_out
 
 
-def sym_sparse_op(
+def _combine_P_PT(
+    vP: torch.Tensor, vPT: torch.Tensor, mode: Literal["sum", "sum_minus_prod"]
+) -> torch.Tensor:
+    """Combine P and P^T values based on mode.
+
+    Parameters
+    ----------
+    vP : torch.Tensor
+        Values from P matrix.
+    vPT : torch.Tensor
+        Values from P^T matrix.
+    mode : {"sum", "sum_minus_prod"}
+        Combination mode.
+
+    Returns
+    -------
+    v_combined : torch.Tensor
+        Combined values.
+    """
+    if mode == "sum":
+        return vP + vPT
+    elif mode == "sum_minus_prod":
+        return vP + vPT - vP * vPT
+    else:
+        raise ValueError(f"Unsupported mode {mode!r}")
+
+
+def symmetrize_sparse(
     values: torch.Tensor,
     indices: torch.LongTensor,
     mode: Literal["sum", "sum_minus_prod"] = "sum_minus_prod",
@@ -163,13 +198,145 @@ def sym_sparse_op(
     # 2) merge P and Pᵀ entries
     i_out, j_out, vP, vPT = merge_symmetry(i, j, v, n)
 
-    # 3) compute final values inline
-    if mode == "sum":
-        v_out = vP + vPT
-    elif mode == "sum_minus_prod":
-        v_out = vP + vPT - vP * vPT
-    else:
-        raise ValueError(f"Unsupported mode {mode!r}")
+    # 3) compute final values using shared helper
+    v_out = _combine_P_PT(vP, vPT, mode)
 
     # 4) pack back to padded row-wise format
     return pack_to_rowwise(i_out, j_out, v_out, n)
+
+
+def distributed_symmetrize_sparse(
+    values: torch.Tensor,
+    indices: torch.LongTensor,
+    chunk_start: int,
+    chunk_size: int,
+    n_total: int,
+    mode: Literal["sum", "sum_minus_prod"] = "sum_minus_prod",
+) -> Tuple[torch.Tensor, torch.LongTensor]:
+    """Symmetrize sparse affinity matrix in distributed multi-GPU setting.
+
+    Each GPU owns a chunk of rows and exchanges edges with other GPUs
+    to properly symmetrize the affinity matrix based on the specified mode.
+
+    Parameters
+    ----------
+    values : torch.Tensor
+        Affinity values of shape (chunk_size, k).
+    indices : torch.LongTensor
+        Column indices of shape (chunk_size, k).
+    chunk_start : int
+        Starting row index for this GPU's chunk.
+    chunk_size : int
+        Number of rows in this chunk.
+    n_total : int
+        Total number of rows/columns in the full matrix.
+    mode : {"sum", "sum_minus_prod"}
+        How to combine P and P^T:
+        - "sum": compute Q = P + P^T
+        - "sum_minus_prod": compute Q = P + P^T - P∘P^T (default)
+
+    Returns
+    -------
+    values_sym : torch.Tensor
+        Symmetrized affinity values.
+    indices_sym : torch.LongTensor
+        Column indices of symmetrized affinities.
+    """
+    if not dist.is_initialized():
+        raise RuntimeError(
+            "distributed_symmetrize requires torch.distributed to be initialized"
+        )
+
+    world_size = dist.get_world_size()
+    device = values.device
+
+    # Step 1: Flatten local edges to (i, j, v) format
+    i, j, v = flatten_sparse(values, indices)
+    i = i + chunk_start  # Convert to global indices
+
+    # Step 2: Sort edges by target rank for efficient packing
+    target_ranks = j // chunk_size
+    target_ranks = torch.clamp(target_ranks, 0, world_size - 1)
+
+    # Sort by target rank for contiguous memory access
+    sorted_idx = torch.argsort(target_ranks)
+    i_sorted = i[sorted_idx]
+    j_sorted = j[sorted_idx]
+    v_sorted = v[sorted_idx]
+    target_sorted = target_ranks[sorted_idx]
+
+    # Step 3: Vectorized packing of edges for each rank
+    send_tensors = [
+        torch.empty((3, 0), device=device, dtype=torch.float32)
+        for _ in range(world_size)
+    ]
+
+    if target_sorted.numel() > 0:
+        # Find boundaries for each rank's edges
+        unique_targets, counts = torch.unique_consecutive(
+            target_sorted, return_counts=True
+        )
+        offsets = torch.cat([torch.tensor([0], device=device), counts.cumsum(0)])
+
+        # Pack edges for each rank that has data
+        for idx, r in enumerate(unique_targets.tolist()):
+            start = offsets[idx].item()
+            end = offsets[idx + 1].item()
+            if end > start and r < world_size:
+                send_tensors[r] = torch.stack(
+                    [
+                        i_sorted[start:end].float(),
+                        j_sorted[start:end].float(),
+                        v_sorted[start:end],
+                    ],
+                    dim=0,
+                ).contiguous()
+
+    # Step 4: Exchange sizes first to allocate correct receive buffers
+    send_sizes = torch.tensor(
+        [s.shape[1] for s in send_tensors], device=device, dtype=torch.long
+    )
+    recv_sizes = torch.zeros(world_size, device=device, dtype=torch.long)
+    dist.all_to_all_single(recv_sizes, send_sizes)
+
+    # Step 5: Allocate receive buffers with correct sizes
+    recv_tensors = []
+    for r in range(world_size):
+        size = recv_sizes[r].item()
+        recv_tensors.append(torch.zeros((3, size), device=device, dtype=torch.float32))
+
+    # Step 6: All-to-all exchange with properly sized buffers
+    dist.all_to_all(recv_tensors, send_tensors)
+
+    # Step 7: Unpack received edges (these are edges where we own the transpose)
+    if any(t.shape[1] > 0 for t in recv_tensors):
+        recv_all = torch.cat([t for t in recv_tensors if t.shape[1] > 0], dim=1)
+        recv_i = recv_all[0].long()
+        recv_j = recv_all[1].long()
+        recv_v = recv_all[2]
+
+        # Combine with local edges for symmetrization
+        # Local edges: (i, j) with values v
+        # Received edges need to be transposed: (j, i) becomes part of our P^T
+        all_i = torch.cat([i, recv_j])
+        all_j = torch.cat([j, recv_i])
+        all_v = torch.cat([v, recv_v])
+    else:
+        all_i = i
+        all_j = j
+        all_v = v
+
+    # Step 8: Apply merge_symmetry to handle duplicates
+    i_sym, j_sym, vP, vPT = merge_symmetry(all_i, all_j, all_v, n_total)
+
+    # Step 9: Combine P and P^T using shared helper
+    v_sym = _combine_P_PT(vP, vPT, mode)
+
+    # Step 10: Filter to keep only edges in our chunk
+    mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
+    i_local = i_sym[mask] - chunk_start
+    j_local = j_sym[mask]
+    v_local = v_sym[mask]
+
+    # Step 11: Pack to row-wise format
+    return pack_to_rowwise(i_local, j_local, v_local, chunk_size)
