@@ -631,9 +631,21 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         """
         super().on_affinity_computation_end()
 
-        self.chunk_indices_ = self.get_chunk_indices()
+        if hasattr(self.affinity_in, "chunk_start_"):
+            chunk_start = self.affinity_in.chunk_start_
+            chunk_size = self.affinity_in.chunk_size_
+        else:
+            if self.is_multi_gpu:
+                raise ValueError(
+                    "[TorchDR] ERROR : when using SampledNeighborEmbedding, affinity_in "
+                    "must have chunk_start_ and chunk_size_ attributes when distributed mode is True."
+                )
+            chunk_start = 0
+            chunk_size = self.n_samples_in_
 
-        # Build global self indices
+        self.chunk_indices_ = torch.arange(
+            chunk_start, chunk_start + chunk_size, device=self.device
+        )
         global_self_idx = self.chunk_indices_.unsqueeze(1)
         chunk_size = len(global_self_idx)
 
@@ -702,28 +714,6 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
             neg_indices = negatives + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
-
-    def get_chunk_indices(self):
-        """Return chunk indices for current rank as a torch tensor.
-
-        Falls back to full dataset when not in distributed mode.
-
-        Returns
-        -------
-        indices : torch.Tensor
-            1D tensor of indices for this rank's chunk.
-        """
-        if hasattr(self.affinity_in, "chunk_start_"):
-            chunk_start = self.affinity_in.chunk_start_
-            chunk_size = self.affinity_in.chunk_size_
-        elif hasattr(self, "chunk_start_"):
-            chunk_start = self.chunk_start_
-            chunk_size = self.chunk_size_
-        else:
-            chunk_start = 0
-            chunk_size = self.n_samples_in_
-
-        return torch.arange(chunk_start, chunk_start + chunk_size, device=self.device)
 
     def _init_embedding(self, X: torch.Tensor):
         """Initialize embedding across ranks (broadcast from rank 0)."""
