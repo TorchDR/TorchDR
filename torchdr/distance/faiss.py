@@ -187,7 +187,6 @@ def pairwise_distances_faiss(
         Y_np = Y.detach().cpu().numpy().astype(np.float32)
         do_exclude = False
 
-    # Create base flat index (used directly or as quantizer for IVF)
     if metric == "angular":
         flat_index = faiss.IndexFlatIP(d)
         metric_type = faiss.METRIC_INNER_PRODUCT
@@ -197,17 +196,12 @@ def pairwise_distances_faiss(
     else:
         raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
 
-    # Use flat index directly or create IVF index with it as quantizer
     if config.index_type == "Flat":
         index = flat_index
     elif config.index_type == "IVF":
-        # Auto-adjust nlist if needed (rule of thumb: sqrt(n) to 4*sqrt(n))
         n_vectors = len(Y_np)
         if config.nlist == 100 and n_vectors > 10000:
-            # Auto-calculate optimal nlist
-            config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40)
-
-        # Create IVF index using flat index as quantizer
+            config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
         index = faiss.IndexIVFFlat(flat_index, d, config.nlist, metric_type)
         index.nprobe = config.nprobe
     else:
@@ -216,16 +210,13 @@ def pairwise_distances_faiss(
             "Supported types are 'Flat' and 'IVF'."
         )
 
-    # Track if we need training (for IVF)
     needs_training = config.index_type == "IVF"
 
-    # Determine computation device
     if device == "auto":
         compute_device = X.device
     else:
         compute_device = torch.device(device)
 
-    # Use GPU FAISS if requested and available
     if compute_device.type == "cuda":
         if hasattr(faiss, "StandardGpuResources"):
             index = _setup_gpu_index(index, config, d, needs_training)
@@ -235,14 +226,10 @@ def pairwise_distances_faiss(
                 "This may be slow. For faster performance, install `faiss-gpu`."
             )
 
-    # Train IVF index if needed (must be done before adding vectors)
     if needs_training and not index.is_trained:
-        # Use all available data for training (or subsample if too large)
         train_data = Y_np
         max_train_points = 256 * config.nlist
         if len(Y_np) > max_train_points:
-            # Subsample for training if dataset is very large
-            # Training on 256 * nlist vectors is usually sufficient
             sample_indices = np.random.choice(
                 len(Y_np), max_train_points, replace=False
             )
@@ -292,7 +279,6 @@ def _setup_gpu_index(index, config: FaissConfig, d: int, needs_training: bool = 
     gpu_index : faiss.GpuIndex
         Configured GPU index.
     """
-    # With torchrun, each process handles exactly one GPU
     device_id = config.device if isinstance(config.device, int) else config.device[0]
 
     if device_id not in config.gpu_resources:
@@ -306,7 +292,6 @@ def _setup_gpu_index(index, config: FaissConfig, d: int, needs_training: bool = 
     else:
         res = config.gpu_resources[device_id]
 
-    # Handle Flat indexes (direct GPU conversion)
     if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
         flat_config = faiss.GpuIndexFlatConfig()
         flat_config.useFloat16 = config.use_float16
@@ -317,25 +302,17 @@ def _setup_gpu_index(index, config: FaissConfig, d: int, needs_training: bool = 
         else:
             gpu_index = faiss.GpuIndexFlatIP(res, d, flat_config)
 
-    # Handle IVF indexes
     elif hasattr(index, "quantizer") and hasattr(index, "nprobe"):
-        # IVF indexes need special handling for GPU
         if hasattr(faiss, "GpuIndexIVFFlat"):
-            # Create GPU IVF config
             ivf_config = faiss.GpuIndexIVFFlatConfig()
             ivf_config.useFloat16 = config.use_float16
             ivf_config.device = device_id
 
-            # Convert to GPU IVF index
             gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
-            # Preserve nprobe setting
             if hasattr(gpu_index, "nprobe"):
                 gpu_index.nprobe = index.nprobe
         else:
-            # Fallback to generic conversion
             gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
-
-    # Generic fallback for other index types
     else:
         gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
 
