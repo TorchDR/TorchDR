@@ -178,7 +178,7 @@ def pairwise_distances_faiss(
 
     dtype = X.dtype
     X_np = X.detach().cpu().numpy().astype(np.float32)
-    n, d = X_np.shape
+    _, d = X_np.shape
 
     if Y is None or Y is X:
         Y_np = X_np
@@ -219,7 +219,7 @@ def pairwise_distances_faiss(
 
     if compute_device.type == "cuda":
         if hasattr(faiss, "StandardGpuResources"):
-            index = _setup_gpu_index(index, config, d, needs_training)
+            index = _setup_gpu_index(index, config, d)
         else:
             warnings.warn(
                 "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
@@ -260,7 +260,7 @@ def pairwise_distances_faiss(
     return distances, indices
 
 
-def _setup_gpu_index(index, config: FaissConfig, d: int, needs_training: bool = False):
+def _setup_gpu_index(index, config: FaissConfig, d: int):
     """Set up GPU index with configuration options.
 
     Parameters
@@ -271,8 +271,6 @@ def _setup_gpu_index(index, config: FaissConfig, d: int, needs_training: bool = 
         Configuration object with GPU settings.
     d : int
         Dimension of the vectors.
-    needs_training : bool, optional
-        Whether the index requires training (for IVF indexes).
 
     Returns
     -------
