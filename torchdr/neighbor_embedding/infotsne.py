@@ -10,7 +10,7 @@ import torch
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from torchdr.utils import logsumexp_red, cross_entropy_loss
-from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
 class InfoTSNE(SampledNeighborEmbedding):
@@ -26,6 +26,11 @@ class InfoTSNE(SampledNeighborEmbedding):
         -\sum_{ij} P_{ij} \log Q_{ij} + \sum_i \log \Big( \sum_{j \in \mathrm{Neg}(i)} Q_{ij} \Big)
 
     where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
+
+    Note
+    ----
+    This implementation supports multi-GPU training when launched with ``torchrun``.
+    Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
 
     Parameters
     ----------
@@ -90,6 +95,12 @@ class InfoTSNE(SampledNeighborEmbedding):
     compile : bool, optional
         Whether to compile the loss function with `torch.compile` for faster
         computation. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -120,6 +131,7 @@ class InfoTSNE(SampledNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
     ):
         self.metric = metric
         self.perplexity = perplexity
@@ -134,6 +146,7 @@ class InfoTSNE(SampledNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            distributed=distributed,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -158,24 +171,25 @@ class InfoTSNE(SampledNeighborEmbedding):
             check_interval=check_interval,
             discard_NNs=discard_NNs,
             compile=compile,
+            distributed=distributed,
         )
 
     def _compute_attractive_loss(self):
-        distances_sq = pairwise_distances(
+        distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
+            key_indices=self.NN_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.NN_indices_,
         )
         log_Q = -(1 + distances_sq).log()
         return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
 
     def _compute_repulsive_loss(self):
-        distances_sq = pairwise_distances(
+        distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
+            key_indices=self.neg_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.neg_indices_,
         )
         log_Q = -(1 + distances_sq).log()
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_

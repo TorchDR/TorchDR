@@ -10,7 +10,7 @@ import numpy as np
 
 from torchdr.affinity import UMAPAffinity
 from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
-from torchdr.distance import pairwise_distances, FaissConfig
+from torchdr.distance import pairwise_distances_indexed, FaissConfig
 
 from scipy.optimize import curve_fit
 
@@ -48,6 +48,11 @@ class UMAP(SampledNeighborEmbedding):
         -\sum_{ij} P_{ij} \log Q_{ij} + \sum_{i,j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})
 
     where :math:`\mathrm{Neg}(i)` is the set of negatives samples for point :math:`i`.
+
+    Note
+    ----
+    This implementation supports multi-GPU training when launched with ``torchrun``.
+    Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
 
     Parameters
     ----------
@@ -112,6 +117,12 @@ class UMAP(SampledNeighborEmbedding):
         Default is False.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -143,6 +154,7 @@ class UMAP(SampledNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         self.n_neighbors = n_neighbors
@@ -172,6 +184,7 @@ class UMAP(SampledNeighborEmbedding):
             verbose=verbose,
             sparsity=self.sparsity,
             compile=compile,
+            distributed=distributed,
         )
 
         super().__init__(
@@ -194,6 +207,7 @@ class UMAP(SampledNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             n_negatives=self.n_negatives,
+            distributed=distributed,
             **kwargs,
         )
 
@@ -219,11 +233,11 @@ class UMAP(SampledNeighborEmbedding):
         )
 
     def _compute_attractive_gradients(self):
-        D = pairwise_distances(
+        D = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
+            key_indices=self.NN_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.NN_indices_,
         )
         positive_edges = D > 0
         D_ = 1 + self._a * D**self._b
@@ -240,17 +254,20 @@ class UMAP(SampledNeighborEmbedding):
         ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
-        diff = self.embedding_.unsqueeze(1) - self.embedding_[self.NN_indices_]
+        diff = (
+            self.embedding_[self.chunk_indices_].unsqueeze(1)
+            - self.embedding_[self.NN_indices_]
+        )
         grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad
 
     def _compute_repulsive_gradients(self):
-        D = pairwise_distances(
+        D = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
+            key_indices=self.neg_indices_,
             metric="sqeuclidean",
-            backend=self.backend,
-            indices=self.neg_indices_,
         )
         D_ = 1 + self._a * D**self._b
         D.add_(self._eps)
@@ -265,7 +282,10 @@ class UMAP(SampledNeighborEmbedding):
         filtered_edges = col_idx[None, :].ge(neg_counts[:, None])
         D.masked_fill_(filtered_edges, 0)
 
-        diff = self.embedding_.unsqueeze(1) - self.embedding_[self.neg_indices_]
+        diff = (
+            self.embedding_[self.chunk_indices_].unsqueeze(1)
+            - self.embedding_[self.neg_indices_]
+        )
         grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad

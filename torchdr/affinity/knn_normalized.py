@@ -22,7 +22,7 @@ from torchdr.utils import (
     binary_search,
     compile_if_requested,
 )
-from torchdr.utils.sparse import sym_sparse_op
+from torchdr.utils.sparse import symmetrize_sparse, distributed_symmetrize_sparse
 from torchdr.distance import pairwise_distances
 
 
@@ -368,6 +368,12 @@ class UMAPAffinity(SparseAffinity):
         Whether to compile the computation. Default is False.
     symmetrize : bool, optional
         Whether to symmetrize the affinity matrix. Default is True.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -385,6 +391,7 @@ class UMAPAffinity(SparseAffinity):
         verbose: bool = False,
         compile: bool = False,
         symmetrize: bool = True,
+        distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -399,6 +406,7 @@ class UMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=sparsity,
             compile=compile,
+            distributed=distributed,
             _pre_processed=_pre_processed,
         )
 
@@ -432,7 +440,7 @@ class UMAPAffinity(SparseAffinity):
 
         rho = kmin(C_, k=1, dim=1)[0].squeeze().contiguous()
 
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         log_n_neighbors = torch.log2(
             torch.tensor(n_neighbors, dtype=X.dtype, device=target_device)
         )
@@ -457,10 +465,23 @@ class UMAPAffinity(SparseAffinity):
 
         # symmetrize if requested : P = P + P^T - P * P^T
         if self.symmetrize:
+            self.logger.info("Symmetrizing affinity matrix...")
             if self.sparsity:
-                affinity_matrix, indices = sym_sparse_op(
-                    affinity_matrix, indices, mode="sum_minus_prod"
-                )
+                if self.is_multi_gpu:
+                    # Use distributed symmetrization for multi-GPU
+                    affinity_matrix, indices = distributed_symmetrize_sparse(
+                        values=affinity_matrix,
+                        indices=indices,
+                        chunk_start=self.chunk_start_,
+                        chunk_size=self.chunk_size_,
+                        n_total=X.shape[0],
+                        mode="sum_minus_prod",
+                    )
+                else:
+                    # Use local symmetrization for single GPU
+                    affinity_matrix, indices = symmetrize_sparse(
+                        affinity_matrix, indices, mode="sum_minus_prod"
+                    )
             else:
                 affinity_matrix = (
                     affinity_matrix
@@ -498,6 +519,12 @@ class PACMAPAffinity(SparseAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the computation. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -512,9 +539,17 @@ class PACMAPAffinity(SparseAffinity):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = False,
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
+
+        # TODO: Fix multi-GPU support for PACMAPAffinity
+        # The current implementation has issues with index handling in distributed mode
+        if distributed:
+            raise ValueError(
+                "[TorchDR] ERROR : PACMAPAffinity does not support distributed."
+            )
 
         super().__init__(
             metric=metric,
@@ -524,6 +559,7 @@ class PACMAPAffinity(SparseAffinity):
             verbose=verbose,
             sparsity=True,  # PACMAP uses sparsity mode
             compile=compile,
+            distributed=distributed,
             _pre_processed=_pre_processed,
         )
 

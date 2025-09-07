@@ -69,7 +69,7 @@ class PCA(DRModule):
             Projected data.
         """
         original_device = X.device
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         if target_device != X.device:
             X_compute = X.to(target_device)
         else:

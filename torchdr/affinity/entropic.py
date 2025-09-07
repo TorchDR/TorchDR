@@ -187,6 +187,12 @@ class EntropicAffinity(SparseLogAffinity):
         Verbosity. Default is False.
     compile: bool, optional
         If True, use torch compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     _pre_processed: bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
@@ -203,6 +209,7 @@ class EntropicAffinity(SparseLogAffinity):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
     ):
         self.perplexity = perplexity
@@ -216,6 +223,7 @@ class EntropicAffinity(SparseLogAffinity):
             verbose=verbose,
             sparsity=sparsity,
             compile=compile,
+            distributed=distributed,
             _pre_processed=_pre_processed,
         )
 
@@ -242,7 +250,7 @@ class EntropicAffinity(SparseLogAffinity):
             Indices of the nearest neighbors if sparsity is used.
         """
         n_samples_in = X.shape[0]
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         n_samples_tensor = torch.tensor(
             n_samples_in, dtype=X.dtype, device=target_device
         )
@@ -268,10 +276,15 @@ class EntropicAffinity(SparseLogAffinity):
             log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
             return entropy(log_P_normalized, log=True) - target_entropy
 
-        begin, end = _bounds_entropic_affinity(
-            C_, perplexity, device=target_device, dtype=X.dtype
-        )
-        begin = begin + 1e-6  # avoid numerical issues
+        # Bounds are only valid for single-GPU mode
+        if self.is_multi_gpu:
+            begin = None
+            end = None
+        else:
+            begin, end = _bounds_entropic_affinity(
+                C_, perplexity, device=target_device, dtype=X.dtype
+            )
+            begin = begin + 1e-6  # avoid numerical issues
 
         eps = binary_search(
             f=entropy_gap,
@@ -440,7 +453,7 @@ class SymmetricEntropicAffinity(LogAffinity):
         C = self._distance_matrix(X)
 
         n_samples_in = X.shape[0]
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = (
             torch.log(torch.tensor(perplexity, dtype=X.dtype, device=target_device)) + 1
@@ -700,7 +713,7 @@ class SinkhornAffinity(LogAffinity):
         n_samples_in = C.shape[0]
         log_K = -C / self.eps
 
-        target_device = self._get_device(X)
+        target_device = self._get_compute_device(X)
         # Performs warm-start if a dual variable f is provided
         dual = (
             torch.zeros(n_samples_in, dtype=X.dtype, device=target_device)

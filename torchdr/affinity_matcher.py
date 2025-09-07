@@ -8,6 +8,7 @@
 
 import numpy as np
 import torch
+import torch.distributed as dist
 
 from torchdr.affinity import (
     Affinity,
@@ -307,11 +308,24 @@ class AffinityMatcher(DRModule):
         if getattr(self, "_use_direct_gradients", False):
             gradients = self._compute_gradients()
             if gradients is not None:
-                self.embedding_.grad = gradients
+                if getattr(self, "world_size", 1) > 1:  # multi-GPU
+                    gathered = [
+                        torch.zeros_like(gradients)
+                        for _ in range(dist.get_world_size())
+                    ]
+                    dist.all_gather(gathered, gradients)
+                    full_gradients = torch.cat(gathered, dim=0)
+                    self.embedding_.grad = full_gradients
+                else:
+                    self.embedding_.grad = gradients
             loss = None
         else:
             loss = self._compute_loss()
             loss.backward()
+            if (
+                getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None
+            ):  # multi-GPU
+                dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()
         if self.scheduler_ is not None:
@@ -437,14 +451,14 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            target_device = self._get_device(X)
+            target_device = self._get_compute_device(X)
             embedding_ = embedding_.to(device=target_device, dtype=X.dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_device(X),
+                device=self._get_compute_device(X),
                 dtype=X.dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -455,12 +469,15 @@ class AffinityMatcher(DRModule):
             embedding_ = PCA(
                 n_components=self.n_components, device=self.device
             ).fit_transform(X)
+            target_device = self._get_compute_device(X)
+            if embedding_.device != target_device:
+                embedding_ = embedding_.to(target_device)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_device(X),
+                device=self._get_compute_device(X),
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
             poincare_ball = PoincareBallManifold()

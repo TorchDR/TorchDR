@@ -9,7 +9,7 @@ from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
 from torchdr.utils import kmin, sum_red
-from torchdr.distance import pairwise_distances, FaissConfig
+from torchdr.distance import pairwise_distances_indexed, FaissConfig
 
 
 class PACMAP(SampledNeighborEmbedding):
@@ -81,6 +81,12 @@ class PACMAP(SampledNeighborEmbedding):
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -109,7 +115,11 @@ class PACMAP(SampledNeighborEmbedding):
         iter_per_phase: int = 100,
         discard_NNs: bool = True,
         compile: bool = False,
+        distributed: Union[bool, str] = False,
     ):
+        if distributed:
+            raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
+
         self.n_neighbors = n_neighbors
         self.metric = metric
 
@@ -148,18 +158,20 @@ class PACMAP(SampledNeighborEmbedding):
             n_negatives=self.n_further,
             discard_NNs=discard_NNs,
             compile=compile,
+            distributed=distributed,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
         # Keep input data to compute mid-near loss
-        self.register_buffer("X_", X, persistent=False)
+        target_device = self._get_compute_device(X)
+        X_on_device = X.to(target_device) if target_device != X.device else X
+        self.register_buffer("X_", X_on_device, persistent=False)
         self._set_weights()
-        target_device = self._get_device(X)
         self_idxs = torch.arange(self.X_.shape[0], device=target_device).unsqueeze(1)
         self.register_buffer("self_idxs", self_idxs, persistent=False)
 
         mid_near_indices = torch.empty(
-            self.X_.shape[0], self.n_mid_near, device=target_device
+            self.X_.shape[0], self.n_mid_near, device=target_device, dtype=torch.long
         )
         self.register_buffer("mid_near_indices", mid_near_indices, persistent=False)
         return super()._fit_transform(X, y)
@@ -186,11 +198,11 @@ class PACMAP(SampledNeighborEmbedding):
 
     def _compute_attractive_loss(self):
         # Attractive loss with nearest neighbors
-        Q_near = 1 + pairwise_distances(
+        Q_near = 1 + pairwise_distances_indexed(
             self.embedding_,
-            metric="sqeuclidean",
+            key_indices=self.NN_indices_,
             backend=self.backend,
-            indices=self.NN_indices_,
+            metric="sqeuclidean",
         )
         Q_near = Q_near / (10 + Q_near)
         near_loss = self.w_NB * sum_red(Q_near, dim=(0, 1))
@@ -217,22 +229,21 @@ class PACMAP(SampledNeighborEmbedding):
                     self.self_idxs, mid_near_candidates_indices, right=True
                 )
                 mid_near_candidates_indices.add_(shifts)
-                D_mid_near_candidates = pairwise_distances(
+                D_mid_near_candidates = pairwise_distances_indexed(
                     self.X_,
-                    metric=self.metric,
+                    key_indices=mid_near_candidates_indices,
                     backend=self.backend,
-                    indices=mid_near_candidates_indices,
+                    metric=self.metric,
+                    device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                self.mid_near_indices[:, i] = idxs[
-                    :, 1
-                ]  # Retrieve the second closest point
+                self.mid_near_indices[:, i] = idxs[:, 1]
 
-            Q_mid_near = 1 + pairwise_distances(
+            Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,
-                metric="sqeuclidean",
+                key_indices=self.mid_near_indices,
                 backend=self.backend,
-                indices=self.mid_near_indices,
+                metric="sqeuclidean",
             )
             Q_mid_near = Q_mid_near / (1e4 + Q_mid_near)
             mid_near_loss = self.w_MN * sum_red(Q_mid_near, dim=(0, 1))
@@ -242,11 +253,11 @@ class PACMAP(SampledNeighborEmbedding):
         return near_loss + mid_near_loss
 
     def _compute_repulsive_loss(self):
-        Q_further = 1 + pairwise_distances(
+        Q_further = 1 + pairwise_distances_indexed(
             self.embedding_,
-            metric="sqeuclidean",
             backend=self.backend,
-            indices=self.neg_indices_,
+            key_indices=self.neg_indices_,
+            metric="sqeuclidean",
         )
         Q_further = 1 / (1 + Q_further)
         return self.w_FP * sum_red(Q_further, dim=(0, 1))
