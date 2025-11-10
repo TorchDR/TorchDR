@@ -52,8 +52,10 @@ dynamic = ["version"]
 [tool.setuptools]
 packages = ["torchdr"]
 
-[tool.setuptools.dynamic]
-version = {attr = "torchdr.__about__.__version__"}
+[tool.setuptools_scm]
+version_file = "torchdr/_version.py"
+version_file_template = "__version__ = \"{version}\"\n"
+tag_regex = "^v?(?P<version>\\d+\\.\\d+(\\.\\d+)?)$"
 
 [project.urls]
 homepage = "https://torchdr.github.io/"

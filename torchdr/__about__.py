@@ -2,6 +2,10 @@
 #
 # License: BSD 3-Clause License
 
+try:
+    from torchdr._version import __version__
+except ImportError:
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "__title__",
@@ -14,7 +18,6 @@ __all__ = [
 
 __title__ = "torchdr"
 __summary__ = "Dimensionality Reduction Library using PyTorch"
-__version__ = "0.3"
 __author__ = "Hugues Van Assel"
 __license__ = "BSD-3-Clause-Clear"
 __url__ = "https://torchdr.github.io/"
