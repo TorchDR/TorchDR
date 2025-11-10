@@ -9,7 +9,7 @@ import torch
 import numpy as np
 
 from torchdr.affinity import UMAPAffinity
-from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
+from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from torchdr.distance import pairwise_distances_indexed, FaissConfig
 
 from scipy.optimize import curve_fit
@@ -36,7 +36,7 @@ def find_ab_params(spread, min_dist):
     return params[0].item(), params[1].item()
 
 
-class UMAP(SampledNeighborEmbedding):
+class UMAP(NegativeSamplingNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
     It uses a :class:`~torchdr.UMAPAffinity` as input affinity :math:`\mathbf{P}`.

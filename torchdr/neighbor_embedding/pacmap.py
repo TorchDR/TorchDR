@@ -5,14 +5,14 @@
 # License: BSD 3-Clause License
 
 import torch
-from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
+from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from typing import Union, Optional, Dict, Type, Any
 from torchdr.affinity import PACMAPAffinity
 from torchdr.utils import kmin, sum_red
 from torchdr.distance import pairwise_distances_indexed, FaissConfig
 
 
-class PACMAP(SampledNeighborEmbedding):
+class PACMAP(NegativeSamplingNeighborEmbedding):
     r"""PACMAP algorithm introduced in :cite:`wang2021understanding`.
 
     It uses a :class:`~torchdr.PACMAPAffinity` as input affinity.

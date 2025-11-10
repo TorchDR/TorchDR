@@ -8,12 +8,12 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
+from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from torchdr.utils import cross_entropy_loss, sum_red
 from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
-class LargeVis(SampledNeighborEmbedding):
+class LargeVis(NegativeSamplingNeighborEmbedding):
     r"""LargeVis algorithm introduced in :cite:`tang2016visualizing`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`

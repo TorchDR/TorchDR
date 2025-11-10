@@ -88,7 +88,7 @@ Neighbor embedding base modules inherit from the :class:`torchdr.AffinityMatcher
 class.
 :class:`torchdr.SparseNeighborEmbedding` relies on the sparsity of the
 input affinity to compute the attractive term in linear time.
-:class:`torchdr.SampledNeighborEmbedding` inherits from this class and adds the possibility to
+:class:`torchdr.NegativeSamplingNeighborEmbedding` inherits from this class and adds the possibility to
 approximate the repulsive term of the loss via negative samples.
 
 .. autosummary::
@@ -97,7 +97,7 @@ approximate the repulsive term of the loss via negative samples.
 
    NeighborEmbedding
    SparseNeighborEmbedding
-   SampledNeighborEmbedding
+   NegativeSamplingNeighborEmbedding
 
 
 Affinity Classes
