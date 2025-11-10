@@ -259,6 +259,11 @@ class AffinityMatcher(DRModule):
         self._configure_optimizer()
         self._configure_scheduler()
 
+        # Free input data - no longer needed after initialization
+        del X
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         grad_norm = float("nan")
         for step in range(self.max_iter):
             self.n_iter_.fill_(step)
