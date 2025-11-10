@@ -1163,3 +1163,63 @@ class TestToTorch:
         X = torch.tensor([1.0, float("inf")])
         with pytest.raises(ValueError, match="infinite values"):
             validate_tensor(X)
+
+
+# ====== test FAISS installation detection ======
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_faiss_check_installation_success():
+    """Test that _check_faiss_installation detects working FAISS correctly."""
+    from torchdr.utils.faiss import _check_faiss_installation
+
+    faiss_module, error_msg = _check_faiss_installation()
+
+    # Should return the faiss module
+    assert faiss_module is not None
+    assert error_msg is None
+
+    # Should have essential attributes
+    assert hasattr(faiss_module, "IndexFlatL2")
+    assert hasattr(faiss_module, "IndexFlatIP")
+
+    # Should be able to create an index
+    index = faiss_module.IndexFlatL2(10)
+    assert index is not None
+
+
+def test_faiss_check_installation_mock_broken():
+    """Test that _check_faiss_installation detects broken FAISS imports."""
+    import sys
+    from unittest import mock
+
+    # Mock a broken faiss that imports as bool (like faiss==1.12.0 from pip)
+    with mock.patch.dict(sys.modules, {"faiss": True}):
+        from torchdr.utils.faiss import _check_faiss_installation
+
+        faiss_module, error_msg = _check_faiss_installation()
+
+        # Should detect the broken import
+        assert faiss_module is None
+        assert error_msg is not None
+        assert "wrong type" in error_msg.lower()
+
+
+def test_faiss_check_installation_mock_incomplete():
+    """Test that _check_faiss_installation detects incomplete FAISS."""
+    import sys
+    from unittest import mock
+    from types import ModuleType
+
+    # Create a mock module without IndexFlatL2
+    mock_faiss = ModuleType("faiss")
+
+    with mock.patch.dict(sys.modules, {"faiss": mock_faiss}):
+        from torchdr.utils.faiss import _check_faiss_installation
+
+        faiss_module, error_msg = _check_faiss_installation()
+
+        # Should detect the incomplete installation
+        assert faiss_module is None
+        assert error_msg is not None
+        assert "incomplete" in error_msg.lower() or "missing" in error_msg.lower()
