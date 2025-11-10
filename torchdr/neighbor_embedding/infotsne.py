@@ -8,12 +8,12 @@ from typing import Dict, Union, Optional, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SampledNeighborEmbedding
+from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
-class InfoTSNE(SampledNeighborEmbedding):
+class InfoTSNE(NegativeSamplingNeighborEmbedding):
     r"""InfoTSNE algorithm introduced in :cite:`damrich2022t`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`

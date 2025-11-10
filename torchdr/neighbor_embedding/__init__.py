@@ -3,7 +3,11 @@
 # License: BSD 3-Clause License
 
 
-from .base import NeighborEmbedding, SampledNeighborEmbedding, SparseNeighborEmbedding
+from .base import (
+    NeighborEmbedding,
+    NegativeSamplingNeighborEmbedding,
+    SparseNeighborEmbedding,
+)
 from .largevis import LargeVis
 from .infotsne import InfoTSNE
 from .sne import SNE
@@ -16,7 +20,7 @@ from .pacmap import PACMAP
 __all__ = [
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
-    "SampledNeighborEmbedding",
+    "NegativeSamplingNeighborEmbedding",
     "SNE",
     "TSNE",
     "COSNE",

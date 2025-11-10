@@ -440,7 +440,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         )
 
 
-class SampledNeighborEmbedding(SparseNeighborEmbedding):
+class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
     r"""Solves the neighbor embedding problem with both sparsity and sampling.
 
     It amounts to solving:
@@ -637,7 +637,7 @@ class SampledNeighborEmbedding(SparseNeighborEmbedding):
         else:
             if self.is_multi_gpu:
                 raise ValueError(
-                    "[TorchDR] ERROR : when using SampledNeighborEmbedding, affinity_in "
+                    "[TorchDR] ERROR : when using NegativeSamplingNeighborEmbedding, affinity_in "
                     "must have chunk_start_ and chunk_size_ attributes when distributed mode is True."
                 )
             chunk_start = 0
