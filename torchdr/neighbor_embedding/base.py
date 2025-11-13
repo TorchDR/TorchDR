@@ -631,16 +631,16 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         """
         super().on_affinity_computation_end()
 
-        # Get chunk bounds from affinity's distributed context
-        if (
-            hasattr(self.affinity_in, "dist_ctx")
-            and self.affinity_in.dist_ctx is not None
-        ):
-            chunk_start, chunk_end = self.affinity_in.dist_ctx.compute_chunk_bounds(
-                self.n_samples_in_
-            )
-            chunk_size = chunk_end - chunk_start
+        # Get chunk bounds from affinity (stored during _distance_matrix call)
+        if hasattr(self.affinity_in, "chunk_start_"):
+            chunk_start = self.affinity_in.chunk_start_
+            chunk_size = self.affinity_in.chunk_size_
         else:
+            if self.world_size > 1:
+                raise ValueError(
+                    "[TorchDR] ERROR: Distributed mode is enabled but affinity_in does not "
+                    "have chunk bounds. Make sure affinity_in has distributed=True."
+                )
             chunk_start = 0
             chunk_size = self.n_samples_in_
 

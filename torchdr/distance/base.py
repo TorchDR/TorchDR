@@ -106,6 +106,11 @@ def pairwise_distances(
                 "[TorchDR] Distributed mode requires sparse computation with k-NN. "
                 "k cannot be None when distributed_ctx is provided."
             )
+        if Y is not None:
+            raise ValueError(
+                "[TorchDR] Distributed mode does not support cross-distance computation. "
+                "Y must be None when distributed_ctx is provided."
+            )
 
         # Force FAISS backend for distributed mode
         if isinstance(backend, FaissConfig):

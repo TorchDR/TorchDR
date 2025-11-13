@@ -62,9 +62,10 @@ class DistributedContext:
     """
 
     def __init__(self, force_enable: bool = False):
-        self.is_initialized = torch.distributed.is_initialized() or force_enable
+        dist_initialized = torch.distributed.is_initialized()
+        self.is_initialized = dist_initialized or force_enable
 
-        if self.is_initialized:
+        if dist_initialized:
             self.rank = torch.distributed.get_rank()
             self.world_size = torch.distributed.get_world_size()
             self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
