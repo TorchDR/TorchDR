@@ -45,7 +45,7 @@ class Affinity(nn.Module, ABC):
         - "faiss": Use FAISS for fast k-NN computations with default settings
         - None: Use standard PyTorch operations
         - FaissConfig object: Use FAISS with custom configuration
-          (e.g., FaissConfig(use_float16=True, temp_memory=2.0))
+          (e.g., FaissConfig(temp_memory=2.0))
         Default is None.
     verbose : bool, optional
         Verbosity. Default is False.
@@ -375,20 +375,16 @@ class SparseAffinity(Affinity):
             if isinstance(backend, FaissConfig):
                 # Copy all parameters from the user's config, but override device
                 self._distributed_faiss_config = FaissConfig(
-                    use_float16=backend.use_float16,
                     temp_memory=backend.temp_memory,
                     device=local_rank,  # Override with current GPU
                     index_type=backend.index_type,
                     nprobe=backend.nprobe,
                     nlist=backend.nlist,
+                    **backend.faiss_kwargs,
                 )
             else:
                 # Create default config for this GPU
-                self._distributed_faiss_config = FaissConfig(
-                    use_float16=False,  # Better precision for affinity computations
-                    temp_memory="auto",
-                    device=local_rank,
-                )
+                self._distributed_faiss_config = FaissConfig(device=local_rank)
         else:
             self.rank = 0
             self.world_size = 1

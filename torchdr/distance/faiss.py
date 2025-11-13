@@ -8,26 +8,20 @@ import torch
 import numpy as np
 import warnings
 from typing import Union, Optional, Dict, Any
-from dataclasses import dataclass, field
 
 from torchdr.utils.faiss import faiss
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 
-@dataclass
 class FaissConfig:
     """Configuration for FAISS k-NN computation.
 
     Parameters
     ----------
-    use_float16 : bool, default=False
-        Use float16 precision for GPU storage and computation. Reduces memory
-        usage by ~50% and often improves performance on modern GPUs
-        (compute capability 3.5+). Only applies to GPU mode.
     temp_memory : Union[str, float], default='auto'
         GPU temporary memory allocation in GB.
-        - 'auto': Use FAISS default (~18% of GPU memory)
+        - 'auto': Use FAISS default temporary memory pool (typically a fixed size)
         - float/int: Explicit size in GB (e.g., 2.0 for 2GB)
         - 0: Disable pre-allocation (use cudaMalloc on demand)
         Only applies to GPU mode.
@@ -45,6 +39,10 @@ class FaissConfig:
         Number of clusters for IVF indexes. Typical values range from
         sqrt(n) to 4*sqrt(n) where n is the dataset size.
         Only used with index_type='IVF'.
+    **kwargs
+        Additional FAISS configuration options to pass to the underlying FAISS
+        index config objects (e.g., for advanced memory management).
+        Use at your own risk - some options may degrade result quality.
 
     Attributes
     ----------
@@ -53,36 +51,56 @@ class FaissConfig:
 
     Examples
     --------
-    >>> # Basic float16 configuration for memory efficiency
-    >>> config = FaissConfig(use_float16=True)
+    >>> # Basic configuration
+    >>> config = FaissConfig()
 
     >>> # GPU configuration with specific device
-    >>> config = FaissConfig(device=1, use_float16=True)
+    >>> config = FaissConfig(device=1)
 
     >>> # Custom memory allocation for large batch operations
-    >>> config = FaissConfig(temp_memory=4.0, use_float16=True)  # 4GB temp memory
+    >>> config = FaissConfig(temp_memory=4.0)  # 4GB temp memory
 
     >>> # Memory-constrained environment
-    >>> config = FaissConfig(temp_memory=0.5, use_float16=True)  # 512MB only
+    >>> config = FaissConfig(temp_memory=0.5)  # 512MB only
 
     >>> # IVF approximate search for large datasets
-    >>> config = FaissConfig(index_type="IVF", nlist=1000, nprobe=10)  # Fast approximate search
+    >>> config = FaissConfig(index_type="IVF", nlist=1000, nprobe=10)
 
     Notes
     -----
-    - Float16 is recommended for datasets > 1M vectors or when GPU memory is limited
     - Increasing temp_memory helps with large batch operations but reduces memory
       available for data storage
     - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
     """
 
-    use_float16: bool = False
-    temp_memory: Union[str, float] = "auto"
-    device: int = 0
-    index_type: str = "Flat"
-    nprobe: int = 1
-    nlist: int = 100
-    gpu_resources: Dict[int, Any] = field(default_factory=dict, init=False, repr=False)
+    def __init__(
+        self,
+        temp_memory: Union[str, float] = "auto",
+        device: int = 0,
+        index_type: str = "Flat",
+        nprobe: int = 1,
+        nlist: int = 100,
+        **kwargs,
+    ):
+        self.temp_memory = temp_memory
+        self.device = device
+        self.index_type = index_type
+        self.nprobe = nprobe
+        self.nlist = nlist
+        self.faiss_kwargs = kwargs
+        self.gpu_resources: Dict[int, Any] = {}
+
+    def __repr__(self):
+        parts = [
+            f"temp_memory={self.temp_memory!r}",
+            f"device={self.device}",
+            f"index_type={self.index_type!r}",
+            f"nprobe={self.nprobe}",
+            f"nlist={self.nlist}",
+        ]
+        if self.faiss_kwargs:
+            parts.append(f"**{self.faiss_kwargs}")
+        return f"FaissConfig({', '.join(parts)})"
 
 
 @torch.compiler.disable
@@ -146,12 +164,8 @@ def pairwise_distances_faiss(
     >>> X = torch.randn(1000, 128).cuda()
     >>> distances, indices = pairwise_distances_faiss(X, k=10)
 
-    >>> # Use float16 for memory efficiency
-    >>> config = FaissConfig(use_float16=True)
-    >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
-
     >>> # GPU configuration with specific device
-    >>> config = FaissConfig(device=1, use_float16=True)
+    >>> config = FaissConfig(device=1)
     >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
 
     >>> # Custom memory allocation for large batches
@@ -159,7 +173,7 @@ def pairwise_distances_faiss(
     >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
 
     >>> # IVF approximate search for large datasets (100M vectors)
-    >>> config = FaissConfig(index_type="IVF", nprobe=10, use_float16=False)
+    >>> config = FaissConfig(index_type="IVF", nprobe=10)
     >>> distances, indices = pairwise_distances_faiss(X, k=10, config=config)
     """
     if metric not in LIST_METRICS_FAISS:
@@ -292,8 +306,12 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
 
     if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
         flat_config = faiss.GpuIndexFlatConfig()
-        flat_config.useFloat16 = config.use_float16
         flat_config.device = device_id
+
+        # Apply any additional kwargs
+        for key, value in config.faiss_kwargs.items():
+            if hasattr(flat_config, key):
+                setattr(flat_config, key, value)
 
         if isinstance(index, faiss.IndexFlatL2):
             gpu_index = faiss.GpuIndexFlatL2(res, d, flat_config)
@@ -303,8 +321,12 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
     elif hasattr(index, "quantizer") and hasattr(index, "nprobe"):
         if hasattr(faiss, "GpuIndexIVFFlat"):
             ivf_config = faiss.GpuIndexIVFFlatConfig()
-            ivf_config.useFloat16 = config.use_float16
             ivf_config.device = device_id
+
+            # Apply any additional kwargs
+            for key, value in config.faiss_kwargs.items():
+                if hasattr(ivf_config, key):
+                    setattr(ivf_config, key, value)
 
             gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
             if hasattr(gpu_index, "nprobe"):
