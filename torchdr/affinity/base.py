@@ -283,6 +283,20 @@ class SparseAffinity(Affinity):
     with the corresponding indices.
     Otherwise, returns the full affinity matrix and None.
 
+    **Distributed Training:** This class supports multi-GPU distributed training
+    via the ``distributed`` parameter. When enabled (using ``torchrun``), each GPU
+    processes one chunk of the dataset in parallel:
+
+    - The full dataset (n_samples) is partitioned across GPUs by rows
+    - Each GPU computes k-NN affinities for its assigned chunk against the full dataset
+    - GPU i handles rows [chunk_start_i, chunk_end_i) where chunks are balanced across GPUs
+    - All GPUs maintain the full dataset in memory but only compute distances for their chunk
+    - Distributed mode requires ``sparsity=True`` and ``backend="faiss"``
+
+    Example: With 2 GPUs and 10,000 samples, GPU 0 computes rows 0-5,000 and
+    GPU 1 computes rows 5,000-10,000. Launch with:
+    ``torchrun --nproc_per_node=2 script.py``
+
     Parameters
     ----------
     metric : str, optional
