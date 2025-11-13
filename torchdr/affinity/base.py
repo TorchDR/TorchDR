@@ -367,6 +367,7 @@ class SparseAffinity(Affinity):
             )
             if self._backend_forced:
                 self._original_backend = backend
+                backend = "faiss"  # Override backend for distributed mode
         else:
             self.dist_ctx = None
             self.rank = 0
