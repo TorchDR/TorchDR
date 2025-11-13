@@ -6,9 +6,7 @@
 
 import os
 import torch
-from typing import Optional, Tuple
-
-from torchdr.distance import FaissConfig
+from typing import Tuple
 
 
 class DistributedContext:
@@ -116,9 +114,7 @@ class DistributedContext:
 
         return chunk_start, chunk_end
 
-    def get_faiss_config(
-        self, base_config: Optional[FaissConfig] = None
-    ) -> FaissConfig:
+    def get_faiss_config(self, base_config=None):
         """Create FaissConfig for this rank's GPU device.
 
         If a base_config is provided, copies all settings but overrides
@@ -145,6 +141,9 @@ class DistributedContext:
         >>> user_config = FaissConfig(temp_memory=2.0, index_type="IVF")
         >>> config = dist_ctx.get_faiss_config(user_config)
         """
+        # Import here to avoid circular dependency
+        from torchdr.distance import FaissConfig
+
         if base_config is None:
             return FaissConfig(device=self.local_rank)
         else:
