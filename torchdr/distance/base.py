@@ -7,10 +7,10 @@
 import torch
 from typing import Optional, Union
 
-
 from .torch import pairwise_distances_torch
 from .keops import pairwise_distances_keops
 from .faiss import pairwise_distances_faiss, FaissConfig
+from torchdr.utils import DistributedContext
 
 
 def pairwise_distances(
@@ -22,6 +22,7 @@ def pairwise_distances(
     k: Optional[int] = None,
     return_indices: bool = False,
     device: str = "auto",
+    distributed_ctx: Optional[DistributedContext] = None,
 ):
     r"""Compute pairwise distances between two tensors.
 
@@ -61,6 +62,13 @@ def pairwise_distances(
         Device to use for computation. If "auto", keeps data on its current device.
         Otherwise, temporarily moves data to specified device for computation.
         Output remains on the computation device. Used with backend=None (torch) and backend="keops".
+    distributed_ctx : DistributedContext, optional
+        Distributed computation context for multi-GPU scenarios. When provided:
+        - Each GPU computes distances for its assigned chunk of rows
+        - Requires k to be specified (sparse computation)
+        - Forces backend to "faiss" if not already set
+        - Results remain distributed (no gathering across GPUs)
+        Default is None (single GPU computation).
 
     Returns
     -------
@@ -81,8 +89,71 @@ def pairwise_distances(
     >>> # Using FaissConfig with custom settings
     >>> config = FaissConfig(temp_memory=2.0)
     >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
+
+    >>> # Distributed computation (after torch.distributed.init_process_group)
+    >>> from torchdr.utils import DistributedContext
+    >>> dist_ctx = DistributedContext()
+    >>> # Each GPU computes its chunk of rows
+    >>> distances, indices = pairwise_distances(
+    ...     X, k=10, distributed_ctx=dist_ctx, return_indices=True
+    ... )
+    >>> # distances.shape[0] will be approximately len(X) / world_size
     """
-    # Parse backend parameter
+    # Handle distributed computation
+    if distributed_ctx is not None and distributed_ctx.is_initialized:
+        if k is None:
+            raise ValueError(
+                "[TorchDR] Distributed mode requires sparse computation with k-NN. "
+                "k cannot be None when distributed_ctx is provided."
+            )
+        if Y is not None:
+            raise ValueError(
+                "[TorchDR] Distributed mode does not support cross-distance computation. "
+                "Y must be None when distributed_ctx is provided."
+            )
+
+        # Force FAISS backend for distributed mode
+        if isinstance(backend, FaissConfig):
+            config = distributed_ctx.get_faiss_config(backend)
+        elif backend == "faiss":
+            config = distributed_ctx.get_faiss_config()
+        elif backend is None:
+            config = distributed_ctx.get_faiss_config()
+        else:
+            # User specified keops or other backend - override with FAISS
+            config = distributed_ctx.get_faiss_config()
+
+        # Compute chunk bounds for this rank
+        n_samples = X.shape[0]
+        chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
+        X_chunk = X[chunk_start:chunk_end]
+
+        # Compute k-NN: queries=chunk, database=full dataset
+        # Note: exclude_diag doesn't work since X_chunk is a subset of X
+        # We handle self-neighbors by searching for k+1 if needed
+        k_search = k + 1 if exclude_diag else k
+
+        C, indices = pairwise_distances_faiss(
+            X=X_chunk,
+            Y=X,  # Full dataset as database
+            metric=metric,
+            k=k_search,
+            exclude_diag=False,  # Can't use since X_chunk != X
+            config=config,
+            device=device,
+        )
+
+        # Remove self-distances if needed
+        if exclude_diag:
+            C = C[:, 1:]
+            indices = indices[:, 1:]
+
+        if return_indices:
+            return C, indices
+        else:
+            return C
+
+    # Parse backend parameter for non-distributed case
     if isinstance(backend, FaissConfig):
         backend_str = "faiss"
         config = backend

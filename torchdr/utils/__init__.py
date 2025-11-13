@@ -59,6 +59,7 @@ from .manifold import (
 )
 from .radam import RiemannianAdam
 from .visu import plot_disk, plot_poincare_disk
+from .distributed import DistributedContext
 
 __all__ = [
     "seed_everything",
@@ -112,4 +113,5 @@ __all__ = [
     "plot_disk",
     "plot_poincare_disk",
     "compile_if_requested",
+    "DistributedContext",
 ]
