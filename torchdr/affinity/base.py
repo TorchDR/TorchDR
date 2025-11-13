@@ -15,6 +15,7 @@ from torchdr.utils import (
     to_torch,
     bool_arg,
     set_logger,
+    DistributedContext,
 )
 
 from torchdr.distance import (
@@ -22,7 +23,6 @@ from torchdr.distance import (
     FaissConfig,
 )
 
-import os
 import torch.distributed as dist
 
 
@@ -343,49 +343,32 @@ class SparseAffinity(Affinity):
                     "Example: torchrun --nproc_per_node=4 your_script.py"
                 )
 
-            self.rank = dist.get_rank()
-            self.world_size = dist.get_world_size()
+            # Create distributed context
+            self.dist_ctx = DistributedContext()
+            self.rank = self.dist_ctx.rank
+            self.world_size = self.dist_ctx.world_size
             self.is_multi_gpu = self.world_size > 1
 
             # Bind to local CUDA device
-            local_rank = int(os.environ.get("LOCAL_RANK", 0))
-            if torch.cuda.is_available():
-                torch.cuda.set_device(local_rank)
             if device == "cpu":
                 raise ValueError(
                     "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
                 )
-            device = torch.device(f"cuda:{local_rank}")
+            device = torch.device(f"cuda:{self.dist_ctx.local_rank}")
 
-            # Force sparsity and faiss backend for distributed mode
+            # Force sparsity for distributed mode
             self._sparsity_forced = not sparsity
             if self._sparsity_forced:
                 sparsity = True
 
+            # Track if backend was forced (for warning messages)
             self._backend_forced = backend not in ["faiss", None] and not isinstance(
                 backend, FaissConfig
             )
             if self._backend_forced:
                 self._original_backend = backend
-                backend = "faiss"
-            elif backend is None:
-                backend = "faiss"
-
-            # Prepare FAISS configuration for distributed mode
-            if isinstance(backend, FaissConfig):
-                # Copy all parameters from the user's config, but override device
-                self._distributed_faiss_config = FaissConfig(
-                    temp_memory=backend.temp_memory,
-                    device=local_rank,  # Override with current GPU
-                    index_type=backend.index_type,
-                    nprobe=backend.nprobe,
-                    nlist=backend.nlist,
-                    **backend.faiss_kwargs,
-                )
-            else:
-                # Create default config for this GPU
-                self._distributed_faiss_config = FaissConfig(device=local_rank)
         else:
+            self.dist_ctx = None
             self.rank = 0
             self.world_size = 1
             self.is_multi_gpu = False
@@ -426,31 +409,10 @@ class SparseAffinity(Affinity):
         """Set the sparsity of the affinity matrix."""
         self._sparsity = bool_arg(value)
 
-    def _compute_chunk_info(self, n_samples: int):
-        """Compute chunk boundaries for this rank in distributed mode.
-
-        Parameters
-        ----------
-        n_samples : int
-            Total number of samples in the dataset.
-        """
-        chunk_size = n_samples // self.world_size
-        remainder = n_samples % self.world_size
-
-        # First 'remainder' ranks get chunk_size + 1 samples
-        if self.rank < remainder:
-            self.chunk_start_ = self.rank * (chunk_size + 1)
-            self.chunk_end_ = self.chunk_start_ + chunk_size + 1
-        else:
-            self.chunk_start_ = self.rank * chunk_size + remainder
-            self.chunk_end_ = self.chunk_start_ + chunk_size
-
-        self.chunk_size_ = self.chunk_end_ - self.chunk_start_
-
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
     ):
-        """Override to handle distributed computation transparently.
+        """Override to pass distributed context to pairwise_distances.
 
         Parameters
         ----------
@@ -468,79 +430,17 @@ class SparseAffinity(Affinity):
         indices : torch.Tensor, optional
             Indices if return_indices=True.
         """
-        # Use distributed computation if we're in multi-GPU mode
-        if self.distributed and self.is_multi_gpu:
-            if k is None:
-                raise ValueError(
-                    "[TorchDR] Distributed mode requires sparse computation with k-NN. "
-                    "k cannot be None in distributed mode."
-                )
-            return self._distributed_distance_matrix(X, k, return_indices)
-
-        # Fall back to standard computation
-        return super()._distance_matrix(X, k, return_indices)
-
-    def _distributed_distance_matrix(
-        self, X: torch.Tensor, k: int, return_indices: bool = False
-    ):
-        """Compute distances for this GPU's chunk of points.
-
-        Each GPU computes k-NN distances where:
-        - Database (keys): Full dataset X
-        - Queries: This GPU's assigned chunk of X
-
-        This way each GPU computes and stores only its rows of the affinity matrix.
-
-        Parameters
-        ----------
-        X : torch.Tensor
-            Full input data tensor.
-        k : int
-            Number of nearest neighbors.
-        return_indices : bool, default=False
-            Whether to return indices along with distances.
-
-        Returns
-        -------
-        distances : torch.Tensor
-            Distance matrix for this GPU's chunk. Shape (chunk_size, k).
-        indices : torch.Tensor, optional
-            Indices of nearest neighbors if return_indices=True.
-        """
-        n_samples = X.shape[0]
-        self._compute_chunk_info(n_samples)
-        X_chunk = X[self.chunk_start_ : self.chunk_end_]
-
-        # Since X_chunk is a subset of X, we need to handle diagonal exclusion
-        k_search = k + 1 if self.zero_diag else k
-
-        # Compute k-NN: queries=chunk, database=full dataset
-        faiss_config = self._distributed_faiss_config
-        distances, indices = pairwise_distances(
-            X=X_chunk,
-            Y=X,  # Full dataset as database
-            k=k_search,
+        # Pass distributed context to pairwise_distances if in distributed mode
+        return pairwise_distances(
+            X=X,
             metric=self.metric,
-            backend=faiss_config,
-            exclude_diag=False,  # Can't use since X_chunk != X
-            return_indices=True,
+            backend=self.backend,
+            exclude_diag=self.zero_diag,
+            k=k,
+            return_indices=return_indices,
             device=self.device,
+            distributed_ctx=self.dist_ctx if self.distributed else None,
         )
-
-        # Remove self-distances if needed
-        if self.zero_diag:
-            distances = distances[:, 1:]
-            indices = indices[:, 1:]
-
-        if self.verbose:
-            self.logger.info(
-                f"Rank {self.rank}: Computed distances for chunk [{self.chunk_start_}:{self.chunk_end_}] "
-                f"(shape: {distances.shape})"
-            )
-
-        if return_indices:
-            return distances, indices
-        return distances
 
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
