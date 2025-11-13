@@ -115,6 +115,54 @@ class DistributedContext:
 
         return chunk_start, chunk_end
 
+    @staticmethod
+    def get_rank_for_indices(
+        indices: torch.Tensor, n_samples: int, world_size: int
+    ) -> torch.Tensor:
+        """Compute which rank owns each global index.
+
+        This is the inverse of compute_chunk_bounds: given global indices,
+        returns which rank owns each index when n_samples is distributed
+        across world_size ranks.
+
+        Parameters
+        ----------
+        indices : torch.Tensor
+            Global indices to look up (any shape).
+        n_samples : int
+            Total number of samples distributed across ranks.
+        world_size : int
+            Number of ranks/GPUs.
+
+        Returns
+        -------
+        ranks : torch.Tensor
+            Rank ownership for each index (same shape as indices).
+
+        Examples
+        --------
+        >>> indices = torch.tensor([0, 25, 50, 75, 99])
+        >>> ranks = DistributedContext.get_rank_for_indices(indices, 100, 4)
+        >>> # Returns: tensor([0, 1, 2, 3, 3])
+        """
+        chunk_size = n_samples // world_size
+        remainder = n_samples % world_size
+
+        # Threshold where chunking strategy changes
+        # First 'remainder' ranks get (chunk_size + 1) samples
+        threshold = remainder * (chunk_size + 1)
+
+        # For indices < threshold, each rank owns (chunk_size + 1) samples
+        # For indices >= threshold, each rank owns chunk_size samples
+        ranks = torch.where(
+            indices < threshold,
+            indices // (chunk_size + 1),  # Early ranks
+            remainder + (indices - threshold) // chunk_size,  # Later ranks
+        )
+
+        # Clamp to valid rank range
+        return torch.clamp(ranks, 0, world_size - 1)
+
     def get_faiss_config(self, base_config=None):
         """Create FaissConfig for this rank's GPU device.
 

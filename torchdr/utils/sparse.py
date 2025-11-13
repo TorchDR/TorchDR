@@ -1,6 +1,7 @@
 import torch
 import torch.distributed as dist
 from typing import Tuple, Literal
+from torchdr.utils.distributed import DistributedContext
 
 
 def flatten_sparse(
@@ -255,8 +256,7 @@ def distributed_symmetrize_sparse(
     i = i + chunk_start  # Convert to global indices
 
     # Step 2: Sort edges by target rank for efficient packing
-    target_ranks = j // chunk_size
-    target_ranks = torch.clamp(target_ranks, 0, world_size - 1)
+    target_ranks = DistributedContext.get_rank_for_indices(j, n_total, world_size)
 
     # Sort by target rank for contiguous memory access
     sorted_idx = torch.argsort(target_ranks)
