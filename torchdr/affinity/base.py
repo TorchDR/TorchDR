@@ -431,7 +431,7 @@ class SparseAffinity(Affinity):
             Indices if return_indices=True.
         """
         # Pass distributed context to pairwise_distances if in distributed mode
-        return pairwise_distances(
+        result = pairwise_distances(
             X=X,
             metric=self.metric,
             backend=self.backend,
@@ -441,6 +441,15 @@ class SparseAffinity(Affinity):
             device=self.device,
             distributed_ctx=self.dist_ctx if self.distributed else None,
         )
+
+        # Store chunk bounds for later use (e.g., distributed symmetrization)
+        if self.distributed and self.dist_ctx is not None:
+            chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(X.shape[0])
+            self.chunk_start_ = chunk_start
+            self.chunk_end_ = chunk_end
+            self.chunk_size_ = chunk_end - chunk_start
+
+        return result
 
     def __call__(
         self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
