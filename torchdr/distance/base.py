@@ -78,12 +78,8 @@ def pairwise_distances(
     >>> X = torch.randn(1000, 128)
     >>> distances = pairwise_distances(X, k=10, backend='faiss')
 
-    >>> # With float16 precision for GPU
-    >>> config = FaissConfig(use_float16=True)
-    >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
-
     >>> # Using FaissConfig with custom settings
-    >>> config = FaissConfig(use_float16=True, temp_memory=2.0)
+    >>> config = FaissConfig(temp_memory=2.0)
     >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
     """
     # Parse backend parameter

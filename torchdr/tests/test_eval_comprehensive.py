@@ -171,7 +171,7 @@ def test_silhouette_with_faiss_config(backend):
         X, y = toy_dataset(100, "float32")
 
         # Test with FaissConfig
-        config = FaissConfig(use_float16=False)
+        config = FaissConfig()
         score_with_config = silhouette_score(X, y, backend=config)
         score_with_string = silhouette_score(X, y, backend="faiss")
 
@@ -428,7 +428,7 @@ def test_neighborhood_preservation_with_faiss_config():
         X = torch.randn(100, 50)
         Z = torch.randn(100, 2)
 
-        config = FaissConfig(use_float16=False)
+        config = FaissConfig()
         score = neighborhood_preservation(X, Z, K=10, backend=config)
         assert 0 <= score <= 1
 
