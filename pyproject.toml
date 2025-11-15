@@ -49,6 +49,9 @@ classifiers=[
 
 dynamic = ["version"]
 
+[project.scripts]
+torchdr = "torchdr.cli:main"
+
 [tool.setuptools]
 packages = ["torchdr"]
 
