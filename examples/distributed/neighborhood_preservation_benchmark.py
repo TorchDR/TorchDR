@@ -12,10 +12,10 @@ Usage:
     python neighborhood_preservation_benchmark.py
 
     # Multi-GPU (2 GPUs)
-    torchdr run --gpus 2 neighborhood_preservation_benchmark.py
+    torchdr --gpus 2 neighborhood_preservation_benchmark.py
 
     # Multi-GPU (all available GPUs)
-    torchdr run neighborhood_preservation_benchmark.py
+    torchdr neighborhood_preservation_benchmark.py
 """
 
 import time

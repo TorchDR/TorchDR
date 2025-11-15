@@ -12,10 +12,10 @@ Usage:
     python knn_accuracy_benchmark.py
 
     # Multi-GPU (2 GPUs)
-    torchdr run --gpus 2 knn_accuracy_benchmark.py
+    torchdr --gpus 2 knn_accuracy_benchmark.py
 
     # Multi-GPU (all available GPUs)
-    torchdr run knn_accuracy_benchmark.py
+    torchdr knn_accuracy_benchmark.py
 """
 
 import time
