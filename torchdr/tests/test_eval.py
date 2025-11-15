@@ -19,6 +19,7 @@ from torchdr.eval import (
     silhouette_samples,
     silhouette_score,
     knn_label_accuracy,
+    neighborhood_preservation,
 )
 from torchdr.tests.utils import toy_dataset
 from torchdr.utils import pykeops
@@ -244,3 +245,25 @@ def test_knn_label_accuracy_errors():
 
     with pytest.raises(ValueError, match="must have same number of samples"):
         knn_label_accuracy(X, labels[:-10], k=10)
+
+
+@pytest.mark.parametrize("dtype", lst_types)
+@pytest.mark.parametrize("backend", lst_backend)
+def test_neighborhood_preservation_per_sample(dtype, backend):
+    n = 100
+    K = 10
+
+    X = torch.randn(n, 50, device=DEVICE, dtype=getattr(torch, dtype))
+    Z = torch.randn(n, 2, device=DEVICE, dtype=getattr(torch, dtype))
+
+    scores = neighborhood_preservation(
+        X, Z, K=K, backend=backend, device=DEVICE, return_per_sample=True
+    )
+
+    assert scores.shape == (n,), f"Expected shape ({n},), got {scores.shape}"
+    assert torch.all((scores >= 0) & (scores <= 1)), "All scores must be in [0, 1]"
+
+    mean_score = neighborhood_preservation(
+        X, Z, K=K, backend=backend, device=DEVICE, return_per_sample=False
+    )
+    assert_close(mean_score, scores.mean(), atol=1e-6, rtol=1e-5)
