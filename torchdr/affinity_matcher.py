@@ -314,10 +314,10 @@ class AffinityMatcher(DRModule):
 
         if getattr(self, "_use_direct_gradients", False):
             # Direct gradients: _compute_gradients() returns only the chunk's gradients [chunk_size, dim].
-            # We place them in a full-sized tensor at the correct chunk positions, then all_reduce to combine.
             gradients = self._compute_gradients()
             if gradients is not None:
-                if getattr(self, "world_size", 1) > 1:  # multi-GPU
+                if getattr(self, "world_size", 1) > 1:
+                    # Multi-GPU: Place chunk gradients in full-sized tensor and combine across GPUs
                     expected_chunk_size = len(self.chunk_indices_)
                     if gradients.shape[0] != expected_chunk_size:
                         raise RuntimeError(
@@ -333,18 +333,16 @@ class AffinityMatcher(DRModule):
                     dist.all_reduce(full_gradients, op=dist.ReduceOp.SUM)
                     self.embedding_.grad = full_gradients
                 else:
+                    # Single-GPU: Directly assign chunk gradients
                     self.embedding_.grad = gradients
             loss = None
         else:
             # Autograd: backward() automatically computes gradients for ALL points in embedding_ [n_samples, dim]
             # that participated in the loss computation (chunk points, their neighbors, and sampled negatives).
-            # Each GPU's embedding_.grad is full-sized with non-zero entries where points participated.
-            # all_reduce with SUM combines these sparse contributions across GPUs.
             loss = self._compute_loss()
             loss.backward()
-            if (
-                getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None
-            ):  # multi-GPU
+            if getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None:
+                # Multi-GPU: Combine full-sized sparse gradients across GPUs
                 dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()

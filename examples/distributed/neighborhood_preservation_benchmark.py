@@ -1,24 +1,23 @@
 """Multi-GPU neighborhood preservation benchmark.
 
 This example demonstrates how to use TorchDR's neighborhood preservation metric
-in distributed mode across multiple GPUs. The metric measures how well local
-neighborhood structure is preserved when reducing dimensionality.
+in distributed mode across multiple GPUs. The metric measures how well
+k-nearest neighbor structure is preserved between high and low dimensional spaces.
 
 Dataset: Zheng et al. 2017 - 10x Mouse (1.3M single cells)
-Metric: K-ary neighborhood preservation (Jaccard similarity of k-NN sets)
+Metric: Neighborhood preservation (Jaccard similarity of k-NN sets)
 
 Usage:
     # Single GPU
     python neighborhood_preservation_benchmark.py
 
     # Multi-GPU (2 GPUs)
-    torchrun --nproc_per_node=2 neighborhood_preservation_benchmark.py
+    torchdr --gpus 2 neighborhood_preservation_benchmark.py
 
-    # Multi-GPU (4 GPUs)
-    torchrun --nproc_per_node=4 neighborhood_preservation_benchmark.py
+    # Multi-GPU (all available GPUs)
+    torchdr neighborhood_preservation_benchmark.py
 """
 
-import os
 import time
 import gzip
 import pickle
@@ -26,26 +25,10 @@ from io import BytesIO
 
 import requests
 import torch
-import torch.distributed as dist
 
 from torchdr import UMAP
 from torchdr.eval import neighborhood_preservation
-
-
-def setup_distributed():
-    """Initialize distributed training if launched with torchrun."""
-    if "LOCAL_RANK" in os.environ:
-        local_rank = int(os.environ["LOCAL_RANK"])
-        torch.cuda.set_device(local_rank)
-        dist.init_process_group(backend="nccl")
-        return True, dist.get_rank(), dist.get_world_size()
-    return False, 0, 1
-
-
-def cleanup_distributed():
-    """Clean up distributed training environment."""
-    if dist.is_initialized():
-        dist.destroy_process_group()
+from torchdr.distributed import is_distributed, get_rank, get_world_size
 
 
 def load_zheng_dataset():
@@ -62,7 +45,8 @@ def load_zheng_dataset():
 
 
 def main():
-    is_distributed, rank, world_size = setup_distributed()
+    rank = get_rank()
+    world_size = get_world_size()
 
     if rank == 0:
         print(f"\n{'=' * 70}")
@@ -72,40 +56,49 @@ def main():
         print(f"{'=' * 70}\n")
 
     if rank == 0:
-        print("Loading dataset and computing embedding...")
+        print("Loading dataset...")
 
     X = load_zheng_dataset()
     n_samples, n_features = X.shape
+
+    if rank == 0:
+        print(f"  Original: {n_samples:,} samples, {n_features} features\n")
+
+    # Compute UMAP embedding
+    if rank == 0:
+        print("Computing UMAP embedding...")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     umap = UMAP(
         n_components=2,
         n_neighbors=30,
         max_iter=500,
-        device="cuda",
+        device=device,
         backend="faiss",
-        verbose=False,
+        verbose=True if rank == 0 else False,
     )
+
+    start_embed = time.time()
     Z = umap.fit_transform(X)
+    embed_time = time.time() - start_embed
 
     if rank == 0:
-        print(f"  Original: {n_samples:,} samples, {n_features} features")
+        print(f"  Embedding time: {embed_time:.2f}s")
         print(f"  Embedding: {Z.shape[0]:,} samples, {Z.shape[1]} features\n")
 
-    if is_distributed:
-        dist.barrier()
-
-    K = 10
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Compute neighborhood preservation
+    K = 100
 
     if rank == 0:
         print(f"Computing neighborhood preservation (K={K})...")
         print("  Backend: FAISS")
         print(f"  Device: {device}")
-        print(f"  Distributed: {'Yes' if is_distributed else 'No'}\n")
+        print(f"  Distributed: {'Yes' if is_distributed() else 'No'}\n")
 
-    start_time = time.time()
+    start_eval = time.time()
 
-    score = neighborhood_preservation(
+    np_score = neighborhood_preservation(
         X,
         Z,
         K=K,
@@ -116,36 +109,15 @@ def main():
         return_per_sample=False,
     )
 
-    elapsed_time = time.time() - start_time
+    eval_time = time.time() - start_eval
 
-    if is_distributed:
-        all_scores = [None] * world_size
-        all_times = [None] * world_size
-
-        score_cpu = score.cpu().item() if torch.is_tensor(score) else score
-
-        dist.gather_object(score_cpu, all_scores if rank == 0 else None, dst=0)
-        dist.gather_object(elapsed_time, all_times if rank == 0 else None, dst=0)
-
-        if rank == 0:
-            global_score = sum(all_scores) / len(all_scores)
-            max_time = max(all_times)
-
-            print(f"{'=' * 70}")
-            print("Results:")
-            print(f"  Neighborhood preservation: {global_score:.4f}")
-            print(f"  Total time: {max_time:.2f}s")
-            print("  Per-GPU times:")
-            for gpu_rank, t in enumerate(all_times):
-                print(f"    GPU {gpu_rank}: {t:.2f}s")
-            print(f"{'=' * 70}\n")
-
-        cleanup_distributed()
-    else:
+    if rank == 0:
         print(f"{'=' * 70}")
         print("Results:")
-        print(f"  Neighborhood preservation: {score:.4f}")
-        print(f"  Total time: {elapsed_time:.2f}s")
+        print(f"  Neighborhood preservation: {np_score:.4f}")
+        print(f"  Embedding time: {embed_time:.2f}s")
+        print(f"  Evaluation time: {eval_time:.2f}s")
+        print(f"  Total time: {embed_time + eval_time:.2f}s")
         print(f"{'=' * 70}\n")
 
 

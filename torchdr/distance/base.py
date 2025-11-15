@@ -10,7 +10,7 @@ from typing import Optional, Union
 from .torch import pairwise_distances_torch
 from .keops import pairwise_distances_keops
 from .faiss import pairwise_distances_faiss, FaissConfig
-from torchdr.utils import DistributedContext
+from torchdr.distributed import DistributedContext
 
 
 def pairwise_distances(
@@ -91,7 +91,7 @@ def pairwise_distances(
     >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
 
     >>> # Distributed computation (after torch.distributed.init_process_group)
-    >>> from torchdr.utils import DistributedContext
+    >>> from torchdr.distributed import DistributedContext
     >>> dist_ctx = DistributedContext()
     >>> # Each GPU computes its chunk of rows
     >>> distances, indices = pairwise_distances(

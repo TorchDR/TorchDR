@@ -59,7 +59,7 @@ from .manifold import (
 )
 from .radam import RiemannianAdam
 from .visu import plot_disk, plot_poincare_disk
-from .distributed import DistributedContext
+from torchdr.distributed import DistributedContext
 
 __all__ = [
     "seed_everything",

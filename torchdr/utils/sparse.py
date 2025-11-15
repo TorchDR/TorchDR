@@ -1,7 +1,7 @@
 import torch
 import torch.distributed as dist
 from typing import Tuple, Literal
-from torchdr.utils.distributed import DistributedContext
+from torchdr.distributed import DistributedContext
 
 
 def flatten_sparse(
