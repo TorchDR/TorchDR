@@ -9,7 +9,8 @@ import torch
 import torch.distributed as dist
 from typing import Union, Optional
 
-from torchdr.utils import to_torch, DistributedContext
+from torchdr.utils import to_torch
+from torchdr.distributed import DistributedContext
 from torchdr.distance import pairwise_distances, FaissConfig
 
 

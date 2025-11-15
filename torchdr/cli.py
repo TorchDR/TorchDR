@@ -70,13 +70,15 @@ this command. No manual setup needed - just import and use TorchDR normally!
 
     args = parser.parse_args()
 
-    # Determine number of GPUs (default to all)
+    # Detect available GPUs
+    available_gpus = get_gpu_count()
+
+    # Determine number of GPUs to use
     if args.gpus.lower() == "all":
-        n_gpus = get_gpu_count()
+        n_gpus = available_gpus
         if n_gpus == 0:
             print("Error: No GPUs detected on this system", file=sys.stderr)
             sys.exit(1)
-        print(f"Using all {n_gpus} available GPUs")
     else:
         try:
             n_gpus = int(args.gpus)
@@ -87,7 +89,6 @@ this command. No manual setup needed - just import and use TorchDR normally!
             )
             sys.exit(1)
 
-        available_gpus = get_gpu_count()
         if n_gpus > available_gpus:
             print(
                 f"Warning: Requested {n_gpus} GPUs but only {available_gpus} "
@@ -95,6 +96,15 @@ this command. No manual setup needed - just import and use TorchDR normally!
                 file=sys.stderr,
             )
             n_gpus = available_gpus
+
+    # Print hardware detection summary
+    print("TorchDR Multi-GPU Launcher")
+    print(f"  Hardware detected: {available_gpus} GPU(s)")
+    print(f"  GPUs to use: {n_gpus}")
+    if n_gpus == 0:
+        print("  Backend: gloo (CPU)")
+    else:
+        print("  Backend: nccl (GPU)")
 
     # Build torchrun command (single-node only)
     cmd = [
