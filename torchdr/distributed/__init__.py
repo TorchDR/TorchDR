@@ -26,20 +26,24 @@ def _auto_setup_distributed():
 
     This function is called on import and detects if the script was launched
     with torchrun (or the TorchDR CLI) by checking for the LOCAL_RANK environment
-    variable. If found, it initializes the distributed process group for
-    single-node multi-GPU training.
+    variable. If found and GPUs are available, it initializes the distributed
+    process group for single-node multi-GPU training.
+
+    Note: Only initializes if CUDA is available. TorchDR distributed mode is
+    GPU-only since PyTorch already provides efficient CPU parallelization.
     """
     global _distributed_initialized_by_torchdr
 
     if "LOCAL_RANK" in os.environ and not dist.is_initialized():
+        # Only setup distributed for GPU training
+        if not torch.cuda.is_available():
+            return
+
         local_rank = int(os.environ["LOCAL_RANK"])
+        torch.cuda.set_device(local_rank)
 
-        # Set device for this process
-        if torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
-
-        # Initialize process group (single-node multi-GPU)
-        dist.init_process_group(backend="nccl" if torch.cuda.is_available() else "gloo")
+        # Initialize process group (GPU-only with NCCL backend)
+        dist.init_process_group(backend="nccl")
 
         _distributed_initialized_by_torchdr = True
 

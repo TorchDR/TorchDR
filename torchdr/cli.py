@@ -101,10 +101,7 @@ this command. No manual setup needed - just import and use TorchDR normally!
     print("TorchDR Multi-GPU Launcher")
     print(f"  Hardware detected: {available_gpus} GPU(s)")
     print(f"  GPUs to use: {n_gpus}")
-    if n_gpus == 0:
-        print("  Backend: gloo (CPU)")
-    else:
-        print("  Backend: nccl (GPU)")
+    print("  Backend: nccl")
 
     # Build torchrun command (single-node only)
     cmd = [
