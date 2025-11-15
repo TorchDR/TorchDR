@@ -41,16 +41,17 @@ def run_command():
         epilog="""
 Examples:
   # Use all available GPUs (default)
-  torchdr run train.py
+  torchdr run my_script.py
 
   # Use 4 GPUs
-  torchdr run --gpus 4 train.py
+  torchdr run --gpus 4 my_script.py
 
-  # Pass arguments to your script
-  torchdr run --gpus 2 train.py --epochs 100 --lr 0.001
+  # Pass arguments to your script (after the script name)
+  torchdr run --gpus 2 my_script.py --data-path /path/to/data
 
 Note: Your script will automatically use distributed mode when launched with
 this command. No manual setup needed - just import and use TorchDR normally!
+Arguments after the script name are passed directly to your script.
         """,
     )
 
