@@ -313,20 +313,33 @@ class AffinityMatcher(DRModule):
         self.optimizer_.zero_grad(set_to_none=True)
 
         if getattr(self, "_use_direct_gradients", False):
+            # Direct gradients: _compute_gradients() returns only the chunk's gradients [chunk_size, dim].
+            # We place them in a full-sized tensor at the correct chunk positions, then all_reduce to combine.
             gradients = self._compute_gradients()
             if gradients is not None:
                 if getattr(self, "world_size", 1) > 1:  # multi-GPU
-                    gathered = [
-                        torch.zeros_like(gradients)
-                        for _ in range(dist.get_world_size())
-                    ]
-                    dist.all_gather(gathered, gradients)
-                    full_gradients = torch.cat(gathered, dim=0)
+                    expected_chunk_size = len(self.chunk_indices_)
+                    if gradients.shape[0] != expected_chunk_size:
+                        raise RuntimeError(
+                            f"Gradient size mismatch in distributed mode: "
+                            f"expected {expected_chunk_size} gradients for chunk "
+                            f"but _compute_gradients() returned {gradients.shape[0]}"
+                        )
+                    full_gradients = torch.zeros_like(self.embedding_)
+                    chunk_start = self.chunk_indices_[0].item()
+                    full_gradients[chunk_start : chunk_start + expected_chunk_size] = (
+                        gradients
+                    )
+                    dist.all_reduce(full_gradients, op=dist.ReduceOp.SUM)
                     self.embedding_.grad = full_gradients
                 else:
                     self.embedding_.grad = gradients
             loss = None
         else:
+            # Autograd: backward() automatically computes gradients for ALL points in embedding_ [n_samples, dim]
+            # that participated in the loss computation (chunk points, their neighbors, and sampled negatives).
+            # Each GPU's embedding_.grad is full-sized with non-zero entries where points participated.
+            # all_reduce with SUM combines these sparse contributions across GPUs.
             loss = self._compute_loss()
             loss.backward()
             if (

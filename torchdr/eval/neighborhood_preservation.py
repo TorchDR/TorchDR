@@ -6,9 +6,10 @@
 
 import numpy as np
 import torch
+import torch.distributed as dist
 from typing import Union, Optional
 
-from torchdr.utils import to_torch
+from torchdr.utils import to_torch, DistributedContext
 from torchdr.distance import pairwise_distances, FaissConfig
 
 
@@ -19,6 +20,8 @@ def neighborhood_preservation(
     metric: str = "euclidean",
     backend: Optional[Union[str, FaissConfig]] = None,
     device: Optional[str] = None,
+    distributed: Union[bool, str] = "auto",
+    return_per_sample: bool = False,
 ):
     r"""Compute K-ary neighborhood preservation between input data and embeddings.
 
@@ -44,13 +47,29 @@ def neighborhood_preservation(
         - FaissConfig object: FAISS with custom configuration
     device : str, optional
         Device to use for computation. If None, uses input device.
+    distributed : bool or 'auto', default='auto'
+        Whether to use multi-GPU distributed computation.
+        - 'auto': Automatically detects if torch.distributed is initialized
+        - True: Forces distributed mode (requires torch.distributed to be initialized)
+        - False: Disables distributed mode
+        When enabled:
+        - Each GPU computes preservation for its assigned chunk of samples
+        - Automatically creates DistributedContext if torch.distributed is initialized
+        - Device is automatically set to the local GPU rank
+        - Backend is forced to 'faiss' for efficient distributed k-NN
+        - Returns per-chunk results (no automatic gathering across GPUs)
+        Requires launching with torchrun: ``torchrun --nproc_per_node=N script.py``
+    return_per_sample : bool, default=False
+        If True, returns per-sample preservation scores instead of the mean.
+        Shape: (n_samples,) or (chunk_size,) in distributed mode.
 
     Returns
     -------
     score : float or torch.Tensor
-        Average proportion of preserved neighbors across all points.
+        If return_per_sample=False: Mean neighborhood preservation across all samples.
+        If return_per_sample=True: Per-sample neighborhood preservation scores.
         Value between 0 and 1, where 1 indicates perfect preservation.
-        Returns numpy float if inputs are numpy, torch.Tensor otherwise.
+        Returns numpy array/float if inputs are numpy, torch.Tensor otherwise.
 
     Examples
     --------
@@ -92,10 +111,34 @@ def neighborhood_preservation(
     if K >= n_samples:
         raise ValueError(f"K ({K}) must be less than number of samples ({n_samples})")
 
-    if device is None:
-        device = X.device
+    if distributed == "auto":
+        distributed = dist.is_initialized()
     else:
-        device = torch.device(device)
+        distributed = bool(distributed)
+
+    if distributed:
+        if not dist.is_initialized():
+            raise RuntimeError(
+                "[TorchDR] distributed=True requires launching with torchrun. "
+                "Example: torchrun --nproc_per_node=4 your_script.py"
+            )
+
+        dist_ctx = DistributedContext()
+
+        if device is None:
+            device = X.device
+        elif device == "cpu":
+            raise ValueError(
+                "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
+            )
+
+        device = torch.device(f"cuda:{dist_ctx.local_rank}")
+    else:
+        dist_ctx = None
+        if device is None:
+            device = X.device
+        else:
+            device = torch.device(device)
 
     X = X.to(device)
     Z = Z.to(device)
@@ -108,6 +151,7 @@ def neighborhood_preservation(
         exclude_diag=True,
         return_indices=True,
         device=device,
+        distributed_ctx=dist_ctx,
     )
 
     _, neighbors_Z = pairwise_distances(
@@ -118,20 +162,25 @@ def neighborhood_preservation(
         exclude_diag=True,
         return_indices=True,
         device=device,
+        distributed_ctx=dist_ctx,
     )
 
     # Vectorized computation using broadcasting to check neighborhood overlap
-    neighbors_X_expanded = neighbors_X.unsqueeze(2)  # (n_samples, K, 1)
-    neighbors_Z_expanded = neighbors_Z.unsqueeze(1)  # (n_samples, 1, K)
+    neighbors_X_expanded = neighbors_X.unsqueeze(2)  # (chunk_size, K, 1)
+    neighbors_Z_expanded = neighbors_Z.unsqueeze(1)  # (chunk_size, 1, K)
 
     matches = (neighbors_X_expanded == neighbors_Z_expanded).any(
         dim=2
-    )  # (n_samples, K)
+    )  # (chunk_size, K)
     overlaps = matches.float().sum(dim=1) / K
 
-    score = overlaps.mean()
+    if return_per_sample:
+        result = overlaps
+        if input_is_numpy:
+            result = result.detach().cpu().numpy()
+    else:
+        result = overlaps.mean()
+        if input_is_numpy:
+            result = result.detach().cpu().numpy().item()
 
-    if input_is_numpy:
-        score = score.detach().cpu().numpy().item()
-
-    return score
+    return result
