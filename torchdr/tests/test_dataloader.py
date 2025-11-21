@@ -118,6 +118,11 @@ class TestDataLoaderDistances:
         with pytest.raises(ValueError, match="Y must be None"):
             pairwise_distances(dataloader, Y=Y, k=10)
 
+    def test_dataloader_unsupported_backend(self, dataloader):
+        """Test that DataLoader raises error for non-FAISS backends."""
+        with pytest.raises(ValueError, match="only supports FAISS backend"):
+            pairwise_distances(dataloader, k=10, backend="keops")
+
     def test_dataloader_different_batch_sizes(self, sample_data):
         """Test DataLoader with different batch sizes produces same results."""
         k = 10

@@ -130,11 +130,16 @@ def pairwise_distances(
                 "Y must be None when X is a DataLoader."
             )
 
-        # Parse backend for DataLoader
+        # Parse backend for DataLoader - only FAISS is supported
         if isinstance(backend, FaissConfig):
             config = backend
+        elif backend is None or backend == "faiss":
+            config = FaissConfig()
         else:
-            config = FaissConfig() if backend is None else FaissConfig()
+            raise ValueError(
+                f"[TorchDR] DataLoader input only supports FAISS backend, "
+                f"got backend='{backend}'. Use backend='faiss' or backend=None."
+            )
 
         C, indices = pairwise_distances_faiss_from_dataloader(
             dataloader=X,
