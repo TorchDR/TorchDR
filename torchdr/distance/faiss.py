@@ -7,7 +7,9 @@
 import torch
 import numpy as np
 import warnings
-from typing import Union, Optional, Dict, Any
+from typing import Union, Optional, Dict, Any, Tuple, List
+
+from torch.utils.data import DataLoader
 
 from torchdr.utils.faiss import faiss
 
@@ -337,3 +339,381 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
         gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
 
     return gpu_index
+
+
+@torch.compiler.disable
+def pairwise_distances_faiss_from_dataloader(
+    dataloader: DataLoader,
+    k: int,
+    metric: str = "sqeuclidean",
+    exclude_diag: bool = False,
+    config: Optional[FaissConfig] = None,
+    device: str = "auto",
+    distributed_ctx: Optional[Any] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    r"""Compute k nearest neighbors using FAISS with DataLoader input.
+
+    This function streams data from a DataLoader to build the FAISS index
+    incrementally, avoiding the need to hold the full dataset in CPU RAM.
+    Supports both single-GPU and multi-GPU (distributed) modes.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        PyTorch DataLoader yielding batches of data. Must be deterministic
+        (shuffle=False) and yield tensors of shape (batch_size, n_features).
+        In distributed mode, all ranks must iterate through the same data
+        in the same order.
+    k : int
+        Number of nearest neighbors to return.
+    metric : str, default "sqeuclidean"
+        Distance metric. One of "euclidean", "sqeuclidean", or "angular".
+    exclude_diag : bool, default False
+        When True, exclude self-neighbors from results.
+    config : FaissConfig, optional
+        Configuration object for FAISS. If None, uses default settings.
+    device : str, default "auto"
+        Device for computation. If "auto", uses CUDA if available.
+    distributed_ctx : DistributedContext, optional
+        Distributed context for multi-GPU computation. When provided,
+        each GPU computes k-NN for its assigned chunk of samples.
+
+    Returns
+    -------
+    distances : torch.Tensor of shape (n_samples, k) or (chunk_size, k)
+        k-NN distances. In distributed mode, returns only this rank's chunk.
+    indices : torch.Tensor of shape (n_samples, k) or (chunk_size, k)
+        k-NN indices. In distributed mode, returns only this rank's chunk.
+
+    Examples
+    --------
+    >>> from torch.utils.data import DataLoader, TensorDataset
+    >>> from torchdr.distance.faiss import pairwise_distances_faiss_from_dataloader
+    >>> dataset = TensorDataset(torch.randn(10000, 128))
+    >>> dataloader = DataLoader(dataset, batch_size=1000, shuffle=False)
+    >>> distances, indices = pairwise_distances_faiss_from_dataloader(
+    ...     dataloader, k=15
+    ... )
+
+    Notes
+    -----
+    - DataLoader must have shuffle=False for deterministic iteration
+    - In distributed mode, all ranks build the same full index
+    - Memory efficient: only one batch in CPU RAM at a time
+    - GPU memory still required for the full FAISS index
+    """
+    if metric not in LIST_METRICS_FAISS:
+        raise ValueError(
+            f"[TorchDR] Only {LIST_METRICS_FAISS} metrics are supported for FAISS."
+        )
+
+    if config is None:
+        config = FaissConfig()
+
+    # Determine compute device
+    if distributed_ctx is not None and distributed_ctx.is_initialized:
+        config = distributed_ctx.get_faiss_config(config)
+        compute_device = torch.device(f"cuda:{distributed_ctx.local_rank}")
+    elif device == "auto":
+        compute_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        compute_device = torch.device(device)
+
+    # Get dimension and total samples from dataloader
+    first_batch = _get_first_batch(dataloader)
+    d = first_batch.shape[1]
+    n_samples = _get_dataloader_length(dataloader)
+    dtype = first_batch.dtype
+
+    # Build FAISS index from dataloader
+    index = _build_index_from_dataloader(dataloader, d, metric, config, compute_device)
+
+    # Search for k-NN
+    k_search = k + 1 if exclude_diag else k
+
+    if distributed_ctx is not None and distributed_ctx.is_initialized:
+        # Multi-GPU: each rank searches its chunk
+        distances, indices = _search_chunk_from_dataloader(
+            dataloader, index, k_search, distributed_ctx, n_samples, compute_device
+        )
+    else:
+        # Single GPU: search all queries
+        distances, indices = _search_all_from_dataloader(
+            dataloader, index, k_search, compute_device
+        )
+
+    # Post-process results
+    if metric == "euclidean":
+        distances = torch.sqrt(distances)
+    elif metric == "angular":
+        distances = -distances
+
+    if exclude_diag:
+        distances = distances[:, 1:]
+        indices = indices[:, 1:]
+
+    return distances.to(dtype), indices
+
+
+def _get_first_batch(dataloader: DataLoader) -> torch.Tensor:
+    """Get the first batch from dataloader to determine dimensions."""
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            return batch[0]
+        return batch
+    raise ValueError("[TorchDR] DataLoader is empty.")
+
+
+def _get_dataloader_length(dataloader: DataLoader) -> int:
+    """Get total number of samples in dataloader."""
+    if hasattr(dataloader.dataset, "__len__"):
+        return len(dataloader.dataset)
+    else:
+        raise ValueError(
+            "[TorchDR] DataLoader dataset must have __len__ method "
+            "to determine total samples."
+        )
+
+
+def _build_index_from_dataloader(
+    dataloader: DataLoader,
+    d: int,
+    metric: str,
+    config: FaissConfig,
+    compute_device: torch.device,
+):
+    """Build FAISS index by streaming data from dataloader.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader yielding batches of data.
+    d : int
+        Dimension of vectors.
+    metric : str
+        Distance metric.
+    config : FaissConfig
+        FAISS configuration.
+    compute_device : torch.device
+        Device for computation.
+
+    Returns
+    -------
+    index : faiss.Index
+        Built FAISS index containing all data.
+    """
+    # Create base index
+    if metric == "angular":
+        flat_index = faiss.IndexFlatIP(d)
+        metric_type = faiss.METRIC_INNER_PRODUCT
+    else:
+        flat_index = faiss.IndexFlatL2(d)
+        metric_type = faiss.METRIC_L2
+
+    # Set up index type
+    if config.index_type == "Flat":
+        index = flat_index
+    elif config.index_type == "IVF":
+        n_samples = _get_dataloader_length(dataloader)
+        nlist = config.nlist
+        if nlist == 100 and n_samples > 10000:
+            nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
+        index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
+        index.nprobe = config.nprobe
+    else:
+        raise ValueError(
+            f"[TorchDR] Index type '{config.index_type}' not supported. "
+            "Use 'Flat' or 'IVF'."
+        )
+
+    # Move to GPU if needed
+    if compute_device.type == "cuda":
+        if hasattr(faiss, "StandardGpuResources"):
+            index = _setup_gpu_index(index, config, d)
+        else:
+            warnings.warn(
+                "[TorchDR] faiss-gpu not installed, using CPU. "
+                "Install faiss-gpu for faster computation."
+            )
+
+    # Train IVF index if needed
+    needs_training = config.index_type == "IVF"
+    if needs_training and not index.is_trained:
+        train_data = _collect_training_data(dataloader, config.nlist)
+        if metric == "angular":
+            faiss.normalize_L2(train_data)
+        index.train(train_data)
+
+    # Add all data from dataloader
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            batch = batch[0]
+        batch_np = batch.detach().cpu().numpy().astype(np.float32)
+        if metric == "angular":
+            faiss.normalize_L2(batch_np)
+        index.add(batch_np)
+
+    return index
+
+
+def _collect_training_data(
+    dataloader: DataLoader, nlist: int, max_points: Optional[int] = None
+) -> np.ndarray:
+    """Collect training data for IVF index from dataloader.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader to collect data from.
+    nlist : int
+        Number of clusters (determines max training points).
+    max_points : int, optional
+        Maximum points to collect. If None, uses 256 * nlist.
+
+    Returns
+    -------
+    train_data : np.ndarray
+        Training data array.
+    """
+    if max_points is None:
+        max_points = 256 * nlist
+
+    collected = []
+    total = 0
+
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            batch = batch[0]
+        batch_np = batch.detach().cpu().numpy().astype(np.float32)
+
+        if total + len(batch_np) >= max_points:
+            remaining = max_points - total
+            collected.append(batch_np[:remaining])
+            break
+
+        collected.append(batch_np)
+        total += len(batch_np)
+
+    return np.vstack(collected)
+
+
+def _search_all_from_dataloader(
+    dataloader: DataLoader,
+    index,
+    k: int,
+    compute_device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Search k-NN for all samples in dataloader (single-GPU mode).
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader with query samples.
+    index : faiss.Index
+        FAISS index to search.
+    k : int
+        Number of neighbors to find.
+    compute_device : torch.device
+        Device for output tensors.
+
+    Returns
+    -------
+    distances : torch.Tensor of shape (n_samples, k)
+        k-NN distances.
+    indices : torch.Tensor of shape (n_samples, k)
+        k-NN indices.
+    """
+    distances_list: List[torch.Tensor] = []
+    indices_list: List[torch.Tensor] = []
+
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            batch = batch[0]
+        batch_np = batch.detach().cpu().numpy().astype(np.float32)
+
+        D, Ind = index.search(batch_np, k)
+
+        distances_list.append(torch.from_numpy(D))
+        indices_list.append(torch.from_numpy(Ind))
+
+    distances = torch.cat(distances_list, dim=0).to(compute_device)
+    indices = torch.cat(indices_list, dim=0).to(compute_device).long()
+
+    return distances, indices
+
+
+def _search_chunk_from_dataloader(
+    dataloader: DataLoader,
+    index,
+    k: int,
+    distributed_ctx,
+    n_samples: int,
+    compute_device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Search k-NN for this rank's chunk of samples (distributed mode).
+
+    Each rank iterates through the dataloader but only processes
+    the samples assigned to its chunk.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader with all samples.
+    index : faiss.Index
+        FAISS index to search (contains full dataset).
+    k : int
+        Number of neighbors to find.
+    distributed_ctx : DistributedContext
+        Distributed context with rank info.
+    n_samples : int
+        Total number of samples in dataset.
+    compute_device : torch.device
+        Device for output tensors.
+
+    Returns
+    -------
+    distances : torch.Tensor of shape (chunk_size, k)
+        k-NN distances for this rank's chunk.
+    indices : torch.Tensor of shape (chunk_size, k)
+        k-NN indices for this rank's chunk.
+    """
+    chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
+
+    distances_list: List[torch.Tensor] = []
+    indices_list: List[torch.Tensor] = []
+
+    current_idx = 0
+
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            batch = batch[0]
+
+        batch_size = len(batch)
+        batch_end = current_idx + batch_size
+
+        # Check if this batch overlaps with our chunk
+        if batch_end > chunk_start and current_idx < chunk_end:
+            # Compute overlap indices within this batch
+            start_in_batch = max(0, chunk_start - current_idx)
+            end_in_batch = min(batch_size, chunk_end - current_idx)
+
+            # Extract our portion of this batch
+            my_batch = batch[start_in_batch:end_in_batch]
+            batch_np = my_batch.detach().cpu().numpy().astype(np.float32)
+
+            # Search
+            D, Ind = index.search(batch_np, k)
+
+            distances_list.append(torch.from_numpy(D))
+            indices_list.append(torch.from_numpy(Ind))
+
+        current_idx = batch_end
+
+        # Early exit if we've processed our entire chunk
+        if current_idx >= chunk_end:
+            break
+
+    distances = torch.cat(distances_list, dim=0).to(compute_device)
+    indices = torch.cat(indices_list, dim=0).to(compute_device).long()
+
+    return distances, indices

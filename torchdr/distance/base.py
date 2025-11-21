@@ -7,14 +7,20 @@
 import torch
 from typing import Optional, Union
 
+from torch.utils.data import DataLoader
+
 from .torch import pairwise_distances_torch
 from .keops import pairwise_distances_keops
-from .faiss import pairwise_distances_faiss, FaissConfig
+from .faiss import (
+    pairwise_distances_faiss,
+    pairwise_distances_faiss_from_dataloader,
+    FaissConfig,
+)
 from torchdr.distributed import DistributedContext
 
 
 def pairwise_distances(
-    X: torch.Tensor,
+    X: Union[torch.Tensor, DataLoader],
     Y: Optional[torch.Tensor] = None,
     metric: str = "euclidean",
     backend: Optional[Union[str, FaissConfig]] = None,
@@ -24,7 +30,7 @@ def pairwise_distances(
     device: str = "auto",
     distributed_ctx: Optional[DistributedContext] = None,
 ):
-    r"""Compute pairwise distances between two tensors.
+    r"""Compute pairwise distances between two tensors or from a DataLoader.
 
     This is the main distance computation function that supports multiple backends
     for efficient computation. It can compute:
@@ -32,15 +38,23 @@ def pairwise_distances(
     - k-nearest neighbor distances when k is specified
     - Distances with various metrics (euclidean, manhattan, angular, etc.)
 
+    When X is a DataLoader, data is streamed to build the FAISS index incrementally,
+    avoiding the need to hold the full dataset in CPU RAM. This is particularly
+    useful for large datasets that don't fit in memory.
+
     For computing distances between specific indexed subsets, use
     pairwise_distances_indexed instead.
 
     Parameters
     ----------
-    X : torch.Tensor of shape (n_samples, n_features)
-        Input data.
+    X : torch.Tensor of shape (n_samples, n_features) or DataLoader
+        Input data. When a DataLoader is provided:
+        - Must have shuffle=False for deterministic iteration
+        - Must yield tensors of shape (batch_size, n_features)
+        - k parameter is required (only k-NN computation supported)
+        - Y parameter must be None (self-distance only)
     Y : torch.Tensor of shape (m_samples, n_features), optional
-        Input data. If None, Y is set to X.
+        Input data. If None, Y is set to X. Not supported with DataLoader input.
     metric : str, optional
         Metric to use. Default is "euclidean".
     backend : {'keops', 'faiss', None} or FaissConfig, optional
@@ -49,19 +63,20 @@ def pairwise_distances(
         - "faiss": Use FAISS for fast k-NN computations with default settings
         - None: Use standard PyTorch operations
         - FaissConfig object: Use FAISS with custom configuration
-        If None, use standard torch operations.
+        If None, use standard torch operations. DataLoader input forces FAISS backend.
     exclude_diag : bool, optional
         Whether to exclude the diagonal from the distance matrix.
         Only used when k is not None. Default is False.
     k : int, optional
         If not None, return only the k-nearest neighbors.
+        Required when using DataLoader input.
     return_indices : bool, optional
         Whether to return the indices of the k-nearest neighbors.
         Default is False.
     device : str, default="auto"
         Device to use for computation. If "auto", keeps data on its current device.
         Otherwise, temporarily moves data to specified device for computation.
-        Output remains on the computation device. Used with backend=None (torch) and backend="keops".
+        Output remains on the computation device.
     distributed_ctx : DistributedContext, optional
         Distributed computation context for multi-GPU scenarios. When provided:
         - Each GPU computes distances for its assigned chunk of rows
@@ -82,24 +97,61 @@ def pairwise_distances(
     >>> import torch
     >>> from torchdr.distance import pairwise_distances, FaissConfig
 
-    >>> # Basic usage
+    >>> # Basic usage with tensor
     >>> X = torch.randn(1000, 128)
     >>> distances = pairwise_distances(X, k=10, backend='faiss')
 
-    >>> # Using FaissConfig with custom settings
-    >>> config = FaissConfig(temp_memory=2.0)
-    >>> distances = pairwise_distances(X.cuda(), k=10, backend=config)
+    >>> # Using DataLoader for memory-efficient computation
+    >>> from torch.utils.data import DataLoader, TensorDataset
+    >>> dataset = TensorDataset(torch.randn(100000, 128))
+    >>> dataloader = DataLoader(dataset, batch_size=10000, shuffle=False)
+    >>> distances, indices = pairwise_distances(
+    ...     dataloader, k=15, return_indices=True
+    ... )
 
-    >>> # Distributed computation (after torch.distributed.init_process_group)
+    >>> # DataLoader with multi-GPU (after torch.distributed.init_process_group)
     >>> from torchdr.distributed import DistributedContext
     >>> dist_ctx = DistributedContext()
-    >>> # Each GPU computes its chunk of rows
     >>> distances, indices = pairwise_distances(
-    ...     X, k=10, distributed_ctx=dist_ctx, return_indices=True
+    ...     dataloader, k=15, distributed_ctx=dist_ctx, return_indices=True
     ... )
-    >>> # distances.shape[0] will be approximately len(X) / world_size
+    >>> # Each GPU gets its chunk of results
     """
-    # Handle distributed computation
+    # Handle DataLoader input
+    if isinstance(X, DataLoader):
+        if k is None:
+            raise ValueError(
+                "[TorchDR] DataLoader input requires k-NN computation. "
+                "k cannot be None when X is a DataLoader."
+            )
+        if Y is not None:
+            raise ValueError(
+                "[TorchDR] DataLoader input does not support cross-distance. "
+                "Y must be None when X is a DataLoader."
+            )
+
+        # Parse backend for DataLoader
+        if isinstance(backend, FaissConfig):
+            config = backend
+        else:
+            config = FaissConfig() if backend is None else FaissConfig()
+
+        C, indices = pairwise_distances_faiss_from_dataloader(
+            dataloader=X,
+            k=k,
+            metric=metric,
+            exclude_diag=exclude_diag,
+            config=config,
+            device=device,
+            distributed_ctx=distributed_ctx,
+        )
+
+        if return_indices:
+            return C, indices
+        else:
+            return C
+
+    # Handle distributed computation (tensor input)
     if distributed_ctx is not None and distributed_ctx.is_initialized:
         if k is None:
             raise ValueError(
