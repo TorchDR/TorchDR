@@ -540,8 +540,6 @@ def _build_index_from_dataloader(
     needs_training = config.index_type == "IVF"
     if needs_training and not index.is_trained:
         train_data = _collect_training_data(dataloader, config.nlist)
-        if metric == "angular":
-            faiss.normalize_L2(train_data)
         index.train(train_data)
 
     # Add all data from dataloader
@@ -549,8 +547,6 @@ def _build_index_from_dataloader(
         if isinstance(batch, (list, tuple)):
             batch = batch[0]
         batch_np = batch.detach().cpu().numpy().astype(np.float32)
-        if metric == "angular":
-            faiss.normalize_L2(batch_np)
         index.add(batch_np)
 
     return index
