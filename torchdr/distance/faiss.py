@@ -539,7 +539,8 @@ def _build_index_from_dataloader(
     # Train IVF index if needed
     needs_training = config.index_type == "IVF"
     if needs_training and not index.is_trained:
-        train_data = _collect_training_data(dataloader, config.nlist)
+        # Use index.nlist which has the potentially updated value
+        train_data = _collect_training_data(dataloader, index.nlist)
         index.train(train_data)
 
     # Add all data from dataloader
@@ -708,6 +709,13 @@ def _search_chunk_from_dataloader(
         # Early exit if we've processed our entire chunk
         if current_idx >= chunk_end:
             break
+
+    # Handle empty chunk case (when n_samples < world_size)
+    if len(distances_list) == 0:
+        return (
+            torch.empty(0, k, device=compute_device),
+            torch.empty(0, k, dtype=torch.long, device=compute_device),
+        )
 
     distances = torch.cat(distances_list, dim=0).to(compute_device)
     indices = torch.cat(indices_list, dim=0).to(compute_device).long()
