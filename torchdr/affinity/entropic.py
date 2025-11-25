@@ -249,10 +249,10 @@ class EntropicAffinity(SparseLogAffinity):
         indices : torch.Tensor or None
             Indices of the nearest neighbors if sparsity is used.
         """
-        n_samples_in = X.shape[0]
+        n_samples_in = self._get_n_samples(X)
         target_device = self._get_compute_device(X)
         n_samples_tensor = torch.tensor(
-            n_samples_in, dtype=X.dtype, device=target_device
+            n_samples_in, dtype=self._get_dtype(X), device=target_device
         )
         perplexity = check_neighbor_param(self.perplexity, n_samples_tensor)
 
@@ -282,7 +282,7 @@ class EntropicAffinity(SparseLogAffinity):
             end = None
         else:
             begin, end = _bounds_entropic_affinity(
-                C_, perplexity, device=target_device, dtype=X.dtype
+                C_, perplexity, device=target_device, dtype=self._get_dtype(X)
             )
             begin = begin + 1e-6  # avoid numerical issues
 
@@ -292,7 +292,7 @@ class EntropicAffinity(SparseLogAffinity):
             begin=begin,
             end=end,
             max_iter=self.max_iter,
-            dtype=X.dtype,
+            dtype=self._get_dtype(X),
             device=target_device,
         )
 
@@ -306,7 +306,7 @@ class EntropicAffinity(SparseLogAffinity):
 
         # Final normalization: sum of each row is 1/n so that total sum is 1
         log_affinity_matrix -= torch.log(
-            torch.tensor(n_samples_in, dtype=X.dtype, device=target_device)
+            torch.tensor(n_samples_in, dtype=self._get_dtype(X), device=target_device)
         )
 
         return (log_affinity_matrix, indices) if return_indices else log_affinity_matrix
@@ -452,18 +452,21 @@ class SymmetricEntropicAffinity(LogAffinity):
 
         C = self._distance_matrix(X)
 
-        n_samples_in = X.shape[0]
+        n_samples_in = self._get_n_samples(X)
         target_device = self._get_compute_device(X)
         perplexity = check_neighbor_param(self.perplexity, n_samples_in)
         target_entropy = (
-            torch.log(torch.tensor(perplexity, dtype=X.dtype, device=target_device)) + 1
+            torch.log(
+                torch.tensor(perplexity, dtype=self._get_dtype(X), device=target_device)
+            )
+            + 1
         )
 
-        one = torch.ones(n_samples_in, dtype=X.dtype, device=target_device)
+        one = torch.ones(n_samples_in, dtype=self._get_dtype(X), device=target_device)
 
         # dual variables, size (n_samples)
-        eps = torch.ones(n_samples_in, dtype=X.dtype, device=target_device)
-        mu = torch.ones(n_samples_in, dtype=X.dtype, device=target_device)
+        eps = torch.ones(n_samples_in, dtype=self._get_dtype(X), device=target_device)
+        mu = torch.ones(n_samples_in, dtype=self._get_dtype(X), device=target_device)
         self.register_buffer("eps_", eps, persistent=False)
         self.register_buffer("mu_", mu, persistent=False)
 
@@ -716,7 +719,7 @@ class SinkhornAffinity(LogAffinity):
         target_device = self._get_compute_device(X)
         # Performs warm-start if a dual variable f is provided
         dual = (
-            torch.zeros(n_samples_in, dtype=X.dtype, device=target_device)
+            torch.zeros(n_samples_in, dtype=self._get_dtype(X), device=target_device)
             if init_dual is None
             else init_dual
         )
@@ -842,7 +845,7 @@ class NormalizedGaussianAffinity(LogAffinity):
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         if isinstance(self.normalization_dim, int):
-            n_samples_in = X.shape[0]
+            n_samples_in = self._get_n_samples(X)
             log_affinity_matrix -= math.log(n_samples_in)
 
         return log_affinity_matrix
@@ -946,7 +949,7 @@ class NormalizedStudentAffinity(LogAffinity):
             log_affinity_matrix = log_affinity_matrix - self.log_normalization_
 
         if isinstance(self.normalization_dim, int):
-            n_samples_in = X.shape[0]
+            n_samples_in = self._get_n_samples(X)
             log_affinity_matrix -= math.log(n_samples_in)
 
         return log_affinity_matrix

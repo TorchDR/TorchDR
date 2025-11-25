@@ -475,19 +475,30 @@ class AffinityMatcher(DRModule):
         return self.scheduler_
 
     def _init_embedding(self, X):
-        n = X.shape[0]
+        n = self.n_samples_in_
+
+        # Get dtype from X
+        if isinstance(X, DataLoader):
+            # Get dtype from first batch
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                X_dtype = batch.dtype
+                break
+        else:
+            X_dtype = X.dtype
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
             target_device = self._get_compute_device(X)
-            embedding_ = embedding_.to(device=target_device, dtype=X.dtype)
+            embedding_ = embedding_.to(device=target_device, dtype=X_dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
                 device=self._get_compute_device(X),
-                dtype=X.dtype,
+                dtype=X_dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 

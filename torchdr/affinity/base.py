@@ -10,6 +10,7 @@ from typing import Union, Any
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
 from torchdr.utils import (
     to_torch,
@@ -132,6 +133,44 @@ class Affinity(nn.Module, ABC):
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_affinity` method is not implemented."
         )
+
+    def _get_n_samples(self, X):
+        """Get number of samples from input (tensor or DataLoader).
+
+        Parameters
+        ----------
+        X : torch.Tensor or DataLoader
+            Input data.
+
+        Returns
+        -------
+        n_samples : int
+            Number of samples.
+        """
+        if isinstance(X, DataLoader):
+            return len(X.dataset)
+        return X.shape[0]
+
+    def _get_dtype(self, X):
+        """Get dtype from input (tensor or DataLoader).
+
+        Parameters
+        ----------
+        X : torch.Tensor or DataLoader
+            Input data.
+
+        Returns
+        -------
+        dtype : torch.dtype
+            Data type.
+        """
+        if isinstance(X, DataLoader):
+            # Get dtype from first batch
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.dtype
+        return X.dtype
 
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
@@ -459,7 +498,9 @@ class SparseAffinity(Affinity):
 
         # Store chunk bounds for later use (e.g., distributed symmetrization)
         if self.distributed and self.dist_ctx is not None:
-            chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(X.shape[0])
+            chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(
+                self._get_n_samples(X)
+            )
             self.chunk_start_ = chunk_start
             self.chunk_end_ = chunk_end
             self.chunk_size_ = chunk_end - chunk_start
