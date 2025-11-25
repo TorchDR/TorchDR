@@ -9,6 +9,7 @@
 import numpy as np
 import torch
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 from torchdr.affinity import (
     Affinity,
@@ -202,7 +203,16 @@ class AffinityMatcher(DRModule):
         embedding_ : torch.Tensor
             The embedding of the input data.
         """
-        self.n_samples_in_, self.n_features_in_ = X.shape
+        if isinstance(X, DataLoader):
+            # Get dimensions from first batch
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                self.n_samples_in_ = len(X.dataset)
+                self.n_features_in_ = batch.shape[1]
+                break
+        else:
+            self.n_samples_in_, self.n_features_in_ = X.shape
 
         # --- Input affinity computation ---
 
