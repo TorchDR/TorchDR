@@ -176,6 +176,8 @@ class Affinity(nn.Module, ABC):
                 if isinstance(batch, (list, tuple)):
                     batch = batch[0]
                 return batch.dtype
+            # If DataLoader is empty, raise error
+            raise ValueError("[TorchDR] DataLoader is empty, cannot determine dtype.")
         return X.dtype
 
     def _distance_matrix(

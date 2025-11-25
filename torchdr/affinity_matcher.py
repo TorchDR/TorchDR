@@ -213,12 +213,18 @@ class AffinityMatcher(DRModule):
                 self.n_features_in_ = metadata["n_features"]
             else:
                 # Get dimensions from first batch (fallback)
+                self.n_samples_in_ = len(X.dataset)
                 for batch in X:
                     if isinstance(batch, (list, tuple)):
                         batch = batch[0]
-                    self.n_samples_in_ = len(X.dataset)
                     self.n_features_in_ = batch.shape[1]
                     break
+                else:
+                    # If DataLoader is empty
+                    raise ValueError(
+                        "[TorchDR] DataLoader is empty, cannot determine n_features. "
+                        "Ensure DataLoader yields at least one batch."
+                    )
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
 
@@ -483,7 +489,13 @@ class AffinityMatcher(DRModule):
         return self.scheduler_
 
     def _init_embedding(self, X):
-        n = self.n_samples_in_
+        # Get n_samples - use cached if available, otherwise extract
+        if hasattr(self, "n_samples_in_"):
+            n = self.n_samples_in_
+        elif isinstance(X, DataLoader):
+            n = len(X.dataset)
+        else:
+            n = X.shape[0]
 
         # Get dtype from X
         if isinstance(X, DataLoader):
@@ -495,11 +507,18 @@ class AffinityMatcher(DRModule):
                 X_dtype = metadata["dtype"]
             else:
                 # Get dtype from first batch (fallback)
+                X_dtype = None
                 for batch in X:
                     if isinstance(batch, (list, tuple)):
                         batch = batch[0]
                     X_dtype = batch.dtype
                     break
+                if X_dtype is None:
+                    # If DataLoader is empty
+                    raise ValueError(
+                        "[TorchDR] DataLoader is empty, cannot determine dtype. "
+                        "Ensure DataLoader yields at least one batch."
+                    )
         else:
             X_dtype = X.dtype
 
