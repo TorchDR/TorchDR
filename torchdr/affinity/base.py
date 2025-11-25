@@ -165,7 +165,13 @@ class Affinity(nn.Module, ABC):
             Data type.
         """
         if isinstance(X, DataLoader):
-            # Get dtype from first batch
+            # Check for cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None:
+                return metadata["dtype"]
+            # Get dtype from first batch (fallback, should rarely happen)
             for batch in X:
                 if isinstance(batch, (list, tuple)):
                     batch = batch[0]

@@ -14,6 +14,7 @@ from torchdr.distance import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
+from torchdr.distance.faiss import get_dataloader_metadata
 from torchdr.utils import faiss
 
 
@@ -222,3 +223,100 @@ class TestDataLoaderGPU:
 
         assert_close(dist_cpu, dist_gpu, rtol=1e-4, atol=1e-4)
         assert torch.equal(idx_cpu, idx_gpu)
+
+
+class TestDataLoaderOptimizations:
+    """Test DataLoader optimizations (metadata caching, shuffle validation)."""
+
+    @pytest.fixture
+    def sample_data(self):
+        """Create sample data for testing."""
+        torch.manual_seed(42)
+        return torch.randn(500, 32)
+
+    @pytest.fixture
+    def dataloader(self, sample_data):
+        """Create DataLoader from sample data."""
+        dataset = TensorDataset(sample_data)
+        return DataLoader(dataset, batch_size=100, shuffle=False)
+
+    def test_metadata_caching(self, sample_data, dataloader):
+        """Test that metadata is cached after first pairwise_distances call."""
+        k = 10
+
+        # Before computation, metadata should not exist
+        metadata_before = get_dataloader_metadata(dataloader)
+        assert metadata_before is None
+
+        # Compute k-NN (this should cache metadata)
+        dist, idx = pairwise_distances(dataloader, k=k, return_indices=True)
+
+        # After computation, metadata should be cached
+        metadata_after = get_dataloader_metadata(dataloader)
+        assert metadata_after is not None
+        assert metadata_after["n_samples"] == len(sample_data)
+        assert metadata_after["n_features"] == sample_data.shape[1]
+        assert metadata_after["dtype"] == sample_data.dtype
+
+        # Verify results are correct
+        assert dist.shape == (len(sample_data), k)
+        assert idx.shape == (len(sample_data), k)
+
+    def test_shuffle_validation_sequential_sampler(self, sample_data):
+        """Test that sequential sampler (shuffle=False) is accepted."""
+        dataset = TensorDataset(sample_data)
+        dl = DataLoader(dataset, batch_size=100, shuffle=False)
+
+        # Should work without error
+        dist, idx = pairwise_distances(dl, k=10, return_indices=True)
+        assert dist.shape == (len(sample_data), 10)
+
+    def test_shuffle_validation_random_sampler(self, sample_data):
+        """Test that random sampler (shuffle=True) is rejected."""
+        dataset = TensorDataset(sample_data)
+        dl = DataLoader(dataset, batch_size=100, shuffle=True)
+
+        # Should raise error about shuffle=True
+        with pytest.raises(ValueError, match="shuffle=False"):
+            pairwise_distances(dl, k=10, return_indices=True)
+
+    def test_metadata_persists_across_calls(self, sample_data, dataloader):
+        """Test that metadata persists and can be reused across multiple calls."""
+        k = 10
+
+        # First call caches metadata
+        dist1, idx1 = pairwise_distances(dataloader, k=k, return_indices=True)
+
+        # Get cached metadata
+        metadata1 = get_dataloader_metadata(dataloader)
+        assert metadata1 is not None
+        assert metadata1["n_samples"] == len(sample_data)
+
+        # Second call should still have metadata available
+        dist2, idx2 = pairwise_distances(dataloader, k=k, return_indices=True)
+
+        # Metadata should still be available after second call
+        metadata2 = get_dataloader_metadata(dataloader)
+        assert metadata2 is not None
+        assert metadata2["n_samples"] == metadata1["n_samples"]
+        assert metadata2["n_features"] == metadata1["n_features"]
+        assert metadata2["dtype"] == metadata1["dtype"]
+
+        # Results should be identical
+        assert_close(dist1, dist2)
+        assert torch.equal(idx1, idx2)
+
+    def test_direct_function_caches_metadata(self, sample_data, dataloader):
+        """Test that direct function also caches metadata."""
+        k = 10
+
+        # Call direct function
+        dist, idx = pairwise_distances_faiss_from_dataloader(
+            dataloader, k=k, metric="sqeuclidean"
+        )
+
+        # Verify metadata was cached
+        metadata = get_dataloader_metadata(dataloader)
+        assert metadata is not None
+        assert metadata["n_samples"] == len(sample_data)
+        assert metadata["n_features"] == sample_data.shape[1]

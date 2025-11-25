@@ -204,13 +204,21 @@ class AffinityMatcher(DRModule):
             The embedding of the input data.
         """
         if isinstance(X, DataLoader):
-            # Get dimensions from first batch
-            for batch in X:
-                if isinstance(batch, (list, tuple)):
-                    batch = batch[0]
-                self.n_samples_in_ = len(X.dataset)
-                self.n_features_in_ = batch.shape[1]
-                break
+            # Try to get cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None:
+                self.n_samples_in_ = metadata["n_samples"]
+                self.n_features_in_ = metadata["n_features"]
+            else:
+                # Get dimensions from first batch (fallback)
+                for batch in X:
+                    if isinstance(batch, (list, tuple)):
+                        batch = batch[0]
+                    self.n_samples_in_ = len(X.dataset)
+                    self.n_features_in_ = batch.shape[1]
+                    break
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
 
@@ -479,12 +487,19 @@ class AffinityMatcher(DRModule):
 
         # Get dtype from X
         if isinstance(X, DataLoader):
-            # Get dtype from first batch
-            for batch in X:
-                if isinstance(batch, (list, tuple)):
-                    batch = batch[0]
-                X_dtype = batch.dtype
-                break
+            # Try to get cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None:
+                X_dtype = metadata["dtype"]
+            else:
+                # Get dtype from first batch (fallback)
+                for batch in X:
+                    if isinstance(batch, (list, tuple)):
+                        batch = batch[0]
+                    X_dtype = batch.dtype
+                    break
         else:
             X_dtype = X.dtype
 

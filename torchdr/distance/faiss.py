@@ -9,11 +9,105 @@ import numpy as np
 import warnings
 from typing import Union, Optional, Dict, Any, Tuple, List
 
-from torch.utils.data import DataLoader
+from torch.utils.data import (
+    DataLoader,
+    RandomSampler,
+    SequentialSampler,
+    BatchSampler,
+)
 
 from torchdr.utils.faiss import faiss
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
+
+# Cache for DataLoader metadata to avoid redundant iterations
+_DATALOADER_METADATA_CACHE = {}
+
+
+def get_dataloader_metadata(dataloader):
+    """Get cached metadata for a DataLoader.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader to get metadata for.
+
+    Returns
+    -------
+    metadata : dict or None
+        Cached metadata dictionary with keys 'n_samples', 'n_features', 'dtype',
+        or None if not cached.
+    """
+    return _DATALOADER_METADATA_CACHE.get(id(dataloader))
+
+
+def _cache_dataloader_metadata(dataloader, metadata):
+    """Cache metadata for a DataLoader.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader to cache metadata for.
+    metadata : dict
+        Metadata dictionary with keys 'n_samples', 'n_features', 'dtype'.
+    """
+    _DATALOADER_METADATA_CACHE[id(dataloader)] = metadata
+
+
+def _is_deterministic_sampler(sampler):
+    """Check if sampler provides deterministic iteration.
+
+    Parameters
+    ----------
+    sampler : torch.utils.data.Sampler
+        DataLoader sampler to check.
+
+    Returns
+    -------
+    is_deterministic : bool
+        True if sampler provides deterministic iteration order.
+    """
+    if isinstance(sampler, RandomSampler):
+        return False
+
+    if isinstance(sampler, SequentialSampler):
+        return True
+
+    if isinstance(sampler, BatchSampler):
+        return _is_deterministic_sampler(sampler.sampler)
+
+    if hasattr(sampler, "shuffle"):
+        return not sampler.shuffle
+
+    return True
+
+
+def _validate_dataloader(dataloader):
+    """Validate DataLoader is suitable for k-NN computation.
+
+    Parameters
+    ----------
+    dataloader : DataLoader
+        DataLoader to validate.
+
+    Raises
+    ------
+    ValueError
+        If DataLoader has shuffle=True or uses RandomSampler.
+    """
+    if not hasattr(dataloader, "sampler"):
+        warnings.warn(
+            "[TorchDR] Could not verify DataLoader has shuffle=False. "
+            "Ensure deterministic iteration for correct k-NN results."
+        )
+        return
+
+    if not _is_deterministic_sampler(dataloader.sampler):
+        raise ValueError(
+            "[TorchDR] DataLoader must have shuffle=False for deterministic "
+            "iteration. Current sampler: {}. k-NN indices will be incorrect "
+            "with shuffled data.".format(type(dataloader.sampler).__name__)
+        )
 
 
 class FaissConfig:
@@ -407,6 +501,9 @@ def pairwise_distances_faiss_from_dataloader(
             f"[TorchDR] Only {LIST_METRICS_FAISS} metrics are supported for FAISS."
         )
 
+    # Validate DataLoader configuration
+    _validate_dataloader(dataloader)
+
     if config is None:
         config = FaissConfig()
 
@@ -419,21 +516,15 @@ def pairwise_distances_faiss_from_dataloader(
     else:
         compute_device = torch.device(device)
 
-    # Get dimension and total samples from dataloader
-    for batch in dataloader:
-        first_batch = batch[0] if isinstance(batch, (list, tuple)) else batch
-        d = first_batch.shape[1]
-        dtype = first_batch.dtype
-        break
-    else:
-        raise ValueError("[TorchDR] DataLoader is empty.")
-
     if not hasattr(dataloader.dataset, "__len__"):
         raise ValueError("[TorchDR] DataLoader dataset must have __len__ method.")
-    n_samples = len(dataloader.dataset)
 
-    # Build FAISS index from dataloader
-    index = _build_index_from_dataloader(dataloader, d, metric, config, compute_device)
+    # Build FAISS index and extract metadata in one pass
+    index, metadata = _build_index_from_dataloader(
+        dataloader, metric, config, compute_device
+    )
+    n_samples = metadata["n_samples"]
+    dtype = metadata["dtype"]
 
     # Search for k-NN
     k_search = k + 1 if exclude_diag else k
@@ -464,19 +555,20 @@ def pairwise_distances_faiss_from_dataloader(
 
 def _build_index_from_dataloader(
     dataloader: DataLoader,
-    d: int,
     metric: str,
     config: FaissConfig,
     compute_device: torch.device,
 ):
     """Build FAISS index by streaming data from dataloader.
 
+    Extracts metadata (n_samples, n_features, dtype) during the first pass,
+    then builds the index. For Flat indices, only one pass through data is needed.
+    For IVF indices, two passes are required (training + adding).
+
     Parameters
     ----------
     dataloader : DataLoader
         DataLoader yielding batches of data.
-    d : int
-        Dimension of vectors.
     metric : str
         Distance metric.
     config : FaissConfig
@@ -488,67 +580,109 @@ def _build_index_from_dataloader(
     -------
     index : faiss.Index
         Built FAISS index containing all data.
+    metadata : dict
+        Dictionary with keys: 'n_samples', 'n_features', 'dtype'.
     """
-    # Create base index
-    if metric == "angular":
-        flat_index = faiss.IndexFlatIP(d)
-        metric_type = faiss.METRIC_INNER_PRODUCT
-    else:
-        flat_index = faiss.IndexFlatL2(d)
-        metric_type = faiss.METRIC_L2
+    metadata = None
+    index = None
+    n_samples = len(dataloader.dataset)
 
-    # Set up index type
-    if config.index_type == "Flat":
-        index = flat_index
-    elif config.index_type == "IVF":
-        n_samples = len(dataloader.dataset)
-        nlist = config.nlist
-        if nlist == 100 and n_samples > 10000:
-            nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
-        index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
-        index.nprobe = config.nprobe
-    else:
-        raise ValueError(
-            f"[TorchDR] Index type '{config.index_type}' not supported. "
-            "Use 'Flat' or 'IVF'."
-        )
-
-    # Move to GPU if needed
-    if compute_device.type == "cuda":
-        if hasattr(faiss, "StandardGpuResources"):
-            index = _setup_gpu_index(index, config, d)
-        else:
-            warnings.warn(
-                "[TorchDR] faiss-gpu not installed, using CPU. "
-                "Install faiss-gpu for faster computation."
-            )
-
-    # Train IVF index if needed
-    if config.index_type == "IVF" and not index.is_trained:
-        # Collect training data (256 * nlist samples)
-        max_train = 256 * index.nlist
+    # For IVF indices: first pass extracts metadata and trains
+    if config.index_type == "IVF":
         collected = []
         total = 0
+
         for batch in dataloader:
             if isinstance(batch, (list, tuple)):
                 batch = batch[0]
+
+            # Extract metadata from first batch
+            if metadata is None:
+                metadata = {
+                    "n_samples": n_samples,
+                    "n_features": batch.shape[1],
+                    "dtype": batch.dtype,
+                }
+
+                # Create index now that we know dimensions
+                d = metadata["n_features"]
+                if metric == "angular":
+                    flat_index = faiss.IndexFlatIP(d)
+                    metric_type = faiss.METRIC_INNER_PRODUCT
+                else:
+                    flat_index = faiss.IndexFlatL2(d)
+                    metric_type = faiss.METRIC_L2
+
+                nlist = config.nlist
+                if nlist == 100 and n_samples > 10000:
+                    nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
+                index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
+                index.nprobe = config.nprobe
+
+                # Move to GPU if needed
+                if compute_device.type == "cuda":
+                    if hasattr(faiss, "StandardGpuResources"):
+                        index = _setup_gpu_index(index, config, d)
+                    else:
+                        warnings.warn(
+                            "[TorchDR] faiss-gpu not installed, using CPU. "
+                            "Install faiss-gpu for faster computation."
+                        )
+
+            # Collect training data
             batch_np = batch.detach().cpu().numpy().astype(np.float32)
+            max_train = 256 * index.nlist
             if total + len(batch_np) >= max_train:
                 collected.append(batch_np[: max_train - total])
                 break
             collected.append(batch_np)
             total += len(batch_np)
+
+        # Train index
         train_data = np.vstack(collected)
         index.train(train_data)
 
-    # Add all data from dataloader
+    # For Flat indices: extract metadata from first batch only
+    else:
+        for batch in dataloader:
+            if isinstance(batch, (list, tuple)):
+                batch = batch[0]
+
+            metadata = {
+                "n_samples": n_samples,
+                "n_features": batch.shape[1],
+                "dtype": batch.dtype,
+            }
+
+            # Create index
+            d = metadata["n_features"]
+            if metric == "angular":
+                index = faiss.IndexFlatIP(d)
+            else:
+                index = faiss.IndexFlatL2(d)
+
+            # Move to GPU if needed
+            if compute_device.type == "cuda":
+                if hasattr(faiss, "StandardGpuResources"):
+                    index = _setup_gpu_index(index, config, d)
+                else:
+                    warnings.warn(
+                        "[TorchDR] faiss-gpu not installed, using CPU. "
+                        "Install faiss-gpu for faster computation."
+                    )
+            break
+
+    # Second pass: add all data to index
     for batch in dataloader:
         if isinstance(batch, (list, tuple)):
             batch = batch[0]
         batch_np = batch.detach().cpu().numpy().astype(np.float32)
         index.add(batch_np)
 
-    return index
+    # Cache metadata for later reuse
+    _cache_dataloader_metadata(dataloader, metadata)
+
+    return index, metadata
 
 
 def _search_all_from_dataloader(
