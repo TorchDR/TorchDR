@@ -420,10 +420,17 @@ def pairwise_distances_faiss_from_dataloader(
         compute_device = torch.device(device)
 
     # Get dimension and total samples from dataloader
-    first_batch = _get_first_batch(dataloader)
-    d = first_batch.shape[1]
-    n_samples = _get_dataloader_length(dataloader)
-    dtype = first_batch.dtype
+    for batch in dataloader:
+        first_batch = batch[0] if isinstance(batch, (list, tuple)) else batch
+        d = first_batch.shape[1]
+        dtype = first_batch.dtype
+        break
+    else:
+        raise ValueError("[TorchDR] DataLoader is empty.")
+
+    if not hasattr(dataloader.dataset, "__len__"):
+        raise ValueError("[TorchDR] DataLoader dataset must have __len__ method.")
+    n_samples = len(dataloader.dataset)
 
     # Build FAISS index from dataloader
     index = _build_index_from_dataloader(dataloader, d, metric, config, compute_device)
@@ -453,26 +460,6 @@ def pairwise_distances_faiss_from_dataloader(
         indices = indices[:, 1:]
 
     return distances.to(dtype), indices
-
-
-def _get_first_batch(dataloader: DataLoader) -> torch.Tensor:
-    """Get the first batch from dataloader to determine dimensions."""
-    for batch in dataloader:
-        if isinstance(batch, (list, tuple)):
-            return batch[0]
-        return batch
-    raise ValueError("[TorchDR] DataLoader is empty.")
-
-
-def _get_dataloader_length(dataloader: DataLoader) -> int:
-    """Get total number of samples in dataloader."""
-    if hasattr(dataloader.dataset, "__len__"):
-        return len(dataloader.dataset)
-    else:
-        raise ValueError(
-            "[TorchDR] DataLoader dataset must have __len__ method "
-            "to determine total samples."
-        )
 
 
 def _build_index_from_dataloader(
@@ -514,7 +501,7 @@ def _build_index_from_dataloader(
     if config.index_type == "Flat":
         index = flat_index
     elif config.index_type == "IVF":
-        n_samples = _get_dataloader_length(dataloader)
+        n_samples = len(dataloader.dataset)
         nlist = config.nlist
         if nlist == 100 and n_samples > 10000:
             nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
@@ -537,10 +524,21 @@ def _build_index_from_dataloader(
             )
 
     # Train IVF index if needed
-    needs_training = config.index_type == "IVF"
-    if needs_training and not index.is_trained:
-        # Use index.nlist which has the potentially updated value
-        train_data = _collect_training_data(dataloader, index.nlist)
+    if config.index_type == "IVF" and not index.is_trained:
+        # Collect training data (256 * nlist samples)
+        max_train = 256 * index.nlist
+        collected = []
+        total = 0
+        for batch in dataloader:
+            if isinstance(batch, (list, tuple)):
+                batch = batch[0]
+            batch_np = batch.detach().cpu().numpy().astype(np.float32)
+            if total + len(batch_np) >= max_train:
+                collected.append(batch_np[: max_train - total])
+                break
+            collected.append(batch_np)
+            total += len(batch_np)
+        train_data = np.vstack(collected)
         index.train(train_data)
 
     # Add all data from dataloader
@@ -551,47 +549,6 @@ def _build_index_from_dataloader(
         index.add(batch_np)
 
     return index
-
-
-def _collect_training_data(
-    dataloader: DataLoader, nlist: int, max_points: Optional[int] = None
-) -> np.ndarray:
-    """Collect training data for IVF index from dataloader.
-
-    Parameters
-    ----------
-    dataloader : DataLoader
-        DataLoader to collect data from.
-    nlist : int
-        Number of clusters (determines max training points).
-    max_points : int, optional
-        Maximum points to collect. If None, uses 256 * nlist.
-
-    Returns
-    -------
-    train_data : np.ndarray
-        Training data array.
-    """
-    if max_points is None:
-        max_points = 256 * nlist
-
-    collected = []
-    total = 0
-
-    for batch in dataloader:
-        if isinstance(batch, (list, tuple)):
-            batch = batch[0]
-        batch_np = batch.detach().cpu().numpy().astype(np.float32)
-
-        if total + len(batch_np) >= max_points:
-            remaining = max_points - total
-            collected.append(batch_np[:remaining])
-            break
-
-        collected.append(batch_np)
-        total += len(batch_np)
-
-    return np.vstack(collected)
 
 
 def _search_all_from_dataloader(
