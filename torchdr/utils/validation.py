@@ -6,6 +6,7 @@
 
 import torch
 from torch.testing import assert_close
+from torch.utils.data import DataLoader
 
 try:
     import pandas as pd
@@ -290,6 +291,10 @@ def validate_tensor(
     tensor_validated : torch.Tensor
         The validated tensor (may be reshaped if ensure_2d=True).
     """
+    # DataLoader: skip validation (will be validated during iteration)
+    if isinstance(tensor, DataLoader):
+        return tensor
+
     # Validate it's a tensor
     if not isinstance(tensor, torch.Tensor):
         raise ValueError(
