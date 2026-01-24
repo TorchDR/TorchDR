@@ -107,7 +107,7 @@ class TSNEkhorn(NeighborEmbedding):
         entropic affinity. Default is True.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm, by default 50.
-    jit_compile : bool, optional
+    compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
