@@ -203,6 +203,7 @@ class AffinityMatcher(DRModule):
             The embedding of the input data.
         """
         self.n_samples_in_, self.n_features_in_ = X.shape
+        self.device_ = self._get_compute_device(X)  # resolve "auto" to actual device
 
         # --- Input affinity computation ---
 

@@ -645,7 +645,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             chunk_size = self.n_samples_in_
 
         self.chunk_indices_ = torch.arange(
-            chunk_start, chunk_start + chunk_size, device=self.device
+            chunk_start, chunk_start + chunk_size, device=self.device_
         )
         global_self_idx = self.chunk_indices_.unsqueeze(1)
         chunk_size = len(global_self_idx)
@@ -725,7 +725,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
                 n = X.shape[0]
                 self.embedding_ = torch.empty(
                     (n, self.n_components),
-                    device=self.device,
+                    device=self.device_,
                     dtype=X.dtype,
                     requires_grad=True,
                 )
