@@ -80,14 +80,20 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 
 ### Neighbor Embedding
 
-**TorchDR** provides a suite of **neighbor embedding** methods (optimal for data visualization).
+**TorchDR** provides a suite of neighbor embedding methods, optimal for data visualization.
 
-**Linear-time (Negative Sampling).** State-of-the-art speed on large datasets: [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html), [`PACMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAP.html).
+| Method | Complexity | Multi-GPU | Paper |
+|--------|:----------:|:---------:|:-----:|
+| [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html) | O(n) | ✅ | [↗](https://arxiv.org/abs/1802.03426) |
+| [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html) | O(n) | ✅ | [↗](https://arxiv.org/abs/1602.00370) |
+| [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html) | O(n) | ✅ | [↗](https://arxiv.org/abs/2206.01816) |
+| [`PACMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAP.html) | O(n) | ❌ | [↗](https://arxiv.org/abs/2012.04456) |
+| [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html) | O(n²) | ❌ | [↗](https://papers.nips.cc/paper/2002/hash/6150ccc6069bea6b5716254057a194ef-Abstract.html) |
+| [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html) | O(n²) | ❌ | [↗](https://jmlr.org/papers/v9/vandermaaten08a.html) |
+| [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html) | O(n²) | ❌ | [↗](https://arxiv.org/abs/2305.13797) |
+| [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html) | O(n²) | ❌ | [↗](https://arxiv.org/abs/2111.15037) |
 
-**Quadratic-time (Exact Repulsion).** Compute the full pairwise repulsion: [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html), [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html), [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html), [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html).
-
-> *Remark.* For quadratic-time algorithms, `TorchDR` provides exact implementations that scale linearly in memory using `backend=keops`.
-> For `TSNE` specifically, one can also explore fast approximations, such as `FIt-SNE` implemented in [tsne-cuda](https://github.com/CannyLab/tsne-cuda), which bypass full pairwise repulsion.
+> *Note:* Quadratic methods support `backend="keops"` for exact computation with linear memory usage.
 
 
 ### Spectral Embedding
@@ -144,9 +150,9 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 - Adaptive affinities with entropy control: [`EntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.EntropicAffinity.html), [`SymmetricEntropicAffinity`](https://torchdr.github.io/dev/gen_modules/torchdr.SymmetricEntropicAffinity.html).
 
 
-### Evaluation Metric
+### Evaluation Metrics
 
-**TorchDR** provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html).
+**TorchDR** provides efficient GPU-compatible evaluation metrics: [`silhouette_score`](https://torchdr.github.io/dev/gen_modules/torchdr.silhouette_score.html), [`knn_label_accuracy`](https://torchdr.github.io/dev/gen_modules/torchdr.knn_label_accuracy.html), [`neighborhood_preservation`](https://torchdr.github.io/dev/gen_modules/torchdr.neighborhood_preservation.html), [`kmeans_ari`](https://torchdr.github.io/dev/gen_modules/torchdr.kmeans_ari.html).
 
 
 
@@ -155,7 +161,7 @@ Visualizing the CIFAR100 dataset using DINO features and `TSNE`.
 Install the core `torchdr` library from PyPI:
 
 ```bash
-pip install torchdr
+pip install torchdr  # or: uv pip install torchdr
 ```
 
 **Note:** `torchdr` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
