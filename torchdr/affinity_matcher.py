@@ -227,24 +227,17 @@ class AffinityMatcher(DRModule):
                 )
             if isinstance(self.affinity_in, SparseAffinity):
                 affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
-
-                # LazyTensors (from keops backend) can't be registered as buffers
-                if self.affinity_in.backend == "keops":
-                    self.affinity_in_ = affinity_matrix
-                else:
-                    self.register_buffer(
-                        "affinity_in_", affinity_matrix, persistent=False
-                    )
                 self.register_buffer("NN_indices_", nn_indices, persistent=False)
             else:
                 affinity_matrix = self.affinity_in(X)
-                # LazyTensors (from keops backend) can't be registered as buffers
-                if self.affinity_in.backend == "keops":
-                    self.affinity_in_ = affinity_matrix
-                else:
-                    self.register_buffer(
-                        "affinity_in_", affinity_matrix, persistent=False
-                    )
+
+            # LazyTensors (from keops backend) can't be registered as buffers
+            if self.affinity_in.backend == "keops":
+                self.affinity_in_ = affinity_matrix
+            else:
+                self.register_buffer(
+                    "affinity_in_", affinity_matrix, persistent=False
+                )
 
         self.on_affinity_computation_end()
 
