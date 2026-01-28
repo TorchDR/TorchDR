@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union
 
 import torch
 
@@ -70,7 +70,7 @@ class SelfTuningAffinity(LogAffinity):
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
-        Device to use for computations.
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
@@ -94,7 +94,7 @@ class SelfTuningAffinity(LogAffinity):
         normalization_dim: Union[int, Tuple[int]] = (0, 1),
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
@@ -178,7 +178,7 @@ class MAGICAffinity(Affinity):
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
-        Device to use for computations.
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
@@ -201,7 +201,7 @@ class MAGICAffinity(Affinity):
         K: int = 7,
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
@@ -261,8 +261,8 @@ class PHATEAffinity(Affinity):
     ----------
     metric : str, optional (default="euclidean")
         Metric to use for pairwise distances computation.
-    device : str, optional (default=None)
-        Device to use for computations. If None, uses the device of input data.
+    device : str, optional
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional (default=None)
         Which backend to use for handling sparsity and memory efficiency.
     verbose : bool, optional (default=False)
@@ -283,7 +283,7 @@ class PHATEAffinity(Affinity):
     def __init__(
         self,
         metric: str = "euclidean",
-        device: str = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         k: int = 5,
@@ -353,7 +353,7 @@ class UMAPAffinity(SparseAffinity):
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
-        Device to use for computations.
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
@@ -506,7 +506,7 @@ class PACMAPAffinity(SparseAffinity):
     zero_diag : bool, optional
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
-        Device to use for computations.
+        Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:

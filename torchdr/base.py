@@ -33,7 +33,8 @@ class DRModule(BaseEstimator, nn.Module, ABC):
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     device : str, optional
-        Device to use for computations. Default is "auto".
+        Device to use for computations. If "auto", uses the input tensor's device.
+        If None is passed, it is converted to "auto". Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
@@ -66,7 +67,7 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         super().__init__()
 
         self.n_components = n_components
-        self.device = device
+        self.device = device if device is not None else "auto"
         self.backend = backend
         self.verbose = verbose
         self.random_state = random_state

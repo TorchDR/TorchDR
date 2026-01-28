@@ -126,7 +126,7 @@ class TSNEkhorn(NeighborEmbedding):
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-4,
         max_iter: int = 2000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
