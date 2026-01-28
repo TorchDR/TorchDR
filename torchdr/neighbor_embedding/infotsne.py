@@ -118,7 +118,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
