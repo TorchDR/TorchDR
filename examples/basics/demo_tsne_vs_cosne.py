@@ -53,7 +53,7 @@ snare_labels = load_numpy_from_url(url_y)
 
 # %%
 # Computing TSNE and COSNE on SNARE-seq data
-# -----------------------------------------
+# -------------------------------------------
 #
 # We can now proceed to computing the two DR methods and visualizing
 # the results on the SNARE-seq dataset.

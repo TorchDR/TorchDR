@@ -15,20 +15,19 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/TorchDR/TorchDR/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/TorchDR/TorchDR/tree/main)
 [![codecov](https://codecov.io/gh/torchdr/torchdr/branch/main/graph/badge.svg)](https://codecov.io/gh/torchdr/torchdr)
 
-**TorchDR** is an open-source library for **dimensionality reduction (DR)** built on PyTorch. DR constructs **low-dimensional representations (or embeddings)** that **best preserve the intrinsic geometry of an input dataset** encoded via a pairwise affinity matrix. **TorchDR** provides **GPU-accelerated** implementations of popular DR algorithms in a **unified framework**, ensuring **high performance** by leveraging the latest advances of the PyTorch ecosystem.
+**TorchDR** is a high-performance dimensionality reduction library built on PyTorch. It provides GPU and multi-GPU accelerated DR methods in a unified framework with a simple, scikit-learn-compatible API.
 
 
 ## Key Features
 
-🚀 **Blazing Fast**: engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity and negative sampling.
-
-🧩 **Modular by Design**: very component is designed to be easily customized, extended, or replaced to fit your specific needs.
-
-🪶 **Memory-Efficient**: natively handles sparsity and memory-efficient symbolic operations to process massive datasets without memory overflows.
-
-🤝 **Seamless Integration**: Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows.
-
-📦 **Minimal Dependencies**: requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic computation.
+| Feature | Description |
+|---------|-------------|
+| **High Performance** | Engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity and negative sampling. |
+| **Multi-GPU Support** | Scale to massive datasets with built-in distributed computing. Use the `torchdr` CLI or `torchrun` for easy multi-GPU execution of compatible modules and methods. |
+| **Modular by Design** | Every component is designed to be easily customized, extended, or replaced to fit your specific needs. |
+| **Memory-Efficient** | Natively handles sparsity and memory-efficient symbolic operations to process massive datasets without memory overflows. |
+| **Seamless Integration** | Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows. |
+| **Minimal Dependencies** | Requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic computation. |
 
 
 ## Getting Started
@@ -44,7 +43,7 @@ x = fetch_openml("mnist_784").data.astype("float32")
 z = UMAP(n_neighbors=30).fit_transform(x)
 ```
 
-### 🚀 GPU Acceleration
+### GPU Acceleration
 
 **TorchDR** is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
 
@@ -54,15 +53,22 @@ z_gpu = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
 
 **Device Management**: By default (`device="auto"`), computations use the input data's device. For optimal memory management, you can keep input data on CPU while specifying `device="cuda"` to perform computations on GPU - TorchDR will handle transfers automatically.
 
-### 🔥 PyTorch 2.0+ torch.compile Support
+**Multi-GPU Execution**: Use the `torchdr` CLI to run your script across multiple GPUs:
 
-**TorchDR** supports `torch.compile` for an additional performance boost on modern PyTorch versions. Just add the `compile=True` flag as follows:
-
-```python
-z_gpu_compile = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(x)
+```bash
+torchdr my_script.py            # Use all available GPUs
+torchdr --gpus 4 my_script.py   # Use 4 GPUs
 ```
 
-### ⚙️ Backends
+No code changes required - TorchDR automatically parallelizes compatible operations across GPUs.
+
+**torch.compile Support**: For an additional performance boost on PyTorch 2.0+, enable compilation with `compile=True`:
+
+```python
+z = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(x)
+```
+
+### Backends
 
 The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
 
@@ -70,12 +76,11 @@ The `backend` keyword specifies which tool to use for handling kNN computations 
 - To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
 - Finally, setting `backend=None` will use raw PyTorch for all computations.
 
-
 ## Methods
 
-### Neighbor Embedding (optimal for data visualization)
+### Neighbor Embedding
 
-**TorchDR** provides a suite of **neighbor embedding** methods.
+**TorchDR** provides a suite of **neighbor embedding** methods (optimal for data visualization).
 
 **Linear-time (Negative Sampling).** State-of-the-art speed on large datasets: [`UMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.UMAP.html), [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html), [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html), [`PACMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAP.html).
 
@@ -153,7 +158,7 @@ Install the core `torchdr` library from PyPI:
 pip install torchdr
 ```
 
-:warning: `torchdr` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
+**Note:** `torchdr` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
 
 *   **Faiss (Recommended)**: For the fastest k-NN computations, install [Faiss](https://github.com/facebookresearch/faiss). Please follow their [official installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md). A common method is using `conda`:
     ```bash

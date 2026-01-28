@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
+Single vs Multi-GPU UMAPAffinity Comparison
+============================================
+
 Simple example of using UMAPAffinity with multi-GPU on 10x mouse Zheng dataset.
 Compares distributed vs non-distributed performance and verifies outputs are similar.
 Must be launched with torchrun for distributed execution.
 
 Usage:
-    torchrun --nproc_per_node=4 test_mnist_entropic_multigpu.py
+    torchrun --nproc_per_node=4 single_vs_multi_gpu_umap_affinity.py
 """
 
 import os
