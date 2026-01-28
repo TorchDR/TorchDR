@@ -42,9 +42,9 @@ autosummary_generate = True
 copybutton_exclude = ".linenos, .gp"
 
 intersphinx_mapping = {
-    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
-    "torch": ("https://docs.pytorch.org/2.0/", None),
-    "python": ("https://docs.python.org/3.4", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "python": ("https://docs.python.org/3/", None),
     "pykeops": ("https://www.kernel-operations.io/keops/", None),
 }
 
@@ -110,7 +110,6 @@ html_theme_options = {
             "type": "fontawesome",
         },
     ],
-    "analytics_anonymize_ip": False,
     # Toc options
     "collapse_navigation": True,
     "navigation_depth": 4,

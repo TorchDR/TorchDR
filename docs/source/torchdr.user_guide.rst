@@ -136,7 +136,7 @@ The following table outlines the aspects controlled by different formulations of
      - **Entropy**
    * - :class:`NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
-     - ✅
+     - ❌
      - ❌
    * - :class:`SinkhornAffinity <SinkhornAffinity>`
      - ✅
@@ -255,12 +255,12 @@ Many NE methods can be represented within this framework. See below for some exa
    * - :class:`SNE <SNE>`
      - :math:`\sum_{i} \log(\sum_j Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - None
+     - :math:`Q_{ij} = \exp(- \| \mathbf{z}_i - \mathbf{z}_j \|^2)`
 
    * - :class:`TSNE <TSNE>`
      - :math:`\log(\sum_{ij} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - None
+     - :math:`Q_{ij} = (1 + \| \mathbf{z}_i - \mathbf{z}_j \|^2)^{-1}`
 
    * - :class:`TSNEkhorn <TSNEkhorn>`
      - :math:`\sum_{ij} Q_{ij}`
@@ -270,17 +270,17 @@ Many NE methods can be represented within this framework. See below for some exa
    * - :class:`InfoTSNE <InfoTSNE>`
      - :math:`\sum_i \log(\sum_{j \in \mathrm{Neg}(i)} Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - None
+     - :math:`Q_{ij} = (1 + \| \mathbf{z}_i - \mathbf{z}_j \|^2)^{-1}`
 
    * - :class:`UMAP <UMAP>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`UMAPAffinity <UMAPAffinity>`
-     - None
+     - :math:`Q_{ij} = (1 + a \| \mathbf{z}_i - \mathbf{z}_j \|^{2b})^{-1}`
 
    * - :class:`LargeVis <LargeVis>`
      - :math:`- \sum_{i, j \in \mathrm{Neg}(i)} \log (1 - Q_{ij})`
      - :class:`EntropicAffinity <EntropicAffinity>`
-     - None
+     - :math:`Q_{ij} = (1 + \| \mathbf{z}_i - \mathbf{z}_j \|^2)^{-1}`
 
 In the above table, :math:`\mathrm{Neg}(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.
