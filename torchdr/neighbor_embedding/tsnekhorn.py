@@ -21,7 +21,7 @@ class TSNEkhorn(NeighborEmbedding):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
     It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input affinity :math:`\mathbf{P}`
-    and a :class:`~torchdr.SinkhornAffinity` as output affinity :math:`\mathbf{Q}`.
+    and a :class:`~torchdr.SinkhornAffinity` (doubly stochastic normalization of the Student-t kernel) as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 

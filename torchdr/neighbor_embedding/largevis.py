@@ -17,7 +17,7 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
     r"""LargeVis algorithm introduced in :cite:`tang2016visualizing`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
-    and a Student as output affinity :math:`\mathbf{Q}`.
+    and a Student-t kernel as output affinity :math:`Q_{ij} = (1 + \| \mathbf{z}_i - \mathbf{z}_j \|^2)^{-1}`.
 
     The loss function is defined as:
 
