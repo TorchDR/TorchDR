@@ -123,7 +123,6 @@ Affinities Normalized by kNN Distances
 
    SelfTuningAffinity
    MAGICAffinity
-   PotentialAffinity
    PHATEAffinity
    PACMAPAffinity
    UMAPAffinity
@@ -151,14 +150,18 @@ Other Affinities
    DoublyStochasticQuadraticAffinity
 
 
-Scores
-^^^^^^
+Evaluation Metrics
+^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
    :template: myfunc_template.rst
 
    silhouette_score
+   silhouette_samples
+   knn_label_accuracy
+   neighborhood_preservation
+   kmeans_ari
 
 
 Utils
