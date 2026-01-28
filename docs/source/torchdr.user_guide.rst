@@ -136,7 +136,7 @@ The following table outlines the aspects controlled by different formulations of
      - **Entropy**
    * - :class:`NormalizedGaussianAffinity <NormalizedGaussianAffinity>`
      - ✅
-     - ✅
+     - ❌
      - ❌
    * - :class:`SinkhornAffinity <SinkhornAffinity>`
      - ✅
