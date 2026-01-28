@@ -252,8 +252,8 @@ class AffinityMatcher(DRModule):
         self._configure_optimizer()
         self._configure_scheduler()
 
-        # Free input data - no longer needed after initialization
-        # (except when precomputed, where X is the affinity matrix itself)
+        # Drop local reference to input data (no longer needed after initialization).
+        # Memory is freed only if the caller doesn't hold another reference.
         if self.affinity_in != "precomputed":
             del X
             if torch.cuda.is_available():
