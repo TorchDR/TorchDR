@@ -235,9 +235,7 @@ class AffinityMatcher(DRModule):
             if self.affinity_in.backend == "keops":
                 self.affinity_in_ = affinity_matrix
             else:
-                self.register_buffer(
-                    "affinity_in_", affinity_matrix, persistent=False
-                )
+                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
 
         self.on_affinity_computation_end()
 
