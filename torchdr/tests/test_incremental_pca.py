@@ -388,20 +388,21 @@ def test_incremental_pca_dataloader():
 
     X = torch.tensor(iris.data, dtype=torch.float32)
     n_components = 2
+    batch_size = 50
 
     # Create DataLoader
     dataset = TensorDataset(X)
-    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     # Fit with DataLoader
     ipca_dl = IncrementalPCA(n_components=n_components)
     X_transformed_dl = ipca_dl.fit_transform(dataloader)
 
-    # Fit with tensor for comparison
-    ipca_tensor = IncrementalPCA(n_components=n_components)
+    # Fit with tensor using same batch size for comparison
+    ipca_tensor = IncrementalPCA(n_components=n_components, batch_size=batch_size)
     X_transformed_tensor = ipca_tensor.fit_transform(X)
 
-    # Results should be the same
+    # Results should be the same when using same batch size
     assert X_transformed_dl.shape == X_transformed_tensor.shape
     assert_close(X_transformed_dl, X_transformed_tensor, rtol=1e-5, atol=1e-5)
 
@@ -417,9 +418,12 @@ def test_exact_incremental_pca_dataloader():
     dataset = TensorDataset(X)
     dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
 
-    # Fit with DataLoader
+    # Fit with DataLoader (use fit() then transform() since fit_transform doesn't
+    # support DataLoader)
     exact_ipca_dl = ExactIncrementalPCA(n_components=n_components)
-    X_transformed_dl = exact_ipca_dl.fit_transform(dataloader)
+    exact_ipca_dl.compute_mean(dataloader)
+    exact_ipca_dl.fit(dataloader)
+    X_transformed_dl = exact_ipca_dl.transform(X)
 
     # Fit with tensor for comparison
     exact_ipca_tensor = ExactIncrementalPCA(n_components=n_components)

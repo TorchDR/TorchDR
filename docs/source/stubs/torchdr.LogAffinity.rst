@@ -1,4 +1,4 @@
-﻿LogAffinity
+LogAffinity
 ===========
 
 .. currentmodule:: torchdr

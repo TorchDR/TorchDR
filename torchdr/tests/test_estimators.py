@@ -60,12 +60,14 @@ def test_process_duplicates():
 
 def test_process_duplicates_dataloader_warning():
     """Test that a warning is issued when process_duplicates=True with DataLoader."""
+    from torchdr import IncrementalPCA
+
     X = torch.randn(20, 5)
     dataset = TensorDataset(X)
     dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
 
-    # Instantiate estimator with process_duplicates=True (default)
-    estimator = PCA(n_components=2, process_duplicates=True)
+    # Use IncrementalPCA which supports DataLoader input
+    estimator = IncrementalPCA(n_components=2, process_duplicates=True)
 
     # Should emit a warning about process_duplicates not being supported with DataLoader
     with warnings.catch_warnings(record=True) as w:

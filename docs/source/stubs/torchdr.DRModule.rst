@@ -1,4 +1,4 @@
-﻿DRModule
+DRModule
 ========
 
 .. currentmodule:: torchdr
