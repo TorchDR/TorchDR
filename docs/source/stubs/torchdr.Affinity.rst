@@ -1,4 +1,4 @@
-Affinity
+﻿Affinity
 ========
 
 .. currentmodule:: torchdr

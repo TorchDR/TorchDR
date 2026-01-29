@@ -1,4 +1,4 @@
-AffinityMatcher
+﻿AffinityMatcher
 ===============
 
 .. currentmodule:: torchdr

@@ -7,7 +7,7 @@ Tests estimators for scikit-learn compatibility.
 #
 # License: BSD 3-Clause License
 
-import warnings
+import logging
 
 import pytest
 import torch
@@ -58,8 +58,9 @@ def test_process_duplicates():
     assert not torch.allclose(embedding_duplicates, embedding_no_duplicates)
 
 
-def test_process_duplicates_dataloader_warning():
+def test_process_duplicates_dataloader_warning(caplog):
     """Test that a warning is issued when process_duplicates=True with DataLoader."""
+
     from torchdr import IncrementalPCA
 
     X = torch.randn(20, 5)
@@ -70,17 +71,14 @@ def test_process_duplicates_dataloader_warning():
     estimator = IncrementalPCA(n_components=2, process_duplicates=True)
 
     # Should emit a warning about process_duplicates not being supported with DataLoader
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
+    with caplog.at_level(logging.WARNING):
         estimator.fit_transform(dataloader)
 
-        # Check that a warning was issued
-        assert len(w) >= 1
-        warning_messages = [str(warning.message) for warning in w]
-        assert any(
-            "process_duplicates is not supported with DataLoader" in msg
-            for msg in warning_messages
-        )
+    # Check that a warning was logged
+    assert any(
+        "process_duplicates is not supported with DataLoader" in record.message
+        for record in caplog.records
+    )
 
 
 @pytest.mark.xfail(strict=False, reason="sklearn estimator‐check not critical")
