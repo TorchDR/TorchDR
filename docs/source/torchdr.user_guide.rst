@@ -71,6 +71,69 @@ Simply set :attr:`backend` to ``keops`` in any module to enable it.
 The above figure is taken from `here <https://github.com/getkeops/keops/blob/main/doc/_static/symbolic_matrix.svg>`_.
 
 
+Multi-GPU distributed training
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For very large datasets, TorchDR supports **multi-GPU distributed training** to parallelize computations across multiple GPUs. This is particularly useful when the affinity matrix is too large to compute on a single GPU or when faster computation is needed.
+
+**How it works:**
+
+1. **Data partitioning**: The full dataset :math:`\mathbf{X} \in \mathbb{R}^{N \times d}` is split into chunks across GPUs. Each GPU handles a subset of :math:`n_i` samples.
+
+2. **Shared neighbor index**: A FAISS index is built on the full dataset and shared across all GPUs, enabling efficient k-nearest neighbor queries.
+
+3. **Parallel affinity computation**: Each GPU computes the affinity rows for its chunk by querying the shared index. GPU :math:`i` computes rows :math:`[\text{start}_i, \text{end}_i)` of the affinity matrix.
+
+4. **Distributed gradient computation**: During optimization, each GPU:
+
+   - Computes gradients :math:`\nabla \mathcal{L}_i` for its local chunk
+   - Maintains a full copy of the embedding :math:`\mathbf{Z} \in \mathbb{R}^{N \times q}`
+   - Synchronizes gradients via **all-reduce** across GPUs
+
+5. **Synchronized updates**: After all-reduce, each GPU has identical aggregated gradients and applies the same optimizer step, keeping embeddings synchronized.
+
+.. image:: figures/multi_gpu_dr_extended.png
+   :width: 800
+   :align: center
+
+*Multi-GPU dimensionality reduction pipeline. The dataset is split into chunks across GPUs. Each GPU performs neighbor search using a shared index, computes its affinity chunk, and generates local gradients. Gradients are synchronized via all-reduce and used to update the embedding copies maintained on each device.*
+
+**Usage:**
+
+Multi-GPU mode is enabled automatically when launching with ``torchrun`` or the TorchDR CLI:
+
+.. code-block:: bash
+
+    # Using the TorchDR CLI (recommended)
+    torchdr --gpus 4 your_script.py
+
+    # Or using torchrun directly
+    torchrun --nproc_per_node=4 your_script.py
+
+In your script, simply use TorchDR as usual:
+
+.. code-block:: python
+
+    import torchdr
+
+    # Distributed mode is auto-detected when launched with torchrun
+    model = torchdr.UMAP(n_neighbors=15, verbose=True)
+    embedding = model.fit_transform(X)
+
+**Requirements:**
+
+- ``backend="faiss"`` (default for most methods)
+- Multiple CUDA GPUs available
+- Launch with ``torchdr`` CLI or ``torchrun``
+
+**Supported methods:**
+
+Currently, the following methods support multi-GPU:
+
+- :class:`UMAP <UMAP>`
+- :class:`InfoTSNE <InfoTSNE>`
+- :class:`LargeVis <LargeVis>`
+
 
 Affinities
 ----------
