@@ -342,13 +342,13 @@ class TestAffinityMatcherDataLoader:
 
     def test_affinity_matcher_dataloader_metadata(self, sample_data, dataloader):
         """Test that AffinityMatcher correctly extracts metadata from DataLoader."""
-        from torchdr.affinity import UMAPAffinity
+        from torchdr.affinity import UMAPAffinity, NormalizedStudentAffinity
         from torchdr.affinity_matcher import AffinityMatcher
 
         # Create AffinityMatcher with affinity that uses FAISS for k-NN
         model = AffinityMatcher(
             affinity_in=UMAPAffinity(n_neighbors=10, backend="faiss"),
-            affinity_out=None,
+            affinity_out=NormalizedStudentAffinity(),
             n_components=2,
             max_iter=2,  # Just enough to test the flow
             init="random",
@@ -365,12 +365,12 @@ class TestAffinityMatcherDataLoader:
 
     def test_affinity_matcher_dataloader_pca_init(self, sample_data, dataloader):
         """Test that AffinityMatcher uses IncrementalPCA for DataLoader + PCA init."""
-        from torchdr.affinity import UMAPAffinity
+        from torchdr.affinity import UMAPAffinity, NormalizedStudentAffinity
         from torchdr.affinity_matcher import AffinityMatcher
 
         model = AffinityMatcher(
             affinity_in=UMAPAffinity(n_neighbors=10, backend="faiss"),
-            affinity_out=None,
+            affinity_out=NormalizedStudentAffinity(),
             n_components=2,
             max_iter=2,
             init="pca",  # Should use IncrementalPCA for DataLoader
