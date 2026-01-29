@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 
 from torchdr.base import DRModule
 from torchdr.utils import (
@@ -493,9 +494,10 @@ class IncrementalPCA(DRModule):
 
         Parameters
         ----------
-        X : ArrayLike of shape (n_samples, n_features)
+        X : ArrayLike or DataLoader
             Data on which to fit the PCA model and project onto the components.
-            Should fit in CPU memory but may be too large for GPU memory.
+            Can be a tensor/array (should fit in CPU memory) or a DataLoader
+            for streaming large datasets. DataLoader batches can be tuples (X, y).
         y : Optional[Any], default=None
             Target values (None for unsupervised transformations).
 
@@ -504,6 +506,27 @@ class IncrementalPCA(DRModule):
         ArrayLike of shape (n_samples, n_components)
             Projected data. Will be on the same device/backend as input.
         """
+        # Handle DataLoader input
+        if isinstance(X, DataLoader):
+            compute_device = self._get_compute_device(X)
+
+            # Single pass: fit incrementally
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                if batch.device != compute_device:
+                    batch = batch.to(compute_device)
+                self.partial_fit(batch, check_input=True)
+
+            # Second pass: transform all data
+            embeddings = []
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                embeddings.append(self.transform(batch))
+            self.embedding_ = torch.cat(embeddings, dim=0)
+            return self.embedding_
+
         # Track original format for output conversion
         X_, input_backend, input_device = to_torch(X, return_backend_device=True)
 
@@ -702,8 +725,9 @@ class ExactIncrementalPCA(DRModule):
         Parameters
         ----------
         X_batches : iterable of torch.Tensor or single torch.Tensor
-            Either an iterable yielding batches of data, or a single tensor.
+            Either an iterable yielding batches of data, a DataLoader, or a single tensor.
             Each batch should have shape (n_samples, n_features).
+            DataLoader batches can be tuples (X, y) - only X will be used.
 
         Returns
         -------
@@ -718,6 +742,9 @@ class ExactIncrementalPCA(DRModule):
             X_batches = [X_batches]
 
         for batch in X_batches:
+            # Handle DataLoader tuple batches (X, y)
+            if isinstance(batch, (list, tuple)):
+                batch = batch[0]
             batch = to_torch(batch)
 
             if self.device != "auto" and self.device is not None:
@@ -758,6 +785,9 @@ class ExactIncrementalPCA(DRModule):
         if self.mean_ is None:
             raise ValueError("Mean must be computed first using compute_mean()")
 
+        # Handle DataLoader tuple batches (X, y)
+        if isinstance(X, (list, tuple)):
+            X = X[0]
         X = to_torch(X)
 
         if self.device != "auto" and self.device is not None:
@@ -786,9 +816,10 @@ class ExactIncrementalPCA(DRModule):
 
         Parameters
         ----------
-        X_batches : iterable of torch.Tensor or single torch.Tensor
-            Either an iterable yielding batches of data, or a single tensor.
-            Each batch should have shape (n_samples, n_features).
+        X_batches : iterable of torch.Tensor, DataLoader, or single torch.Tensor
+            Either an iterable yielding batches of data, a DataLoader, or a single
+            tensor. Each batch should have shape (n_samples, n_features).
+            DataLoader batches can be tuples (X, y) - only X will be used.
         y : None
             Ignored. Present for API consistency.
 
@@ -797,18 +828,26 @@ class ExactIncrementalPCA(DRModule):
         self : ExactIncrementalPCA
             Returns the instance itself.
         """
-        # Handle single tensor input
+        # Handle different input types
         if isinstance(X_batches, (torch.Tensor, np.ndarray)):
-            X_batches_list = [X_batches]
+            X_batches_iter = [X_batches]
+        elif isinstance(X_batches, DataLoader):
+            # DataLoader can be re-iterated without storing
+            X_batches_iter = X_batches
+        elif hasattr(X_batches, "__iter__"):
+            # For generators/iterables, convert to list to allow multiple passes
+            X_batches_iter = list(X_batches)
         else:
-            # Convert generator to list to allow multiple passes
-            X_batches_list = list(X_batches)
+            raise TypeError(
+                f"[TorchDR] X_batches must be a tensor, array, DataLoader, or iterable. "
+                f"Got {type(X_batches).__name__}."
+            )
 
         # Compute mean if not already done
         if self.mean_ is None:
             if self.verbose:
                 self.logger.info("Computing mean (first pass through data)")
-            self.compute_mean(X_batches_list)
+            self.compute_mean(X_batches_iter)
 
         # Reset XtX for fresh computation
         self._XtX = None
@@ -817,7 +856,7 @@ class ExactIncrementalPCA(DRModule):
         if self.verbose:
             self.logger.info("Building covariance matrix (second pass through data)")
 
-        for batch in X_batches_list:
+        for batch in X_batches_iter:
             self.partial_fit(batch)
 
         # Compute eigendecomposition

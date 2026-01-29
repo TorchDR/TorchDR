@@ -528,11 +528,19 @@ class AffinityMatcher(DRModule):
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
-            from torchdr.spectral_embedding.pca import PCA
+            if isinstance(X, DataLoader):
+                # Use IncrementalPCA for DataLoader input (2 passes: fit + transform)
+                from torchdr.spectral_embedding import IncrementalPCA
 
-            embedding_ = PCA(
-                n_components=self.n_components, device=self.device
-            ).fit_transform(X)
+                embedding_ = IncrementalPCA(
+                    n_components=self.n_components, device=self.device
+                ).fit_transform(X)
+            else:
+                from torchdr.spectral_embedding.pca import PCA
+
+                embedding_ = PCA(
+                    n_components=self.n_components, device=self.device
+                ).fit_transform(X)
             target_device = self._get_compute_device(X)
             if embedding_.device != target_device:
                 embedding_ = embedding_.to(target_device)
