@@ -11,6 +11,7 @@ utilities for managing distributed multi-GPU computation.
 
 import atexit
 import os
+import warnings
 from typing import Tuple
 
 import torch
@@ -37,6 +38,15 @@ def _auto_setup_distributed():
     if "LOCAL_RANK" in os.environ and not dist.is_initialized():
         # Only setup distributed for GPU training
         if not torch.cuda.is_available():
+            warnings.warn(
+                "Distributed launch detected (LOCAL_RANK is set) but no GPU is "
+                "available. Distributed mode will not be initialized. "
+                "CPU workloads already leverage multi-threading and don't benefit "
+                "from multi-process distribution. Run without torchrun for best "
+                "CPU performance.",
+                UserWarning,
+                stacklevel=2,
+            )
             return
 
         local_rank = int(os.environ["LOCAL_RANK"])

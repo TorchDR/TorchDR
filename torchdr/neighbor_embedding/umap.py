@@ -39,7 +39,8 @@ def find_ab_params(spread, min_dist):
 class UMAP(NegativeSamplingNeighborEmbedding):
     r"""UMAP introduced in :cite:`mcinnes2018umap` and further studied in :cite:`damrich2021umap`.
 
-    It uses a :class:`~torchdr.UMAPAffinity` as input affinity :math:`\mathbf{P}`.
+    It uses a :class:`~torchdr.UMAPAffinity` as input affinity :math:`\mathbf{P}`
+    and output affinity :math:`Q_{ij} = (1 + a \| \mathbf{z}_i - \mathbf{z}_j \|^{2b})^{-1}` where :math:`a, b` are fitted from ``min_dist`` and ``spread``.
 
     The loss function is defined as:
 
@@ -144,7 +145,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 1000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,

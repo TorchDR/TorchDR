@@ -48,7 +48,7 @@ def binary_search(
     Returns
     -------
     m : torch.Tensor of shape (n,)
-        Estimated roots where |f(m)| < tol.
+        Estimated roots where ``abs(f(m)) < tol``.
     """
     tol = _DEFAULT_TOL.to(device).to(dtype)
     b, e = init_bounds(f, n, begin, end, max_iter=max_iter, dtype=dtype, device=device)
@@ -112,7 +112,7 @@ def false_position(
     Returns
     -------
     m : torch.Tensor of shape (n,)
-        Estimated roots where |f(m)| < tol.
+        Estimated roots where ``abs(f(m)) < tol``.
     """
     tol = _DEFAULT_TOL.to(device).to(dtype)
     b, e = init_bounds(f, n, begin, end, max_iter=max_iter, dtype=dtype, device=device)

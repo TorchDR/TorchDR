@@ -17,7 +17,7 @@ class SNE(SparseNeighborEmbedding):
     r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
-    and a Gaussian as output affinity :math:`\mathbf{Q}`.
+    and a Gaussian kernel as output affinity :math:`Q_{ij} = \exp(- \| \mathbf{z}_i - \mathbf{z}_j \|^2)`.
 
     The loss function is defined as:
 
@@ -100,7 +100,7 @@ class SNE(SparseNeighborEmbedding):
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-7,
         max_iter: int = 2000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,

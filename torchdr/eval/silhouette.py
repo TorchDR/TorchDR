@@ -41,7 +41,7 @@ def silhouette_samples(
     Parameters
     ----------
     X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
-        `metric="precomputed" else (n_samples_x, n_features)
+        ``metric="precomputed"`` else (n_samples_x, n_features)
         Input data as a pairwise distance matrix or a feature matrix.
     labels : torch.Tensor or np.ndarray of shape (n_samples_x,)
         Labels associated to X.
@@ -193,7 +193,7 @@ def silhouette_score(
     Parameters
     ----------
     X : torch.Tensor, np.ndarray of shape (n_samples_x, n_samples_x) if
-        `metric="precomputed" else (n_samples_x, n_features)
+        ``metric="precomputed"`` else (n_samples_x, n_features)
         Input data as a pairwise distance matrix or a feature matrix.
     labels : torch.Tensor or np.ndarray of shape (n_samples_x,)
         Labels associated to X.

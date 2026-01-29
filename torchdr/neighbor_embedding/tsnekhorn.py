@@ -21,7 +21,7 @@ class TSNEkhorn(NeighborEmbedding):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
     It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input affinity :math:`\mathbf{P}`
-    and a :class:`~torchdr.SinkhornAffinity` as output affinity :math:`\mathbf{Q}`.
+    and a :class:`~torchdr.SinkhornAffinity` (doubly stochastic normalization of the Student-t kernel) as output affinity :math:`\mathbf{Q}`.
 
     The loss function is defined as:
 
@@ -107,7 +107,7 @@ class TSNEkhorn(NeighborEmbedding):
         entropic affinity. Default is True.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm, by default 50.
-    jit_compile : bool, optional
+    compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     """  # noqa: E501
 
@@ -126,7 +126,7 @@ class TSNEkhorn(NeighborEmbedding):
         init_scaling: float = 1e-4,
         min_grad_norm: float = 1e-4,
         max_iter: int = 2000,
-        device: Optional[str] = None,
+        device: str = "auto",
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,

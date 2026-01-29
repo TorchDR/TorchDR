@@ -38,7 +38,8 @@ class Affinity(nn.Module, ABC):
         Whether to set the diagonal of the affinity matrix to zero.
     device : str, optional
         The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data.
+        If "auto", uses the device of the input data. If None is passed, it is
+        converted to "auto". Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
@@ -73,7 +74,7 @@ class Affinity(nn.Module, ABC):
         self.log = {}
         self.metric = metric
         self.zero_diag = bool_arg(zero_diag)
-        self.device = device
+        self.device = device if device is not None else "auto"
         self.backend = backend
         self.verbose = bool_arg(verbose)
         self.random_state = random_state

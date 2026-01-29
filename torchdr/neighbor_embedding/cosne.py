@@ -15,9 +15,11 @@ from torchdr.utils import logsumexp_red, RiemannianAdam, cross_entropy_loss
 
 
 class COSNE(SparseNeighborEmbedding):
-    """Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) introduced in :cite:`guo2022co`.
+    r"""Implementation of the CO-Stochastic Neighbor Embedding (CO-SNE) introduced in :cite:`guo2022co`.
 
     This algorithm is a variant of SNE that uses a hyperbolic space for the embedding.
+    It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
+    and a Cauchy kernel in hyperbolic space as output affinity :math:`Q_{ij} = \gamma / (d_H(\mathbf{z}_i, \mathbf{z}_j) + \gamma^2)` where :math:`d_H` is the hyperbolic distance.
 
     Parameters
     ----------

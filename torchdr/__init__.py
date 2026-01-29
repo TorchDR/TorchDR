@@ -35,7 +35,13 @@ from .affinity_matcher import AffinityMatcher
 
 # import DR methods
 from .base import DRModule
-from .eval import silhouette_samples, silhouette_score
+from .eval import (
+    silhouette_samples,
+    silhouette_score,
+    knn_label_accuracy,
+    neighborhood_preservation,
+    kmeans_ari,
+)
 from .neighbor_embedding import (
     SNE,
     TSNE,
@@ -103,6 +109,9 @@ __all__ = [
     "false_position",
     "silhouette_samples",
     "silhouette_score",
+    "knn_label_accuracy",
+    "neighborhood_preservation",
+    "kmeans_ari",
     "PHATE",
     "PHATEAffinity",
     "PACMAPAffinity",

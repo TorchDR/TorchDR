@@ -227,6 +227,7 @@ class AffinityMatcher(DRModule):
                     )
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
+        self.device_ = self._get_compute_device(X)  # resolve "auto" to actual device
 
         # --- Input affinity computation ---
 
@@ -251,24 +252,15 @@ class AffinityMatcher(DRModule):
                 )
             if isinstance(self.affinity_in, SparseAffinity):
                 affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
-
-                # LazyTensors (from keops backend) can't be registered as buffers
-                if self.affinity_in.backend == "keops":
-                    self.affinity_in_ = affinity_matrix
-                else:
-                    self.register_buffer(
-                        "affinity_in_", affinity_matrix, persistent=False
-                    )
                 self.register_buffer("NN_indices_", nn_indices, persistent=False)
             else:
                 affinity_matrix = self.affinity_in(X)
-                # LazyTensors (from keops backend) can't be registered as buffers
-                if self.affinity_in.backend == "keops":
-                    self.affinity_in_ = affinity_matrix
-                else:
-                    self.register_buffer(
-                        "affinity_in_", affinity_matrix, persistent=False
-                    )
+
+            # LazyTensors (from keops backend) can't be registered as buffers
+            if self.affinity_in.backend == "keops":
+                self.affinity_in_ = affinity_matrix
+            else:
+                self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
 
         self.on_affinity_computation_end()
 
@@ -283,8 +275,8 @@ class AffinityMatcher(DRModule):
         self._configure_optimizer()
         self._configure_scheduler()
 
-        # Free input data - no longer needed after initialization
-        # (except when precomputed, where X is the affinity matrix itself)
+        # Drop local reference to input data (no longer needed after initialization).
+        # Memory is freed only if the caller doesn't hold another reference.
         if self.affinity_in != "precomputed":
             del X
             if torch.cuda.is_available():
@@ -386,21 +378,20 @@ class AffinityMatcher(DRModule):
                 "[TorchDR] ERROR : affinity_out is not set. Set it or implement _compute_loss method."
             )
 
-        if self.kwargs_affinity_out is None:
-            self.kwargs_affinity_out = {}
-        if self.kwargs_loss is None:
-            self.kwargs_loss = {}
+        # Use local copies to avoid mutating self.kwargs_affinity_out/self.kwargs_loss
+        kwargs_affinity_out = dict(self.kwargs_affinity_out or {})
+        kwargs_loss = dict(self.kwargs_loss or {})
 
         # If cross entropy loss and affinity_out is LogAffinity, use log domain
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
-            self.kwargs_affinity_out.setdefault("log", True)
-            self.kwargs_loss.setdefault("log", True)
+            kwargs_affinity_out.setdefault("log", True)
+            kwargs_loss.setdefault("log", True)
 
-        Q = self.affinity_out(self.embedding_, **self.kwargs_affinity_out)
+        Q = self.affinity_out(self.embedding_, **kwargs_affinity_out)
 
-        loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **self.kwargs_loss)
+        loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **kwargs_loss)
         return loss
 
     def on_affinity_computation_start(self):
