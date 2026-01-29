@@ -225,9 +225,18 @@ class AffinityMatcher(DRModule):
                         "[TorchDR] DataLoader is empty, cannot determine n_features. "
                         "Ensure DataLoader yields at least one batch."
                     )
+            # Resolve device for DataLoader (always get from first batch if auto)
+            if self.device == "auto":
+                for batch in X:
+                    if isinstance(batch, (list, tuple)):
+                        batch = batch[0]
+                    self.device_ = batch.device
+                    break
+            else:
+                self.device_ = self.device
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
-        self.device_ = self._get_compute_device(X)  # resolve "auto" to actual device
+            self.device_ = X.device if self.device == "auto" else self.device
 
         # --- Input affinity computation ---
 
@@ -515,14 +524,14 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            target_device = self._get_compute_device(X)
+            target_device = self.device_
             embedding_ = embedding_.to(device=target_device, dtype=X_dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_compute_device(X),
+                device=self.device_,
                 dtype=X_dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -541,7 +550,7 @@ class AffinityMatcher(DRModule):
                 embedding_ = PCA(
                     n_components=self.n_components, device=self.device
                 ).fit_transform(X)
-            target_device = self._get_compute_device(X)
+            target_device = self.device_
             if embedding_.device != target_device:
                 embedding_ = embedding_.to(target_device)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -549,7 +558,7 @@ class AffinityMatcher(DRModule):
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_compute_device(X),
+                device=self.device_,
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
             poincare_ball = PoincareBallManifold()

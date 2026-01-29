@@ -508,14 +508,13 @@ class IncrementalPCA(DRModule):
         """
         # Handle DataLoader input
         if isinstance(X, DataLoader):
-            compute_device = self._get_compute_device(X)
-
             # Single pass: fit incrementally
             for batch in X:
                 if isinstance(batch, (list, tuple)):
                     batch = batch[0]
-                if batch.device != compute_device:
-                    batch = batch.to(compute_device)
+                # Move to explicit device if specified, otherwise keep on native device
+                if self.device != "auto":
+                    batch = batch.to(self.device)
                 self.partial_fit(batch, check_input=True)
 
             # Second pass: transform all data
