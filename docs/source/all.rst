@@ -10,24 +10,35 @@ API and Modules
    :no-members:
    :no-inherited-members:
 
-
-Dimensionality Reduction ``sklearn`` Compatible Estimators
------------------------------------------------------------
-
-TorchDR provides a set of classes that are compatible with the ``sklearn`` API.
-For example, running :class:`TSNE <TSNE>` can be done in the exact same way as running
-:class:`sklearn.manifold.TSNE <sklearn.manifold.TSNE>` with the same parameters.
-Note that the TorchDR classes work seamlessly with both Numpy and PyTorch tensors.
-
-For all methods, TorchDR provides the ability to use GPU acceleration using
-``device='cuda'`` as well as LazyTensor objects that allows to fit large scale models
-directly on the GPU memory without overflows using ``keops=True``.
-
-TorchDR supports a variety of dimensionality reduction methods. They are presented in the following sections.
+This page provides a complete reference of all TorchDR classes and functions.
+For conceptual background, see the :ref:`user_guide`.
 
 
-Spectral Embedding
+Dimensionality Reduction Methods
+--------------------------------
+
+TorchDR provides ``sklearn``-compatible estimators that work seamlessly with both NumPy arrays and PyTorch tensors. All methods support GPU acceleration via ``device="cuda"`` and can scale to large datasets using ``backend="faiss"`` or ``backend="keops"``.
+
+
+Neighbor Embedding
 ^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   UMAP
+   TSNE
+   InfoTSNE
+   LargeVis
+   SNE
+   TSNEkhorn
+   COSNE
+   PACMAP
+
+
+Spectral Methods
+^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -40,38 +51,54 @@ Spectral Embedding
    PHATE
 
 
-Neighbor Embedding
-^^^^^^^^^^^^^^^^^^
+Affinities
+----------
+
+Affinities are the building blocks for constructing the input similarity matrix :math:`\mathbf{P}`.
+See :ref:`user_guide` for details on how affinities are used in DR methods.
+
+
+Adaptive Affinities
+^^^^^^^^^^^^^^^^^^^
+
+Affinities that adapt bandwidth based on local neighborhood structure.
 
 .. autosummary::
    :toctree: gen_modules/
    :template: myclass_template.rst
 
-   UMAP
-   LargeVis
-   PACMAP
-   InfoTSNE
-   SNE
-   TSNE
-   TSNEkhorn
-   COSNE
+   EntropicAffinity
+   SymmetricEntropicAffinity
+   UMAPAffinity
+   PACMAPAffinity
+   SelfTuningAffinity
+   MAGICAffinity
+   PHATEAffinity
 
 
-Advanced Dimensionality Reduction with TorchDR
------------------------------------------------
+Other Normalized Affinities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TorchDR provides a set of generic classes that can be used to implement new
-dimensionality reduction methods. These classes provide a modular and extensible framework that allows you to focus on the core components of your method.
+Other normalized affinity kernels.
+
+.. autosummary::
+   :toctree: gen_modules/
+   :template: myclass_template.rst
+
+   NormalizedGaussianAffinity
+   NormalizedStudentAffinity
+   SinkhornAffinity
+   DoublyStochasticQuadraticAffinity
+
 
 Base Classes
-^^^^^^^^^^^^
+------------
 
-The :class:`torchdr.DRModule` class is the base class for a dimensionality
-reduction estimator. It is the base class for all the DR classes in TorchDR.
+These classes provide the foundation for implementing custom DR methods.
 
-:class:`torchdr.AffinityMatcher` is the base class for all the DR methods that
-use gradient-based optimization to minimize a loss function constructed from
-two affinities in input and embedding spaces.
+
+Core Base Classes
+^^^^^^^^^^^^^^^^^
 
 .. autosummary::
    :toctree: gen_modules/
@@ -81,15 +108,10 @@ two affinities in input and embedding spaces.
    AffinityMatcher
 
 
-Base Neighbor Embedding Modules
-"""""""""""""""""""""""""""""""
+Neighbor Embedding Base Classes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Neighbor embedding base modules inherit from the :class:`torchdr.AffinityMatcher`
-class.
-:class:`torchdr.SparseNeighborEmbedding` relies on the sparsity of the
-input affinity to compute the attractive term in linear time.
-:class:`torchdr.NegativeSamplingNeighborEmbedding` inherits from this class and adds the possibility to
-approximate the repulsive term of the loss via negative samples.
+Base classes for neighbor embedding methods. :class:`SparseNeighborEmbedding` leverages input affinity sparsity for efficient attractive term computation. :class:`NegativeSamplingNeighborEmbedding` adds approximate repulsive term computation via negative sampling.
 
 .. autosummary::
    :toctree: gen_modules/
@@ -100,58 +122,8 @@ approximate the repulsive term of the loss via negative samples.
    NegativeSamplingNeighborEmbedding
 
 
-Affinity Classes
-^^^^^^^^^^^^^^^^
-
-Simple Affinities
-"""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   NormalizedGaussianAffinity
-   NormalizedStudentAffinity
-
-
-Affinities Normalized by kNN Distances
-"""""""""""""""""""""""""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   SelfTuningAffinity
-   MAGICAffinity
-   PHATEAffinity
-   PACMAPAffinity
-   UMAPAffinity
-
-
-Entropic Affinities
-"""""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   SinkhornAffinity
-   EntropicAffinity
-   SymmetricEntropicAffinity
-
-
-Other Affinities
-""""""""""""""""
-
-.. autosummary::
-   :toctree: gen_modules/
-   :template: myclass_template.rst
-
-   DoublyStochasticQuadraticAffinity
-
-
 Evaluation Metrics
-^^^^^^^^^^^^^^^^^^
+------------------
 
 .. autosummary::
    :toctree: gen_modules/
@@ -165,7 +137,7 @@ Evaluation Metrics
 
 
 Utils
-^^^^^
+-----
 
 .. autosummary::
    :toctree: gen_modules/
