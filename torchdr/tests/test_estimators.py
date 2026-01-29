@@ -10,12 +10,19 @@ Tests estimators for scikit-learn compatibility.
 import warnings
 
 import pytest
-from sklearn.utils.estimator_checks import check_estimator
 import torch
+from sklearn.utils.estimator_checks import check_estimator
 from torch.testing import assert_close
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, LargeVis, TSNEkhorn, PACMAP
+from torchdr.neighbor_embedding import (
+    PACMAP,
+    SNE,
+    TSNE,
+    InfoTSNE,
+    LargeVis,
+    TSNEkhorn,
+)
 from torchdr.spectral_embedding import PCA
 
 DEVICE = "cpu"

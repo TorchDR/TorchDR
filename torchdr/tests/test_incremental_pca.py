@@ -426,9 +426,12 @@ def test_exact_incremental_pca_dataloader():
     X_transformed_tensor = exact_ipca_tensor.fit_transform(X)
 
     # Results should be similar (reconstruction-wise)
-    reconstruction_dl = X_transformed_dl @ exact_ipca_dl.components_ + exact_ipca_dl.mean_
+    reconstruction_dl = (
+        X_transformed_dl @ exact_ipca_dl.components_ + exact_ipca_dl.mean_
+    )
     reconstruction_tensor = (
-        X_transformed_tensor @ exact_ipca_tensor.components_ + exact_ipca_tensor.mean_
+        X_transformed_tensor @ exact_ipca_tensor.components_
+        + exact_ipca_tensor.mean_
     )
 
     assert X_transformed_dl.shape == X_transformed_tensor.shape
