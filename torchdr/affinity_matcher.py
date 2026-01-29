@@ -204,36 +204,24 @@ class AffinityMatcher(DRModule):
             The embedding of the input data.
         """
         if isinstance(X, DataLoader):
-            # Try to get cached metadata first
-            from torchdr.distance.faiss import get_dataloader_metadata
-
-            metadata = get_dataloader_metadata(X)
-            if metadata is not None:
-                self.n_samples_in_ = metadata["n_samples"]
-                self.n_features_in_ = metadata["n_features"]
+            # Extract all metadata from first batch in ONE pass
+            self.n_samples_in_ = len(X.dataset)
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                self.n_features_in_ = batch.shape[1]
+                self._dataloader_dtype_ = batch.dtype
+                self._dataloader_device_ = batch.device
+                break
             else:
-                # Get dimensions from first batch (fallback)
-                self.n_samples_in_ = len(X.dataset)
-                for batch in X:
-                    if isinstance(batch, (list, tuple)):
-                        batch = batch[0]
-                    self.n_features_in_ = batch.shape[1]
-                    break
-                else:
-                    # If DataLoader is empty
-                    raise ValueError(
-                        "[TorchDR] DataLoader is empty, cannot determine n_features. "
-                        "Ensure DataLoader yields at least one batch."
-                    )
-            # Resolve device for DataLoader (always get from first batch if auto)
-            if self.device == "auto":
-                for batch in X:
-                    if isinstance(batch, (list, tuple)):
-                        batch = batch[0]
-                    self.device_ = batch.device
-                    break
-            else:
-                self.device_ = self.device
+                raise ValueError(
+                    "[TorchDR] DataLoader is empty, cannot determine metadata. "
+                    "Ensure DataLoader yields at least one batch."
+                )
+            # Resolve device
+            self.device_ = (
+                self._dataloader_device_ if self.device == "auto" else self.device
+            )
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
             self.device_ = X.device if self.device == "auto" else self.device
@@ -489,37 +477,12 @@ class AffinityMatcher(DRModule):
         return self.scheduler_
 
     def _init_embedding(self, X):
-        # Get n_samples - use cached if available, otherwise extract
-        if hasattr(self, "n_samples_in_"):
+        # Get n_samples and dtype (use cached values for DataLoader)
+        if isinstance(X, DataLoader):
             n = self.n_samples_in_
-        elif isinstance(X, DataLoader):
-            n = len(X.dataset)
+            X_dtype = self._dataloader_dtype_
         else:
             n = X.shape[0]
-
-        # Get dtype from X
-        if isinstance(X, DataLoader):
-            # Try to get cached metadata first
-            from torchdr.distance.faiss import get_dataloader_metadata
-
-            metadata = get_dataloader_metadata(X)
-            if metadata is not None:
-                X_dtype = metadata["dtype"]
-            else:
-                # Get dtype from first batch (fallback)
-                X_dtype = None
-                for batch in X:
-                    if isinstance(batch, (list, tuple)):
-                        batch = batch[0]
-                    X_dtype = batch.dtype
-                    break
-                if X_dtype is None:
-                    # If DataLoader is empty
-                    raise ValueError(
-                        "[TorchDR] DataLoader is empty, cannot determine dtype. "
-                        "Ensure DataLoader yields at least one batch."
-                    )
-        else:
             X_dtype = X.dtype
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
