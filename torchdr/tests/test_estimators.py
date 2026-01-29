@@ -7,10 +7,13 @@ Tests estimators for scikit-learn compatibility.
 #
 # License: BSD 3-Clause License
 
+import warnings
+
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 import torch
 from torch.testing import assert_close
+from torch.utils.data import DataLoader, TensorDataset
 
 from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, LargeVis, TSNEkhorn, PACMAP
 from torchdr.spectral_embedding import PCA
@@ -46,6 +49,29 @@ def test_process_duplicates():
 
     # The result should be different when not processing duplicates
     assert not torch.allclose(embedding_duplicates, embedding_no_duplicates)
+
+
+def test_process_duplicates_dataloader_warning():
+    """Test that a warning is issued when process_duplicates=True with DataLoader."""
+    X = torch.randn(20, 5)
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
+
+    # Instantiate estimator with process_duplicates=True (default)
+    estimator = PCA(n_components=2, process_duplicates=True)
+
+    # Should emit a warning about process_duplicates not being supported with DataLoader
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        estimator.fit_transform(dataloader)
+
+        # Check that a warning was issued
+        assert len(w) >= 1
+        warning_messages = [str(warning.message) for warning in w]
+        assert any(
+            "process_duplicates is not supported with DataLoader" in msg
+            for msg in warning_messages
+        )
 
 
 @pytest.mark.xfail(strict=False, reason="sklearn estimator‐check not critical")

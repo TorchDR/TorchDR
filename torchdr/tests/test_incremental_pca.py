@@ -377,3 +377,98 @@ def test_exact_incremental_pca_different_dtypes():
 
     # Results should be similar despite different precision
     assert_close(X_transformed32.double(), X_transformed64, rtol=1e-4, atol=1e-4)
+
+
+# ================ Tests for DataLoader support ================
+
+
+def test_incremental_pca_dataloader():
+    """Test that IncrementalPCA works with DataLoader input."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    # Create DataLoader
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+
+    # Fit with DataLoader
+    ipca_dl = IncrementalPCA(n_components=n_components)
+    X_transformed_dl = ipca_dl.fit_transform(dataloader)
+
+    # Fit with tensor for comparison
+    ipca_tensor = IncrementalPCA(n_components=n_components)
+    X_transformed_tensor = ipca_tensor.fit_transform(X)
+
+    # Results should be the same
+    assert X_transformed_dl.shape == X_transformed_tensor.shape
+    assert_close(X_transformed_dl, X_transformed_tensor, rtol=1e-5, atol=1e-5)
+
+
+def test_exact_incremental_pca_dataloader():
+    """Test that ExactIncrementalPCA works with DataLoader input."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    # Create DataLoader
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+
+    # Fit with DataLoader
+    exact_ipca_dl = ExactIncrementalPCA(n_components=n_components)
+    X_transformed_dl = exact_ipca_dl.fit_transform(dataloader)
+
+    # Fit with tensor for comparison
+    exact_ipca_tensor = ExactIncrementalPCA(n_components=n_components)
+    X_transformed_tensor = exact_ipca_tensor.fit_transform(X)
+
+    # Results should be similar (reconstruction-wise)
+    reconstruction_dl = X_transformed_dl @ exact_ipca_dl.components_ + exact_ipca_dl.mean_
+    reconstruction_tensor = (
+        X_transformed_tensor @ exact_ipca_tensor.components_ + exact_ipca_tensor.mean_
+    )
+
+    assert X_transformed_dl.shape == X_transformed_tensor.shape
+    assert_close(reconstruction_dl, reconstruction_tensor, rtol=1e-4, atol=1e-4)
+
+
+def test_exact_incremental_pca_dataloader_compute_mean():
+    """Test that compute_mean works with DataLoader."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    X = torch.tensor(iris.data, dtype=torch.float32)
+
+    # Create DataLoader
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+
+    # Compute mean with DataLoader
+    exact_ipca = ExactIncrementalPCA(n_components=2)
+    exact_ipca.compute_mean(dataloader)
+
+    # Compare to tensor mean
+    expected_mean = X.mean(dim=0)
+    assert_close(exact_ipca.mean_, expected_mean, rtol=1e-5, atol=1e-5)
+
+
+def test_exact_incremental_pca_dataloader_fit():
+    """Test that fit works with DataLoader."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    # Create DataLoader
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+
+    # Fit with DataLoader
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca.compute_mean(dataloader)
+    exact_ipca.fit(dataloader)
+
+    # Check components shape
+    assert exact_ipca.components_.shape == (n_components, X.shape[1])
