@@ -162,11 +162,11 @@ class DoublyStochasticQuadraticAffinity(Affinity):
 
         n_samples_in = C.shape[0]
         target_device = self._get_compute_device(X)
-        one = torch.ones(n_samples_in, dtype=X.dtype, device=target_device)
+        one = torch.ones(n_samples_in, dtype=self._get_dtype(X), device=target_device)
 
         # Performs warm-start if an initial dual variable is provided
         dual = (
-            torch.ones(n_samples_in, dtype=X.dtype, device=target_device)
+            torch.ones(n_samples_in, dtype=self._get_dtype(X), device=target_device)
             if self.init_dual is None
             else self.init_dual
         )

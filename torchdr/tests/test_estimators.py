@@ -7,12 +7,22 @@ Tests estimators for scikit-learn compatibility.
 #
 # License: BSD 3-Clause License
 
-import pytest
-from sklearn.utils.estimator_checks import check_estimator
-import torch
-from torch.testing import assert_close
+import logging
 
-from torchdr.neighbor_embedding import SNE, TSNE, InfoTSNE, LargeVis, TSNEkhorn, PACMAP
+import pytest
+import torch
+from sklearn.utils.estimator_checks import check_estimator
+from torch.testing import assert_close
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchdr.neighbor_embedding import (
+    PACMAP,
+    SNE,
+    TSNE,
+    InfoTSNE,
+    LargeVis,
+    TSNEkhorn,
+)
 from torchdr.spectral_embedding import PCA
 
 DEVICE = "cpu"
@@ -46,6 +56,29 @@ def test_process_duplicates():
 
     # The result should be different when not processing duplicates
     assert not torch.allclose(embedding_duplicates, embedding_no_duplicates)
+
+
+def test_process_duplicates_dataloader_warning(caplog):
+    """Test that a warning is issued when process_duplicates=True with DataLoader."""
+
+    from torchdr import IncrementalPCA
+
+    X = torch.randn(20, 5)
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
+
+    # Use IncrementalPCA which supports DataLoader input
+    estimator = IncrementalPCA(n_components=2, process_duplicates=True)
+
+    # Should emit a warning about process_duplicates not being supported with DataLoader
+    with caplog.at_level(logging.WARNING):
+        estimator.fit_transform(dataloader)
+
+    # Check that a warning was logged
+    assert any(
+        "process_duplicates is not supported with DataLoader" in record.message
+        for record in caplog.records
+    )
 
 
 @pytest.mark.xfail(strict=False, reason="sklearn estimator‐check not critical")

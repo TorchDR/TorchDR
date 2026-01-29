@@ -10,6 +10,7 @@ import numpy as np
 from typing import Any, Dict, Union, Optional, Type
 import torch
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 from torchdr.affinity import (
     Affinity,
@@ -194,7 +195,8 @@ class NeighborEmbedding(AffinityMatcher):
         return self
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
-        self._check_n_neighbors(X.shape[0])
+        n_samples = len(X.dataset) if isinstance(X, DataLoader) else X.shape[0]
+        self._check_n_neighbors(n_samples)
         self.early_exaggeration_coeff_ = (
             self.early_exaggeration_coeff
         )  # early_exaggeration_ may change during the optimization

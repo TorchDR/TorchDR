@@ -6,6 +6,7 @@
 
 import functools
 import torch
+from torch.utils.data import DataLoader
 
 from .keops import LazyTensor, is_lazy_tensor
 from .validation import validate_tensor
@@ -40,13 +41,18 @@ def output_contiguous(func):
 def to_torch(x, return_backend_device=False):
     """Convert input to torch tensor without changing device.
 
-    Handles conversion from numpy arrays, pandas DataFrames, and lists to torch tensors.
+    Handles conversion from numpy arrays, pandas DataFrames, lists, and DataLoaders.
     Preserves the original device and tracks the backend for later restoration.
     """
     if pd is not None and isinstance(x, pd.DataFrame):
         x = x.values
 
-    if isinstance(x, torch.Tensor):
+    if isinstance(x, DataLoader):
+        # DataLoader: pass through without conversion
+        input_backend = "dataloader"
+        input_device = "cpu"
+        x_ = x
+    elif isinstance(x, torch.Tensor):
         input_backend = "torch"
         input_device = x.device
         x_ = x
@@ -58,7 +64,8 @@ def to_torch(x, return_backend_device=False):
         except (TypeError, ValueError):
             raise ValueError("Input could not be converted to a tensor.")
 
-    if not x_.dtype.is_floating_point:
+    # Convert to float if needed (skip for DataLoader)
+    if not isinstance(x_, DataLoader) and not x_.dtype.is_floating_point:
         x_ = x_.float()
 
     if return_backend_device:

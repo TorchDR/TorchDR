@@ -9,6 +9,7 @@
 import numpy as np
 import torch
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 from torchdr.affinity import (
     Affinity,
@@ -202,8 +203,28 @@ class AffinityMatcher(DRModule):
         embedding_ : torch.Tensor
             The embedding of the input data.
         """
-        self.n_samples_in_, self.n_features_in_ = X.shape
-        self.device_ = self._get_compute_device(X)  # resolve "auto" to actual device
+        if isinstance(X, DataLoader):
+            # Extract all metadata from first batch in ONE pass
+            self.n_samples_in_ = len(X.dataset)
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                self.n_features_in_ = batch.shape[1]
+                self._dataloader_dtype_ = batch.dtype
+                self._dataloader_device_ = batch.device
+                break
+            else:
+                raise ValueError(
+                    "[TorchDR] DataLoader is empty, cannot determine metadata. "
+                    "Ensure DataLoader yields at least one batch."
+                )
+            # Resolve device
+            self.device_ = (
+                self._dataloader_device_ if self.device == "auto" else self.device
+            )
+        else:
+            self.n_samples_in_, self.n_features_in_ = X.shape
+            self.device_ = X.device if self.device == "auto" else self.device
 
         # --- Input affinity computation ---
 
@@ -456,29 +477,52 @@ class AffinityMatcher(DRModule):
         return self.scheduler_
 
     def _init_embedding(self, X):
-        n = X.shape[0]
+        # Ensure device_ is set (for backward compatibility when called directly)
+        if not hasattr(self, "device_"):
+            if isinstance(X, DataLoader):
+                raise RuntimeError(
+                    "[TorchDR] _init_embedding called with DataLoader before "
+                    "_fit_transform. Call fit_transform() instead."
+                )
+            self.device_ = X.device if self.device == "auto" else self.device
+
+        # Get n_samples and dtype (use cached values for DataLoader)
+        if isinstance(X, DataLoader):
+            n = self.n_samples_in_
+            X_dtype = self._dataloader_dtype_
+        else:
+            n = X.shape[0]
+            X_dtype = X.dtype
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            target_device = self._get_compute_device(X)
-            embedding_ = embedding_.to(device=target_device, dtype=X.dtype)
+            target_device = self.device_
+            embedding_ = embedding_.to(device=target_device, dtype=X_dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "normal" or self.init == "random":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_compute_device(X),
-                dtype=X.dtype,
+                device=self.device_,
+                dtype=X_dtype,
             )
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "pca":
-            from torchdr.spectral_embedding.pca import PCA
+            if isinstance(X, DataLoader):
+                # Use IncrementalPCA for DataLoader input (2 passes: fit + transform)
+                from torchdr.spectral_embedding import IncrementalPCA
 
-            embedding_ = PCA(
-                n_components=self.n_components, device=self.device
-            ).fit_transform(X)
-            target_device = self._get_compute_device(X)
+                embedding_ = IncrementalPCA(
+                    n_components=self.n_components, device=self.device
+                ).fit_transform(X)
+            else:
+                from torchdr.spectral_embedding.pca import PCA
+
+                embedding_ = PCA(
+                    n_components=self.n_components, device=self.device
+                ).fit_transform(X)
+            target_device = self.device_
             if embedding_.device != target_device:
                 embedding_ = embedding_.to(target_device)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
@@ -486,7 +530,7 @@ class AffinityMatcher(DRModule):
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
-                device=self._get_compute_device(X),
+                device=self.device_,
                 dtype=torch.float64,  # better double precision on hyperbolic manifolds
             )
             poincare_ball = PoincareBallManifold()

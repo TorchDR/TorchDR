@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from sklearn.base import BaseEstimator
+from torch.utils.data import DataLoader
 
 from torchdr.utils import (
     seed_everything,
@@ -166,7 +167,13 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         embedding_ : ArrayLike of shape (n_samples, n_components)
             The embedding of the input data in the lower-dimensional space.
         """
-        if self.process_duplicates:
+        if self.process_duplicates and isinstance(X, DataLoader):
+            self.logger.warning(
+                "process_duplicates is not supported with DataLoader input. "
+                "Consider deduplicating your dataset before creating the DataLoader."
+            )
+
+        if self.process_duplicates and not isinstance(X, DataLoader):
             X_unique, inverse_indices = torch.unique(X, dim=0, return_inverse=True)
             if X_unique.shape[0] < X.shape[0]:
                 n_duplicates = X.shape[0] - X_unique.shape[0]

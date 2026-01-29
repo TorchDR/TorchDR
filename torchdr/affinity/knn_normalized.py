@@ -426,7 +426,7 @@ class UMAPAffinity(SparseAffinity):
         self : UMAPAffinityIn
             The fitted instance.
         """
-        n_samples_in = X.shape[0]
+        n_samples_in = self._get_n_samples(X)
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
@@ -442,7 +442,7 @@ class UMAPAffinity(SparseAffinity):
 
         target_device = self._get_compute_device(X)
         log_n_neighbors = torch.log2(
-            torch.tensor(n_neighbors, dtype=X.dtype, device=target_device)
+            torch.tensor(n_neighbors, dtype=self._get_dtype(X), device=target_device)
         )
 
         def marginal_gap(eps):
@@ -453,7 +453,7 @@ class UMAPAffinity(SparseAffinity):
             f=marginal_gap,
             n=C_.shape[0],
             max_iter=self.max_iter,
-            dtype=X.dtype,
+            dtype=self._get_dtype(X),
             device=target_device,
         )
 
@@ -474,7 +474,7 @@ class UMAPAffinity(SparseAffinity):
                         indices=indices,
                         chunk_start=self.chunk_start_,
                         chunk_size=self.chunk_size_,
-                        n_total=X.shape[0],
+                        n_total=self._get_n_samples(X),
                         mode="sum_minus_prod",
                     )
                 else:
@@ -579,7 +579,7 @@ class PACMAPAffinity(SparseAffinity):
         self : PACMAPAffinityIn
             The fitted instance.
         """
-        n_samples_in = X.shape[0]
+        n_samples_in = self._get_n_samples(X)
         k = min(self.n_neighbors + 50, n_samples_in)
         k = check_neighbor_param(k, n_samples_in)
 

@@ -10,6 +10,7 @@ from typing import Union, Any
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
 from torchdr.utils import (
     to_torch,
@@ -82,20 +83,39 @@ class Affinity(nn.Module, ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-    def _get_compute_device(self, X: torch.Tensor):
+    def _get_compute_device(self, X):
         """Get the target device for computations.
 
         Parameters
         ----------
-        X : torch.Tensor
-            Input tensor to infer device from if self.device is "auto".
+        X : torch.Tensor or DataLoader
+            Input data to infer device from if self.device is "auto".
 
         Returns
         -------
         torch.device
             The device to use for computations.
         """
-        return X.device if self.device == "auto" else self.device
+        if self.device != "auto":
+            return self.device
+
+        # For DataLoader, extract device from first batch
+        if isinstance(X, DataLoader):
+            # Check for cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None and "device" in metadata:
+                return metadata["device"]
+            # Get device from first batch (fallback, should rarely happen)
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.device
+            # If DataLoader is empty, default to CPU
+            return torch.device("cpu")
+
+        return X.device
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
@@ -133,6 +153,52 @@ class Affinity(nn.Module, ABC):
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_affinity` method is not implemented."
         )
+
+    def _get_n_samples(self, X):
+        """Get number of samples from input (tensor or DataLoader).
+
+        Parameters
+        ----------
+        X : torch.Tensor or DataLoader
+            Input data.
+
+        Returns
+        -------
+        n_samples : int
+            Number of samples.
+        """
+        if isinstance(X, DataLoader):
+            return len(X.dataset)
+        return X.shape[0]
+
+    def _get_dtype(self, X):
+        """Get dtype from input (tensor or DataLoader).
+
+        Parameters
+        ----------
+        X : torch.Tensor or DataLoader
+            Input data.
+
+        Returns
+        -------
+        dtype : torch.dtype
+            Data type.
+        """
+        if isinstance(X, DataLoader):
+            # Check for cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None:
+                return metadata["dtype"]
+            # Get dtype from first batch (fallback, should rarely happen)
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.dtype
+            # If DataLoader is empty, raise error
+            raise ValueError("[TorchDR] DataLoader is empty, cannot determine dtype.")
+        return X.dtype
 
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
@@ -460,7 +526,9 @@ class SparseAffinity(Affinity):
 
         # Store chunk bounds for later use (e.g., distributed symmetrization)
         if self.distributed and self.dist_ctx is not None:
-            chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(X.shape[0])
+            chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(
+                self._get_n_samples(X)
+            )
             self.chunk_start_ = chunk_start
             self.chunk_end_ = chunk_end
             self.chunk_size_ = chunk_end - chunk_start
