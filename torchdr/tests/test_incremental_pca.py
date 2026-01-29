@@ -402,18 +402,13 @@ def test_incremental_pca_dataloader():
     ipca_tensor = IncrementalPCA(
         n_components=n_components, batch_size=batch_size, process_duplicates=False
     )
-    ipca_tensor.fit_transform(X)
+    X_transformed_tensor = ipca_tensor.fit_transform(X)
 
-    # The learned components should be the same
+    # Both paths should give identical results (no in-place modification)
+    assert X_transformed_dl.shape == X_transformed_tensor.shape
+    assert_close(X_transformed_dl, X_transformed_tensor, rtol=1e-5, atol=1e-5)
     assert_close(ipca_dl.components_, ipca_tensor.components_, rtol=1e-5, atol=1e-5)
     assert_close(ipca_dl.mean_, ipca_tensor.mean_, rtol=1e-5, atol=1e-5)
-
-    # Verify DataLoader result is correct by checking reconstruction
-    # (manual transform on fresh data to avoid in-place modification issue in tensor path)
-    X_fresh = torch.tensor(iris.data, dtype=torch.float32)
-    X_expected = (X_fresh - ipca_dl.mean_) @ ipca_dl.components_.T
-    assert X_transformed_dl.shape == X_expected.shape
-    assert_close(X_transformed_dl, X_expected.float(), rtol=1e-4, atol=1e-4)
 
 
 def test_exact_incremental_pca_dataloader():

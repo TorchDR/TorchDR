@@ -389,24 +389,25 @@ class IncrementalPCA(DRModule):
             X, self.mean_, self.var_, self.n_samples_seen_
         )
 
+        # Center the data without modifying input in-place (sklearn-style)
         if first_pass:
-            X -= col_mean
+            X_centered = X - col_mean
         else:
             col_batch_mean = torch.mean(X, dim=0)
-            X -= col_batch_mean
+            X_centered = X - col_batch_mean
             mean_correction_factor = torch.sqrt(
                 (self.n_samples_seen_ / n_total_samples) * n_samples
             )
             mean_correction = mean_correction_factor * (self.mean_ - col_batch_mean)
-            X = torch.vstack(
+            X_centered = torch.vstack(
                 (
                     self.singular_values_.view((-1, 1)) * self.components_,
-                    X,
+                    X_centered,
                     mean_correction,
                 )
             )
 
-        U, S, Vt = self._svd_fn(X)
+        U, S, Vt = self._svd_fn(X_centered)
         U, Vt = svd_flip(U, Vt, u_based_decision=False)
         explained_variance = S**2 / (n_total_samples - 1)
         explained_variance_ratio = S**2 / torch.sum(col_var * n_total_samples)
