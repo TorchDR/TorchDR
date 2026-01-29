@@ -83,20 +83,39 @@ class Affinity(nn.Module, ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-    def _get_compute_device(self, X: torch.Tensor):
+    def _get_compute_device(self, X):
         """Get the target device for computations.
 
         Parameters
         ----------
-        X : torch.Tensor
-            Input tensor to infer device from if self.device is "auto".
+        X : torch.Tensor or DataLoader
+            Input data to infer device from if self.device is "auto".
 
         Returns
         -------
         torch.device
             The device to use for computations.
         """
-        return X.device if self.device == "auto" else self.device
+        if self.device != "auto":
+            return self.device
+
+        # For DataLoader, extract device from first batch
+        if isinstance(X, DataLoader):
+            # Check for cached metadata first
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None and "device" in metadata:
+                return metadata["device"]
+            # Get device from first batch (fallback, should rarely happen)
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.device
+            # If DataLoader is empty, default to CPU
+            return torch.device("cpu")
+
+        return X.device
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
