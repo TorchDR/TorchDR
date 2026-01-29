@@ -477,6 +477,15 @@ class AffinityMatcher(DRModule):
         return self.scheduler_
 
     def _init_embedding(self, X):
+        # Ensure device_ is set (for backward compatibility when called directly)
+        if not hasattr(self, "device_"):
+            if isinstance(X, DataLoader):
+                raise RuntimeError(
+                    "[TorchDR] _init_embedding called with DataLoader before "
+                    "_fit_transform. Call fit_transform() instead."
+                )
+            self.device_ = X.device if self.device == "auto" else self.device
+
         # Get n_samples and dtype (use cached values for DataLoader)
         if isinstance(X, DataLoader):
             n = self.n_samples_in_
