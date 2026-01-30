@@ -144,6 +144,69 @@ def test_pairwise_distances_faiss(dtype, metric, exclude_diag):
     torch.testing.assert_close(C, C_faiss, rtol=1e-5, atol=1e-5)
 
 
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_ivf():
+    """Test FAISS with IVF index type on CPU."""
+    from torchdr.distance import FaissConfig
+
+    n, p, k = 500, 16, 10
+    x = torch.randn(n, p, dtype=torch.float32)
+
+    # Test IVF index (requires enough samples for training)
+    config = FaissConfig(index_type="IVF", nlist=10, nprobe=5)
+    C_ivf, idx_ivf = pairwise_distances(
+        x, k=k, backend=config, return_indices=True, device="cpu"
+    )
+    check_shape(C_ivf, (n, k))
+    check_shape(idx_ivf, (n, k))
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_k_as_tensor():
+    """Test FAISS with k as tensor input."""
+    n, p = 100, 16
+    x = torch.randn(n, p, dtype=torch.float32)
+
+    k_tensor = torch.tensor(5)
+    C, idx = pairwise_distances(x, k=k_tensor, backend="faiss", return_indices=True)
+    check_shape(C, (n, 5))
+    check_shape(idx, (n, 5))
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_faiss_config_repr():
+    """Test FaissConfig __repr__ method."""
+    from torchdr.distance import FaissConfig
+
+    # Basic config
+    config = FaissConfig()
+    repr_str = repr(config)
+    assert "FaissConfig" in repr_str
+    assert "index_type='Flat'" in repr_str
+
+    # Config with kwargs
+    config_kwargs = FaissConfig(temp_memory=2.0, extra_param=True)
+    repr_kwargs = repr(config_kwargs)
+    assert "temp_memory=2.0" in repr_kwargs
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_errors():
+    """Test FAISS error handling."""
+    from torchdr.distance import FaissConfig
+
+    x = torch.randn(50, 10)
+
+    # Invalid metric
+    with pytest.raises(ValueError, match="Only.*euclidean.*sqeuclidean.*angular"):
+        pairwise_distances(x, k=5, backend="faiss", metric="cosine")
+
+    # Invalid index type
+    config = FaissConfig(index_type="InvalidType")
+    with pytest.raises(ValueError, match="Index type.*not supported"):
+        pairwise_distances(x, k=5, backend=config)
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_pairwise_distances_indexed(dtype, metric):
