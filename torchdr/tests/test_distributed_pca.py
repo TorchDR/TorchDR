@@ -116,13 +116,13 @@ class TestDistributedPCAMocked:
 
         # Mock distributed environment with single GPU
         dist_pca_module = "torchdr.spectral_embedding.distributed_pca"
-        with (
-            patch(f"{dist_pca_module}.is_distributed", return_value=True),
-            patch(f"{dist_pca_module}.get_rank", return_value=0),
-            patch(f"{dist_pca_module}.get_world_size", return_value=1),
-            patch("torch.distributed.get_rank", return_value=0),
-            patch("torch.distributed.all_reduce") as mock_all_reduce,
-        ):
+        # fmt: off
+        with patch(f"{dist_pca_module}.is_distributed", return_value=True), \
+             patch(f"{dist_pca_module}.get_rank", return_value=0), \
+             patch(f"{dist_pca_module}.get_world_size", return_value=1), \
+             patch("torch.distributed.get_rank", return_value=0), \
+             patch("torch.distributed.all_reduce") as mock_all_reduce:
+            # fmt: on
             # Make all_reduce a no-op (single GPU doesn't need actual communication)
             mock_all_reduce.side_effect = lambda tensor, op: None
 

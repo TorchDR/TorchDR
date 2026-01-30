@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 from typing import Optional, Union, Any
+import os
 
 import numpy as np
 import torch
@@ -159,14 +160,11 @@ class DistributedPCA(DRModule):
         rank = get_rank()
         world_size = get_world_size()
 
-        # Determine device - use local GPU if available
-        local_rank = (
-            int(torch.distributed.get_rank() % torch.cuda.device_count())
-            if torch.cuda.is_available() and torch.cuda.device_count() > 0
-            else 0
-        )
+        # Determine device - use local GPU if available (LOCAL_RANK is set by torchrun)
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
 
         if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
             device = torch.device(f"cuda:{local_rank}")
             X_compute = X_local.to(device)
         else:
