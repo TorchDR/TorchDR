@@ -260,7 +260,7 @@ It is available at :class:`DoublyStochasticQuadraticAffinity <torchdr.DoublyStoc
 Scalability & Backends
 ----------------------
 
-For large datasets, TorchDR provides several options to scale computations.
+For large datasets, TorchDR provides several features to scale computations.
 
 Handling the quadratic cost via sparsity or symbolic tensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
