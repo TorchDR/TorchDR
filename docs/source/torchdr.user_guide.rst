@@ -348,3 +348,33 @@ Currently, the following methods support multi-GPU:
 - :class:`UMAP <UMAP>`
 - :class:`InfoTSNE <InfoTSNE>`
 - :class:`LargeVis <LargeVis>`
+
+
+DataLoader for Streaming Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For datasets too large to fit in RAM, TorchDR supports passing a PyTorch ``DataLoader`` directly to ``fit_transform`` instead of a tensor. This enables streaming computation where data is processed batch-by-batch.
+
+**How it works:**
+
+1. **Incremental index building**: The FAISS index is built incrementally from batches
+2. **Batch-by-batch k-NN queries**: Neighbor queries are performed as each batch arrives
+3. **Automatic PCA initialization**: When ``init="pca"``, :class:`IncrementalPCA <IncrementalPCA>` is used automatically
+
+**Usage:**
+
+.. code-block:: python
+
+    from torch.utils.data import DataLoader, TensorDataset
+    import torchdr
+
+    dataset = TensorDataset(X)  # X is your large tensor
+    dataloader = DataLoader(dataset, batch_size=10000)
+
+    model = torchdr.UMAP(n_neighbors=15, backend="faiss")
+    embedding = model.fit_transform(dataloader)
+
+**Requirements:**
+
+- ``backend="faiss"`` must be used
+- The DataLoader must yield tensors (or tuples where the first element is the data tensor)

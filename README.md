@@ -25,7 +25,7 @@
 | **High Performance** | Engineered for speed with GPU acceleration, `torch.compile` support, and optimized algorithms leveraging sparsity and negative sampling. |
 | **Multi-GPU Support** | Scale to massive datasets with built-in distributed computing. Use the `torchdr` CLI or `torchrun` for easy multi-GPU execution of compatible modules and methods. |
 | **Modular by Design** | Every component is designed to be easily customized, extended, or replaced to fit your specific needs. |
-| **Memory-Efficient** | Natively handles sparsity and memory-efficient symbolic operations to process massive datasets without memory overflows. |
+| **Memory-Efficient** | Natively handles sparsity and memory-efficient symbolic operations. Supports PyTorch DataLoader for streaming large datasets. |
 | **Seamless Integration** | Fully compatible with the scikit-learn and PyTorch ecosystems. Use familiar APIs and integrate effortlessly into your existing workflows. |
 | **Minimal Dependencies** | Requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic computation. |
 
@@ -43,38 +43,37 @@ x = fetch_openml("mnist_784").data.astype("float32")
 z = UMAP(n_neighbors=30).fit_transform(x)
 ```
 
-### GPU Acceleration
-
-**TorchDR** is fully **GPU compatible**, enabling **significant speed-ups** when a GPU is available. To run computations on the GPU, simply set `device="cuda"` as shown in the example below:
+**GPU Acceleration**: Set `device="cuda"` to run on GPU. By default (`device="auto"`), TorchDR uses the input data's device.
 
 ```python
-z_gpu = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
+z = UMAP(n_neighbors=30, device="cuda").fit_transform(x)
 ```
 
-**Device Management**: By default (`device="auto"`), computations use the input data's device. For optimal memory management, you can keep input data on CPU while specifying `device="cuda"` to perform computations on GPU - TorchDR will handle transfers automatically.
-
-**Multi-GPU Execution**: Use the `torchdr` CLI to run your script across multiple GPUs:
+**Multi-GPU**: Use the `torchdr` CLI to parallelize across GPUs with no code changes:
 
 ```bash
 torchdr my_script.py            # Use all available GPUs
 torchdr --gpus 4 my_script.py   # Use 4 GPUs
 ```
 
-No code changes required - TorchDR automatically parallelizes compatible operations across GPUs.
+**torch.compile**: Enable `compile=True` for additional speed on PyTorch 2.0+.
 
-**torch.compile Support**: For an additional performance boost on PyTorch 2.0+, enable compilation with `compile=True`:
+**Backends**: The `backend` parameter controls k-NN and memory-efficient computations:
+
+| Backend | Description |
+|---------|-------------|
+| `"faiss"` | Fast approximate k-NN via [Faiss](https://github.com/facebookresearch/faiss) **(Recommended)** |
+| `"keops"` | Exact symbolic computation via [KeOps](https://www.kernel-operations.io/keops/index.html) with linear memory |
+| `None` | Raw PyTorch |
+
+**DataLoader for Large Datasets**: Pass a PyTorch `DataLoader` instead of a tensor to stream data batch-by-batch. **Requires `backend="faiss"`**.
 
 ```python
-z = UMAP(n_neighbors=30, device="cuda", compile=True).fit_transform(x)
+from torch.utils.data import DataLoader, TensorDataset
+
+dataloader = DataLoader(TensorDataset(X), batch_size=10000, shuffle=False)
+z = UMAP(backend="faiss").fit_transform(dataloader)
 ```
-
-### Backends
-
-The `backend` keyword specifies which tool to use for handling kNN computations and memory-efficient symbolic computations.
-
-- Set `backend="faiss"` to rely on [Faiss](https://github.com/facebookresearch/faiss) for fast kNN computations **(Recommended)**.
-- To perform exact symbolic tensor computations on the GPU without memory limitations, you can leverage the [KeOps](https://www.kernel-operations.io/keops/index.html) library. This library also allows computing kNN graphs. To enable KeOps, set `backend="keops"`.
-- Finally, setting `backend=None` will use raw PyTorch for all computations.
 
 ## Methods
 
