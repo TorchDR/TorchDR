@@ -345,7 +345,8 @@ In your script, simply use TorchDR as usual:
 
 Currently, the following methods support multi-GPU:
 
-- :class:`DistributedPCA <DistributedPCA>`
+- :class:`PCA <PCA>` (with ``distributed="auto"``)
+- :class:`ExactIncrementalPCA <ExactIncrementalPCA>` (with ``distributed="auto"``)
 - :class:`UMAP <UMAP>`
 - :class:`InfoTSNE <InfoTSNE>`
 - :class:`LargeVis <LargeVis>`

@@ -1,7 +1,9 @@
 from .kernel_pca import KernelPCA
-from .incremental_pca import IncrementalPCA, ExactIncrementalPCA
+from .incremental_pca import (
+    IncrementalPCA,
+    ExactIncrementalPCA,
+)
 from .pca import PCA
-from .distributed_pca import DistributedPCA
 from .phate import PHATE
 
 __all__ = [
@@ -9,6 +11,5 @@ __all__ = [
     "IncrementalPCA",
     "ExactIncrementalPCA",
     "PCA",
-    "DistributedPCA",
     "PHATE",
 ]

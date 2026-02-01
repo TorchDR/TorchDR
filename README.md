@@ -97,7 +97,7 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
 
 ### Spectral Embedding
 
-**TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`DistributedPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.DistributedPCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`ExactIncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.ExactIncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html).
+**TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`ExactIncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.ExactIncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html). `PCA` and `ExactIncrementalPCA` support multi-GPU distributed training via the `distributed="auto"` parameter.
 
 
 ## Benchmarks

@@ -60,7 +60,6 @@ from .spectral_embedding import (
     ExactIncrementalPCA,
     KernelPCA,
     PCA,
-    DistributedPCA,
     PHATE,
 )
 
@@ -94,7 +93,6 @@ __all__ = [
     "KernelPCA",
     "IncrementalPCA",
     "ExactIncrementalPCA",
-    "DistributedPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",
     "NegativeSamplingNeighborEmbedding",
