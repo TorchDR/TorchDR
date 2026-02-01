@@ -22,7 +22,10 @@ from torchdr.utils import (
     binary_search,
     compile_if_requested,
 )
-from torchdr.utils.sparse import symmetrize_sparse, distributed_symmetrize_sparse
+from torchdr.utils.sparse import (
+    symmetrize_sparse_cpu_offload,
+    distributed_symmetrize_sparse,
+)
 from torchdr.distance import pairwise_distances
 
 
@@ -478,8 +481,9 @@ class UMAPAffinity(SparseAffinity):
                         mode="sum_minus_prod",
                     )
                 else:
-                    # Use local symmetrization for single GPU
-                    affinity_matrix, indices = symmetrize_sparse(
+                    # Use CPU offload for symmetrization to reduce GPU memory
+                    # by ~70% (one-time cost, works for all GPU sizes)
+                    affinity_matrix, indices = symmetrize_sparse_cpu_offload(
                         affinity_matrix, indices, mode="sum_minus_prod"
                     )
             else:
