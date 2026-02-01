@@ -45,7 +45,6 @@ Spectral Methods
    :template: myclass_template.rst
 
    PCA
-   DistributedPCA
    IncrementalPCA
    ExactIncrementalPCA
    KernelPCA

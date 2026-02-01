@@ -615,6 +615,18 @@ class ExactIncrementalPCA(DRModule):
         Number of components to keep.
     device : str, default="auto"
         Device on which the computations are performed.
+    distributed : str or bool, default="auto"
+        Whether to use distributed mode for multi-GPU training.
+
+        - "auto": Automatically detect if torch.distributed is initialized and
+          use distributed mode if available.
+        - True: Force distributed mode (requires torch.distributed to be initialized).
+        - False: Disable distributed mode.
+
+        In distributed mode, each GPU computes local statistics which are then
+        aggregated using all-reduce operations. This is communication-efficient
+        when the number of samples is much larger than the number of features
+        (n >> d).
     verbose : bool, default=False
         Whether to print information during the computations.
     random_state : float, default=None
@@ -645,6 +657,14 @@ class ExactIncrementalPCA(DRModule):
     - **ExactIncrementalPCA**: Use when you need exact PCA results, have
       low-dimensional data (small n_features), and can afford two passes
       through the data.
+
+    In distributed mode:
+
+    - Requires torch.distributed to be initialized (use torchrun or TorchDR CLI)
+    - Automatically uses local_rank for GPU assignment
+    - Each GPU only needs its data chunk in memory
+    - Uses covariance aggregation: O(d) communication for mean, O(d^2) for covariance
+    - Mathematically equivalent to running on concatenated data from all GPUs
 
     Examples
     --------
@@ -698,12 +718,34 @@ class ExactIncrementalPCA(DRModule):
         # Transform new data
         X_new = torch.randn(100, 50)
         X_transformed = pca.transform(X_new)
+
+    Multi-GPU distributed usage (launch with torchrun --nproc_per_node=4)::
+
+        import torch
+        from torchdr import ExactIncrementalPCA
+
+        # Each GPU loads its chunk of the data
+        rank = torch.distributed.get_rank()
+        world_size = torch.distributed.get_world_size()
+        chunk_size = len(full_data) // world_size
+        X_local = full_data[rank * chunk_size:(rank + 1) * chunk_size]
+
+        # Create batches for incremental processing
+        batch_size = 1000
+        batches = [X_local[i:i+batch_size] for i in range(0, len(X_local), batch_size)]
+
+        # Distributed PCA - handles communication automatically
+        pca = ExactIncrementalPCA(n_components=50, distributed="auto")
+        pca.compute_mean(batches)  # First pass: compute global mean
+        pca.fit(batches)           # Second pass: build global covariance
+        X_transformed = pca.transform(X_local)  # Transform local data
     """
 
     def __init__(
         self,
         n_components: int = 2,
         device: str = "auto",
+        distributed: Union[str, bool] = "auto",
         verbose: bool = False,
         random_state: float = None,
         **kwargs,
@@ -715,6 +757,7 @@ class ExactIncrementalPCA(DRModule):
             random_state=random_state,
             **kwargs,
         )
+        self.distributed = distributed
         self.mean_ = None
         self.components_ = None
         self.explained_variance_ = None
@@ -722,8 +765,30 @@ class ExactIncrementalPCA(DRModule):
         self.n_features_in_ = None
         self._XtX = None  # Accumulated X.T @ X matrix
 
+    def _should_use_distributed(self) -> bool:
+        """Check if distributed mode should be used.
+
+        Returns
+        -------
+        bool
+            True if distributed mode should be used, False otherwise.
+        """
+        if self.distributed == "auto":
+            return is_distributed()
+        return bool(self.distributed)
+
+    def _get_device(self):
+        """Get the device for this rank in distributed mode."""
+        if self._should_use_distributed() and torch.cuda.is_available():
+            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            return torch.device(f"cuda:{local_rank}")
+        return torch.device("cpu")
+
     def compute_mean(self, X_batches):
         """Compute the mean from batches of data (first pass).
+
+        In distributed mode, each GPU computes its local sum and sample count,
+        then all-reduce is used to compute the global mean.
 
         Parameters
         ----------
@@ -737,6 +802,12 @@ class ExactIncrementalPCA(DRModule):
         self : ExactIncrementalPCA
             Returns the instance itself.
         """
+        if self._should_use_distributed():
+            return self._compute_mean_distributed(X_batches)
+        return self._compute_mean_standard(X_batches)
+
+    def _compute_mean_standard(self, X_batches):
+        """Standard (non-distributed) mean computation."""
         total_sum = None
         n_samples_seen = 0
 
@@ -770,10 +841,60 @@ class ExactIncrementalPCA(DRModule):
 
         return self
 
+    def _compute_mean_distributed(self, X_batches):
+        """Distributed mean computation using all-reduce."""
+        if not is_distributed():
+            self.logger.warning(
+                "torch.distributed is not initialized but distributed=True. "
+                "Falling back to standard compute_mean."
+            )
+            return self._compute_mean_standard(X_batches)
+
+        device = self._get_device()
+        local_sum = None
+        n_local = 0
+
+        # Handle single tensor input
+        if isinstance(X_batches, (torch.Tensor, np.ndarray)):
+            X_batches = [X_batches]
+
+        for batch in X_batches:
+            # Handle DataLoader tuple batches (X, y)
+            if isinstance(batch, (list, tuple)):
+                batch = batch[0]
+            batch = to_torch(batch).to(device)
+
+            if local_sum is None:
+                self.n_features_in_ = batch.shape[1]
+                local_sum = torch.zeros(
+                    self.n_features_in_, dtype=batch.dtype, device=device
+                )
+
+            local_sum += batch.sum(dim=0)
+            n_local += batch.shape[0]
+
+        # All-reduce to get global sum and count
+        n_local_tensor = torch.tensor([n_local], dtype=local_sum.dtype, device=device)
+        dist.all_reduce(local_sum, op=dist.ReduceOp.SUM)
+        dist.all_reduce(n_local_tensor, op=dist.ReduceOp.SUM)
+
+        n_total = int(n_local_tensor.item())
+        self.n_samples_seen_ = n_total
+        self.mean_ = local_sum / n_total
+
+        if self.verbose and get_rank() == 0:
+            self.logger.info(
+                f"Computed global mean from {n_total} samples across "
+                f"{get_world_size()} GPUs"
+            )
+
+        return self
+
     def partial_fit(self, X: torch.Tensor):
         """Incrementally fit the model with a batch of samples.
 
         This method assumes the mean has already been computed using compute_mean().
+        Accumulates X_centered.T @ X_centered for one batch.
 
         Parameters
         ----------
@@ -788,6 +909,12 @@ class ExactIncrementalPCA(DRModule):
         if self.mean_ is None:
             raise ValueError("Mean must be computed first using compute_mean()")
 
+        if self._should_use_distributed():
+            return self._partial_fit_distributed(X)
+        return self._partial_fit_standard(X)
+
+    def _partial_fit_standard(self, X: torch.Tensor):
+        """Standard (non-distributed) partial fit."""
         # Handle DataLoader tuple batches (X, y)
         if isinstance(X, (list, tuple)):
             X = X[0]
@@ -811,11 +938,42 @@ class ExactIncrementalPCA(DRModule):
 
         return self
 
+    def _partial_fit_distributed(self, X: torch.Tensor):
+        """Distributed partial fit - accumulates local covariance."""
+        if not is_distributed():
+            return self._partial_fit_standard(X)
+
+        device = self._get_device()
+
+        # Handle DataLoader tuple batches (X, y)
+        if isinstance(X, (list, tuple)):
+            X = X[0]
+        X = to_torch(X).to(device)
+
+        # Center the data using global mean
+        X_centered = X - self.mean_
+
+        # Initialize or update X.T @ X
+        if self._XtX is None:
+            self._XtX = torch.zeros(
+                (self.n_features_in_, self.n_features_in_),
+                dtype=X.dtype,
+                device=device,
+            )
+
+        self._XtX += X_centered.T @ X_centered
+
+        return self
+
     def fit(self, X_batches, y=None):
         """Fit the model with batches of samples.
 
         This method assumes the mean has already been computed using compute_mean().
         If mean is not computed, it will compute it first (requiring two passes).
+
+        In distributed mode, each GPU computes its local covariance contribution,
+        then all-reduce is used to compute the global covariance matrix before
+        eigendecomposition.
 
         Parameters
         ----------
@@ -848,7 +1006,10 @@ class ExactIncrementalPCA(DRModule):
 
         # Compute mean if not already done
         if self.mean_ is None:
-            if self.verbose:
+            should_log = self.verbose and (
+                not self._should_use_distributed() or get_rank() == 0
+            )
+            if should_log:
                 self.logger.info("Computing mean (first pass through data)")
             self.compute_mean(X_batches_iter)
 
@@ -856,21 +1017,31 @@ class ExactIncrementalPCA(DRModule):
         self._XtX = None
 
         # Build covariance matrix (second pass)
-        if self.verbose:
+        should_log = self.verbose and (
+            not self._should_use_distributed() or get_rank() == 0
+        )
+        if should_log:
             self.logger.info("Building covariance matrix (second pass through data)")
 
         for batch in X_batches_iter:
             self.partial_fit(batch)
 
-        # Compute eigendecomposition
+        # Compute eigendecomposition (with all-reduce in distributed mode)
         self._compute_components()
 
         return self
 
     def _compute_components(self):
-        """Compute principal components from the accumulated covariance matrix."""
+        """Compute principal components from the accumulated covariance matrix.
+
+        In distributed mode, performs all-reduce on the covariance matrix first.
+        """
         if self._XtX is None:
             raise ValueError("No data has been fitted yet")
+
+        # In distributed mode, all-reduce covariance matrices
+        if self._should_use_distributed() and is_distributed():
+            dist.all_reduce(self._XtX, op=dist.ReduceOp.SUM)
 
         # Compute covariance matrix
         covariance = self._XtX / self.n_samples_seen_
@@ -881,18 +1052,31 @@ class ExactIncrementalPCA(DRModule):
 
         # Select top n_components (reverse order for descending eigenvalues)
         n_components = min(self.n_components, self.n_features_in_)
-        idx = torch.arange(eigenvalues.shape[0] - 1, -1, -1)[:n_components]
+        idx = torch.argsort(eigenvalues, descending=True)[:n_components]
 
         self.explained_variance_ = eigenvalues[idx]
         self.components_ = eigenvectors[:, idx].T
 
-        # Ensure deterministic output using svd_flip convention
-        for i in range(n_components):
-            if self.components_[i, 0] < 0:
-                self.components_[i] *= -1
+        # Apply deterministic sign flip (same convention as distributed PCA)
+        # Use the sign of the largest absolute value in each row
+        device = self.components_.device
+        max_abs_idx = torch.argmax(torch.abs(self.components_), dim=1)
+        signs = torch.sign(
+            self.components_[torch.arange(n_components, device=device), max_abs_idx]
+        )
+        self.components_ = self.components_ * signs.unsqueeze(1)
 
-        if self.verbose:
-            self.logger.info(f"Computed {n_components} principal components")
+        should_log = self.verbose and (
+            not self._should_use_distributed() or get_rank() == 0
+        )
+        if should_log:
+            if self._should_use_distributed():
+                self.logger.info(
+                    f"Computed {n_components} principal components from "
+                    f"{self.n_samples_seen_} samples across {get_world_size()} GPUs"
+                )
+            else:
+                self.logger.info(f"Computed {n_components} principal components")
 
     def _fit_transform(self, X_batches, y=None):
         """Internal fit_transform without decorator.
@@ -969,433 +1153,3 @@ class ExactIncrementalPCA(DRModule):
         X_transformed = X_centered @ self.components_.T
 
         return X_transformed
-
-
-class DistributedExactIncrementalPCA(DRModule):
-    r"""Distributed exact incremental PCA for multi-GPU training.
-
-    Uses the covariance aggregation approach where each GPU:
-
-    1. Computes local statistics (sum for mean, X.T @ X for covariance)
-    2. Communicates via all-reduce (O(d) for mean, O(d²) for covariance)
-    3. Computes final PCA on aggregated statistics
-
-    This approach is communication-efficient when the number of samples is much
-    larger than the number of features (n >> d), which is typical in
-    dimensionality reduction.
-
-    Unlike regular IncrementalPCA which uses an approximate incremental SVD
-    algorithm, this distributed version computes the exact PCA solution by
-    aggregating covariance matrices across GPUs. It requires two passes through
-    the data: one to compute the global mean, and one to build the global
-    covariance matrix.
-
-    Parameters
-    ----------
-    n_components : int, default=2
-        Number of principal components to keep.
-    verbose : bool, default=False
-        Whether to print progress information.
-    random_state : float, optional
-        Random seed for reproducibility.
-
-    Attributes
-    ----------
-    mean_ : torch.Tensor of shape (n_features,)
-        Per-feature empirical mean, estimated from all GPUs' data.
-    components_ : torch.Tensor of shape (n_components, n_features)
-        Principal axes in feature space, representing the directions of
-        maximum variance in the data.
-    explained_variance_ : torch.Tensor of shape (n_components,)
-        The amount of variance explained by each of the selected components.
-    n_samples_seen_ : int
-        The total number of samples processed across all GPUs.
-    n_features_in_ : int
-        Number of features seen during fit.
-
-    Notes
-    -----
-    - Requires torch.distributed to be initialized (use torchrun or TorchDR CLI)
-    - Automatically uses local_rank for GPU assignment
-    - Each GPU only needs its data chunk in memory
-    - Falls back to ExactIncrementalPCA when not in distributed mode
-    - Mathematically equivalent to running ExactIncrementalPCA on concatenated data
-
-    Examples
-    --------
-    >>> # Script launched with: torchdr train.py --gpus 4
-    >>> # or: torchrun --nproc_per_node=4 train.py
-    >>> import torch
-    >>> from torchdr import DistributedExactIncrementalPCA
-    >>>
-    >>> # Each GPU loads its chunk of the data
-    >>> rank = torch.distributed.get_rank()
-    >>> world_size = torch.distributed.get_world_size()
-    >>> chunk_size = len(full_data) // world_size
-    >>> X_local = full_data[rank * chunk_size:(rank + 1) * chunk_size]
-    >>>
-    >>> # Create batches for incremental processing
-    >>> batch_size = 1000
-    >>> batches = [X_local[i:i+batch_size] for i in range(0, len(X_local), batch_size)]
-    >>>
-    >>> # Distributed PCA - handles communication automatically
-    >>> pca = DistributedExactIncrementalPCA(n_components=50)
-    >>> pca.compute_mean(batches)  # First pass: compute global mean
-    >>> pca.fit(batches)           # Second pass: build global covariance
-    >>> X_transformed = pca.transform(X_local)  # Transform local data
-    """
-
-    def __init__(
-        self,
-        n_components: int = 2,
-        verbose: bool = False,
-        random_state: Optional[float] = None,
-        **kwargs,
-    ):
-        # No device param - uses distributed context (local_rank)
-        super().__init__(
-            n_components=n_components,
-            device="auto",  # Will use local GPU in distributed mode
-            verbose=verbose,
-            random_state=random_state,
-            **kwargs,
-        )
-        self.mean_ = None
-        self.components_ = None
-        self.explained_variance_ = None
-        self.n_samples_seen_ = 0
-        self.n_features_in_ = None
-        self._XtX = None  # Accumulated X.T @ X matrix
-        self._fallback_pca = None  # For non-distributed mode
-
-    def _get_device(self):
-        """Get the device for this rank."""
-        if is_distributed() and torch.cuda.is_available():
-            local_rank = int(os.environ.get("LOCAL_RANK", 0))
-            return torch.device(f"cuda:{local_rank}")
-        return torch.device("cpu")
-
-    def compute_mean(self, X_batches):
-        """Compute the global mean from batches of data (first pass).
-
-        In distributed mode, each GPU computes its local sum and sample count,
-        then all-reduce is used to compute the global mean.
-
-        Parameters
-        ----------
-        X_batches : iterable of torch.Tensor or single torch.Tensor
-            Either an iterable yielding batches of data, a DataLoader, or a
-            single tensor. Each batch should have shape (n_samples, n_features).
-            DataLoader batches can be tuples (X, y) - only X will be used.
-
-        Returns
-        -------
-        self : DistributedExactIncrementalPCA
-            Returns the instance itself.
-        """
-        if not is_distributed():
-            # Fall back to non-distributed mode
-            if self._fallback_pca is None:
-                self._fallback_pca = ExactIncrementalPCA(
-                    n_components=self.n_components,
-                    verbose=self.verbose,
-                    random_state=self.random_state,
-                )
-            self._fallback_pca.compute_mean(X_batches)
-            self.mean_ = self._fallback_pca.mean_
-            self.n_samples_seen_ = self._fallback_pca.n_samples_seen_
-            self.n_features_in_ = self._fallback_pca.n_features_in_
-            return self
-
-        device = self._get_device()
-        local_sum = None
-        n_local = 0
-
-        # Handle single tensor input
-        if isinstance(X_batches, (torch.Tensor, np.ndarray)):
-            X_batches = [X_batches]
-
-        for batch in X_batches:
-            # Handle DataLoader tuple batches (X, y)
-            if isinstance(batch, (list, tuple)):
-                batch = batch[0]
-            batch = to_torch(batch).to(device)
-
-            if local_sum is None:
-                self.n_features_in_ = batch.shape[1]
-                local_sum = torch.zeros(
-                    self.n_features_in_, dtype=batch.dtype, device=device
-                )
-
-            local_sum += batch.sum(dim=0)
-            n_local += batch.shape[0]
-
-        # All-reduce to get global sum and count
-        n_local_tensor = torch.tensor([n_local], dtype=local_sum.dtype, device=device)
-        dist.all_reduce(local_sum, op=dist.ReduceOp.SUM)
-        dist.all_reduce(n_local_tensor, op=dist.ReduceOp.SUM)
-
-        n_total = int(n_local_tensor.item())
-        self.n_samples_seen_ = n_total
-        self.mean_ = local_sum / n_total
-
-        if self.verbose and get_rank() == 0:
-            self.logger.info(
-                f"Computed global mean from {n_total} samples across "
-                f"{get_world_size()} GPUs"
-            )
-
-        return self
-
-    def partial_fit(self, X: torch.Tensor):
-        """Incrementally fit the model with a batch of samples.
-
-        This method assumes the mean has already been computed using compute_mean().
-        Accumulates X_centered.T @ X_centered for one batch.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Training batch.
-
-        Returns
-        -------
-        self : DistributedExactIncrementalPCA
-            Returns the instance itself.
-        """
-        if self.mean_ is None:
-            raise ValueError("Mean must be computed first using compute_mean()")
-
-        if not is_distributed():
-            # Fall back to non-distributed mode
-            self._fallback_pca.partial_fit(X)
-            self._XtX = self._fallback_pca._XtX
-            return self
-
-        device = self._get_device()
-
-        # Handle DataLoader tuple batches (X, y)
-        if isinstance(X, (list, tuple)):
-            X = X[0]
-        X = to_torch(X).to(device)
-
-        # Center the data using global mean
-        X_centered = X - self.mean_
-
-        # Initialize or update X.T @ X
-        if self._XtX is None:
-            self._XtX = torch.zeros(
-                (self.n_features_in_, self.n_features_in_),
-                dtype=X.dtype,
-                device=device,
-            )
-
-        self._XtX += X_centered.T @ X_centered
-
-        return self
-
-    def fit(self, X_batches, y=None):
-        """Fit the model with batches of samples.
-
-        This method assumes the mean has already been computed using compute_mean().
-        If mean is not computed, it will compute it first (requiring two passes).
-
-        In distributed mode, each GPU computes its local covariance contribution,
-        then all-reduce is used to compute the global covariance matrix before
-        eigendecomposition.
-
-        Parameters
-        ----------
-        X_batches : iterable of torch.Tensor, DataLoader, or single torch.Tensor
-            Either an iterable yielding batches of data, a DataLoader, or a
-            single tensor. Each batch should have shape (n_samples, n_features).
-            DataLoader batches can be tuples (X, y) - only X will be used.
-        y : None
-            Ignored. Present for API consistency.
-
-        Returns
-        -------
-        self : DistributedExactIncrementalPCA
-            Returns the instance itself.
-        """
-        if not is_distributed():
-            # Fall back to non-distributed mode
-            if self._fallback_pca is None:
-                self._fallback_pca = ExactIncrementalPCA(
-                    n_components=self.n_components,
-                    verbose=self.verbose,
-                    random_state=self.random_state,
-                )
-            self._fallback_pca.fit(X_batches, y)
-            self.mean_ = self._fallback_pca.mean_
-            self.components_ = self._fallback_pca.components_
-            self.explained_variance_ = self._fallback_pca.explained_variance_
-            self.n_samples_seen_ = self._fallback_pca.n_samples_seen_
-            self.n_features_in_ = self._fallback_pca.n_features_in_
-            self._XtX = self._fallback_pca._XtX
-            return self
-
-        # Handle different input types
-        if isinstance(X_batches, (torch.Tensor, np.ndarray)):
-            X_batches_iter = [X_batches]
-        elif isinstance(X_batches, DataLoader):
-            X_batches_iter = X_batches
-        elif hasattr(X_batches, "__iter__"):
-            X_batches_iter = list(X_batches)
-        else:
-            raise TypeError(
-                f"[TorchDR] X_batches must be a tensor, array, DataLoader, or "
-                f"iterable. Got {type(X_batches).__name__}."
-            )
-
-        # Compute mean if not already done
-        if self.mean_ is None:
-            if self.verbose and get_rank() == 0:
-                self.logger.info("Computing mean (first pass through data)")
-            self.compute_mean(X_batches_iter)
-
-        # Reset XtX for fresh computation
-        self._XtX = None
-
-        # Build local covariance matrix (second pass)
-        if self.verbose and get_rank() == 0:
-            self.logger.info("Building covariance matrix (second pass through data)")
-
-        for batch in X_batches_iter:
-            self.partial_fit(batch)
-
-        # All-reduce covariance and compute eigendecomposition
-        self._finalize()
-
-        return self
-
-    def _finalize(self):
-        """All-reduce covariance and compute eigendecomposition."""
-        if self._XtX is None:
-            raise ValueError("No data has been fitted yet")
-
-        device = self._get_device()
-
-        # All-reduce covariance matrices
-        dist.all_reduce(self._XtX, op=dist.ReduceOp.SUM)
-
-        # Compute global covariance matrix
-        covariance = self._XtX / self.n_samples_seen_
-
-        # Compute eigendecomposition (identical on all GPUs)
-        # eigh returns eigenvalues in ascending order
-        eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
-
-        # Select top n_components (reverse order for descending eigenvalues)
-        n_components = min(self.n_components, self.n_features_in_)
-        idx = torch.argsort(eigenvalues, descending=True)[:n_components]
-
-        self.explained_variance_ = eigenvalues[idx]
-        self.components_ = eigenvectors[:, idx].T
-
-        # Apply deterministic sign flip (same convention as DistributedPCA)
-        # Use the sign of the largest absolute value in each row
-        max_abs_idx = torch.argmax(torch.abs(self.components_), dim=1)
-        signs = torch.sign(
-            self.components_[torch.arange(n_components, device=device), max_abs_idx]
-        )
-        self.components_ = self.components_ * signs.unsqueeze(1)
-
-        if self.verbose and get_rank() == 0:
-            self.logger.info(
-                f"Computed {n_components} principal components from "
-                f"{self.n_samples_seen_} samples across {get_world_size()} GPUs"
-            )
-
-    def _fit_transform(self, X_batches, y=None):
-        """Internal fit_transform without decorator.
-
-        Parameters
-        ----------
-        X_batches : torch.Tensor
-            Single tensor of data to fit and transform.
-        y : None
-            Ignored. Present for API consistency.
-
-        Returns
-        -------
-        X_transformed : torch.Tensor
-            Transformed data.
-        """
-        # For a single tensor, we can fit and transform efficiently
-        self.compute_mean([X_batches])
-        self.fit([X_batches])
-        return self.transform(X_batches)
-
-    @handle_input_output
-    def fit_transform(self, X_batches, y=None):
-        """Fit the model and transform the data.
-
-        Parameters
-        ----------
-        X_batches : iterable of torch.Tensor or single torch.Tensor
-            Either an iterable yielding batches of data, or a single tensor.
-        y : None
-            Ignored. Present for API consistency.
-
-        Returns
-        -------
-        X_transformed : torch.Tensor
-            Transformed data (concatenated from all batches).
-        """
-        # Fit the model
-        self.fit(X_batches, y)
-
-        # Transform the data
-        if isinstance(X_batches, (torch.Tensor, np.ndarray)):
-            return self.transform(X_batches)
-        else:
-            raise NotImplementedError(
-                "fit_transform with generator input requires storing data. "
-                "Please use fit() followed by transform() on your data."
-            )
-
-    def transform(
-        self, X: Union[torch.Tensor, np.ndarray]
-    ) -> Union[torch.Tensor, np.ndarray]:
-        r"""Project input data onto the PCA components.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Data to project onto the PCA components.
-
-        Returns
-        -------
-        X_new : torch.Tensor or np.ndarray of shape (n_samples, n_components)
-            Projected data.
-
-        Raises
-        ------
-        ValueError
-            If the model has not been fitted yet.
-        """
-        if self.components_ is None or self.mean_ is None:
-            raise ValueError(
-                "This DistributedExactIncrementalPCA instance is not fitted yet. "
-                "Call 'fit' or 'fit_transform' with some data first."
-            )
-
-        # Handle numpy input
-        input_is_numpy = isinstance(X, np.ndarray)
-        if input_is_numpy:
-            X = torch.from_numpy(X)
-
-        original_device = X.device
-
-        # Move to compute device if needed
-        if self.mean_.device != X.device:
-            X_compute = X.to(self.mean_.device)
-            result = (X_compute - self.mean_) @ self.components_.T
-            result = result.to(original_device)
-        else:
-            result = (X - self.mean_) @ self.components_.T
-
-        if input_is_numpy:
-            return result.numpy()
-        return result
