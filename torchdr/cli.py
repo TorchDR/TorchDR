@@ -106,8 +106,10 @@ Arguments after the script name are passed directly to your script.
     print("  Backend: nccl")
 
     # Build torchrun command (single-node only)
+    # Use --standalone to avoid port conflicts on shared systems (uses localhost:0)
     cmd = [
         "torchrun",
+        "--standalone",
         f"--nproc_per_node={n_gpus}",
         args.script,
     ]

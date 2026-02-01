@@ -45,6 +45,7 @@ class TestMain:
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
         assert "torchrun" in cmd
+        assert "--standalone" in cmd
         assert "--nproc_per_node=4" in cmd
         assert "script.py" in cmd
 
@@ -61,6 +62,7 @@ class TestMain:
 
         assert exc_info.value.code == 0
         cmd = mock_run.call_args[0][0]
+        assert "--standalone" in cmd
         assert "--nproc_per_node=2" in cmd
 
     @patch("torchdr.cli.get_gpu_count")
@@ -100,6 +102,7 @@ class TestMain:
         assert "Warning" in captured.err
         # Should use only 2 GPUs
         cmd = mock_run.call_args[0][0]
+        assert "--standalone" in cmd
         assert "--nproc_per_node=2" in cmd
 
     @patch("torchdr.cli.subprocess.run")
@@ -117,6 +120,7 @@ class TestMain:
                 main()
 
         cmd = mock_run.call_args[0][0]
+        assert "--standalone" in cmd
         assert "--data" in cmd
         assert "/path" in cmd
         assert "--epochs" in cmd
