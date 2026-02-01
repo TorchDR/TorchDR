@@ -58,6 +58,7 @@ from .neighbor_embedding import (
 from .spectral_embedding import (
     IncrementalPCA,
     ExactIncrementalPCA,
+    DistributedExactIncrementalPCA,
     KernelPCA,
     PCA,
     DistributedPCA,
@@ -94,6 +95,7 @@ __all__ = [
     "KernelPCA",
     "IncrementalPCA",
     "ExactIncrementalPCA",
+    "DistributedExactIncrementalPCA",
     "DistributedPCA",
     "NeighborEmbedding",
     "SparseNeighborEmbedding",

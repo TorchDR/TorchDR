@@ -13,7 +13,12 @@ from sklearn.decomposition import IncrementalPCA as SkIncrementalPCA
 from sklearn.model_selection import train_test_split
 from torch.testing import assert_close
 
-from torchdr import IncrementalPCA, ExactIncrementalPCA, PCA
+from torchdr import (
+    IncrementalPCA,
+    ExactIncrementalPCA,
+    DistributedExactIncrementalPCA,
+    PCA,
+)
 
 torch.manual_seed(1999)
 
@@ -482,3 +487,228 @@ def test_exact_incremental_pca_dataloader_fit():
 
     # Check components shape
     assert exact_ipca.components_.shape == (n_components, X.shape[1])
+
+
+# ================ Tests for DistributedExactIncrementalPCA ================
+
+
+def test_distributed_exact_incremental_pca_non_distributed_fallback():
+    """Test that DistributedExactIncrementalPCA falls back to ExactIncrementalPCA
+    when not in distributed mode and produces identical results."""
+    n_components = 2
+    X = torch.tensor(iris.data, dtype=torch.float32)
+
+    # ExactIncrementalPCA
+    exact_ipca = ExactIncrementalPCA(n_components=n_components)
+    exact_ipca.compute_mean([X])
+    exact_ipca.fit([X])
+    X_exact = exact_ipca.transform(X)
+
+    # DistributedExactIncrementalPCA (should fall back)
+    dist_ipca = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca.compute_mean([X])
+    dist_ipca.fit([X])
+    X_dist = dist_ipca.transform(X)
+
+    # Results should be identical (not just similar)
+    assert_close(X_exact, X_dist, rtol=1e-5, atol=1e-5)
+    assert_close(exact_ipca.mean_, dist_ipca.mean_, rtol=1e-5, atol=1e-5)
+    assert_close(exact_ipca.components_, dist_ipca.components_, rtol=1e-5, atol=1e-5)
+    assert_close(
+        exact_ipca.explained_variance_,
+        dist_ipca.explained_variance_,
+        rtol=1e-5,
+        atol=1e-5,
+    )
+
+
+def test_distributed_exact_incremental_pca_batches():
+    """Test that batched processing gives same results as single batch."""
+    n_components = 2
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    batch_size = X.shape[0] // 3
+
+    # Single batch
+    dist_ipca_single = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca_single.compute_mean([X])
+    dist_ipca_single.fit([X])
+    X_single = dist_ipca_single.transform(X)
+
+    # Multiple batches
+    batches = [X[i : i + batch_size] for i in range(0, X.shape[0], batch_size)]
+    dist_ipca_batched = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca_batched.compute_mean(batches)
+    dist_ipca_batched.fit(batches)
+    X_batched = dist_ipca_batched.transform(X)
+
+    # Compare reconstructions
+    reconstruction_single = (
+        X_single @ dist_ipca_single.components_ + dist_ipca_single.mean_
+    )
+    reconstruction_batched = (
+        X_batched @ dist_ipca_batched.components_ + dist_ipca_batched.mean_
+    )
+
+    assert_close(reconstruction_single, reconstruction_batched, rtol=1e-5, atol=1e-5)
+
+
+def test_distributed_exact_incremental_pca_vs_pca():
+    """Test that DistributedExactIncrementalPCA gives same results as regular PCA."""
+    n_components = 2
+    X = torch.tensor(iris.data, dtype=torch.float32)
+
+    # Regular PCA
+    pca = PCA(n_components=n_components)
+    pca.fit(X)
+    X_pca = pca.transform(X)
+
+    # DistributedExactIncrementalPCA
+    dist_ipca = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca.compute_mean([X])
+    dist_ipca.fit([X])
+    X_dist = dist_ipca.transform(X)
+
+    # Compare reconstructions (components might have different signs)
+    reconstruction_pca = X_pca @ pca.components_ + pca.mean_
+    reconstruction_dist = X_dist @ dist_ipca.components_ + dist_ipca.mean_
+
+    # Check reconstructions are similar
+    assert_close(reconstruction_pca, reconstruction_dist, rtol=1e-2, atol=1e-2)
+
+    # Check explained variance is in descending order
+    assert torch.all(
+        dist_ipca.explained_variance_[:-1] >= dist_ipca.explained_variance_[1:]
+    ), "Explained variance should be in descending order"
+
+
+def test_distributed_exact_incremental_pca_check_projection():
+    """Test that the projection of data is correct."""
+    n, p = 100, 3
+    X = torch.randn(n, p, dtype=torch.float64) * 0.1
+    X[:10] += torch.tensor([3, 4, 5])
+    Xt = 0.1 * torch.randn(1, p, dtype=torch.float64) + torch.tensor([3, 4, 5])
+
+    # Get the reconstruction
+    dist_ipca = DistributedExactIncrementalPCA(n_components=2)
+    dist_ipca.compute_mean([X])
+    dist_ipca.fit([X])
+    Yt = dist_ipca.transform(Xt)
+
+    # Normalize
+    Yt /= torch.sqrt((Yt**2).sum())
+
+    # Make sure that the first element of Yt is ~1
+    assert_close(torch.abs(Yt[0][0]).item(), 1.0, atol=1e-1, rtol=1e-1)
+
+
+def test_distributed_exact_incremental_pca_fit_transform():
+    """Test fit_transform method."""
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    dist_ipca = DistributedExactIncrementalPCA(n_components=n_components)
+    X_transformed = dist_ipca.fit_transform(X)
+
+    assert X_transformed.shape == (X.shape[0], n_components)
+
+    # Check that fit_transform gives same result as fit then transform
+    dist_ipca2 = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca2.compute_mean([X])
+    dist_ipca2.fit([X])
+    X_transformed2 = dist_ipca2.transform(X)
+
+    # Compare reconstructions (components might have different signs)
+    reconstruction1 = X_transformed @ dist_ipca.components_ + dist_ipca.mean_
+    reconstruction2 = X_transformed2 @ dist_ipca2.components_ + dist_ipca2.mean_
+
+    assert_close(reconstruction1, reconstruction2, rtol=1e-4, atol=1e-4)
+
+
+def test_distributed_exact_incremental_pca_mean_not_computed():
+    """Test error when mean is not computed before partial_fit."""
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    dist_ipca = DistributedExactIncrementalPCA(n_components=2)
+
+    with pytest.raises(ValueError, match="Mean must be computed first"):
+        dist_ipca.partial_fit(X)
+
+
+def test_distributed_exact_incremental_pca_different_dtypes():
+    """Test with different data types."""
+    X32 = torch.tensor(iris.data, dtype=torch.float32)
+    X64 = torch.tensor(iris.data, dtype=torch.float64)
+    n_components = 2
+
+    # Float32
+    dist_ipca32 = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca32.compute_mean([X32])
+    dist_ipca32.fit([X32])
+    X_transformed32 = dist_ipca32.transform(X32)
+
+    # Float64
+    dist_ipca64 = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca64.compute_mean([X64])
+    dist_ipca64.fit([X64])
+    X_transformed64 = dist_ipca64.transform(X64)
+
+    # Check shapes
+    assert X_transformed32.shape == (X32.shape[0], n_components)
+    assert X_transformed64.shape == (X64.shape[0], n_components)
+
+    # Results should be similar despite different precision
+    assert_close(X_transformed32.double(), X_transformed64, rtol=1e-4, atol=1e-4)
+
+
+def test_distributed_exact_incremental_pca_dataloader():
+    """Test that DistributedExactIncrementalPCA works with DataLoader input."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    X = torch.tensor(iris.data, dtype=torch.float32)
+    n_components = 2
+
+    # Create DataLoader
+    dataset = TensorDataset(X)
+    dataloader = DataLoader(dataset, batch_size=50, shuffle=False)
+
+    # Fit with DataLoader
+    dist_ipca_dl = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca_dl.compute_mean(dataloader)
+    dist_ipca_dl.fit(dataloader)
+    X_transformed_dl = dist_ipca_dl.transform(X)
+
+    # Fit with tensor for comparison
+    dist_ipca_tensor = DistributedExactIncrementalPCA(n_components=n_components)
+    X_transformed_tensor = dist_ipca_tensor.fit_transform(X)
+
+    # Results should be similar (reconstruction-wise)
+    reconstruction_dl = X_transformed_dl @ dist_ipca_dl.components_ + dist_ipca_dl.mean_
+    reconstruction_tensor = (
+        X_transformed_tensor @ dist_ipca_tensor.components_ + dist_ipca_tensor.mean_
+    )
+
+    assert X_transformed_dl.shape == X_transformed_tensor.shape
+    assert_close(reconstruction_dl, reconstruction_tensor, rtol=1e-4, atol=1e-4)
+
+
+def test_distributed_exact_incremental_pca_reconstruction_quality():
+    """Test that reconstruction error is low."""
+    n_components = 3
+    X = torch.tensor(iris.data, dtype=torch.float32)
+
+    dist_ipca = DistributedExactIncrementalPCA(n_components=n_components)
+    dist_ipca.compute_mean([X])
+    dist_ipca.fit([X])
+    X_transformed = dist_ipca.transform(X)
+
+    # Reconstruct
+    X_reconstructed = X_transformed @ dist_ipca.components_ + dist_ipca.mean_
+
+    # Compute reconstruction error (relative to data variance)
+    mse = ((X - X_reconstructed) ** 2).mean()
+    data_var = X.var()
+    relative_error = mse / data_var
+
+    # With 3 out of 4 components, should capture most variance
+    assert relative_error < 0.1, (
+        f"Relative reconstruction error {relative_error} too high"
+    )
