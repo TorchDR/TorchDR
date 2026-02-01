@@ -116,10 +116,12 @@ class TestPCADistributedMocked:
              patch(f"{pca_module}.get_rank", return_value=0), \
              patch(f"{pca_module}.get_world_size", return_value=1), \
              patch("torch.distributed.get_rank", return_value=0), \
-             patch("torch.distributed.all_reduce") as mock_all_reduce:
+             patch("torch.distributed.all_reduce") as mock_all_reduce, \
+             patch("torch.distributed.broadcast") as mock_broadcast:
             # fmt: on
-            # Make all_reduce a no-op (single GPU doesn't need actual communication)
+            # Make all_reduce and broadcast no-ops (single GPU doesn't need communication)
             mock_all_reduce.side_effect = lambda tensor, op: None
+            mock_broadcast.side_effect = lambda tensor, src: None
 
             pca = PCA(n_components=n_components, distributed=True)
             X_transformed = pca.fit_transform(X)
