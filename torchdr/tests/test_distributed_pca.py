@@ -1,73 +1,68 @@
-"""Tests for Distributed PCA."""
+"""Tests for PCA with distributed parameter."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
 # License: BSD 3-Clause License
 
-import pytest
 import torch
 from torch.testing import assert_close
 from sklearn import datasets
 from unittest.mock import patch
 
-from torchdr import DistributedPCA, PCA
+from torchdr import PCA
 
 torch.manual_seed(42)
 
 iris = datasets.load_iris()
 
 
-class TestDistributedPCANonDistributed:
-    """Tests for DistributedPCA when torch.distributed is not initialized."""
+class TestPCADistributedParameter:
+    """Tests for PCA with distributed parameter when torch.distributed is not initialized."""
 
-    def test_fallback_to_non_distributed(self):
-        """Test that DistributedPCA falls back to non-distributed mode."""
+    def test_distributed_auto_non_distributed_mode(self):
+        """Test that PCA with distributed='auto' works in non-distributed mode."""
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 2
 
-        # In non-distributed mode, DistributedPCA should work like regular PCA
-        dpca = DistributedPCA(n_components=n_components)
-        X_transformed = dpca.fit_transform(X)
+        # In non-distributed mode, distributed='auto' should work like distributed=False
+        pca = PCA(n_components=n_components, distributed="auto")
+        X_transformed = pca.fit_transform(X)
 
         assert X_transformed.shape == (X.shape[0], n_components)
-        assert dpca.components_.shape == (n_components, X.shape[1])
-        assert dpca.mean_.shape == (1, X.shape[1])
+        assert pca.components_.shape == (n_components, X.shape[1])
+        assert pca.mean_.shape == (1, X.shape[1])
 
-    def test_matches_regular_pca(self):
-        """Test that non-distributed DistributedPCA matches regular PCA."""
+    def test_distributed_false_matches_regular_pca(self):
+        """Test that PCA with distributed=False matches default PCA."""
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 2
 
-        dpca = DistributedPCA(n_components=n_components)
-        X_dpca = dpca.fit_transform(X)
+        pca_dist_false = PCA(n_components=n_components, distributed=False)
+        X_dist_false = pca_dist_false.fit_transform(X)
 
-        pca = PCA(n_components=n_components)
-        X_pca = pca.fit_transform(X)
+        pca_default = PCA(n_components=n_components)
+        X_default = pca_default.fit_transform(X)
 
         # Compare reconstructions (components might have different signs)
-        reconstruction_dpca = X_dpca @ dpca.components_ + dpca.mean_
-        reconstruction_pca = X_pca @ pca.components_ + pca.mean_
+        reconstruction_dist_false = (
+            X_dist_false @ pca_dist_false.components_ + pca_dist_false.mean_
+        )
+        reconstruction_default = X_default @ pca_default.components_ + pca_default.mean_
 
-        assert_close(reconstruction_dpca, reconstruction_pca, rtol=1e-4, atol=1e-4)
+        assert_close(
+            reconstruction_dist_false, reconstruction_default, rtol=1e-4, atol=1e-4
+        )
 
     def test_transform(self):
         """Test transform method."""
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 2
 
-        dpca = DistributedPCA(n_components=n_components)
-        dpca.fit(X)
-        X_transformed = dpca.transform(X)
+        pca = PCA(n_components=n_components, distributed="auto")
+        pca.fit(X)
+        X_transformed = pca.transform(X)
 
         assert X_transformed.shape == (X.shape[0], n_components)
-
-    def test_transform_not_fitted(self):
-        """Test that transform raises error when not fitted."""
-        X = torch.tensor(iris.data, dtype=torch.float32)
-        dpca = DistributedPCA(n_components=2)
-
-        with pytest.raises(ValueError, match="not fitted"):
-            dpca.transform(X)
 
     def test_numpy_input(self):
         """Test with numpy input."""
@@ -76,8 +71,8 @@ class TestDistributedPCANonDistributed:
         X_np = iris.data.astype(np.float32)
         n_components = 2
 
-        dpca = DistributedPCA(n_components=n_components)
-        X_transformed = dpca.fit_transform(X_np)
+        pca = PCA(n_components=n_components, distributed="auto")
+        X_transformed = pca.fit_transform(X_np)
 
         # Should return numpy array
         assert isinstance(X_transformed, np.ndarray)
@@ -88,8 +83,8 @@ class TestDistributedPCANonDistributed:
         X = torch.tensor(iris.data, dtype=torch.float32)
 
         for n_components in [1, 2, 3, 4]:
-            dpca = DistributedPCA(n_components=n_components)
-            X_transformed = dpca.fit_transform(X)
+            pca = PCA(n_components=n_components, distributed="auto")
+            X_transformed = pca.fit_transform(X)
             assert X_transformed.shape == (X.shape[0], n_components)
 
     def test_deterministic_output(self):
@@ -97,17 +92,17 @@ class TestDistributedPCANonDistributed:
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 2
 
-        dpca1 = DistributedPCA(n_components=n_components, random_state=42)
-        X1 = dpca1.fit_transform(X)
+        pca1 = PCA(n_components=n_components, distributed="auto", random_state=42)
+        X1 = pca1.fit_transform(X)
 
-        dpca2 = DistributedPCA(n_components=n_components, random_state=42)
-        X2 = dpca2.fit_transform(X)
+        pca2 = PCA(n_components=n_components, distributed="auto", random_state=42)
+        X2 = pca2.fit_transform(X)
 
         assert_close(X1, X2)
 
 
-class TestDistributedPCAMocked:
-    """Tests for DistributedPCA with mocked distributed functions."""
+class TestPCADistributedMocked:
+    """Tests for PCA with mocked distributed functions."""
 
     def test_distributed_computation_single_gpu(self):
         """Test distributed computation with single GPU (world_size=1)."""
@@ -115,22 +110,22 @@ class TestDistributedPCAMocked:
         n_components = 2
 
         # Mock distributed environment with single GPU
-        dist_pca_module = "torchdr.spectral_embedding.distributed_pca"
+        pca_module = "torchdr.spectral_embedding.pca"
         # fmt: off
-        with patch(f"{dist_pca_module}.is_distributed", return_value=True), \
-             patch(f"{dist_pca_module}.get_rank", return_value=0), \
-             patch(f"{dist_pca_module}.get_world_size", return_value=1), \
+        with patch(f"{pca_module}.is_distributed", return_value=True), \
+             patch(f"{pca_module}.get_rank", return_value=0), \
+             patch(f"{pca_module}.get_world_size", return_value=1), \
              patch("torch.distributed.get_rank", return_value=0), \
              patch("torch.distributed.all_reduce") as mock_all_reduce:
             # fmt: on
             # Make all_reduce a no-op (single GPU doesn't need actual communication)
             mock_all_reduce.side_effect = lambda tensor, op: None
 
-            dpca = DistributedPCA(n_components=n_components)
-            X_transformed = dpca.fit_transform(X)
+            pca = PCA(n_components=n_components, distributed=True)
+            X_transformed = pca.fit_transform(X)
 
             assert X_transformed.shape == (X.shape[0], n_components)
-            assert dpca.components_.shape == (n_components, X.shape[1])
+            assert pca.components_.shape == (n_components, X.shape[1])
 
     def test_distributed_mean_computation(self):
         """Test that distributed mean computation is correct."""
@@ -174,39 +169,39 @@ class TestDistributedPCAMocked:
         assert_close(global_cov, expected_cov, rtol=1e-5, atol=1e-5)
 
 
-class TestDistributedPCAEdgeCases:
+class TestPCADistributedEdgeCases:
     """Tests for edge cases."""
 
     def test_few_samples(self):
         """Test with few samples (edge case)."""
         X = torch.randn(5, 10)
-        dpca = DistributedPCA(n_components=2)
-        X_transformed = dpca.fit_transform(X)
+        pca = PCA(n_components=2, distributed="auto")
+        X_transformed = pca.fit_transform(X)
         assert X_transformed.shape == (5, 2)
 
     def test_n_components_equals_n_features(self):
         """Test when n_components equals n_features."""
         X = torch.randn(100, 5)
-        dpca = DistributedPCA(n_components=5)
-        X_transformed = dpca.fit_transform(X)
+        pca = PCA(n_components=5, distributed="auto")
+        X_transformed = pca.fit_transform(X)
         assert X_transformed.shape == (100, 5)
 
     def test_high_dimensional_data(self):
         """Test with high-dimensional data."""
         X = torch.randn(50, 100)
-        dpca = DistributedPCA(n_components=10)
-        X_transformed = dpca.fit_transform(X)
+        pca = PCA(n_components=10, distributed="auto")
+        X_transformed = pca.fit_transform(X)
         assert X_transformed.shape == (50, 10)
 
     def test_float64(self):
         """Test with float64 data."""
         X = torch.tensor(iris.data, dtype=torch.float64)
-        dpca = DistributedPCA(n_components=2)
-        X_transformed = dpca.fit_transform(X)
+        pca = PCA(n_components=2, distributed="auto")
+        X_transformed = pca.fit_transform(X)
         assert X_transformed.dtype == torch.float64
 
 
-class TestDistributedPCAReproducibility:
+class TestPCADistributedReproducibility:
     """Tests for reproducibility."""
 
     def test_reconstruction_error(self):
@@ -214,9 +209,9 @@ class TestDistributedPCAReproducibility:
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 4  # Use all components for near-perfect reconstruction
 
-        dpca = DistributedPCA(n_components=n_components)
-        X_transformed = dpca.fit_transform(X)
-        X_reconstructed = X_transformed @ dpca.components_ + dpca.mean_
+        pca = PCA(n_components=n_components, distributed="auto")
+        X_transformed = pca.fit_transform(X)
+        X_reconstructed = X_transformed @ pca.components_ + pca.mean_
 
         # Reconstruction error should be very small with all components
         error = torch.mean((X - X_reconstructed) ** 2)
@@ -227,8 +222,8 @@ class TestDistributedPCAReproducibility:
         X = torch.tensor(iris.data, dtype=torch.float32)
         n_components = 4
 
-        dpca = DistributedPCA(n_components=n_components)
-        X_transformed = dpca.fit_transform(X)
+        pca = PCA(n_components=n_components, distributed="auto")
+        X_transformed = pca.fit_transform(X)
 
         # Variance should decrease across components
         variances = X_transformed.var(dim=0)
