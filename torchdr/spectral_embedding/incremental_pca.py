@@ -1034,37 +1034,54 @@ class ExactIncrementalPCA(DRModule):
     def _compute_components(self):
         """Compute principal components from the accumulated covariance matrix.
 
-        In distributed mode, performs all-reduce on the covariance matrix first.
+        In distributed mode, performs all-reduce on the covariance matrix first,
+        then computes eigendecomposition on rank 0 and broadcasts to all GPUs.
         """
         if self._XtX is None:
             raise ValueError("No data has been fitted yet")
 
+        use_distributed = self._should_use_distributed() and is_distributed()
+
         # In distributed mode, all-reduce covariance matrices
-        if self._should_use_distributed() and is_distributed():
+        if use_distributed:
             dist.all_reduce(self._XtX, op=dist.ReduceOp.SUM)
 
         # Compute covariance matrix
         covariance = self._XtX / self.n_samples_seen_
 
-        # Compute eigendecomposition
-        # eigh returns eigenvalues in ascending order
-        eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
-
-        # Select top n_components (reverse order for descending eigenvalues)
         n_components = min(self.n_components, self.n_features_in_)
-        idx = torch.argsort(eigenvalues, descending=True)[:n_components]
+        device = covariance.device
+        dtype = covariance.dtype
 
-        self.explained_variance_ = eigenvalues[idx]
-        self.components_ = eigenvectors[:, idx].T
-
-        # Apply deterministic sign flip (same convention as distributed PCA)
-        # Use the sign of the largest absolute value in each row
-        device = self.components_.device
-        max_abs_idx = torch.argmax(torch.abs(self.components_), dim=1)
-        signs = torch.sign(
-            self.components_[torch.arange(n_components, device=device), max_abs_idx]
+        # Initialize output tensors
+        self.explained_variance_ = torch.empty(n_components, dtype=dtype, device=device)
+        self.components_ = torch.empty(
+            n_components, self.n_features_in_, dtype=dtype, device=device
         )
-        self.components_ = self.components_ * signs.unsqueeze(1)
+
+        # Compute eigendecomposition on rank 0 only (or all ranks if not distributed)
+        # This guarantees identical components across all GPUs
+        if not use_distributed or get_rank() == 0:
+            eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
+
+            # Select top n_components (reverse order for descending eigenvalues)
+            idx = torch.argsort(eigenvalues, descending=True)[:n_components]
+
+            self.explained_variance_ = eigenvalues[idx]
+            self.components_ = eigenvectors[:, idx].T.contiguous()
+
+            # Apply deterministic sign flip (same convention as distributed PCA)
+            # Use the sign of the largest absolute value in each row
+            max_abs_idx = torch.argmax(torch.abs(self.components_), dim=1)
+            signs = torch.sign(
+                self.components_[torch.arange(n_components, device=device), max_abs_idx]
+            )
+            self.components_ = self.components_ * signs.unsqueeze(1)
+
+        # Broadcast components and explained variance to all GPUs
+        if use_distributed:
+            dist.broadcast(self.components_, src=0)
+            dist.broadcast(self.explained_variance_, src=0)
 
         should_log = self.verbose and (
             not self._should_use_distributed() or get_rank() == 0

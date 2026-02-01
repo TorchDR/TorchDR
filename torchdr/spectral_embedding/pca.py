@@ -190,7 +190,7 @@ class PCA(DRModule):
         1. All-reduce sum(X_local) and n_local to compute global mean
         2. Each GPU computes local covariance: (X_local - mean).T @ (X_local - mean)
         3. All-reduce covariance matrices to get global covariance
-        4. Eigendecomposition on each GPU
+        4. Eigendecomposition on rank 0, broadcast components to all GPUs
         5. Transform local data
 
         Parameters
@@ -251,27 +251,33 @@ class PCA(DRModule):
         # Normalize to get covariance
         global_cov = local_cov / n_total
 
-        # Step 4: Eigendecomposition
-        # The covariance matrix C = X.T @ X / n has eigenvectors = right singular
-        # vectors of X, and eigenvalues = singular values squared / n
-        eigenvalues, eigenvectors = torch.linalg.eigh(global_cov)
-
-        # eigh returns eigenvalues in ascending order, we want descending
-        idx = torch.argsort(eigenvalues, descending=True)
-        eigenvalues = eigenvalues[idx]
-        eigenvectors = eigenvectors[:, idx]
-
-        # Apply sign flip for deterministic output (match sklearn convention)
-        # Use the sign of the largest absolute value in each column
-        max_abs_idx = torch.argmax(torch.abs(eigenvectors), dim=0)
-        signs = torch.sign(
-            eigenvectors[max_abs_idx, torch.arange(n_features, device=device)]
+        # Step 4: Eigendecomposition on rank 0, then broadcast
+        # Computing on one GPU and broadcasting guarantees identical components
+        # across all GPUs (avoids potential non-determinism in eigh)
+        self.components_ = torch.empty(
+            self.n_components, n_features, dtype=dtype, device=device
         )
-        eigenvectors = eigenvectors * signs.unsqueeze(0)
 
-        self.components_ = eigenvectors[
-            :, : self.n_components
-        ].T  # (n_components, n_features)
+        if rank == 0:
+            eigenvalues, eigenvectors = torch.linalg.eigh(global_cov)
+
+            # eigh returns eigenvalues in ascending order, we want descending
+            idx = torch.argsort(eigenvalues, descending=True)
+            eigenvectors = eigenvectors[:, idx]
+
+            # Apply sign flip for deterministic output (match sklearn convention)
+            # Use the sign of the largest absolute value in each column
+            max_abs_idx = torch.argmax(torch.abs(eigenvectors), dim=0)
+            signs = torch.sign(
+                eigenvectors[max_abs_idx, torch.arange(n_features, device=device)]
+            )
+            eigenvectors = eigenvectors * signs.unsqueeze(0)
+
+            self.components_ = eigenvectors[
+                :, : self.n_components
+            ].T.contiguous()  # (n_components, n_features)
+
+        dist.broadcast(self.components_, src=0)
 
         # Step 5: Transform local data
         self.embedding_ = X_centered @ self.components_.T
