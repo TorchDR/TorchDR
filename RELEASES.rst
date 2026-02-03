@@ -1,4 +1,4 @@
-Version 0.4 
+Version 0.4
 -----------
 
 - Add GitHub action for testing on MacOS and Windows `PR #258 <https://github.com/TorchDR/TorchDR/pull/258>`_.
