@@ -89,6 +89,84 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
 
+  Test-macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      # Install torchdr
+      - name: Checking Out Repository
+        uses: actions/checkout@v4
+      # Cache 'torchdr' datasets
+      - name: Create/Restore torchdr Data Cache
+        id: cache-torchdr_datasets
+        uses: actions/cache@v4
+        with:
+          path: ~/torchdr_datasets
+          key: ${{ runner.os }}-v3
+      # Install Python & Packages
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - run: which python
+      - name: Install dependencies
+        run: |
+          python -m pip install --user --upgrade --progress-bar off pip
+      - name: Install 'torchdr' package
+        run: |
+          python -m pip install --user -e .[test]
+      # Run Tests
+      - name: Run Tests
+        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+      # Codecov
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: TorchDR/TorchDR
+
+  Test-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      # Install torchdr
+      - name: Checking Out Repository
+        uses: actions/checkout@v4
+      # Cache 'torchdr' datasets
+      - name: Create/Restore torchdr Data Cache
+        id: cache-torchdr_datasets
+        uses: actions/cache@v4
+        with:
+          path: ~/torchdr_datasets
+          key: ${{ runner.os }}-v3
+      # Install Python & Packages
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - run: which python
+      - name: Install dependencies
+        run: |
+          python -m pip install --user --upgrade --progress-bar off pip
+      - name: Install 'torchdr' package
+        run: |
+          python -m pip install --user -e .[test]
+      # Run Tests
+      - name: Run Tests
+        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+      # Codecov
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: TorchDR/TorchDR
+
   Test-faiss:
     runs-on: ubuntu-latest
     strategy:
