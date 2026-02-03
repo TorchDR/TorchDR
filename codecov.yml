@@ -41,16 +41,12 @@ comment:
   require_changes: false # if true: only post the comment if coverage changes
 
 ignore:
-  # FAISS-dependent files (require separate conda install, tested in Test-faiss job)
-  - "torchdr/distance/faiss.py"
-  - "torchdr/distance/base.py"  # imports from faiss.py
-  - "torchdr/affinity/base.py"  # FAISS/DataLoader/distributed code paths
-  - "torchdr/utils/faiss.py"
-  - "torchdr/utils/sparse.py"  # sparse ops depend on FAISS for some functionality
-  - "torchdr/eval/kmeans.py"  # uses FAISS for k-means clustering
-  # Distributed/DataLoader files (require torchrun/multi-GPU, not available in standard CI)
+  # Distributed files (require torchrun/multi-GPU, not available in CI)
   - "torchdr/distributed/__init__.py"
   - "torchdr/cli.py"  # CLI for distributed execution
+  # Files with mixed FAISS/distributed code paths (partial coverage expected)
+  - "torchdr/distance/base.py"  # FAISS + distributed code paths
+  - "torchdr/affinity/base.py"  # FAISS + DataLoader + distributed code paths
   - "torchdr/neighbor_embedding/base.py"  # distributed code paths
   - "torchdr/spectral_embedding/incremental_pca.py"  # distributed PCA
   - "torchdr/affinity_matcher.py"  # DataLoader paths

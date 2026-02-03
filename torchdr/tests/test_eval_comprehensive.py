@@ -306,6 +306,56 @@ def test_kmeans_ari_perfect_clustering():
     assert ari_score > 0.8
 
 
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
+def test_kmeans_ari_niter_nredo():
+    """Test kmeans_ari with different niter and nredo values."""
+    try:
+        import torchmetrics  # noqa: F401
+    except ImportError:
+        pytest.skip("torchmetrics not installed")
+
+    np.random.seed(42)
+    X = np.random.randn(100, 5).astype("float32")
+    y = np.array([0] * 50 + [1] * 50)
+
+    # Test with different niter values
+    ari_low_iter, _ = kmeans_ari(X, y, n_clusters=2, niter=5, random_state=42)
+    ari_high_iter, _ = kmeans_ari(X, y, n_clusters=2, niter=50, random_state=42)
+
+    # Both should produce valid ARI scores
+    assert -1 <= ari_low_iter <= 1
+    assert -1 <= ari_high_iter <= 1
+
+    # Test with different nredo values
+    ari_redo1, _ = kmeans_ari(X, y, n_clusters=2, nredo=1, random_state=42)
+    ari_redo5, _ = kmeans_ari(X, y, n_clusters=2, nredo=5, random_state=42)
+
+    assert -1 <= ari_redo1 <= 1
+    assert -1 <= ari_redo5 <= 1
+
+
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
+def test_kmeans_ari_edge_cases():
+    """Test kmeans_ari edge cases."""
+    try:
+        import torchmetrics  # noqa: F401
+    except ImportError:
+        pytest.skip("torchmetrics not installed")
+
+    # Edge case: n_clusters equals n_samples
+    X = np.random.randn(5, 3).astype("float32")
+    y = np.arange(5)
+    ari_score, pred_labels = kmeans_ari(X, y, n_clusters=5)
+    assert -1 <= ari_score <= 1
+    assert len(pred_labels) == 5
+
+    # Edge case: 2 clusters with minimal samples
+    X = np.array([[0, 0], [0, 1], [10, 10], [10, 11]], dtype="float32")
+    y = np.array([0, 0, 1, 1])
+    ari_score, pred_labels = kmeans_ari(X, y, n_clusters=2)
+    assert ari_score > 0.5  # Should cluster well
+
+
 # ============================================================================
 # NEIGHBORHOOD PRESERVATION TESTS
 # ============================================================================
