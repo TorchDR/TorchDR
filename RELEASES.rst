@@ -4,7 +4,7 @@
 Release Notes
 =============
 
-Version 0.4 (2026-XX-XX)
+Version 0.4 (2026-02-03)
 ------------------------
 
 Multi-GPU distributed training, CLI tool, and DataLoader integration.
