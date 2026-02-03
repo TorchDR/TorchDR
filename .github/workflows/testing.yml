@@ -121,7 +121,7 @@ jobs:
           python -m pip install --user -e .[test]
       # Run Tests
       - name: Run Tests
-        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+        run: python -m pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -161,7 +161,7 @@ jobs:
           python -m pip install --user -e .[test]
       # Run Tests
       - name: Run Tests
-        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+        run: python -m pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
