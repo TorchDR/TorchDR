@@ -44,12 +44,14 @@ ignore:
   # Distributed files (require torchrun/multi-GPU, not available in CI)
   - "torchdr/distributed/__init__.py"
   - "torchdr/cli.py"  # CLI for distributed execution
-  # Files with mixed FAISS/distributed code paths (partial coverage expected)
+  # Files with significant distributed code paths (can't be tested without torchrun)
+  - "torchdr/distance/faiss.py"  # has _search_chunk_from_dataloader (distributed)
   - "torchdr/distance/base.py"  # FAISS + distributed code paths
   - "torchdr/affinity/base.py"  # FAISS + DataLoader + distributed code paths
   - "torchdr/neighbor_embedding/base.py"  # distributed code paths
   - "torchdr/spectral_embedding/incremental_pca.py"  # distributed PCA
   - "torchdr/affinity_matcher.py"  # DataLoader paths
   - "torchdr/utils/wrappers.py"  # wrapper utilities with DataLoader support
+  - "torchdr/utils/sparse.py"  # has distributed_symmetrize_sparse (distributed)
   # Test files should not count toward coverage
   - "torchdr/tests/**"
