@@ -142,6 +142,11 @@ docs/source/sg_execution_times.rst
 .vscode
 .claude/
 dev
+CLAUDE.md
+
+# Slurm/batch scripts
+*.sbatch
+benchmarks/logs/
 
 # Data
 data/

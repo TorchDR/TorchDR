@@ -128,13 +128,23 @@ class FaissConfig:
         Type of FAISS index to use:
         - 'Flat': Exact brute-force search (slower but 100% accurate)
         - 'IVF': Inverted file index for approximate search (fast, ~95-99% accurate)
+        - 'IVFPQ': Inverted file with Product Quantization for memory-efficient
+          approximate search (very fast, ~90-95% accurate, highly compressed)
     nprobe : int, default=1
         Number of clusters to search in IVF indexes. Higher values increase
-        accuracy but decrease speed. Only used with index_type='IVF'.
+        accuracy but decrease speed. Only used with index_type='IVF' or 'IVFPQ'.
     nlist : int, default=100
         Number of clusters for IVF indexes. Typical values range from
         sqrt(n) to 4*sqrt(n) where n is the dataset size.
-        Only used with index_type='IVF'.
+        Only used with index_type='IVF' or 'IVFPQ'.
+    M : int, default=16
+        Number of sub-quantizers for Product Quantization. The vector dimension
+        must be divisible by M. Higher values give better accuracy but use more
+        memory. Common values: 8, 16, 32, 64. Only used with index_type='IVFPQ'.
+    nbits : int, default=8
+        Number of bits per sub-quantizer code. Determines the number of centroids
+        per subspace (2^nbits). Standard value is 8 (256 centroids per subspace).
+        Only used with index_type='IVFPQ'.
     **kwargs
         Additional FAISS configuration options to pass to the underlying FAISS
         index config objects (e.g., for advanced memory management).
@@ -162,11 +172,17 @@ class FaissConfig:
     >>> # IVF approximate search for large datasets
     >>> config = FaissConfig(index_type="IVF", nlist=1000, nprobe=10)
 
+    >>> # IVFPQ for very large datasets (100M+ vectors) with memory efficiency
+    >>> config = FaissConfig(index_type="IVFPQ", nlist=4096, nprobe=64, M=16, nbits=8)
+
     Notes
     -----
     - Increasing temp_memory helps with large batch operations but reduces memory
       available for data storage
     - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
+    - IVFPQ provides significant memory savings (e.g., 128D float32 vectors: 512 bytes
+      -> ~32 bytes with M=16, nbits=8) at the cost of some accuracy
+    - For IVFPQ, ensure the vector dimension is divisible by M
     """
 
     def __init__(
@@ -176,6 +192,8 @@ class FaissConfig:
         index_type: str = "Flat",
         nprobe: int = 1,
         nlist: int = 100,
+        M: int = 16,
+        nbits: int = 8,
         **kwargs,
     ):
         self.temp_memory = temp_memory
@@ -183,6 +201,8 @@ class FaissConfig:
         self.index_type = index_type
         self.nprobe = nprobe
         self.nlist = nlist
+        self.M = M
+        self.nbits = nbits
         self.faiss_kwargs = kwargs
         self.gpu_resources: Dict[int, Any] = {}
 
@@ -194,6 +214,8 @@ class FaissConfig:
             f"nprobe={self.nprobe}",
             f"nlist={self.nlist}",
         ]
+        if self.index_type == "IVFPQ":
+            parts.extend([f"M={self.M}", f"nbits={self.nbits}"])
         if self.faiss_kwargs:
             parts.append(f"**{self.faiss_kwargs}")
         return f"FaissConfig({', '.join(parts)})"
@@ -314,13 +336,24 @@ def pairwise_distances_faiss(
             config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
         index = faiss.IndexIVFFlat(flat_index, d, config.nlist, metric_type)
         index.nprobe = config.nprobe
+    elif config.index_type == "IVFPQ":
+        n_vectors = len(Y_np)
+        if config.nlist == 100 and n_vectors > 10000:
+            config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
+        if d % config.M != 0:
+            raise ValueError(
+                f"[TorchDR] ERROR : Vector dimension {d} must be divisible by M={config.M} "
+                f"for IVFPQ. Choose M from divisors of {d}."
+            )
+        index = faiss.IndexIVFPQ(flat_index, d, config.nlist, config.M, config.nbits)
+        index.nprobe = config.nprobe
     else:
         raise ValueError(
             f"[TorchDR] ERROR : Index type '{config.index_type}' is not supported. "
-            "Supported types are 'Flat' and 'IVF'."
+            "Supported types are 'Flat', 'IVF', and 'IVFPQ'."
         )
 
-    needs_training = config.index_type == "IVF"
+    needs_training = config.index_type in ("IVF", "IVFPQ")
 
     if device == "auto":
         compute_device = X.device
@@ -414,6 +447,11 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
         else:
             gpu_index = faiss.GpuIndexFlatIP(res, d, flat_config)
 
+    elif isinstance(index, faiss.IndexIVFPQ):
+        # Handle IVFPQ index
+        gpu_index = faiss.index_cpu_to_gpu(res, device_id, index)
+        if hasattr(gpu_index, "nprobe"):
+            gpu_index.nprobe = index.nprobe
     elif hasattr(index, "quantizer") and hasattr(index, "nprobe"):
         if hasattr(faiss, "GpuIndexIVFFlat"):
             ivf_config = faiss.GpuIndexIVFFlatConfig()
@@ -587,8 +625,8 @@ def _build_index_from_dataloader(
     index = None
     n_samples = len(dataloader.dataset)
 
-    # For IVF indices: first pass extracts metadata and trains
-    if config.index_type == "IVF":
+    # For IVF/IVFPQ indices: first pass extracts metadata and trains
+    if config.index_type in ("IVF", "IVFPQ"):
         collected = []
         total = 0
 
@@ -616,7 +654,18 @@ def _build_index_from_dataloader(
                 nlist = config.nlist
                 if nlist == 100 and n_samples > 10000:
                     nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
-                index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
+
+                if config.index_type == "IVFPQ":
+                    if d % config.M != 0:
+                        raise ValueError(
+                            f"[TorchDR] ERROR : Vector dimension {d} must be divisible "
+                            f"by M={config.M} for IVFPQ. Choose M from divisors of {d}."
+                        )
+                    index = faiss.IndexIVFPQ(
+                        flat_index, d, nlist, config.M, config.nbits
+                    )
+                else:
+                    index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
                 index.nprobe = config.nprobe
 
                 # Move to GPU if needed
@@ -631,7 +680,11 @@ def _build_index_from_dataloader(
 
             # Collect training data
             batch_np = batch.detach().cpu().numpy().astype(np.float32)
-            max_train = 256 * index.nlist
+            # IVFPQ benefits from more training data for better codebooks
+            if config.index_type == "IVFPQ":
+                max_train = max(256 * index.nlist, 256 * config.M)
+            else:
+                max_train = 256 * index.nlist
             if total + len(batch_np) >= max_train:
                 collected.append(batch_np[: max_train - total])
                 break
