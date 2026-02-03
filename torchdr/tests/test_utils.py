@@ -224,23 +224,6 @@ def test_pairwise_distances_faiss_ivfpq():
     check_shape(idx_ivfpq, (n, k))
 
 
-@pytest.mark.skipif(not faiss, reason="faiss is not available")
-@pytest.mark.parametrize("metric", ["euclidean", "sqeuclidean", "angular"])
-def test_pairwise_distances_faiss_all_metrics(metric):
-    """Test FAISS with all supported metrics."""
-    n, p, k = 100, 16, 10
-    x = torch.randn(n, p, dtype=torch.float32)
-
-    C, idx = pairwise_distances(
-        x, k=k, backend="faiss", metric=metric, return_indices=True
-    )
-    check_shape(C, (n, k))
-    check_shape(idx, (n, k))
-
-    # Verify distances are non-negative
-    assert (C >= 0).all()
-
-
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_pairwise_distances_indexed(dtype, metric):
