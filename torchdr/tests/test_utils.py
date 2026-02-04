@@ -207,6 +207,23 @@ def test_pairwise_distances_faiss_errors():
         pairwise_distances(x, k=5, backend=config)
 
 
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_ivfpq():
+    """Test FAISS with IVFPQ index type."""
+    from torchdr.distance import FaissConfig
+
+    n, p, k = 500, 16, 10  # p must be divisible by M
+    x = torch.randn(n, p, dtype=torch.float32)
+
+    # Test IVFPQ index
+    config = FaissConfig(index_type="IVFPQ", nlist=10, nprobe=5, M=8, nbits=8)
+    C_ivfpq, idx_ivfpq = pairwise_distances(
+        x, k=k, backend=config, return_indices=True, device="cpu"
+    )
+    check_shape(C_ivfpq, (n, k))
+    check_shape(idx_ivfpq, (n, k))
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TORCH)
 def test_pairwise_distances_indexed(dtype, metric):
