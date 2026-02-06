@@ -271,11 +271,42 @@ class NeighborEmbedding(AffinityMatcher):
 class SparseNeighborEmbedding(NeighborEmbedding):
     r"""Neighbor embedding with a sparse input affinity matrix.
 
-    Inherits all parameters from :class:`NeighborEmbedding`.
+    Extends :class:`NeighborEmbedding` with a decomposed loss structure and
+    optional mini-batch training for parametric (encoder-based) models.
 
-    **Fast attraction.** This class should be used when the input affinity matrix
-    is sparse. In such cases, the attractive term can be computed with linear
-    complexity.
+    **Fast attraction.** Requires a :class:`~torchdr.affinity.SparseAffinity`
+    as input affinity, which stores only the k nearest-neighbor affinities.
+    The attractive term can therefore be computed in :math:`O(nk)` instead of
+    :math:`O(n^2)`.
+
+    **Decomposed loss.** The total loss is split into an attractive and a
+    repulsive component:
+
+    .. math::
+
+        \mathcal{L} = \lambda \, \mathcal{L}_{\mathrm{attr}}
+                     + \alpha \, \mathcal{L}_{\mathrm{rep}}
+
+    where :math:`\lambda` is the early-exaggeration coefficient and
+    :math:`\alpha` is :attr:`repulsion_strength`. Subclasses must implement
+    :meth:`_compute_attractive_loss` and :meth:`_compute_repulsive_loss`
+    (or their gradient counterparts when ``_use_direct_gradients`` is True).
+
+    **Mini-batch training.** When an ``encoder`` and ``batch_size`` are
+    provided, training proceeds in mini-batches. Each iteration shuffles
+    the dataset, and for every batch:
+
+    1. The encoder is run on the batch samples (with gradients).
+    2. A hybrid embedding is built: cached (detached) values for all samples,
+       with live encoder outputs at the batch positions.
+    3. ``chunk_indices_``, ``NN_indices_``, and ``affinity_in_`` are narrowed
+       to the batch so that the existing loss functions work unchanged.
+    4. Subclass hooks :meth:`_on_mini_batch_sample` and
+       :meth:`_prepare_mini_batch_step` are called for method-specific logic.
+    5. The loss (or direct gradients) is computed and back-propagated.
+    6. The embedding cache is updated in-place for subsequent batches.
+
+    Subclasses opt in by setting ``_supports_mini_batch = True``.
 
     Parameters
     ----------
@@ -455,25 +486,37 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
     r"""Sparse neighbor embedding with negative sampling and optional multi-GPU.
 
-    Inherits all parameters from :class:`SparseNeighborEmbedding`.
+    Extends :class:`SparseNeighborEmbedding` with stochastic negative sampling
+    for the repulsive term and optional distributed training across GPUs.
 
-    **Fast repulsion.** A stochastic estimation of the repulsive term is used
-    to reduce its complexity to linear by sampling a fixed number of negative
-    samples :attr:`n_negatives` for each point.
+    **Fast repulsion.** Instead of computing :math:`O(n^2)` pairwise
+    interactions for the repulsive loss, this class samples a fixed number
+    :attr:`n_negatives` of negative pairs per point, reducing complexity to
+    :math:`O(n \cdot n_{\text{neg}})`. An exclusion mechanism ensures that
+    self-pairs (and optionally nearest neighbors when :attr:`discard_NNs` is
+    True) are never drawn as negatives. Exclusion indices are precomputed in
+    :meth:`on_affinity_computation_end` and reused via
+    :meth:`_sample_negatives` at every training step.
 
-    **Multi-GPU training.** When launched with torchrun, this class supports
-    distributed multi-GPU training. Each rank processes its chunk of the input
-    affinity, the embedding is replicated across ranks, and gradients are
-    synchronized during optimization.
+    **Mini-batch negatives.** In mini-batch mode (inherited from
+    :class:`SparseNeighborEmbedding`), negatives are sampled per batch via
+    :meth:`_on_mini_batch_sample` instead of for the full dataset.
+
+    **Multi-GPU training.** When launched with ``torchrun``, each rank
+    processes its chunk of the input affinity while the embedding is
+    replicated across ranks. The embedding is initialized on rank 0 and
+    broadcast, and gradients are synchronized during optimization.
 
     Parameters
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
     n_negatives : int, optional
-        Number of negative samples to use. Default is 5.
+        Number of negative samples to use per point. Default is 5.
     discard_NNs : bool, optional
-        Whether to discard nearest neighbors from negative sampling. Default is False.
+        Whether to exclude nearest neighbors from negative sampling, avoiding
+        conflicting attractive/repulsive signals on the same pairs.
+        Default is False.
     distributed : bool or 'auto', optional
         Whether to use distributed computation across multiple GPUs.
         - "auto": Automatically detect if running with torchrun (default)
