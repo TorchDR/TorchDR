@@ -113,11 +113,13 @@ class AffinityMatcher(DRModule):
         ``transform(X_new)``. The encoder output dimension must match
         ``n_components``. Default is None (standard embedding optimization).
     batch_size : int, optional
-        Mini-batch size for encoder-based training. When set together with
-        ``encoder``, each optimization step processes a random subset of
+        Mini-batch size for encoder-based training. **Requires** ``encoder``
+        to be set — mini-batch training is only meaningful with a parametric
+        encoder whose shared weights benefit from stochastic optimization.
+        When set, each optimization step processes a random subset of
         ``batch_size`` samples through the encoder while using a cached
-        full embedding for context. For TSNE and SNE, the repulsive partition
-        function is approximated within each mini-batch.
+        full embedding for context. The repulsive term is approximated
+        within each mini-batch. Default is None (full-batch training).
         Default is None (full-batch training).
     """  # noqa: E501
 
@@ -271,7 +273,14 @@ class AffinityMatcher(DRModule):
         # --- Batch size validation ---
         if self.batch_size is not None:
             if self.encoder is None:
-                raise ValueError("[TorchDR] batch_size requires encoder to be set.")
+                raise ValueError(
+                    "[TorchDR] batch_size requires an encoder (torch.nn.Module). "
+                    "Mini-batch training is only supported for parametric models "
+                    "where a neural network encoder maps input data to the "
+                    "embedding space. Without an encoder, the embedding vectors "
+                    "are free parameters with no shared weights, so mini-batch "
+                    "training offers no benefit over full-batch optimization."
+                )
             if not getattr(self, "_supports_mini_batch", False):
                 raise NotImplementedError(
                     "[TorchDR] Mini-batch training is not supported for "

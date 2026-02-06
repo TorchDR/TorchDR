@@ -312,7 +312,7 @@ class TestMiniBatchTraining:
             batch_size=16,
             random_state=0,
         )
-        with pytest.raises(ValueError, match="batch_size requires encoder"):
+        with pytest.raises(ValueError, match="batch_size requires an encoder"):
             model.fit_transform(data)
 
     def test_tsne_mini_batch(self, data):
