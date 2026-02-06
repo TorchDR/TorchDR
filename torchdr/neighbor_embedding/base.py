@@ -269,78 +269,23 @@ class NeighborEmbedding(AffinityMatcher):
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
-    r"""Solves the neighbor embedding problem with a sparse input affinity matrix.
+    r"""Neighbor embedding with a sparse input affinity matrix.
 
-    It amounts to solving:
+    Inherits all parameters from :class:`NeighborEmbedding`.
 
-    .. math::
-
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
-
-    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
-    parameter.
-
-    **Fast attraction.** This class should be used when the input affinity matrix is sparse. In such cases, the attractive term can be computed with linear complexity.
+    **Fast attraction.** This class should be used when the input affinity matrix
+    is sparse. In such cases, the attractive term can be computed with linear
+    complexity.
 
     Parameters
     ----------
     affinity_in : Affinity
-        The affinity object for the input space.
-    affinity_out : Affinity, optional
-        The affinity object for the output embedding space. Default is None.
-    kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out method.
-    n_components : int, optional
-        Number of dimensions for the embedding. Default is 2.
-    lr : float or 'auto', optional
-        Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or torch.optim.Optimizer, optional
-        Name of an optimizer from torch.optim or an optimizer class.
-        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
-    optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
-    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
-        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
-        Default is "auto", which corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-7.
-    max_iter : int, optional
-        Maximum number of iterations. Default is 2000.
-    init : str or torch.Tensor or np.ndarray, optional
-        Initialization method for the embedding. Default is "pca".
-    init_scaling : float, optional
-        Scaling factor for the initial embedding. Default is 1e-4.
-    device : str, optional
-        Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        Verbosity of the optimization process. Default is False.
-    random_state : float, optional
-        Random seed for reproducibility. Default is None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        Default is 1.0.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration. Default is None.
-    repulsion_strength: float, optional
+        The affinity object for the input space. Must be a
+        :class:`~torchdr.affinity.SparseAffinity`.
+    repulsion_strength : float, optional
         Strength of the repulsive term. Default is 1.0.
-    check_interval : int, optional
-        Number of iterations between two checks for convergence. Default is 50.
-    compile : bool, default=False
-        Whether to use torch.compile for faster computation.
+    **kwargs
+        All other parameters are forwarded to :class:`NeighborEmbedding`.
     """  # noqa: E501
 
     _supports_mini_batch = False
@@ -348,32 +293,9 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Optional[Affinity] = None,
-        kwargs_affinity_out: Optional[Dict] = None,
-        n_components: int = 2,
-        lr: Union[float, str] = 1e0,
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
-        optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
-        scheduler_kwargs: Optional[Dict] = "auto",
-        min_grad_norm: float = 1e-7,
-        max_iter: int = 2000,
-        init: Union[str, torch.Tensor, np.ndarray] = "pca",
-        init_scaling: float = 1e-4,
-        device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
-        verbose: bool = False,
-        random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: Optional[int] = None,
         repulsion_strength: float = 1.0,
-        check_interval: int = 50,
-        compile: bool = False,
         **kwargs,
     ):
-        # check affinity affinity_in
         if not isinstance(affinity_in, SparseAffinity):
             raise NotImplementedError(
                 "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
@@ -382,30 +304,16 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
         self.repulsion_strength = repulsion_strength
 
-        super().__init__(
-            affinity_in=affinity_in,
-            affinity_out=affinity_out,
-            kwargs_affinity_out=kwargs_affinity_out,
-            n_components=n_components,
-            lr=lr,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
-            scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
-            min_grad_norm=min_grad_norm,
-            max_iter=max_iter,
-            init=init,
-            init_scaling=init_scaling,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
-            check_interval=check_interval,
-            compile=compile,
-            **kwargs,
-        )
+        super().__init__(affinity_in=affinity_in, **kwargs)
+
+    # --- Lifecycle hooks ---
+
+    def on_affinity_computation_end(self):
+        super().on_affinity_computation_end()
+        if not hasattr(self, "chunk_indices_"):
+            self.chunk_indices_ = torch.arange(self.n_samples_in_, device=self.device_)
+
+    # --- Loss / gradient API ---
 
     def _compute_attractive_loss(self):
         raise NotImplementedError(
@@ -444,11 +352,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
             "when _use_direct_gradients is True."
         )
-
-    def on_affinity_computation_end(self):
-        super().on_affinity_computation_end()
-        if not hasattr(self, "chunk_indices_"):
-            self.chunk_indices_ = torch.arange(self.n_samples_in_, device=self.device_)
 
     # --- Mini-batch training ---
 
@@ -550,26 +453,13 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
-    r"""Solves the neighbor embedding problem with both sparsity and sampling.
+    r"""Sparse neighbor embedding with negative sampling and optional multi-GPU.
 
-    It amounts to solving:
-
-    .. math::
-
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
-
-    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
-    parameter.
-
-    **Fast attraction.** This class should be used when the input affinity matrix is sparse.
-    In such cases, the attractive term can be computed with linear complexity.
+    Inherits all parameters from :class:`SparseNeighborEmbedding`.
 
     **Fast repulsion.** A stochastic estimation of the repulsive term is used
-    to reduce its complexity to linear.
-    This is done by sampling a fixed number of negative samples
-    :attr:`n_negatives` for each point.
+    to reduce its complexity to linear by sampling a fixed number of negative
+    samples :attr:`n_negatives` for each point.
 
     **Multi-GPU training.** When launched with torchrun, this class supports
     distributed multi-GPU training. Each rank processes its chunk of the input
@@ -580,69 +470,18 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
-    affinity_out : Affinity, optional
-        The affinity object for the output embedding space. Default is None.
-    kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out method.
-    n_components : int, optional
-        Number of dimensions for the embedding. Default is 2.
-    lr : float or 'auto', optional
-        Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or torch.optim.Optimizer, optional
-        Name of an optimizer from torch.optim or an optimizer class.
-        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
-    optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
-    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
-        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
-        Default is "auto", which corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-7.
-    max_iter : int, optional
-        Maximum number of iterations. Default is 2000.
-    init : str, optional
-        Initialization method for the embedding. Default is "pca".
-    init_scaling : float, optional
-        Scaling factor for the initial embedding. Default is 1e-4.
-    device : str, optional
-        Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        Verbosity of the optimization process. Default is False.
-    random_state : float, optional
-        Random seed for reproducibility. Default is None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        Default is 1.0.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration. Default is None.
-    repulsion_strength: float, optional
-        Strength of the repulsive term. Default is 1.0.
     n_negatives : int, optional
         Number of negative samples to use. Default is 5.
-    check_interval : int, optional
-        Number of iterations between two checks for convergence. Default is 50.
     discard_NNs : bool, optional
         Whether to discard nearest neighbors from negative sampling. Default is False.
-    compile : bool, default=False
-        Whether to use torch.compile for faster computation.
     distributed : bool or 'auto', optional
         Whether to use distributed computation across multiple GPUs.
         - "auto": Automatically detect if running with torchrun (default)
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    **kwargs
+        All other parameters are forwarded to :class:`SparseNeighborEmbedding`.
     """  # noqa: E501
 
     _supports_mini_batch = True
@@ -650,63 +489,21 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
     def __init__(
         self,
         affinity_in: Affinity,
-        affinity_out: Optional[Affinity] = None,
-        kwargs_affinity_out: Optional[Dict] = None,
-        n_components: int = 2,
-        lr: Union[float, str] = 1e0,
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
-        optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
-        scheduler_kwargs: Union[Dict, str, None] = "auto",
-        min_grad_norm: float = 1e-7,
-        max_iter: int = 2000,
-        init: str = "pca",
-        init_scaling: float = 1e-4,
-        device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
-        verbose: bool = False,
-        random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: Optional[int] = None,
-        repulsion_strength: float = 1.0,
         n_negatives: int = 5,
-        check_interval: int = 50,
         discard_NNs: bool = False,
-        compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
-        super().__init__(
-            affinity_in=affinity_in,
-            affinity_out=affinity_out,
-            kwargs_affinity_out=kwargs_affinity_out,
-            n_components=n_components,
-            lr=lr,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
-            scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
-            min_grad_norm=min_grad_norm,
-            max_iter=max_iter,
-            init=init,
-            init_scaling=init_scaling,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
-            repulsion_strength=repulsion_strength,
-            check_interval=check_interval,
-            compile=compile,
-            **kwargs,
-        )
+        super().__init__(affinity_in=affinity_in, **kwargs)
 
         self.n_negatives = n_negatives
         self.discard_NNs = discard_NNs
+        self._setup_distributed(distributed)
 
+    # --- Distributed initialization ---
+
+    def _setup_distributed(self, distributed):
+        """Configure distributed training state from the ``distributed`` parameter."""
         if distributed == "auto":
             self.distributed = dist.is_initialized()
         else:
@@ -723,7 +520,6 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             self.world_size = dist.get_world_size()
             self.is_multi_gpu = self.world_size > 1
 
-            # Bind to local CUDA device
             local_rank = int(os.environ.get("LOCAL_RANK", 0))
             if torch.cuda.is_available():
                 torch.cuda.set_device(local_rank)
@@ -737,11 +533,10 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             self.world_size = 1
             self.is_multi_gpu = False
 
-    def on_affinity_computation_end(self):
-        """Prepare for negative sampling by building per-row exclusion indices.
+    # --- Lifecycle hooks ---
 
-        Unified logic for single- and multi-GPU using chunk bounds.
-        """
+    def on_affinity_computation_end(self):
+        """Build per-row exclusion indices for negative sampling."""
         super().on_affinity_computation_end()
 
         # Get chunk bounds from affinity (stored during _distance_matrix call)
@@ -760,10 +555,13 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         self.chunk_indices_ = torch.arange(
             chunk_start, chunk_start + chunk_size, device=self.device_
         )
-        global_self_idx = self.chunk_indices_.unsqueeze(1)
-        chunk_size = len(global_self_idx)
 
-        # Optionally include NN indices (rows aligned with local slice)
+        self._build_exclusion_indices(chunk_size)
+
+    def _build_exclusion_indices(self, chunk_size):
+        """Build sorted exclusion indices for negative sampling."""
+        global_self_idx = self.chunk_indices_.unsqueeze(1)
+
         if self.discard_NNs:
             if not hasattr(self, "NN_indices_"):
                 self.logger.warning(
@@ -781,13 +579,11 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         else:
             exclude = global_self_idx
 
-        # Sort per-row exclusions for searchsorted
         exclude_sorted, _ = exclude.sort(dim=1)
         self.register_buffer(
             "negative_exclusion_indices_", exclude_sorted, persistent=False
         )
 
-        # Safety check on number of available negatives
         n_possible = self.n_samples_in_ - self.negative_exclusion_indices_.shape[1]
         if self.n_negatives > n_possible and self.verbose:
             raise ValueError(
@@ -796,43 +592,64 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             )
 
     def on_training_step_start(self):
-        """Sample negatives using a unified path for single- and multi-GPU."""
+        """Sample negatives for the full dataset (skipped in mini-batch mode)."""
         super().on_training_step_start()
 
-        # In mini-batch mode, negatives are sampled per batch in
-        # _sample_negatives_for_batch — skip full-data sampling here.
         if self._use_mini_batch:
             return
 
-        chunk_size = len(self.chunk_indices_)
-        device = self.embedding_.device
+        neg_indices = self._sample_negatives(
+            self.chunk_indices_, self.embedding_.device
+        )
+        self.register_buffer("neg_indices_", neg_indices, persistent=False)
 
-        exclusion = self.negative_exclusion_indices_
+    # --- Negative sampling ---
+
+    def _sample_negatives(self, indices, device):
+        """Sample negatives for given row indices, respecting exclusion sets.
+
+        Parameters
+        ----------
+        indices : torch.Tensor of shape (n_rows,)
+            Global row indices to sample negatives for.
+        device : torch.device
+            Device on which to create tensors.
+
+        Returns
+        -------
+        neg_indices : torch.Tensor of shape (n_rows, n_negatives)
+            Sampled negative indices.
+        """
+        n_rows = len(indices)
+        exclusion = self.negative_exclusion_indices_[indices]
         excl_width = exclusion.shape[1]
 
-        # Only excluding self-indices
         if excl_width == 1:
             negatives = torch.randint(
                 0,
                 self.n_samples_in_ - 1,
-                (chunk_size, self.n_negatives),
+                (n_rows, self.n_negatives),
                 device=device,
             )
-            self_idx = self.chunk_indices_.unsqueeze(1)
-            neg_indices = negatives + (negatives >= self_idx).long()
-
-        # Excluding self-indices and NNs indices (computed in on_affinity_computation_end)
+            self_idx = indices.unsqueeze(1)
+            return negatives + (negatives >= self_idx).long()
         else:
             negatives = torch.randint(
                 1,
                 self.n_samples_in_ - excl_width,
-                (chunk_size, self.n_negatives),
+                (n_rows, self.n_negatives),
                 device=device,
             )
             shifts = torch.searchsorted(exclusion, negatives, right=True)
-            neg_indices = negatives + shifts
+            return negatives + shifts
 
-        self.register_buffer("neg_indices_", neg_indices, persistent=False)
+    def _on_mini_batch_sample(self, batch_idx):
+        """Sample negatives for a mini-batch."""
+        self.neg_indices_ = self._sample_negatives(
+            batch_idx, self.embedding_cached_.device
+        )
+
+    # --- Embedding initialization ---
 
     def _init_embedding(self, X: torch.Tensor):
         """Initialize embedding across ranks (broadcast from rank 0)."""
@@ -856,32 +673,3 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             return self.embedding_
         else:
             return super()._init_embedding(X)
-
-    def _on_mini_batch_sample(self, batch_idx):
-        """Sample negatives for mini-batch."""
-        self._sample_negatives_for_batch(batch_idx)
-
-    def _sample_negatives_for_batch(self, batch_idx):
-        """Sample negatives for a mini-batch."""
-        B = len(batch_idx)
-        device = self.embedding_cached_.device
-        exclusion = self.negative_exclusion_indices_[batch_idx]
-        excl_width = exclusion.shape[1]
-
-        if excl_width == 1:
-            negatives = torch.randint(
-                0, self.n_samples_in_ - 1, (B, self.n_negatives), device=device
-            )
-            self_idx = batch_idx.unsqueeze(1)
-            neg_indices = negatives + (negatives >= self_idx).long()
-        else:
-            negatives = torch.randint(
-                1,
-                self.n_samples_in_ - excl_width,
-                (B, self.n_negatives),
-                device=device,
-            )
-            shifts = torch.searchsorted(exclusion, negatives, right=True)
-            neg_indices = negatives + shifts
-
-        self.neg_indices_ = neg_indices
