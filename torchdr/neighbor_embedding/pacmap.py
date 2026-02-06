@@ -87,6 +87,15 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        When provided, optimizes encoder parameters instead of a raw
+        embedding matrix. Default is None.
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. When set with
+        ``encoder``, each step processes a random subset through the
+        encoder while using a cached full embedding for context.
+        Default is None (full-batch).
     """  # noqa: E501
 
     def __init__(
@@ -116,6 +125,8 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         discard_NNs: bool = True,
         compile: bool = False,
         distributed: Union[bool, str] = False,
+        encoder: Optional["torch.nn.Module"] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         if distributed:
@@ -160,6 +171,8 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            encoder=encoder,
+            batch_size=batch_size,
             **kwargs,
         )
 
@@ -202,6 +215,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         # Attractive loss with nearest neighbors
         Q_near = 1 + pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
             key_indices=self.NN_indices_,
             backend=self.backend,
             metric="sqeuclidean",
@@ -220,30 +234,40 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
                     "[TorchDR] ERROR : Not enough points to sample 6 mid-near points."
                 )
 
+            chunk_size = len(self.chunk_indices_)
+            chunk_self_idxs = self.self_idxs[self.chunk_indices_]
+            batch_mid_near = torch.empty(
+                chunk_size,
+                self.n_mid_near,
+                device=self.chunk_indices_.device,
+                dtype=torch.long,
+            )
             for i in range(self.n_mid_near):  # to do: broadcast for efficiency
                 mid_near_candidates_indices = torch.randint(
                     1,
                     n_possible_idxs,
-                    (self.n_samples_in_, 6),
+                    (chunk_size, 6),
                     device=getattr(self.NN_indices_, "device", "cpu"),
                 )
                 shifts = torch.searchsorted(
-                    self.self_idxs, mid_near_candidates_indices, right=True
+                    chunk_self_idxs, mid_near_candidates_indices, right=True
                 )
                 mid_near_candidates_indices.add_(shifts)
                 D_mid_near_candidates = pairwise_distances_indexed(
                     self.X_,
+                    query_indices=self.chunk_indices_,
                     key_indices=mid_near_candidates_indices,
                     backend=self.backend,
                     metric=self.metric,
                     device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                self.mid_near_indices[:, i] = idxs[:, 1]
+                batch_mid_near[:, i] = idxs[:, 1]
 
             Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,
-                key_indices=self.mid_near_indices,
+                query_indices=self.chunk_indices_,
+                key_indices=batch_mid_near,
                 backend=self.backend,
                 metric="sqeuclidean",
             )
@@ -257,6 +281,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     def _compute_repulsive_loss(self):
         Q_further = 1 + pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
             backend=self.backend,
             key_indices=self.neg_indices_,
             metric="sqeuclidean",

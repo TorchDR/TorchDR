@@ -124,6 +124,15 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        When provided, optimizes encoder parameters instead of a raw
+        embedding matrix. Default is None.
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. When set with
+        ``encoder``, each step processes a random subset through the
+        encoder while using a cached full embedding for context.
+        Default is None (full-batch).
     """  # noqa: E501
 
     def __init__(
@@ -156,6 +165,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         discard_NNs: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        encoder: Optional["torch.nn.Module"] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         self.n_neighbors = n_neighbors
@@ -209,6 +220,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
+            encoder=encoder,
+            batch_size=batch_size,
             **kwargs,
         )
 
@@ -233,6 +246,19 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             "epoch_of_next_sample", self.epochs_per_sample.clone(), persistent=False
         )
 
+    def _prepare_mini_batch_epoch(self):
+        """Pre-compute which edges to update this epoch (full dataset)."""
+        self._epoch_mask = self.epoch_of_next_sample <= self.n_iter_ + 1
+        self.epoch_of_next_sample[self._epoch_mask] += self.epochs_per_sample[
+            self._epoch_mask
+        ]
+
+    def _prepare_mini_batch_step(self, batch_idx):
+        """Set batch-level edge mask for gradient computation."""
+        self.register_buffer(
+            "mask_affinity_in_", self._epoch_mask[batch_idx], persistent=False
+        )
+
     def _compute_attractive_gradients(self):
         D = pairwise_distances_indexed(
             self.embedding_,
@@ -246,13 +272,16 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         D.mul_(2 * self._a * self._b).div_(D_)
         D.masked_fill_(~positive_edges, 0)  # prevent infinities when b < 1
 
-        # UMAP keeps a per-edge counter (epoch_of_next_sample) so that stronger edges
-        # (higher affinity → smaller epochs_per_sample) get updated more often.
-        mask_affinity_in = self.epoch_of_next_sample <= self.n_iter_ + 1
-        self.register_buffer("mask_affinity_in_", mask_affinity_in, persistent=False)
-        self.epoch_of_next_sample[self.mask_affinity_in_] += self.epochs_per_sample[
-            self.mask_affinity_in_
-        ]
+        # In mini-batch mode, mask_affinity_in_ is pre-set by _prepare_mini_batch_step.
+        # In full-batch mode, compute it here from the edge scheduling counters.
+        if not self._use_mini_batch:
+            mask_affinity_in = self.epoch_of_next_sample <= self.n_iter_ + 1
+            self.register_buffer(
+                "mask_affinity_in_", mask_affinity_in, persistent=False
+            )
+            self.epoch_of_next_sample[self.mask_affinity_in_] += self.epochs_per_sample[
+                self.mask_affinity_in_
+            ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
         diff = (

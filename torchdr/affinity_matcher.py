@@ -112,6 +112,13 @@ class AffinityMatcher(DRModule):
         a raw embedding matrix. This enables out-of-sample extension via
         ``transform(X_new)``. The encoder output dimension must match
         ``n_components``. Default is None (standard embedding optimization).
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. When set together with
+        ``encoder``, each optimization step processes a random subset of
+        ``batch_size`` samples through the encoder while using a cached
+        full embedding for context (neighbors and negatives). Only supported
+        for negative-sampling methods (LargeVis, InfoTSNE, UMAP, PACMAP).
+        Default is None (full-batch training).
     """  # noqa: E501
 
     def __init__(
@@ -140,6 +147,7 @@ class AffinityMatcher(DRModule):
         check_interval: int = 50,
         compile: bool = False,
         encoder: Optional[torch.nn.Module] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         super().__init__(
@@ -193,8 +201,17 @@ class AffinityMatcher(DRModule):
         self.kwargs_affinity_out = kwargs_affinity_out
 
         self.encoder = encoder
+        self.batch_size = batch_size
 
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
+
+    @property
+    def _use_mini_batch(self):
+        return (
+            self.batch_size is not None
+            and self.encoder is not None
+            and self.batch_size < self.n_samples_in_
+        )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit the model from data in X.
@@ -250,6 +267,16 @@ class AffinityMatcher(DRModule):
                         f"[TorchDR] encoder output dim ({sample_out.shape[-1]})"
                         f" != n_components ({self.n_components})."
                     )
+
+        # --- Batch size validation ---
+        if self.batch_size is not None:
+            if self.encoder is None:
+                raise ValueError("[TorchDR] batch_size requires encoder to be set.")
+            if not getattr(self, "_supports_mini_batch", False):
+                raise NotImplementedError(
+                    "[TorchDR] Mini-batch training is only supported for "
+                    "NegativeSampling methods (LargeVis, InfoTSNE, UMAP, PACMAP)."
+                )
 
         # --- Input affinity computation ---
 
@@ -309,9 +336,12 @@ class AffinityMatcher(DRModule):
         for step in range(self.max_iter):
             self.n_iter_.fill_(step)
 
-            self.on_training_step_start()
-            loss = self._training_step()
-            self.on_training_step_end()
+            if self._use_mini_batch:
+                loss = self._run_mini_batch_step()
+            else:
+                self.on_training_step_start()
+                loss = self._training_step()
+                self.on_training_step_end()
 
             check_NaNs(
                 self.embedding_,
@@ -450,6 +480,18 @@ class AffinityMatcher(DRModule):
 
     def on_training_step_end(self):
         pass
+
+    @torch.no_grad()
+    def _update_cached_embedding(self):
+        """Recompute full embedding from encoder (no gradients, chunked)."""
+        self.encoder.eval()
+        chunks = []
+        for start in range(0, self.n_samples_in_, self.batch_size):
+            end = min(start + self.batch_size, self.n_samples_in_)
+            chunks.append(self.encoder(self.X_train_[start:end]))
+        self.embedding_cached_ = torch.cat(chunks, dim=0)
+        self.embedding_ = self.embedding_cached_.clone()
+        self.encoder.train()
 
     def _set_params(self):
         if self.encoder is not None:
@@ -623,6 +665,6 @@ class AffinityMatcher(DRModule):
         if isinstance(self.affinity_out, Affinity):
             self.affinity_out.clear_memory()
 
-        for attr in ["optimizer_", "scheduler_", "params_", "lr_"]:
+        for attr in ["optimizer_", "scheduler_", "params_", "lr_", "embedding_cached_"]:
             if hasattr(self, attr):
                 delattr(self, attr)
