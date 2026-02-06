@@ -106,6 +106,7 @@ class COSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        **kwargs,
     ):
         self.metric = metric
         self.perplexity = perplexity
@@ -144,6 +145,7 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            **kwargs,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:

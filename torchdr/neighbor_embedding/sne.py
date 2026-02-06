@@ -111,6 +111,7 @@ class SNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        **kwargs,
     ):
         self.metric = metric
         self.perplexity = perplexity
@@ -147,6 +148,7 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            **kwargs,
         )
 
     def _compute_attractive_loss(self):

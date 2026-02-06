@@ -132,6 +132,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         discard_NNs: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        **kwargs,
     ):
         self.metric = metric
         self.perplexity = perplexity
@@ -172,6 +173,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            **kwargs,
         )
 
     def _compute_attractive_loss(self):

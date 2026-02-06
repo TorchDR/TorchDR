@@ -369,6 +369,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         check_interval: int = 50,
         compile: bool = False,
+        **kwargs,
     ):
         # check affinity affinity_in
         if not isinstance(affinity_in, SparseAffinity):
@@ -401,6 +402,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            **kwargs,
         )
 
     def _compute_attractive_loss(self):
@@ -567,6 +569,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         discard_NNs: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        **kwargs,
     ):
         super().__init__(
             affinity_in=affinity_in,
@@ -591,6 +594,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             repulsion_strength=repulsion_strength,
             check_interval=check_interval,
             compile=compile,
+            **kwargs,
         )
 
         self.n_negatives = n_negatives

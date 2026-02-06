@@ -199,6 +199,8 @@ class DRModule(BaseEstimator, nn.Module, ABC):
 
         This method can only be called after the model has been fitted.
         If `X` is not provided, it returns the embedding of the training data.
+        When an encoder is set, new data can be transformed via
+        ``encoder(X)``.
 
         Parameters
         ----------
@@ -225,6 +227,12 @@ class DRModule(BaseEstimator, nn.Module, ABC):
             )
 
         if X is not None:
+            if getattr(self, "encoder", None) is not None:
+                from torchdr.utils import to_torch
+
+                X_tensor = to_torch(X).to(device=self.device_)
+                with torch.no_grad():
+                    return self.encoder(X_tensor)
             raise NotImplementedError(
                 "Transforming new data is not implemented for this model."
             )
