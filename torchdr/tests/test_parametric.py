@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchdr import TSNE, UMAP, LargeVis, InfoTSNE, PACMAP, SNE, TSNEkhorn
+from torchdr import TSNE, UMAP, LargeVis, InfoTSNE, PACMAP, SNE, TSNEkhorn, COSNE
 
 
 @pytest.fixture
@@ -397,3 +397,61 @@ class TestMiniBatchTraining:
         )
         embedding = model.fit_transform(data)
         assert embedding.shape == (n, n_components)
+
+
+class TestParametricCOSNE:
+    """Test parametric COSNE with Poincaré ball projection."""
+
+    def test_fit_transform_shape(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = COSNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=10,
+            lr=1e-3,
+            encoder=encoder,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+        # Embedding should be inside Poincaré ball (norm < 1)
+        norms = embedding.norm(dim=1)
+        assert (norms < 1).all()
+
+    def test_transform_new_data(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = COSNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=10,
+            lr=1e-3,
+            encoder=encoder,
+            random_state=0,
+        )
+        model.fit_transform(data)
+        X_new = torch.randn(5, d)
+        out = model.transform(X_new)
+        assert out.shape == (5, n_components)
+        # Output should also be inside Poincaré ball
+        assert (out.norm(dim=1) < 1).all()
+
+    def test_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = COSNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=3,
+            lr=1e-3,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+        assert (embedding.norm(dim=1) < 1).all()

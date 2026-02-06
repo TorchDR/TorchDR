@@ -7,11 +7,40 @@
 
 from typing import Dict, Optional, Union, Type, Any
 import torch
+import torch.nn as nn
 
 from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
 from torchdr.affinity import EntropicAffinity
 from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
-from torchdr.utils import logsumexp_red, RiemannianAdam, cross_entropy_loss
+from torchdr.utils import (
+    logsumexp_red,
+    RiemannianAdam,
+    cross_entropy_loss,
+    PoincareBallManifold,
+)
+
+
+class _ExpMap0(nn.Module):
+    """Project Euclidean vectors onto the Poincaré ball via expmap0.
+
+    Clamps the output norm to stay safely inside the ball, avoiding
+    numerical issues with hyperbolic distances in float32.
+    """
+
+    def __init__(self, manifold, c=1, max_norm=1.0 - 1e-5):
+        super().__init__()
+        self.manifold = manifold
+        self.c = c
+        self.max_norm = max_norm
+
+    def forward(self, x):
+        # Use float64 for numerical stability with hyperbolic distances,
+        # matching non-encoder COSNE which initializes embedding in float64.
+        z = self.manifold.expmap0(x.double(), c=self.c)
+        # Clamp norm to stay safely inside the Poincaré ball
+        norm = z.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+        z = torch.where(norm > self.max_norm, z * self.max_norm / norm, z)
+        return z
 
 
 class COSNE(SparseNeighborEmbedding):
@@ -77,7 +106,17 @@ class COSNE(SparseNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Number of iterations between checks for convergence, by default 50.
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        The encoder output is automatically projected onto the Poincaré ball
+        via the exponential map. Default is None.
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. The repulsive loss
+        is approximated using pairwise distances within each mini-batch.
+        Default is None (full-batch training).
     """  # noqa: E501
+
+    _supports_mini_batch = True
 
     def __init__(
         self,
@@ -106,6 +145,8 @@ class COSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        encoder: Optional["torch.nn.Module"] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         self.metric = metric
@@ -114,6 +155,14 @@ class COSNE(SparseNeighborEmbedding):
         self.gamma = gamma
         self.max_iter_affinity = max_iter_affinity
         self.sparsity = sparsity
+
+        # Wrap encoder with Poincaré ball projection so outputs are
+        # always valid hyperbolic points. RiemannianAdam handles both
+        # ManifoldParameter (non-encoder) and regular params (encoder)
+        # by falling back to Euclidean Adam for the latter.
+        if encoder is not None:
+            poincare = PoincareBallManifold()
+            encoder = nn.Sequential(encoder, _ExpMap0(poincare))
 
         affinity_in = EntropicAffinity(
             perplexity=perplexity,
@@ -145,6 +194,8 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            encoder=encoder,
+            batch_size=batch_size,
             **kwargs,
         )
 
@@ -164,12 +215,18 @@ class COSNE(SparseNeighborEmbedding):
         return cross_entropy_loss(self.affinity_in_, log_Q, log=True)
 
     def _compute_repulsive_loss(self):
+        if self._use_mini_batch:
+            embedding = self.embedding_[self.chunk_indices_]
+            x_norm = self.X_norm[self.chunk_indices_]
+        else:
+            embedding = self.embedding_
+            x_norm = self.X_norm
         distances_hyperbolic = pairwise_distances(
-            self.embedding_, metric="sqhyperbolic", backend=self.backend
+            embedding, metric="sqhyperbolic", backend=self.backend
         )
         log_Q = (self.gamma / (distances_hyperbolic + self.gamma**2)).log()
         rep_loss = logsumexp_red(log_Q, dim=(0, 1))
-        Y_norm = (self.embedding_**2).sum(-1)
+        Y_norm = (embedding**2).sum(-1)
         Y_norm = torch.arccosh(1 + 2 * (Y_norm / (1 - Y_norm)) + 1e-8) ** 2
-        distance_term = ((self.X_norm - Y_norm) ** 2).mean()
+        distance_term = ((x_norm - Y_norm) ** 2).mean()
         return rep_loss + self.lambda1 * distance_term
