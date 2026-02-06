@@ -157,6 +157,7 @@ class COSNE(SparseNeighborEmbedding):
         distances_hyperbolic = pairwise_distances_indexed(
             self.embedding_,
             key_indices=self.NN_indices_,
+            query_indices=self.chunk_indices_,
             metric="sqhyperbolic",
         )
         log_Q = (self.gamma / (distances_hyperbolic + self.gamma**2)).log()

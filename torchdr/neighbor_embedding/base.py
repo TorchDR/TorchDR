@@ -445,6 +445,109 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             "when _use_direct_gradients is True."
         )
 
+    def on_affinity_computation_end(self):
+        super().on_affinity_computation_end()
+        if not hasattr(self, "chunk_indices_"):
+            self.chunk_indices_ = torch.arange(self.n_samples_in_, device=self.device_)
+
+    # --- Mini-batch training ---
+
+    def _run_mini_batch_step(self):
+        """Run one optimization step consisting of a full pass over mini-batches."""
+        # Refresh cached embedding from encoder (no grad)
+        self._update_cached_embedding()
+
+        # Save full-data attributes
+        full_chunk = self.chunk_indices_
+        full_nn = self.NN_indices_
+        full_affinity = getattr(self, "affinity_in_", None)
+
+        # Step-level hooks (early exaggeration, UMAP edge scheduling)
+        self.on_training_step_start()
+        self._prepare_mini_batch_epoch()
+
+        # Shuffle sample order
+        perm = torch.randperm(self.n_samples_in_, device=self.device_)
+
+        total_loss = 0.0
+        n_batches = 0
+        for b_start in range(0, self.n_samples_in_, self.batch_size):
+            batch_idx = perm[b_start : b_start + self.batch_size].sort()[0]
+            batch_loss = self._mini_batch_training_step(
+                batch_idx, full_nn, full_affinity
+            )
+            if batch_loss is not None:
+                total_loss += batch_loss.detach()
+                n_batches += 1
+
+        # Restore full-data attributes
+        self.chunk_indices_ = full_chunk
+        self.NN_indices_ = full_nn
+        if full_affinity is not None:
+            self.affinity_in_ = full_affinity
+
+        # Set embedding from incrementally-updated cache for NaN check
+        self.embedding_ = self.embedding_cached_.clone()
+
+        self.on_training_step_end()
+        if self.scheduler_ is not None:
+            self.scheduler_.step()
+        return (total_loss / n_batches) if n_batches > 0 else None
+
+    def _mini_batch_training_step(self, batch_idx, full_nn, full_affinity):
+        """One mini-batch: encoder forward + loss + backward + optimizer step."""
+        self.optimizer_.zero_grad(set_to_none=True)
+
+        # 1. Forward encoder on batch only (with grad)
+        z_batch = self.encoder(self.X_train_[batch_idx])
+
+        # 2. Build hybrid embedding: cached (detached) + live at batch positions
+        embedding = self.embedding_cached_.detach().clone()
+        embedding[batch_idx] = z_batch
+        self.embedding_ = embedding
+
+        # 3. Override chunk-level state for existing loss functions
+        self.chunk_indices_ = batch_idx
+        self.NN_indices_ = full_nn[batch_idx]
+        if full_affinity is not None:
+            self.affinity_in_ = full_affinity[batch_idx]
+
+        # 4. Method-specific mini-batch sampling (e.g. negatives)
+        self._on_mini_batch_sample(batch_idx)
+
+        # 5. Prepare method-specific batch state (e.g. UMAP edge mask)
+        self._prepare_mini_batch_step(batch_idx)
+
+        # 6. Compute loss/gradients using existing methods (unchanged!)
+        if getattr(self, "_use_direct_gradients", False):
+            gradients = self._compute_gradients()
+            if gradients is not None:
+                z_batch.backward(gradient=gradients)
+            loss = None
+        else:
+            loss = self._compute_loss()
+            loss.backward()
+
+        self.optimizer_.step()
+
+        # Update cache in-place so subsequent batches see fresher context
+        # and we avoid a second full encoder forward pass at end of step.
+        self.embedding_cached_[batch_idx] = z_batch.detach()
+
+        return loss
+
+    def _on_mini_batch_sample(self, batch_idx):
+        """Called per mini-batch for method-specific sampling. Override in subclass."""
+        pass
+
+    def _prepare_mini_batch_epoch(self):
+        """Called once per epoch before mini-batch loop. Override in subclass."""
+        pass
+
+    def _prepare_mini_batch_step(self, batch_idx):
+        """Called per mini-batch before loss computation. Override in subclass."""
+        pass
+
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
     r"""Solves the neighbor embedding problem with both sparsity and sampling.
@@ -754,91 +857,9 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         else:
             return super()._init_embedding(X)
 
-    # --- Mini-batch training ---
-
-    def _run_mini_batch_step(self):
-        """Run one optimization step consisting of a full pass over mini-batches."""
-        # Refresh cached embedding from encoder (no grad)
-        self._update_cached_embedding()
-
-        # Save full-data attributes
-        full_chunk = self.chunk_indices_
-        full_nn = self.NN_indices_
-        full_affinity = getattr(self, "affinity_in_", None)
-
-        # Step-level hooks (early exaggeration, UMAP edge scheduling)
-        self.on_training_step_start()
-        self._prepare_mini_batch_epoch()
-
-        # Shuffle sample order
-        perm = torch.randperm(self.n_samples_in_, device=self.device_)
-
-        total_loss = 0.0
-        n_batches = 0
-        for b_start in range(0, self.n_samples_in_, self.batch_size):
-            batch_idx = perm[b_start : b_start + self.batch_size].sort()[0]
-            batch_loss = self._mini_batch_training_step(
-                batch_idx, full_nn, full_affinity
-            )
-            if batch_loss is not None:
-                total_loss += batch_loss.detach()
-                n_batches += 1
-
-        # Restore full-data attributes
-        self.chunk_indices_ = full_chunk
-        self.NN_indices_ = full_nn
-        if full_affinity is not None:
-            self.affinity_in_ = full_affinity
-
-        # Set embedding from incrementally-updated cache for NaN check
-        self.embedding_ = self.embedding_cached_.clone()
-
-        self.on_training_step_end()
-        if self.scheduler_ is not None:
-            self.scheduler_.step()
-        return (total_loss / n_batches) if n_batches > 0 else None
-
-    def _mini_batch_training_step(self, batch_idx, full_nn, full_affinity):
-        """One mini-batch: encoder forward + loss + backward + optimizer step."""
-        self.optimizer_.zero_grad(set_to_none=True)
-
-        # 1. Forward encoder on batch only (with grad)
-        z_batch = self.encoder(self.X_train_[batch_idx])
-
-        # 2. Build hybrid embedding: cached (detached) + live at batch positions
-        embedding = self.embedding_cached_.detach().clone()
-        embedding[batch_idx] = z_batch
-        self.embedding_ = embedding
-
-        # 3. Override chunk-level state for existing loss functions
-        self.chunk_indices_ = batch_idx
-        self.NN_indices_ = full_nn[batch_idx]
-        if full_affinity is not None:
-            self.affinity_in_ = full_affinity[batch_idx]
-
-        # 4. Sample negatives for this batch
+    def _on_mini_batch_sample(self, batch_idx):
+        """Sample negatives for mini-batch."""
         self._sample_negatives_for_batch(batch_idx)
-
-        # 5. Prepare method-specific batch state (e.g. UMAP edge mask)
-        self._prepare_mini_batch_step(batch_idx)
-
-        # 6. Compute loss/gradients using existing methods (unchanged!)
-        if getattr(self, "_use_direct_gradients", False):
-            gradients = self._compute_gradients()
-            if gradients is not None:
-                z_batch.backward(gradient=gradients)
-            loss = None
-        else:
-            loss = self._compute_loss()
-            loss.backward()
-
-        self.optimizer_.step()
-
-        # Update cache in-place so subsequent batches see fresher context
-        # and we avoid a second full encoder forward pass at end of step.
-        self.embedding_cached_[batch_idx] = z_batch.detach()
-
-        return loss
 
     def _sample_negatives_for_batch(self, batch_idx):
         """Sample negatives for a mini-batch."""
@@ -864,11 +885,3 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             neg_indices = negatives + shifts
 
         self.neg_indices_ = neg_indices
-
-    def _prepare_mini_batch_epoch(self):
-        """Called once per epoch before mini-batch loop. Override in subclass."""
-        pass
-
-    def _prepare_mini_batch_step(self, batch_idx):
-        """Called per mini-batch before loss computation. Override in subclass."""
-        pass

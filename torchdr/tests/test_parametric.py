@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchdr import TSNE, UMAP, LargeVis, InfoTSNE, PACMAP
+from torchdr import TSNE, UMAP, LargeVis, InfoTSNE, PACMAP, SNE, TSNEkhorn
 
 
 @pytest.fixture
@@ -315,10 +315,63 @@ class TestMiniBatchTraining:
         with pytest.raises(ValueError, match="batch_size requires encoder"):
             model.fit_transform(data)
 
-    def test_tsne_mini_batch_raises(self, data):
+    def test_tsne_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = TSNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=3,
+            optimizer="Adam",
+            lr=1e-3,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+
+    def test_sne_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = SNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=3,
+            optimizer="Adam",
+            lr=1e-3,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+
+    def test_transform_after_tsne_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = TSNE(
+            n_components=n_components,
+            perplexity=5,
+            max_iter=3,
+            optimizer="Adam",
+            lr=1e-3,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        model.fit_transform(data)
+        X_new = torch.randn(5, d)
+        out = model.transform(X_new)
+        assert out.shape == (5, n_components)
+
+    def test_tsnekhorn_mini_batch_raises(self, data):
         n, d = data.shape
         encoder = _make_encoder(d, 2)
-        model = TSNE(
+        model = TSNEkhorn(
             n_components=2,
             perplexity=5,
             max_iter=3,

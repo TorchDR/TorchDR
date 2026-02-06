@@ -116,8 +116,8 @@ class AffinityMatcher(DRModule):
         Mini-batch size for encoder-based training. When set together with
         ``encoder``, each optimization step processes a random subset of
         ``batch_size`` samples through the encoder while using a cached
-        full embedding for context (neighbors and negatives). Only supported
-        for negative-sampling methods (LargeVis, InfoTSNE, UMAP, PACMAP).
+        full embedding for context. For TSNE and SNE, the repulsive partition
+        function is approximated within each mini-batch.
         Default is None (full-batch training).
     """  # noqa: E501
 
@@ -274,8 +274,8 @@ class AffinityMatcher(DRModule):
                 raise ValueError("[TorchDR] batch_size requires encoder to be set.")
             if not getattr(self, "_supports_mini_batch", False):
                 raise NotImplementedError(
-                    "[TorchDR] Mini-batch training is only supported for "
-                    "NegativeSampling methods (LargeVis, InfoTSNE, UMAP, PACMAP)."
+                    "[TorchDR] Mini-batch training is not supported for "
+                    f"{self.__class__.__name__}."
                 )
 
         # --- Input affinity computation ---

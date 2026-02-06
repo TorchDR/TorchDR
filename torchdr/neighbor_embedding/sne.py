@@ -83,7 +83,17 @@ class SNE(SparseNeighborEmbedding):
         Interval for checking the convergence of the algorithm.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        When provided, enables out-of-sample extension via ``transform(X_new)``.
+        Default is None.
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. The repulsive partition
+        function is approximated using pairwise distances within each
+        mini-batch. Default is None (full-batch training).
     """  # noqa: E501
+
+    _supports_mini_batch = True
 
     def __init__(
         self,
@@ -111,6 +121,8 @@ class SNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        encoder: Optional["torch.nn.Module"] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         self.metric = metric
@@ -148,6 +160,8 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            encoder=encoder,
+            batch_size=batch_size,
             **kwargs,
         )
 
@@ -155,12 +169,19 @@ class SNE(SparseNeighborEmbedding):
         distances_sq = pairwise_distances_indexed(
             self.embedding_,
             key_indices=self.NN_indices_,
+            query_indices=self.chunk_indices_,
             metric="sqeuclidean",
         )
         return cross_entropy_loss(self.affinity_in_, -distances_sq, log=True)
 
     def _compute_repulsive_loss(self):
+        if self._use_mini_batch:
+            embedding = self.embedding_[self.chunk_indices_]
+            n = len(self.chunk_indices_)
+        else:
+            embedding = self.embedding_
+            n = self.n_samples_in_
         distances_sq = pairwise_distances(
-            self.embedding_, metric="sqeuclidean", backend=self.backend
+            embedding, metric="sqeuclidean", backend=self.backend
         )
-        return logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_
+        return logsumexp_red(-distances_sq, dim=1).sum() / n
