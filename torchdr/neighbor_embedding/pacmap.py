@@ -116,6 +116,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         discard_NNs: bool = True,
         compile: bool = False,
         distributed: Union[bool, str] = False,
+        **kwargs,
     ):
         if distributed:
             raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
@@ -159,6 +160,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            **kwargs,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):

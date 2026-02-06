@@ -106,6 +106,12 @@ class AffinityMatcher(DRModule):
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        When provided, the model optimizes the encoder parameters instead of
+        a raw embedding matrix. This enables out-of-sample extension via
+        ``transform(X_new)``. The encoder output dimension must match
+        ``n_components``. Default is None (standard embedding optimization).
     """  # noqa: E501
 
     def __init__(
@@ -133,6 +139,7 @@ class AffinityMatcher(DRModule):
         random_state: Optional[float] = None,
         check_interval: int = 50,
         compile: bool = False,
+        encoder: Optional[torch.nn.Module] = None,
         **kwargs,
     ):
         super().__init__(
@@ -185,6 +192,8 @@ class AffinityMatcher(DRModule):
         self.affinity_out = affinity_out
         self.kwargs_affinity_out = kwargs_affinity_out
 
+        self.encoder = encoder
+
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
@@ -225,6 +234,22 @@ class AffinityMatcher(DRModule):
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
             self.device_ = X.device if self.device == "auto" else self.device
+
+        # --- Encoder validation ---
+        if self.encoder is not None:
+            if not isinstance(self.encoder, torch.nn.Module):
+                raise TypeError("[TorchDR] encoder must be an nn.Module instance.")
+            if isinstance(X, DataLoader):
+                raise NotImplementedError(
+                    "[TorchDR] encoder with DataLoader input is not yet supported."
+                )
+            with torch.no_grad():
+                sample_out = self.encoder.to(device=self.device_, dtype=X.dtype)(X[:1])
+                if sample_out.shape[-1] != self.n_components:
+                    raise ValueError(
+                        f"[TorchDR] encoder output dim ({sample_out.shape[-1]})"
+                        f" != n_components ({self.n_components})."
+                    )
 
         # --- Input affinity computation ---
 
@@ -274,7 +299,8 @@ class AffinityMatcher(DRModule):
 
         # Drop local reference to input data (no longer needed after initialization).
         # Memory is freed only if the caller doesn't hold another reference.
-        if self.affinity_in != "precomputed":
+        # Keep X when encoder is used (stored as X_train_ for forward pass).
+        if self.affinity_in != "precomputed" and self.encoder is None:
             del X
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -307,7 +333,17 @@ class AffinityMatcher(DRModule):
 
             check_convergence = self.n_iter_ % self.check_interval == 0
             if check_convergence:
-                grad_norm = self.embedding_.grad.norm(2).item()
+                if self.encoder is not None:
+                    grad_norm = (
+                        sum(
+                            p.grad.norm(2).item() ** 2
+                            for p in self.encoder.parameters()
+                            if p.grad is not None
+                        )
+                        ** 0.5
+                    )
+                else:
+                    grad_norm = self.embedding_.grad.norm(2).item()
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         self.logger.info(
@@ -325,11 +361,23 @@ class AffinityMatcher(DRModule):
     def _training_step(self):
         self.optimizer_.zero_grad(set_to_none=True)
 
+        # When using an encoder, recompute embedding via forward pass each step
+        if self.encoder is not None:
+            self.embedding_ = self.encoder(self.X_train_)
+
         if getattr(self, "_use_direct_gradients", False):
             # Direct gradients: _compute_gradients() returns only the chunk's gradients [chunk_size, dim].
             gradients = self._compute_gradients()
             if gradients is not None:
-                if getattr(self, "world_size", 1) > 1:
+                if self.encoder is not None:
+                    if getattr(self, "world_size", 1) > 1:
+                        raise NotImplementedError(
+                            "[TorchDR] encoder with distributed direct "
+                            "gradients is not yet supported."
+                        )
+                    # Chain rule: propagate manual gradients through encoder
+                    self.embedding_.backward(gradient=gradients)
+                elif getattr(self, "world_size", 1) > 1:
                     # Multi-GPU: Place chunk gradients in full-sized tensor and combine across GPUs
                     expected_chunk_size = len(self.chunk_indices_)
                     if gradients.shape[0] != expected_chunk_size:
@@ -404,7 +452,10 @@ class AffinityMatcher(DRModule):
         pass
 
     def _set_params(self):
-        self.params_ = [{"params": self.embedding_}]
+        if self.encoder is not None:
+            self.params_ = [{"params": self.encoder.parameters()}]
+        else:
+            self.params_ = [{"params": self.embedding_}]
         return self.params_
 
     def _configure_optimizer(self):
@@ -485,6 +536,14 @@ class AffinityMatcher(DRModule):
                     "_fit_transform. Call fit_transform() instead."
                 )
             self.device_ = X.device if self.device == "auto" else self.device
+
+        # Encoder path: store training data and compute initial embedding
+        if self.encoder is not None:
+            self.register_buffer("X_train_", X, persistent=False)
+            self.encoder.to(device=self.device_, dtype=X.dtype)
+            with torch.no_grad():
+                self.embedding_ = self.encoder(self.X_train_).detach()
+            return self.embedding_
 
         # Get n_samples and dtype (use cached values for DataLoader)
         if isinstance(X, DataLoader):
