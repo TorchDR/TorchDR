@@ -337,7 +337,7 @@ class AffinityMatcher(DRModule):
             self.n_iter_.fill_(step)
 
             if self._use_mini_batch:
-                loss = self._run_mini_batch_epoch()
+                loss = self._run_mini_batch_step()
             else:
                 self.on_training_step_start()
                 loss = self._training_step()

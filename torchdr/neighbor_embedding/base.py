@@ -269,8 +269,6 @@ class NeighborEmbedding(AffinityMatcher):
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
-    _supports_mini_batch = False
-
     r"""Solves the neighbor embedding problem with a sparse input affinity matrix.
 
     It amounts to solving:
@@ -344,6 +342,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
     """  # noqa: E501
+
+    _supports_mini_batch = False
 
     def __init__(
         self,
@@ -447,8 +447,6 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
-    _supports_mini_batch = True
-
     r"""Solves the neighbor embedding problem with both sparsity and sampling.
 
     It amounts to solving:
@@ -543,6 +541,8 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         - False: Disable distributed mode
         Default is "auto".
     """  # noqa: E501
+
+    _supports_mini_batch = True
 
     def __init__(
         self,
@@ -696,6 +696,11 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         """Sample negatives using a unified path for single- and multi-GPU."""
         super().on_training_step_start()
 
+        # In mini-batch mode, negatives are sampled per batch in
+        # _sample_negatives_for_batch — skip full-data sampling here.
+        if self._use_mini_batch:
+            return
+
         chunk_size = len(self.chunk_indices_)
         device = self.embedding_.device
 
@@ -751,27 +756,33 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
 
     # --- Mini-batch training ---
 
-    def _run_mini_batch_epoch(self):
-        """Run one epoch of mini-batch training."""
+    def _run_mini_batch_step(self):
+        """Run one optimization step consisting of a full pass over mini-batches."""
         # Refresh cached embedding from encoder (no grad)
         self._update_cached_embedding()
 
         # Save full-data attributes
         full_chunk = self.chunk_indices_
         full_nn = self.NN_indices_
-        full_affinity = self.affinity_in_
+        full_affinity = getattr(self, "affinity_in_", None)
 
-        # Epoch-level hooks (early exaggeration, UMAP edge scheduling)
+        # Step-level hooks (early exaggeration, UMAP edge scheduling)
         self.on_training_step_start()
         self._prepare_mini_batch_epoch()
 
         # Shuffle sample order
         perm = torch.randperm(self.n_samples_in_, device=self.device_)
 
-        loss = None
+        total_loss = 0.0
+        n_batches = 0
         for b_start in range(0, self.n_samples_in_, self.batch_size):
             batch_idx = perm[b_start : b_start + self.batch_size].sort()[0]
-            loss = self._mini_batch_training_step(batch_idx, full_nn, full_affinity)
+            batch_loss = self._mini_batch_training_step(
+                batch_idx, full_nn, full_affinity
+            )
+            if batch_loss is not None:
+                total_loss += batch_loss.detach()
+                n_batches += 1
 
         # Restore full-data attributes
         self.chunk_indices_ = full_chunk
@@ -779,10 +790,13 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         if full_affinity is not None:
             self.affinity_in_ = full_affinity
 
-        # Refresh embedding for NaN check / convergence
-        self._update_cached_embedding()
+        # Set embedding from incrementally-updated cache for NaN check
+        self.embedding_ = self.embedding_cached_.clone()
+
         self.on_training_step_end()
-        return loss
+        if self.scheduler_ is not None:
+            self.scheduler_.step()
+        return (total_loss / n_batches) if n_batches > 0 else None
 
     def _mini_batch_training_step(self, batch_idx, full_nn, full_affinity):
         """One mini-batch: encoder forward + loss + backward + optimizer step."""
@@ -819,6 +833,11 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             loss.backward()
 
         self.optimizer_.step()
+
+        # Update cache in-place so subsequent batches see fresher context
+        # and we avoid a second full encoder forward pass at end of step.
+        self.embedding_cached_[batch_idx] = z_batch.detach()
+
         return loss
 
     def _sample_negatives_for_batch(self, batch_idx):
