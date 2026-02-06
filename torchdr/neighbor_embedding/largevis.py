@@ -103,6 +103,15 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    encoder : torch.nn.Module, optional
+        A neural network that maps input data to the embedding space.
+        When provided, optimizes encoder parameters instead of a raw
+        embedding matrix. Default is None.
+    batch_size : int, optional
+        Mini-batch size for encoder-based training. When set with
+        ``encoder``, each step processes a random subset through the
+        encoder while using a cached full embedding for context.
+        Default is None (full-batch).
     """  # noqa: E501
 
     def __init__(
@@ -134,6 +143,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         discard_NNs: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        encoder: Optional["torch.nn.Module"] = None,
+        batch_size: Optional[int] = None,
         **kwargs,
     ):
         self.metric = metric
@@ -175,6 +186,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            encoder=encoder,
+            batch_size=batch_size,
             **kwargs,
         )
 

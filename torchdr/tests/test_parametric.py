@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchdr import TSNE, UMAP, LargeVis
+from torchdr import TSNE, UMAP, LargeVis, InfoTSNE, PACMAP
 
 
 @pytest.fixture
@@ -214,3 +214,133 @@ class TestBackwardCompatibility:
         )
         embedding = model.fit_transform(data)
         assert embedding.shape == (data.shape[0], 2)
+
+
+class TestMiniBatchTraining:
+    """Test mini-batch training with parametric encoder."""
+
+    def test_largevis_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = LargeVis(
+            perplexity=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+
+    def test_infotsne_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = InfoTSNE(
+            perplexity=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+
+    def test_umap_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = UMAP(
+            n_neighbors=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)
+
+    def test_pacmap_mini_batch(self):
+        torch.manual_seed(0)
+        n, d = 100, 10
+        X = torch.randn(n, d)
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = PACMAP(
+            n_neighbors=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=32,
+            random_state=0,
+        )
+        embedding = model.fit_transform(X)
+        assert embedding.shape == (n, n_components)
+
+    def test_transform_after_mini_batch(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = LargeVis(
+            perplexity=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        model.fit_transform(data)
+        X_new = torch.randn(5, d)
+        out = model.transform(X_new)
+        assert out.shape == (5, n_components)
+
+    def test_batch_size_without_encoder_raises(self, data):
+        model = LargeVis(
+            perplexity=5,
+            n_components=2,
+            max_iter=3,
+            backend=None,
+            batch_size=16,
+            random_state=0,
+        )
+        with pytest.raises(ValueError, match="batch_size requires encoder"):
+            model.fit_transform(data)
+
+    def test_tsne_mini_batch_raises(self, data):
+        n, d = data.shape
+        encoder = _make_encoder(d, 2)
+        model = TSNE(
+            n_components=2,
+            perplexity=5,
+            max_iter=3,
+            encoder=encoder,
+            batch_size=16,
+            random_state=0,
+        )
+        with pytest.raises(NotImplementedError, match="Mini-batch training"):
+            model.fit_transform(data)
+
+    def test_batch_size_larger_than_n(self, data):
+        n, d = data.shape
+        n_components = 2
+        encoder = _make_encoder(d, n_components)
+        model = LargeVis(
+            perplexity=5,
+            n_components=n_components,
+            max_iter=3,
+            backend=None,
+            encoder=encoder,
+            batch_size=1000,
+            random_state=0,
+        )
+        embedding = model.fit_transform(data)
+        assert embedding.shape == (n, n_components)

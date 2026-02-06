@@ -269,6 +269,8 @@ class NeighborEmbedding(AffinityMatcher):
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
+    _supports_mini_batch = False
+
     r"""Solves the neighbor embedding problem with a sparse input affinity matrix.
 
     It amounts to solving:
@@ -445,6 +447,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
+    _supports_mini_batch = True
+
     r"""Solves the neighbor embedding problem with both sparsity and sampling.
 
     It amounts to solving:
@@ -744,3 +748,108 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             return self.embedding_
         else:
             return super()._init_embedding(X)
+
+    # --- Mini-batch training ---
+
+    def _run_mini_batch_epoch(self):
+        """Run one epoch of mini-batch training."""
+        # Refresh cached embedding from encoder (no grad)
+        self._update_cached_embedding()
+
+        # Save full-data attributes
+        full_chunk = self.chunk_indices_
+        full_nn = self.NN_indices_
+        full_affinity = self.affinity_in_
+
+        # Epoch-level hooks (early exaggeration, UMAP edge scheduling)
+        self.on_training_step_start()
+        self._prepare_mini_batch_epoch()
+
+        # Shuffle sample order
+        perm = torch.randperm(self.n_samples_in_, device=self.device_)
+
+        loss = None
+        for b_start in range(0, self.n_samples_in_, self.batch_size):
+            batch_idx = perm[b_start : b_start + self.batch_size].sort()[0]
+            loss = self._mini_batch_training_step(batch_idx, full_nn, full_affinity)
+
+        # Restore full-data attributes
+        self.chunk_indices_ = full_chunk
+        self.NN_indices_ = full_nn
+        if full_affinity is not None:
+            self.affinity_in_ = full_affinity
+
+        # Refresh embedding for NaN check / convergence
+        self._update_cached_embedding()
+        self.on_training_step_end()
+        return loss
+
+    def _mini_batch_training_step(self, batch_idx, full_nn, full_affinity):
+        """One mini-batch: encoder forward + loss + backward + optimizer step."""
+        self.optimizer_.zero_grad(set_to_none=True)
+
+        # 1. Forward encoder on batch only (with grad)
+        z_batch = self.encoder(self.X_train_[batch_idx])
+
+        # 2. Build hybrid embedding: cached (detached) + live at batch positions
+        embedding = self.embedding_cached_.detach().clone()
+        embedding[batch_idx] = z_batch
+        self.embedding_ = embedding
+
+        # 3. Override chunk-level state for existing loss functions
+        self.chunk_indices_ = batch_idx
+        self.NN_indices_ = full_nn[batch_idx]
+        if full_affinity is not None:
+            self.affinity_in_ = full_affinity[batch_idx]
+
+        # 4. Sample negatives for this batch
+        self._sample_negatives_for_batch(batch_idx)
+
+        # 5. Prepare method-specific batch state (e.g. UMAP edge mask)
+        self._prepare_mini_batch_step(batch_idx)
+
+        # 6. Compute loss/gradients using existing methods (unchanged!)
+        if getattr(self, "_use_direct_gradients", False):
+            gradients = self._compute_gradients()
+            if gradients is not None:
+                z_batch.backward(gradient=gradients)
+            loss = None
+        else:
+            loss = self._compute_loss()
+            loss.backward()
+
+        self.optimizer_.step()
+        return loss
+
+    def _sample_negatives_for_batch(self, batch_idx):
+        """Sample negatives for a mini-batch."""
+        B = len(batch_idx)
+        device = self.embedding_cached_.device
+        exclusion = self.negative_exclusion_indices_[batch_idx]
+        excl_width = exclusion.shape[1]
+
+        if excl_width == 1:
+            negatives = torch.randint(
+                0, self.n_samples_in_ - 1, (B, self.n_negatives), device=device
+            )
+            self_idx = batch_idx.unsqueeze(1)
+            neg_indices = negatives + (negatives >= self_idx).long()
+        else:
+            negatives = torch.randint(
+                1,
+                self.n_samples_in_ - excl_width,
+                (B, self.n_negatives),
+                device=device,
+            )
+            shifts = torch.searchsorted(exclusion, negatives, right=True)
+            neg_indices = negatives + shifts
+
+        self.neg_indices_ = neg_indices
+
+    def _prepare_mini_batch_epoch(self):
+        """Called once per epoch before mini-batch loop. Override in subclass."""
+        pass
+
+    def _prepare_mini_batch_step(self, batch_idx):
+        """Called per mini-batch before loss computation. Override in subclass."""
+        pass
