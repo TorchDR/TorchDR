@@ -4,7 +4,6 @@
 #
 # License: BSD 3-Clause License
 
-import warnings
 from typing import Dict, Optional, Union, Type
 import torch
 
@@ -13,12 +12,12 @@ from torchdr.affinity import (
     SinkhornAffinity,
     SymmetricEntropicAffinity,
 )
-from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.distance import FaissConfig
 from torchdr.utils import cross_entropy_loss, logsumexp_red, bool_arg
 
 
-class TSNEkhorn(AffinityMatcher):
+class TSNEkhorn(NeighborEmbedding):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
     It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input affinity :math:`\mathbf{P}`
@@ -136,8 +135,14 @@ class TSNEkhorn(AffinityMatcher):
         symmetric_affinity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = False,
         **kwargs,
     ):
+        if distributed:
+            raise ValueError(
+                "[TorchDR] ERROR : TSNEkhorn does not support distributed."
+            )
+
         self.metric = metric
         self.perplexity = perplexity
         self.lr_affinity_in = lr_affinity_in
@@ -198,56 +203,9 @@ class TSNEkhorn(AffinityMatcher):
             random_state=random_state,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
-
-    def _fit_transform(self, X: torch.Tensor, y=None) -> torch.Tensor:
-        n_samples = X.shape[0]
-        if n_samples <= self.perplexity:
-            raise ValueError(
-                f"[TorchDR] ERROR : Number of samples is smaller than perplexity "
-                f"({n_samples} <= {self.perplexity})."
-            )
-        return super()._fit_transform(X, y)
-
-    def _set_learning_rate(self):
-        if self.lr == "auto":
-            if self.optimizer != "SGD":
-                if self.verbose:
-                    warnings.warn(
-                        "[TorchDR] WARNING : when 'auto' is used for the learning "
-                        "rate, the optimizer should be 'SGD'."
-                    )
-            self.lr_ = max(self.n_samples_in_ / 4, 50)
-        else:
-            self.lr_ = self.lr
-
-    def _configure_optimizer(self):
-        if isinstance(self.optimizer, str):
-            try:
-                optimizer_class = getattr(torch.optim, self.optimizer)
-            except AttributeError:
-                raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
-                )
-        else:
-            if not issubclass(self.optimizer, torch.optim.Optimizer):
-                raise ValueError(
-                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer"
-                )
-            optimizer_class = self.optimizer
-
-        if self.optimizer_kwargs == "auto":
-            if self.optimizer == "SGD":
-                optimizer_kwargs = {"momentum": 0.8}
-            else:
-                optimizer_kwargs = {}
-        else:
-            optimizer_kwargs = self.optimizer_kwargs or {}
-
-        self.optimizer_ = optimizer_class(self.params_, lr=self.lr_, **optimizer_kwargs)
-        return self.optimizer_
 
     def _compute_loss(self):
         if not hasattr(self, "dual_sinkhorn_"):

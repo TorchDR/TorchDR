@@ -12,16 +12,13 @@ import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
-from torchdr.affinity import (
-    Affinity,
-    SparseAffinity,
-)
+from torchdr.affinity import Affinity
 from torchdr.distance import FaissConfig
 from torchdr.affinity_matcher import AffinityMatcher
 
 
 class NeighborEmbedding(AffinityMatcher):
-    r"""Base class for neighbor embedding methods with sparse input affinities.
+    r"""Base class for neighbor embedding methods.
 
     All neighbor embedding methods solve an optimization problem of the form:
 
@@ -37,14 +34,12 @@ class NeighborEmbedding(AffinityMatcher):
     This class extends :class:`~torchdr.AffinityMatcher` with functionality
     specific to neighbor embedding:
 
-    - **Sparse input affinity**: The input affinity :math:`\mathbf{P}` must be
-      a :class:`~torchdr.SparseAffinity`. Only the nonzero entries contribute
-      to the attractive term, enabling :math:`O(n \cdot k)` computation.
-    - **Separate loss hooks**: Subclasses implement
-      :meth:`_compute_attractive_loss` and :meth:`_compute_repulsive_loss`
-      separately. When :attr:`_use_direct_gradients` is ``True``, subclasses
-      instead implement :meth:`_compute_attractive_gradients` and
-      :meth:`_compute_repulsive_gradients`.
+    - **Loss decomposition**: By default, the loss is decomposed into an
+      attractive term and a repulsive term via :meth:`_compute_attractive_loss`
+      and :meth:`_compute_repulsive_loss`. When :attr:`_use_direct_gradients` is
+      ``True``, subclasses implement :meth:`_compute_attractive_gradients` and
+      :meth:`_compute_repulsive_gradients` instead. Subclasses that need a
+      different loss structure can override :meth:`_compute_loss` directly.
     - **Early exaggeration**: The attraction term is scaled by
       :attr:`early_exaggeration_coeff` (:math:`\lambda`) for the first
       :attr:`early_exaggeration_iter` iterations to encourage cluster formation.
@@ -52,29 +47,26 @@ class NeighborEmbedding(AffinityMatcher):
       adaptively based on the number of samples.
     - **Auto optimizer tuning**: When ``optimizer_kwargs='auto'`` with SGD,
       momentum is adjusted between the early exaggeration and normal phases.
+    - **Distributed multi-GPU training**: When launched with ``torchrun``,
+      this class partitions the input affinity across GPUs, broadcasts the
+      embedding, and synchronizes gradients via all-reduce. Set
+      ``distributed='auto'`` (default) to auto-detect.
 
     .. note::
         The default values for ``lr='auto'``, ``optimizer_kwargs='auto'``, and
         early exaggeration are based on the t-SNE paper
         :cite:`van2008visualizing` and its scikit-learn implementation. These
         defaults work well for t-SNE but may need tuning for other methods.
-    - **Distributed multi-GPU training**: When launched with ``torchrun``,
-      this class partitions the input affinity across GPUs, broadcasts the
-      embedding, and synchronizes gradients via all-reduce. Set
-      ``distributed='auto'`` (default) to auto-detect.
-
-    **Subclasses** must implement :meth:`_compute_attractive_loss` and
-    :meth:`_compute_repulsive_loss` (or the gradient equivalents).
 
     **Direct subclasses**: :class:`TSNE`, :class:`SNE`, :class:`COSNE`
-    (compute the repulsive term exactly),
-    :class:`NegativeSamplingNeighborEmbedding` (approximates it via sampling).
+    (compute the repulsive term exactly), :class:`TSNEkhorn` (overrides the
+    full loss), :class:`NegativeSamplingNeighborEmbedding` (approximates
+    the repulsive term via sampling).
 
     Parameters
     ----------
     affinity_in : Affinity
-        The affinity object for the input space. Must be a
-        :class:`~torchdr.SparseAffinity`.
+        The affinity object for the input space.
     affinity_out : Affinity, optional
         The affinity object for the output embedding space. Default is None.
     kwargs_affinity_out : dict, optional
@@ -165,13 +157,6 @@ class NeighborEmbedding(AffinityMatcher):
         distributed: Union[bool, str] = "auto",
         **kwargs: Any,
     ):
-        # check affinity_in
-        if not isinstance(affinity_in, SparseAffinity):
-            raise NotImplementedError(
-                "[TorchDR] ERROR : when using NeighborEmbedding, affinity_in "
-                "must be a sparse affinity."
-            )
-
         self.early_exaggeration_iter = early_exaggeration_iter
         if self.early_exaggeration_iter is None:
             self.early_exaggeration_iter = 0
@@ -221,7 +206,9 @@ class NeighborEmbedding(AffinityMatcher):
 
         self._setup_distributed(distributed)
 
-    # --- Loss decomposition ---
+    # --- Loss decomposition (attractive + repulsive) ---
+    # Subclasses must implement _compute_attractive_loss and _compute_repulsive_loss.
+    # Alternatively, subclasses can override _compute_loss directly (e.g. TSNEkhorn).
 
     def _compute_attractive_loss(self):
         raise NotImplementedError(
@@ -234,6 +221,11 @@ class NeighborEmbedding(AffinityMatcher):
         )
 
     def _compute_loss(self):
+        """Compute the total loss as early_exag * attractive + repulsion_strength * repulsive.
+
+        Subclasses that need a different loss structure (e.g. :class:`TSNEkhorn`)
+        can override this method entirely.
+        """
         loss = (
             self.early_exaggeration_coeff_ * self._compute_attractive_loss()
             + self.repulsion_strength * self._compute_repulsive_loss()
@@ -242,7 +234,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     @torch.no_grad()
     def _compute_gradients(self):
-        # triggered when _use_direct_gradients is True
+        """Compute gradients directly (used when _use_direct_gradients is True)."""
         gradients = (
             self.early_exaggeration_coeff_ * self._compute_attractive_gradients()
             + self.repulsion_strength * self._compute_repulsive_gradients()
@@ -264,12 +256,14 @@ class NeighborEmbedding(AffinityMatcher):
     # --- Early exaggeration ---
 
     def on_training_step_end(self):
-        if (  # stop early exaggeration phase
+        """End early exaggeration phase when the iteration threshold is reached."""
+        if (
             self.early_exaggeration_coeff_ > 1
             and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
-            # reinitialize optim
+            # Reinitialize optimizer with post-exaggeration hyperparameters
+            # (higher momentum, adjusted learning rate).
             self._set_learning_rate()
             self._configure_optimizer()
             self._configure_scheduler()
@@ -277,9 +271,8 @@ class NeighborEmbedding(AffinityMatcher):
         return self
 
     def _check_n_neighbors(self, n):
-        param_list = ["perplexity", "n_neighbors"]
-
-        for param_name in param_list:
+        """Validate that the number of samples exceeds perplexity / n_neighbors."""
+        for param_name in ("perplexity", "n_neighbors"):
             if hasattr(self, param_name):
                 param_value = getattr(self, param_name)
                 if n <= param_value:
@@ -293,9 +286,9 @@ class NeighborEmbedding(AffinityMatcher):
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         n_samples = len(X.dataset) if isinstance(X, DataLoader) else X.shape[0]
         self._check_n_neighbors(n_samples)
-        self.early_exaggeration_coeff_ = (
-            self.early_exaggeration_coeff
-        )  # early_exaggeration_ may change during the optimization
+        # Initialize the mutable exaggeration coefficient (may be reset to 1 during
+        # optimization when the early exaggeration phase ends).
+        self.early_exaggeration_coeff_ = self.early_exaggeration_coeff
 
         return super()._fit_transform(X, y)
 
@@ -388,17 +381,23 @@ class NeighborEmbedding(AffinityMatcher):
             self.is_multi_gpu = False
 
     def on_affinity_computation_end(self):
+        """Set up chunk_indices_ for the local GPU's portion of the data.
+
+        In distributed mode, the affinity provides chunk bounds (chunk_start_,
+        chunk_size_) so each GPU processes a different slice of rows.
+        In single-GPU mode, the chunk covers all samples.
+        """
         super().on_affinity_computation_end()
         if hasattr(self.affinity_in, "chunk_start_"):
             chunk_start = self.affinity_in.chunk_start_
             chunk_size = self.affinity_in.chunk_size_
+        elif self.world_size > 1:
+            raise ValueError(
+                "[TorchDR] ERROR: Distributed mode is enabled but affinity_in "
+                "does not have chunk bounds. Make sure affinity_in has "
+                "distributed=True."
+            )
         else:
-            if self.world_size > 1:
-                raise ValueError(
-                    "[TorchDR] ERROR: Distributed mode is enabled but affinity_in "
-                    "does not have chunk bounds. Make sure affinity_in has "
-                    "distributed=True."
-                )
             chunk_start = 0
             chunk_size = self.n_samples_in_
 
