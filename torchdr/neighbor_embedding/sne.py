@@ -74,6 +74,11 @@ class SNE(NeighborEmbedding):
         Metric to use for the input affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity in the algorithm.
+    early_exaggeration_coeff : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is None (no early exaggeration).
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm.
     compile : bool, optional
@@ -108,6 +113,8 @@ class SNE(NeighborEmbedding):
         max_iter_affinity: int = 100,
         metric: str = "sqeuclidean",
         sparsity: bool = True,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
@@ -145,6 +152,8 @@ class SNE(NeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
+            early_exaggeration_coeff=early_exaggeration_coeff,
+            early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
             distributed=distributed,
