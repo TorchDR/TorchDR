@@ -341,6 +341,12 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -369,6 +375,7 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         # check affinity affinity_in
@@ -404,6 +411,8 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             compile=compile,
             **kwargs,
         )
+
+        self._setup_distributed(distributed)
 
     def _compute_attractive_loss(self):
         raise NotImplementedError(
@@ -442,6 +451,81 @@ class SparseNeighborEmbedding(NeighborEmbedding):
             "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
             "when _use_direct_gradients is True."
         )
+
+    # --- Distributed initialization ---
+
+    def _setup_distributed(self, distributed):
+        """Configure distributed training state from the ``distributed`` parameter."""
+        if distributed == "auto":
+            self.distributed = dist.is_initialized()
+        else:
+            self.distributed = bool(distributed)
+
+        if self.distributed:
+            if not dist.is_initialized():
+                raise RuntimeError(
+                    "[TorchDR] distributed=True requires launching with torchrun. "
+                    "Example: torchrun --nproc_per_node=4 your_script.py"
+                )
+
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+            self.is_multi_gpu = self.world_size > 1
+
+            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            if torch.cuda.is_available():
+                torch.cuda.set_device(local_rank)
+            if self.device == "cpu":
+                raise ValueError(
+                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
+                )
+            self.device = torch.device(f"cuda:{local_rank}")
+        else:
+            self.rank = 0
+            self.world_size = 1
+            self.is_multi_gpu = False
+
+    def on_affinity_computation_end(self):
+        super().on_affinity_computation_end()
+        if hasattr(self.affinity_in, "chunk_start_"):
+            chunk_start = self.affinity_in.chunk_start_
+            chunk_size = self.affinity_in.chunk_size_
+        else:
+            if self.world_size > 1:
+                raise ValueError(
+                    "[TorchDR] ERROR: Distributed mode is enabled but affinity_in "
+                    "does not have chunk bounds. Make sure affinity_in has "
+                    "distributed=True."
+                )
+            chunk_start = 0
+            chunk_size = self.n_samples_in_
+
+        self.chunk_indices_ = torch.arange(
+            chunk_start, chunk_start + chunk_size, device=self.device_
+        )
+
+    def _init_embedding(self, X: torch.Tensor):
+        """Initialize embedding across ranks (broadcast from rank 0)."""
+        if self.world_size > 1:
+            if self.rank == 0:
+                super()._init_embedding(X)
+            else:
+                n = X.shape[0]
+                self.embedding_ = torch.empty(
+                    (n, self.n_components),
+                    device=self.device_,
+                    dtype=X.dtype,
+                    requires_grad=True,
+                )
+
+            if not self.embedding_.is_contiguous():
+                self.embedding_ = self.embedding_.contiguous()
+
+            dist.broadcast(self.embedding_, src=0)
+            self.embedding_ = self.embedding_.detach().requires_grad_(True)
+            return self.embedding_
+        else:
+            return super()._init_embedding(X)
 
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
@@ -532,12 +616,9 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         Whether to discard nearest neighbors from negative sampling. Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
-        Default is "auto".
+    **kwargs
+        All other parameters (including ``distributed``) are forwarded to
+        :class:`SparseNeighborEmbedding`.
     """  # noqa: E501
 
     def __init__(
@@ -568,7 +649,6 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
-        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         super().__init__(
@@ -600,61 +680,12 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         self.n_negatives = n_negatives
         self.discard_NNs = discard_NNs
 
-        if distributed == "auto":
-            self.distributed = dist.is_initialized()
-        else:
-            self.distributed = bool(distributed)
-
-        if self.distributed:
-            if not dist.is_initialized():
-                raise RuntimeError(
-                    "[TorchDR] distributed=True requires launching with torchrun. "
-                    "Example: torchrun --nproc_per_node=4 your_script.py"
-                )
-
-            self.rank = dist.get_rank()
-            self.world_size = dist.get_world_size()
-            self.is_multi_gpu = self.world_size > 1
-
-            # Bind to local CUDA device
-            local_rank = int(os.environ.get("LOCAL_RANK", 0))
-            if torch.cuda.is_available():
-                torch.cuda.set_device(local_rank)
-            if self.device == "cpu":
-                raise ValueError(
-                    "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
-                )
-            self.device = torch.device(f"cuda:{local_rank}")
-        else:
-            self.rank = 0
-            self.world_size = 1
-            self.is_multi_gpu = False
-
     def on_affinity_computation_end(self):
-        """Prepare for negative sampling by building per-row exclusion indices.
-
-        Unified logic for single- and multi-GPU using chunk bounds.
-        """
+        """Build per-row exclusion indices for negative sampling."""
         super().on_affinity_computation_end()
 
-        # Get chunk bounds from affinity (stored during _distance_matrix call)
-        if hasattr(self.affinity_in, "chunk_start_"):
-            chunk_start = self.affinity_in.chunk_start_
-            chunk_size = self.affinity_in.chunk_size_
-        else:
-            if self.world_size > 1:
-                raise ValueError(
-                    "[TorchDR] ERROR: Distributed mode is enabled but affinity_in does not "
-                    "have chunk bounds. Make sure affinity_in has distributed=True."
-                )
-            chunk_start = 0
-            chunk_size = self.n_samples_in_
-
-        self.chunk_indices_ = torch.arange(
-            chunk_start, chunk_start + chunk_size, device=self.device_
-        )
+        chunk_size = len(self.chunk_indices_)
         global_self_idx = self.chunk_indices_.unsqueeze(1)
-        chunk_size = len(global_self_idx)
 
         # Optionally include NN indices (rows aligned with local slice)
         if self.discard_NNs:
@@ -721,26 +752,3 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
             neg_indices = negatives + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
-
-    def _init_embedding(self, X: torch.Tensor):
-        """Initialize embedding across ranks (broadcast from rank 0)."""
-        if self.world_size > 1:
-            if self.rank == 0:
-                super()._init_embedding(X)
-            else:
-                n = X.shape[0]
-                self.embedding_ = torch.empty(
-                    (n, self.n_components),
-                    device=self.device_,
-                    dtype=X.dtype,
-                    requires_grad=True,
-                )
-
-            if not self.embedding_.is_contiguous():
-                self.embedding_ = self.embedding_.contiguous()
-
-            dist.broadcast(self.embedding_, src=0)
-            self.embedding_ = self.embedding_.detach().requires_grad_(True)
-            return self.embedding_
-        else:
-            return super()._init_embedding(X)

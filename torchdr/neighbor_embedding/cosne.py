@@ -77,6 +77,12 @@ class COSNE(SparseNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Number of iterations between checks for convergence, by default 50.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -106,6 +112,7 @@ class COSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         self.metric = metric
@@ -123,6 +130,7 @@ class COSNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            distributed=distributed,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -145,6 +153,7 @@ class COSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
 
@@ -171,4 +180,7 @@ class COSNE(SparseNeighborEmbedding):
         Y_norm = (self.embedding_**2).sum(-1)
         Y_norm = torch.arccosh(1 + 2 * (Y_norm / (1 - Y_norm)) + 1e-8) ** 2
         distance_term = ((self.X_norm - Y_norm) ** 2).mean()
-        return rep_loss + self.lambda1 * distance_term
+        loss = rep_loss + self.lambda1 * distance_term
+        if getattr(self, "world_size", 1) > 1:
+            loss = loss / self.world_size
+        return loss

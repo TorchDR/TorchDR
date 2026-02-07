@@ -83,6 +83,12 @@ class SNE(SparseNeighborEmbedding):
         Interval for checking the convergence of the algorithm.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -111,6 +117,7 @@ class SNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         self.metric = metric
@@ -126,6 +133,7 @@ class SNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            distributed=distributed,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -148,6 +156,7 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
 
@@ -163,4 +172,7 @@ class SNE(SparseNeighborEmbedding):
         distances_sq = pairwise_distances(
             self.embedding_, metric="sqeuclidean", backend=self.backend
         )
-        return logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_
+        loss = logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_
+        if getattr(self, "world_size", 1) > 1:
+            loss = loss / self.world_size
+        return loss
