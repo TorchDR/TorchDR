@@ -21,22 +21,35 @@ from torchdr.affinity_matcher import AffinityMatcher
 
 
 class NeighborEmbedding(AffinityMatcher):
-    r"""Solves the neighbor embedding problem.
+    r"""Base class for neighbor embedding methods.
 
-    It amounts to solving:
+    All neighbor embedding methods solve an optimization problem of the form:
 
     .. math::
 
         \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
-    parameter.
+    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is a repulsive
+    term that prevents collapse.
 
-    Note that the early exaggeration coefficient :math:`\lambda` is set to
-    :math:`1` after the early exaggeration phase which duration is controlled by the
-    :attr:`early_exaggeration_iter` parameter.
+    This class extends :class:`~torchdr.AffinityMatcher` with functionality
+    specific to neighbor embedding:
+
+    - **Early exaggeration**: The attraction term is scaled by
+      :attr:`early_exaggeration_coeff` (:math:`\lambda`) for the first
+      :attr:`early_exaggeration_iter` iterations to encourage cluster formation.
+    - **Auto learning rate**: When ``lr='auto'``, the learning rate is set
+      adaptively based on the number of samples.
+    - **Auto optimizer tuning**: When ``optimizer_kwargs='auto'`` with SGD,
+      momentum is adjusted between the early exaggeration and normal phases.
+
+    **Subclasses** must implement :meth:`_compute_loss` (for autograd-based
+    optimization) or :meth:`_compute_gradients` (for direct gradient
+    computation).
+
+    **Direct subclasses**: :class:`TSNEkhorn` (dense affinities),
+    :class:`SparseNeighborEmbedding` (sparse affinities).
 
     Parameters
     ----------
@@ -269,20 +282,38 @@ class NeighborEmbedding(AffinityMatcher):
 
 
 class SparseNeighborEmbedding(NeighborEmbedding):
-    r"""Solves the neighbor embedding problem with a sparse input affinity matrix.
+    r"""Neighbor embedding with sparse input affinity and attractive/repulsive loss decomposition.
 
-    It amounts to solving:
+    This class extends :class:`NeighborEmbedding` for methods whose input
+    affinity :math:`\mathbf{P}` is sparse (i.e., an instance of
+    :class:`~torchdr.SparseAffinity`). It decomposes the loss as:
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+        \mathcal{L} = \lambda \cdot \mathcal{L}_{\mathrm{attr}}
+        + \rho \cdot \mathcal{L}_{\mathrm{rep}}
 
-    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
-    parameter.
+    where :math:`\lambda` is the early exaggeration coefficient and
+    :math:`\rho` is :attr:`repulsion_strength`.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is sparse. In such cases, the attractive term can be computed with linear complexity.
+    **1. Efficient attractive term.** Because only the nonzero entries of
+    :math:`\mathbf{P}` contribute to the attractive term, it can be computed
+    in :math:`O(n \cdot k)` time where :math:`k` is the number of neighbors.
+
+    **2. Separate loss hooks.** Subclasses implement
+    :meth:`_compute_attractive_loss` and :meth:`_compute_repulsive_loss`
+    separately. When :attr:`_use_direct_gradients` is ``True``, subclasses
+    instead implement :meth:`_compute_attractive_gradients` and
+    :meth:`_compute_repulsive_gradients`.
+
+    **3. Distributed multi-GPU training.** When launched with ``torchrun``,
+    this class partitions the input affinity across GPUs, broadcasts the
+    embedding, and synchronizes gradients via all-reduce. Set
+    ``distributed='auto'`` (default) to auto-detect.
+
+    **Direct subclasses**: :class:`TSNE`, :class:`SNE`, :class:`COSNE`
+    (compute the repulsive term exactly),
+    :class:`NegativeSamplingNeighborEmbedding` (approximates it via sampling).
 
     Parameters
     ----------
@@ -506,54 +537,46 @@ class SparseNeighborEmbedding(NeighborEmbedding):
 
     def _init_embedding(self, X: torch.Tensor):
         """Initialize embedding across ranks (broadcast from rank 0)."""
-        if self.world_size > 1:
-            if self.rank == 0:
-                super()._init_embedding(X)
-            else:
-                n = X.shape[0]
-                self.embedding_ = torch.empty(
-                    (n, self.n_components),
-                    device=self.device_,
-                    dtype=X.dtype,
-                    requires_grad=True,
-                )
+        # All ranks must run _init_embedding to avoid NCCL deadlocks
+        # (e.g., PCA init may trigger distributed ops internally).
+        super()._init_embedding(X)
 
+        if self.world_size > 1:
             if not self.embedding_.is_contiguous():
                 self.embedding_ = self.embedding_.contiguous()
 
-            dist.broadcast(self.embedding_, src=0)
+            dist.broadcast(self.embedding_.data, src=0)
             self.embedding_ = self.embedding_.detach().requires_grad_(True)
-            return self.embedding_
-        else:
-            return super()._init_embedding(X)
+
+        return self.embedding_
 
 
 class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
-    r"""Solves the neighbor embedding problem with both sparsity and sampling.
+    r"""Neighbor embedding that approximates the repulsive term via negative sampling.
 
-    It amounts to solving:
+    This class extends :class:`SparseNeighborEmbedding` for methods that
+    avoid the :math:`O(n^2)` cost of computing the repulsive term over all
+    point pairs. Instead, a fixed number of *negative samples*
+    (:attr:`n_negatives`) are drawn uniformly per point at each iteration,
+    reducing the repulsive cost to :math:`O(n)`.
 
-    .. math::
+    **Negative sampling details:**
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}( \mathbf{Q})
+    - At each iteration, :attr:`n_negatives` indices are sampled uniformly
+      (excluding the point itself) for each point in the local chunk.
+    - When :attr:`discard_NNs` is ``True``, nearest neighbors are also
+      excluded from the negative samples to avoid conflicting gradients.
+    - The sampled indices are stored in :attr:`neg_indices_` and refreshed
+      every iteration via :meth:`on_training_step_start`.
 
-    where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, :math:`\mathcal{L}_{\mathrm{rep}}` is the repulsive
-    term of the loss function, :math:`\lambda` is the :attr:`early_exaggeration_coeff`
-    parameter.
+    **Inherits** distributed multi-GPU support from
+    :class:`SparseNeighborEmbedding`.
 
-    **Fast attraction.** This class should be used when the input affinity matrix is sparse.
-    In such cases, the attractive term can be computed with linear complexity.
+    **Subclasses** must implement :meth:`_compute_attractive_loss` and
+    :meth:`_compute_repulsive_loss` (or the gradient equivalents).
 
-    **Fast repulsion.** A stochastic estimation of the repulsive term is used
-    to reduce its complexity to linear.
-    This is done by sampling a fixed number of negative samples
-    :attr:`n_negatives` for each point.
-
-    **Multi-GPU training.** When launched with torchrun, this class supports
-    distributed multi-GPU training. Each rank processes its chunk of the input
-    affinity, the embedding is replicated across ranks, and gradients are
-    synchronized during optimization.
+    **Direct subclasses**: :class:`UMAP`, :class:`LargeVis`,
+    :class:`InfoTSNE`, :class:`PACMAP`.
 
     Parameters
     ----------

@@ -165,6 +165,7 @@ class COSNE(SparseNeighborEmbedding):
     def _compute_attractive_loss(self):
         distances_hyperbolic = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
             key_indices=self.NN_indices_,
             metric="sqhyperbolic",
         )
