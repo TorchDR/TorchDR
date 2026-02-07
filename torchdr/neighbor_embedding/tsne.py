@@ -8,12 +8,12 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
-class TSNE(SparseNeighborEmbedding):
+class TSNE(NeighborEmbedding):
     r"""t-Stochastic Neighbor Embedding (t-SNE) introduced in :cite:`van2008visualizing`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`

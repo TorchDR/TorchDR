@@ -21,21 +21,30 @@ from torchdr.affinity_matcher import AffinityMatcher
 
 
 class NeighborEmbedding(AffinityMatcher):
-    r"""Base class for neighbor embedding methods.
+    r"""Base class for neighbor embedding methods with sparse input affinities.
 
     All neighbor embedding methods solve an optimization problem of the form:
 
     .. math::
 
-        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
+        \min_{\mathbf{Z}} \: - \lambda \sum_{ij} P_{ij} \log Q_{ij} + \rho \cdot \mathcal{L}_{\mathrm{rep}}(\mathbf{Q})
 
     where :math:`\mathbf{P}` is the input affinity matrix, :math:`\mathbf{Q}` is the
-    output affinity matrix, and :math:`\mathcal{L}_{\mathrm{rep}}` is a repulsive
-    term that prevents collapse.
+    output affinity matrix, :math:`\lambda` is the early exaggeration coefficient,
+    :math:`\rho` is :attr:`repulsion_strength`, and
+    :math:`\mathcal{L}_{\mathrm{rep}}` is a repulsive term that prevents collapse.
 
     This class extends :class:`~torchdr.AffinityMatcher` with functionality
     specific to neighbor embedding:
 
+    - **Sparse input affinity**: The input affinity :math:`\mathbf{P}` must be
+      a :class:`~torchdr.SparseAffinity`. Only the nonzero entries contribute
+      to the attractive term, enabling :math:`O(n \cdot k)` computation.
+    - **Separate loss hooks**: Subclasses implement
+      :meth:`_compute_attractive_loss` and :meth:`_compute_repulsive_loss`
+      separately. When :attr:`_use_direct_gradients` is ``True``, subclasses
+      instead implement :meth:`_compute_attractive_gradients` and
+      :meth:`_compute_repulsive_gradients`.
     - **Early exaggeration**: The attraction term is scaled by
       :attr:`early_exaggeration_coeff` (:math:`\lambda`) for the first
       :attr:`early_exaggeration_iter` iterations to encourage cluster formation.
@@ -44,17 +53,28 @@ class NeighborEmbedding(AffinityMatcher):
     - **Auto optimizer tuning**: When ``optimizer_kwargs='auto'`` with SGD,
       momentum is adjusted between the early exaggeration and normal phases.
 
-    **Subclasses** must implement :meth:`_compute_loss` (for autograd-based
-    optimization) or :meth:`_compute_gradients` (for direct gradient
-    computation).
+    .. note::
+        The default values for ``lr='auto'``, ``optimizer_kwargs='auto'``, and
+        early exaggeration are based on the t-SNE paper
+        :cite:`van2008visualizing` and its scikit-learn implementation. These
+        defaults work well for t-SNE but may need tuning for other methods.
+    - **Distributed multi-GPU training**: When launched with ``torchrun``,
+      this class partitions the input affinity across GPUs, broadcasts the
+      embedding, and synchronizes gradients via all-reduce. Set
+      ``distributed='auto'`` (default) to auto-detect.
 
-    **Direct subclasses**: :class:`TSNEkhorn` (dense affinities),
-    :class:`SparseNeighborEmbedding` (sparse affinities).
+    **Subclasses** must implement :meth:`_compute_attractive_loss` and
+    :meth:`_compute_repulsive_loss` (or the gradient equivalents).
+
+    **Direct subclasses**: :class:`TSNE`, :class:`SNE`, :class:`COSNE`
+    (compute the repulsive term exactly),
+    :class:`NegativeSamplingNeighborEmbedding` (approximates it via sampling).
 
     Parameters
     ----------
     affinity_in : Affinity
-        The affinity object for the input space.
+        The affinity object for the input space. Must be a
+        :class:`~torchdr.SparseAffinity`.
     affinity_out : Affinity, optional
         The affinity object for the output embedding space. Default is None.
     kwargs_affinity_out : dict, optional
@@ -99,13 +119,21 @@ class NeighborEmbedding(AffinityMatcher):
         Random seed for reproducibility. Default is None.
     early_exaggeration_coeff : float, optional
         Coefficient for the attraction term during the early exaggeration phase.
-        Default is None.
+        Default is None (no early exaggeration).
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
+    repulsion_strength: float, optional
+        Strength of the repulsive term. Default is 1.0.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -131,10 +159,19 @@ class NeighborEmbedding(AffinityMatcher):
         random_state: Optional[float] = None,
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
+        repulsion_strength: float = 1.0,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs: Any,
     ):
+        # check affinity_in
+        if not isinstance(affinity_in, SparseAffinity):
+            raise NotImplementedError(
+                "[TorchDR] ERROR : when using NeighborEmbedding, affinity_in "
+                "must be a sparse affinity."
+            )
+
         self.early_exaggeration_iter = early_exaggeration_iter
         if self.early_exaggeration_iter is None:
             self.early_exaggeration_iter = 0
@@ -142,11 +179,13 @@ class NeighborEmbedding(AffinityMatcher):
         if self.early_exaggeration_coeff is None:
             self.early_exaggeration_coeff = 1
 
+        self.repulsion_strength = repulsion_strength
+
         # improve consistency with the sklearn API
         if "learning_rate" in kwargs:
-            self.lr = kwargs["learning_rate"]
+            self.lr = kwargs.pop("learning_rate")
         if "early_exaggeration" in kwargs:
-            self.early_exaggeration_coeff = kwargs["early_exaggeration"]
+            self.early_exaggeration_coeff = kwargs.pop("early_exaggeration")
 
         # by default, the linear scheduler goes from 1 to 0
         _scheduler_kwargs = scheduler_kwargs
@@ -179,6 +218,50 @@ class NeighborEmbedding(AffinityMatcher):
             compile=compile,
             **kwargs,
         )
+
+        self._setup_distributed(distributed)
+
+    # --- Loss decomposition ---
+
+    def _compute_attractive_loss(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_attractive_loss method must be implemented."
+        )
+
+    def _compute_repulsive_loss(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_repulsive_loss method must be implemented."
+        )
+
+    def _compute_loss(self):
+        loss = (
+            self.early_exaggeration_coeff_ * self._compute_attractive_loss()
+            + self.repulsion_strength * self._compute_repulsive_loss()
+        )
+        return loss
+
+    @torch.no_grad()
+    def _compute_gradients(self):
+        # triggered when _use_direct_gradients is True
+        gradients = (
+            self.early_exaggeration_coeff_ * self._compute_attractive_gradients()
+            + self.repulsion_strength * self._compute_repulsive_gradients()
+        )
+        return gradients
+
+    def _compute_attractive_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_attractive_gradients method must be implemented "
+            "when _use_direct_gradients is True."
+        )
+
+    def _compute_repulsive_gradients(self):
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
+            "when _use_direct_gradients is True."
+        )
+
+    # --- Early exaggeration ---
 
     def on_training_step_end(self):
         if (  # stop early exaggeration phase
@@ -216,16 +299,7 @@ class NeighborEmbedding(AffinityMatcher):
 
         return super()._fit_transform(X, y)
 
-    def _compute_loss(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_loss method must be implemented."
-        )
-
-    def _compute_gradients(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_gradients method must be implemented "
-            "when _use_direct_gradients is True."
-        )
+    # --- Auto learning rate and optimizer ---
 
     def _set_learning_rate(self):
         if self.lr == "auto":
@@ -279,209 +353,6 @@ class NeighborEmbedding(AffinityMatcher):
         else:
             n_iter = self.max_iter - self.early_exaggeration_iter
         super()._configure_scheduler(n_iter)
-
-
-class SparseNeighborEmbedding(NeighborEmbedding):
-    r"""Neighbor embedding with sparse input affinity and attractive/repulsive loss decomposition.
-
-    This class extends :class:`NeighborEmbedding` for methods whose input
-    affinity :math:`\mathbf{P}` is sparse (i.e., an instance of
-    :class:`~torchdr.SparseAffinity`). It decomposes the loss as:
-
-    .. math::
-
-        \mathcal{L} = \lambda \cdot \mathcal{L}_{\mathrm{attr}}
-        + \rho \cdot \mathcal{L}_{\mathrm{rep}}
-
-    where :math:`\lambda` is the early exaggeration coefficient and
-    :math:`\rho` is :attr:`repulsion_strength`.
-
-    **1. Efficient attractive term.** Because only the nonzero entries of
-    :math:`\mathbf{P}` contribute to the attractive term, it can be computed
-    in :math:`O(n \cdot k)` time where :math:`k` is the number of neighbors.
-
-    **2. Separate loss hooks.** Subclasses implement
-    :meth:`_compute_attractive_loss` and :meth:`_compute_repulsive_loss`
-    separately. When :attr:`_use_direct_gradients` is ``True``, subclasses
-    instead implement :meth:`_compute_attractive_gradients` and
-    :meth:`_compute_repulsive_gradients`.
-
-    **3. Distributed multi-GPU training.** When launched with ``torchrun``,
-    this class partitions the input affinity across GPUs, broadcasts the
-    embedding, and synchronizes gradients via all-reduce. Set
-    ``distributed='auto'`` (default) to auto-detect.
-
-    **Direct subclasses**: :class:`TSNE`, :class:`SNE`, :class:`COSNE`
-    (compute the repulsive term exactly),
-    :class:`NegativeSamplingNeighborEmbedding` (approximates it via sampling).
-
-    Parameters
-    ----------
-    affinity_in : Affinity
-        The affinity object for the input space.
-    affinity_out : Affinity, optional
-        The affinity object for the output embedding space. Default is None.
-    kwargs_affinity_out : dict, optional
-        Additional keyword arguments for the affinity_out method.
-    n_components : int, optional
-        Number of dimensions for the embedding. Default is 2.
-    lr : float or 'auto', optional
-        Learning rate for the optimizer. Default is 1e0.
-    optimizer : str or torch.optim.Optimizer, optional
-        Name of an optimizer from torch.optim or an optimizer class.
-        Default is "SGD". For best results, we recommend using "SGD" with 'auto' learning rate.
-    optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto',
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
-    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
-        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
-        Default is "auto", which corresponds to a linear decay from the learning rate to 0 for `LinearLR`.
-    min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-7.
-    max_iter : int, optional
-        Maximum number of iterations. Default is 2000.
-    init : str or torch.Tensor or np.ndarray, optional
-        Initialization method for the embedding. Default is "pca".
-    init_scaling : float, optional
-        Scaling factor for the initial embedding. Default is 1e-4.
-    device : str, optional
-        Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        Verbosity of the optimization process. Default is False.
-    random_state : float, optional
-        Random seed for reproducibility. Default is None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        Default is 1.0.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration. Default is None.
-    repulsion_strength: float, optional
-        Strength of the repulsive term. Default is 1.0.
-    check_interval : int, optional
-        Number of iterations between two checks for convergence. Default is 50.
-    compile : bool, default=False
-        Whether to use torch.compile for faster computation.
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
-        Default is "auto".
-    """  # noqa: E501
-
-    def __init__(
-        self,
-        affinity_in: Affinity,
-        affinity_out: Optional[Affinity] = None,
-        kwargs_affinity_out: Optional[Dict] = None,
-        n_components: int = 2,
-        lr: Union[float, str] = 1e0,
-        optimizer: Union[str, Type[torch.optim.Optimizer]] = "SGD",
-        optimizer_kwargs: Union[Dict, str] = "auto",
-        scheduler: Optional[
-            Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]
-        ] = None,
-        scheduler_kwargs: Optional[Dict] = "auto",
-        min_grad_norm: float = 1e-7,
-        max_iter: int = 2000,
-        init: Union[str, torch.Tensor, np.ndarray] = "pca",
-        init_scaling: float = 1e-4,
-        device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
-        verbose: bool = False,
-        random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 1.0,
-        early_exaggeration_iter: Optional[int] = None,
-        repulsion_strength: float = 1.0,
-        check_interval: int = 50,
-        compile: bool = False,
-        distributed: Union[bool, str] = "auto",
-        **kwargs,
-    ):
-        # check affinity affinity_in
-        if not isinstance(affinity_in, SparseAffinity):
-            raise NotImplementedError(
-                "[TorchDR] ERROR : when using SparseNeighborEmbedding, affinity_in "
-                "must be a sparse affinity."
-            )
-
-        self.repulsion_strength = repulsion_strength
-
-        super().__init__(
-            affinity_in=affinity_in,
-            affinity_out=affinity_out,
-            kwargs_affinity_out=kwargs_affinity_out,
-            n_components=n_components,
-            lr=lr,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
-            scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
-            min_grad_norm=min_grad_norm,
-            max_iter=max_iter,
-            init=init,
-            init_scaling=init_scaling,
-            device=device,
-            backend=backend,
-            verbose=verbose,
-            random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
-            check_interval=check_interval,
-            compile=compile,
-            **kwargs,
-        )
-
-        self._setup_distributed(distributed)
-
-    def _compute_attractive_loss(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_attractive_loss method must be implemented."
-        )
-
-    def _compute_repulsive_loss(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_repulsive_loss method must be implemented."
-        )
-
-    def _compute_loss(self):
-        loss = (
-            self.early_exaggeration_coeff_ * self._compute_attractive_loss()
-            + self.repulsion_strength * self._compute_repulsive_loss()
-        )
-        return loss
-
-    @torch.no_grad()
-    def _compute_gradients(self):
-        # triggered when _use_direct_gradients is True
-        gradients = (
-            self.early_exaggeration_coeff_ * self._compute_attractive_gradients()
-            + self.repulsion_strength * self._compute_repulsive_gradients()
-        )
-        return gradients
-
-    def _compute_attractive_gradients(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_attractive_gradients method must be implemented "
-            "when _use_direct_gradients is True."
-        )
-
-    def _compute_repulsive_gradients(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
-            "when _use_direct_gradients is True."
-        )
 
     # --- Distributed initialization ---
 
@@ -542,19 +413,19 @@ class SparseNeighborEmbedding(NeighborEmbedding):
         super()._init_embedding(X)
 
         if self.world_size > 1:
-            if not self.embedding_.is_contiguous():
-                self.embedding_ = self.embedding_.contiguous()
+            # Update data in-place to preserve Parameter/ManifoldParameter type.
+            if not self.embedding_.data.is_contiguous():
+                self.embedding_.data = self.embedding_.data.contiguous()
 
             dist.broadcast(self.embedding_.data, src=0)
-            self.embedding_ = self.embedding_.detach().requires_grad_(True)
 
         return self.embedding_
 
 
-class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
+class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
     r"""Neighbor embedding that approximates the repulsive term via negative sampling.
 
-    This class extends :class:`SparseNeighborEmbedding` for methods that
+    This class extends :class:`NeighborEmbedding` for methods that
     avoid the :math:`O(n^2)` cost of computing the repulsive term over all
     point pairs. Instead, a fixed number of *negative samples*
     (:attr:`n_negatives`) are drawn uniformly per point at each iteration,
@@ -570,7 +441,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
       every iteration via :meth:`on_training_step_start`.
 
     **Inherits** distributed multi-GPU support from
-    :class:`SparseNeighborEmbedding`.
+    :class:`NeighborEmbedding`.
 
     **Subclasses** must implement :meth:`_compute_attractive_loss` and
     :meth:`_compute_repulsive_loss` (or the gradient equivalents).
@@ -641,7 +512,7 @@ class NegativeSamplingNeighborEmbedding(SparseNeighborEmbedding):
         Whether to use torch.compile for faster computation.
     **kwargs
         All other parameters (including ``distributed``) are forwarded to
-        :class:`SparseNeighborEmbedding`.
+        :class:`NeighborEmbedding`.
     """  # noqa: E501
 
     def __init__(

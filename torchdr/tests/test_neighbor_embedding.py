@@ -79,17 +79,19 @@ def test_COSNE(dtype):
     X, y = iris_dataset(dtype)
 
     model = COSNE(
-        lr=1e-1,
+        lr=5e-2,
         n_components=2,
         device=DEVICE,
-        max_iter=1000,
+        max_iter=2000,
         random_state=0,
         gamma=1,
-        lambda1=0.01,
+        learning_rate_for_h_loss=0.01,
+        init_scaling=0.01,
     )
     Z = model.fit_transform(X)
 
     check_shape(Z, (X.shape[0], 2))
+    assert not np.isnan(Z).any(), "COSNE embedding has NaNs."
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 

@@ -8,12 +8,12 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
 
 
-class SNE(SparseNeighborEmbedding):
+class SNE(NeighborEmbedding):
     r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
@@ -68,11 +68,6 @@ class SNE(SparseNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 10.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric : {'sqeuclidean', 'manhattan'}, optional
@@ -110,8 +105,6 @@ class SNE(SparseNeighborEmbedding):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
         metric: str = "sqeuclidean",
         sparsity: bool = True,
@@ -152,8 +145,6 @@ class SNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
             distributed=distributed,

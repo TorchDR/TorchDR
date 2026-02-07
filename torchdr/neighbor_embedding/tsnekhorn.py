@@ -4,6 +4,7 @@
 #
 # License: BSD 3-Clause License
 
+import warnings
 from typing import Dict, Optional, Union, Type
 import torch
 
@@ -12,12 +13,12 @@ from torchdr.affinity import (
     SinkhornAffinity,
     SymmetricEntropicAffinity,
 )
-from torchdr.neighbor_embedding.base import NeighborEmbedding
+from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.distance import FaissConfig
 from torchdr.utils import cross_entropy_loss, logsumexp_red, bool_arg
 
 
-class TSNEkhorn(NeighborEmbedding):
+class TSNEkhorn(AffinityMatcher):
     r"""TSNEkhorn algorithm introduced in :cite:`van2024snekhorn`.
 
     It uses a :class:`~torchdr.SymmetricEntropicAffinity` as input affinity :math:`\mathbf{P}`
@@ -48,13 +49,14 @@ class TSNEkhorn(NeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm. By default 'auto'.
+        Learning rate for the algorithm. By default 'auto', which sets the
+        learning rate based on the number of samples.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
     optimizer_kwargs : dict or 'auto', optional
         Additional keyword arguments for the optimizer. Default is 'auto',
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
+        which sets momentum to 0.8 for SGD.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
         Default is None (no scheduler).
@@ -82,11 +84,6 @@ class TSNEkhorn(NeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 12.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     lr_affinity_in : float, optional
         Learning rate used to update dual variables for the symmetric entropic
         affinity computation.
@@ -130,8 +127,6 @@ class TSNEkhorn(NeighborEmbedding):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
@@ -201,12 +196,58 @@ class TSNEkhorn(NeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
             **kwargs,
         )
+
+    def _fit_transform(self, X: torch.Tensor, y=None) -> torch.Tensor:
+        n_samples = X.shape[0]
+        if n_samples <= self.perplexity:
+            raise ValueError(
+                f"[TorchDR] ERROR : Number of samples is smaller than perplexity "
+                f"({n_samples} <= {self.perplexity})."
+            )
+        return super()._fit_transform(X, y)
+
+    def _set_learning_rate(self):
+        if self.lr == "auto":
+            if self.optimizer != "SGD":
+                if self.verbose:
+                    warnings.warn(
+                        "[TorchDR] WARNING : when 'auto' is used for the learning "
+                        "rate, the optimizer should be 'SGD'."
+                    )
+            self.lr_ = max(self.n_samples_in_ / 4, 50)
+        else:
+            self.lr_ = self.lr
+
+    def _configure_optimizer(self):
+        if isinstance(self.optimizer, str):
+            try:
+                optimizer_class = getattr(torch.optim, self.optimizer)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim"
+                )
+        else:
+            if not issubclass(self.optimizer, torch.optim.Optimizer):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
+                    "torch.optim) or a subclass of torch.optim.Optimizer"
+                )
+            optimizer_class = self.optimizer
+
+        if self.optimizer_kwargs == "auto":
+            if self.optimizer == "SGD":
+                optimizer_kwargs = {"momentum": 0.8}
+            else:
+                optimizer_kwargs = {}
+        else:
+            optimizer_kwargs = self.optimizer_kwargs or {}
+
+        self.optimizer_ = optimizer_class(self.params_, lr=self.lr_, **optimizer_kwargs)
+        return self.optimizer_
 
     def _compute_loss(self):
         if not hasattr(self, "dual_sinkhorn_"):
@@ -227,5 +268,5 @@ class TSNEkhorn(NeighborEmbedding):
         else:
             repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
 
-        loss = self.early_exaggeration_coeff_ * attractive_term + repulsive_term
+        loss = attractive_term + repulsive_term
         return loss
