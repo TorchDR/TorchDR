@@ -40,6 +40,15 @@ comment:
   behavior: default
   require_changes: false # if true: only post the comment if coverage changes
 
+flag_management:
+  default_rules:
+    carryforward: false
+  individual_flags:
+    - name: faiss
+      carryforward: true
+    - name: unittests
+      carryforward: false
+
 ignore:
   # Distributed files (require torchrun/multi-GPU, not available in CI)
   - "torchdr/distributed/__init__.py"

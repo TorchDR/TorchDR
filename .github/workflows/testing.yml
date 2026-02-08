@@ -42,13 +42,15 @@ jobs:
           python -m pip install --user -e .[all,test]
       # Run Tests
       - name: Run Tests
-        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+        run: pytest torchdr/ --verbose --cov=torchdr --cov-report term --cov-report xml
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
+          flags: unittests
+          files: coverage.xml
 
   Test-minimal:
     runs-on: ubuntu-latest
@@ -81,13 +83,15 @@ jobs:
           python -m pip install --user -e .[test]
       # Run Tests
       - name: Run Tests
-        run: pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+        run: pytest torchdr/ --verbose --cov=torchdr --cov-report term --cov-report xml
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
+          flags: unittests
+          files: coverage.xml
 
   Test-minimal-crossplatform:
     runs-on: ${{ matrix.os }}
@@ -123,13 +127,15 @@ jobs:
           python -m pip install --user -e .[test]
       # Run Tests
       - name: Run Tests
-        run: python -m pytest torchdr/ --verbose --cov=torchdr torchdr/ --cov-report term
+        run: python -m pytest torchdr/ --verbose --cov=torchdr --cov-report term --cov-report xml
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
+          flags: unittests
+          files: coverage.xml
 
   Test-faiss:
     runs-on: ubuntu-latest
@@ -161,9 +167,11 @@ jobs:
       - name: Install 'torchdr' package
         run: pip install -e ".[test]"
       - name: Run Tests
-        run: pytest torchdr/tests/test_utils.py torchdr/tests/test_dataloader.py torchdr/tests/test_eval.py --verbose --cov=torchdr torchdr/ --cov-report term
+        run: pytest torchdr/tests/test_utils.py torchdr/tests/test_dataloader.py torchdr/tests/test_eval.py --verbose --cov=torchdr --cov-report term --cov-report xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: TorchDR/TorchDR
+          flags: faiss
+          files: coverage.xml
