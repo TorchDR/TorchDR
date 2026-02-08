@@ -67,10 +67,14 @@ def merge_symmetry(
 
     # Combine and find unique positions
     keys_all = torch.cat([keys_P, keys_PT], dim=0)
+    del keys_P, keys_PT  # Free memory before expensive unique()
+
     vals_all = torch.cat([v, v], dim=0)
-    mask_P = torch.arange(keys_all.numel(), device=keys_all.device) < v.numel()
+    num_P = v.numel()
+    mask_P = torch.arange(keys_all.numel(), device=keys_all.device) < num_P
 
     uniq_keys, inv_idx = torch.unique(keys_all, sorted=True, return_inverse=True)
+    del keys_all  # Free memory after unique()
     M = uniq_keys.numel()
 
     # Scatter-add contributions from P vs. Pᵀ
@@ -308,35 +312,46 @@ def distributed_symmetrize_sparse(
     # Step 6: All-to-all exchange with properly sized buffers
     dist.all_to_all(recv_tensors, send_tensors)
 
-    # Step 7: Unpack received edges (these are edges where we own the transpose)
+    # Free GPU memory: delete send buffers and intermediate sorted tensors
+    del send_tensors, i_sorted, j_sorted, v_sorted, target_sorted, sorted_idx
+
+    # Step 7: Move to CPU and combine edges
+    # Using CPU for merge_symmetry reduces GPU memory and leverages shared system RAM
+    i_cpu = i.cpu()
+    j_cpu = j.cpu()
+    v_cpu = v.cpu()
+    del i, j, v  # Free GPU tensors
+
+    # Process received edges: transpose and move to CPU
     if any(t.shape[1] > 0 for t in recv_tensors):
         recv_all = torch.cat([t for t in recv_tensors if t.shape[1] > 0], dim=1)
-        recv_i = recv_all[0].long()
-        recv_j = recv_all[1].long()
-        recv_v = recv_all[2]
+        del recv_tensors  # Free GPU receive buffers
 
-        # Combine with local edges for symmetrization
-        # Local edges: (i, j) with values v
-        # Received edges need to be transposed: (j, i) becomes part of our P^T
-        all_i = torch.cat([i, recv_j])
-        all_j = torch.cat([j, recv_i])
-        all_v = torch.cat([v, recv_v])
+        # Received edges need transpose: (recv_i, recv_j) -> store as (recv_j, recv_i)
+        all_i = torch.cat([i_cpu, recv_all[1].long().cpu()])
+        all_j = torch.cat([j_cpu, recv_all[0].long().cpu()])
+        all_v = torch.cat([v_cpu, recv_all[2].cpu()])
+        del recv_all, i_cpu, j_cpu, v_cpu
     else:
-        all_i = i
-        all_j = j
-        all_v = v
+        del recv_tensors
+        all_i = i_cpu
+        all_j = j_cpu
+        all_v = v_cpu
 
-    # Step 8: Apply merge_symmetry to handle duplicates
+    # Step 8: Apply merge_symmetry on CPU to handle duplicates
     i_sym, j_sym, vP, vPT = merge_symmetry(all_i, all_j, all_v, n_total)
+    del all_i, all_j, all_v  # Free after merge
 
-    # Step 9: Combine P and P^T using shared helper
+    # Step 9: Combine P and P^T using shared helper (still on CPU)
     v_sym = _combine_P_PT(vP, vPT, mode)
+    del vP, vPT
 
-    # Step 10: Filter to keep only edges in our chunk
+    # Step 10: Filter to keep only edges in our chunk (still on CPU)
     mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
     i_local = i_sym[mask] - chunk_start
     j_local = j_sym[mask]
     v_local = v_sym[mask]
 
-    # Step 11: Pack to row-wise format
-    return pack_to_rowwise(i_local, j_local, v_local, chunk_size)
+    # Step 11: Pack to row-wise format and move back to GPU
+    values_out, indices_out = pack_to_rowwise(i_local, j_local, v_local, chunk_size)
+    return values_out.to(device), indices_out.to(device)
