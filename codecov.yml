@@ -45,10 +45,6 @@ flag_management:
     carryforward: false
   individual_flags:
     - name: faiss
-      paths:
-        - torchdr/eval/kmeans.py
-        - torchdr/utils/faiss.py
-        - torchdr/distance/faiss.py
       carryforward: true
     - name: unittests
       carryforward: false
