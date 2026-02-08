@@ -6,7 +6,6 @@
 from .base import (
     NeighborEmbedding,
     NegativeSamplingNeighborEmbedding,
-    SparseNeighborEmbedding,
 )
 from .largevis import LargeVis
 from .infotsne import InfoTSNE
@@ -19,7 +18,6 @@ from .pacmap import PACMAP
 
 __all__ = [
     "NeighborEmbedding",
-    "SparseNeighborEmbedding",
     "NegativeSamplingNeighborEmbedding",
     "SNE",
     "TSNE",

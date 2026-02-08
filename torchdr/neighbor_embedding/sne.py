@@ -8,12 +8,12 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
 
 
-class SNE(SparseNeighborEmbedding):
+class SNE(NeighborEmbedding):
     r"""Stochastic Neighbor Embedding (SNE) introduced in :cite:`hinton2002stochastic`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
@@ -68,21 +68,27 @@ class SNE(SparseNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 10.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     max_iter_affinity : int, optional
         Number of maximum iterations for the entropic affinity root search.
     metric : {'sqeuclidean', 'manhattan'}, optional
         Metric to use for the input affinity, by default 'sqeuclidean'.
     sparsity : bool, optional
         Whether to use sparsity in the algorithm.
+    early_exaggeration_coeff : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is None (no early exaggeration).
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration. Default is None.
     check_interval : int, optional
         Interval for checking the convergence of the algorithm.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -104,13 +110,14 @@ class SNE(SparseNeighborEmbedding):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: Optional[int] = 250,
         max_iter_affinity: int = 100,
         metric: str = "sqeuclidean",
         sparsity: bool = True,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         self.metric = metric
@@ -126,6 +133,7 @@ class SNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            distributed=distributed,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -148,12 +156,14 @@ class SNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
 
     def _compute_attractive_loss(self):
         distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
             key_indices=self.NN_indices_,
             metric="sqeuclidean",
         )
@@ -163,4 +173,7 @@ class SNE(SparseNeighborEmbedding):
         distances_sq = pairwise_distances(
             self.embedding_, metric="sqeuclidean", backend=self.backend
         )
-        return logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_
+        loss = logsumexp_red(-distances_sq, dim=1).sum() / self.n_samples_in_
+        if getattr(self, "world_size", 1) > 1:
+            loss = loss / self.world_size
+        return loss

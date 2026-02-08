@@ -350,6 +350,9 @@ Currently, the following methods support multi-GPU:
 - :class:`UMAP <UMAP>`
 - :class:`InfoTSNE <InfoTSNE>`
 - :class:`LargeVis <LargeVis>`
+- :class:`TSNE <TSNE>`
+- :class:`SNE <SNE>`
+- :class:`COSNE <COSNE>`
 
 
 DataLoader for Streaming Data

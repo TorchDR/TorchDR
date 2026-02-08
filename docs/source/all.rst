@@ -111,14 +111,13 @@ Core Base Classes
 Neighbor Embedding Base Classes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Base classes for neighbor embedding methods. :class:`SparseNeighborEmbedding` leverages input affinity sparsity for efficient attractive term computation. :class:`NegativeSamplingNeighborEmbedding` adds approximate repulsive term computation via negative sampling.
+Base classes for neighbor embedding methods. :class:`NeighborEmbedding` leverages input affinity sparsity for efficient attractive term computation. :class:`NegativeSamplingNeighborEmbedding` adds approximate repulsive term computation via negative sampling.
 
 .. autosummary::
    :toctree: gen_modules/
    :template: myclass_template.rst
 
    NeighborEmbedding
-   SparseNeighborEmbedding
    NegativeSamplingNeighborEmbedding
 
 

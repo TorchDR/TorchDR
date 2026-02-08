@@ -87,10 +87,10 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
 | [`LargeVis`](https://torchdr.github.io/dev/gen_modules/torchdr.LargeVis.html) | O(n) | ✅ | [↗](https://arxiv.org/abs/1602.00370) |
 | [`InfoTSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.InfoTSNE.html) | O(n) | ✅ | [↗](https://arxiv.org/abs/2206.01816) |
 | [`PACMAP`](https://torchdr.github.io/dev/gen_modules/torchdr.PACMAP.html) | O(n) | ❌ | [↗](https://arxiv.org/abs/2012.04456) |
-| [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html) | O(n²) | ❌ | [↗](https://papers.nips.cc/paper/2002/hash/6150ccc6069bea6b5716254057a194ef-Abstract.html) |
-| [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html) | O(n²) | ❌ | [↗](https://jmlr.org/papers/v9/vandermaaten08a.html) |
+| [`SNE`](https://torchdr.github.io/dev/gen_modules/torchdr.SNE.html) | O(n²) | ✅ | [↗](https://papers.nips.cc/paper/2002/hash/6150ccc6069bea6b5716254057a194ef-Abstract.html) |
+| [`TSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNE.html) | O(n²) | ✅ | [↗](https://jmlr.org/papers/v9/vandermaaten08a.html) |
 | [`TSNEkhorn`](https://torchdr.github.io/dev/gen_modules/torchdr.TSNEkhorn.html) | O(n²) | ❌ | [↗](https://arxiv.org/abs/2305.13797) |
-| [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html) | O(n²) | ❌ | [↗](https://arxiv.org/abs/2111.15037) |
+| [`COSNE`](https://torchdr.github.io/dev/gen_modules/torchdr.COSNE.html) | O(n²) | ✅ | [↗](https://arxiv.org/abs/2111.15037) |
 
 > *Note:* Quadratic methods support `backend="keops"` for exact computation with linear memory usage.
 

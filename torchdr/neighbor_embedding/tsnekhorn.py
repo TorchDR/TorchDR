@@ -48,13 +48,14 @@ class TSNEkhorn(NeighborEmbedding):
     n_components : int, optional
         Dimension of the embedding space.
     lr : float or 'auto', optional
-        Learning rate for the algorithm. By default 'auto'.
+        Learning rate for the algorithm. By default 'auto', which sets the
+        learning rate based on the number of samples.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
     optimizer_kwargs : dict or 'auto', optional
         Additional keyword arguments for the optimizer. Default is 'auto',
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
+        which sets momentum to 0.8 for SGD.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
         Default is None (no scheduler).
@@ -82,11 +83,6 @@ class TSNEkhorn(NeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default 12.0 for early exaggeration.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default 250.
     lr_affinity_in : float, optional
         Learning rate used to update dual variables for the symmetric entropic
         affinity computation.
@@ -130,8 +126,6 @@ class TSNEkhorn(NeighborEmbedding):
         backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: float = 12.0,
-        early_exaggeration_iter: int = 250,
         lr_affinity_in: float = 1e-1,
         eps_square_affinity_in: bool = True,
         tol_affinity_in: float = 1e-3,
@@ -141,8 +135,14 @@ class TSNEkhorn(NeighborEmbedding):
         symmetric_affinity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = False,
         **kwargs,
     ):
+        if distributed:
+            raise ValueError(
+                "[TorchDR] ERROR : TSNEkhorn does not support distributed."
+            )
+
         self.metric = metric
         self.perplexity = perplexity
         self.lr_affinity_in = lr_affinity_in
@@ -201,10 +201,9 @@ class TSNEkhorn(NeighborEmbedding):
             backend=backend,
             verbose=verbose,
             random_state=random_state,
-            early_exaggeration_coeff=early_exaggeration_coeff,
-            early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
 
@@ -227,5 +226,5 @@ class TSNEkhorn(NeighborEmbedding):
         else:
             repulsive_term = logsumexp_red(log_Q, dim=(0, 1)).exp()
 
-        loss = self.early_exaggeration_coeff_ * attractive_term + repulsive_term
+        loss = attractive_term + repulsive_term
         return loss

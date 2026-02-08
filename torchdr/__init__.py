@@ -51,7 +51,6 @@ from .neighbor_embedding import (
     LargeVis,
     NeighborEmbedding,
     NegativeSamplingNeighborEmbedding,
-    SparseNeighborEmbedding,
     TSNEkhorn,
     PACMAP,
 )
@@ -94,7 +93,6 @@ __all__ = [
     "IncrementalPCA",
     "ExactIncrementalPCA",
     "NeighborEmbedding",
-    "SparseNeighborEmbedding",
     "NegativeSamplingNeighborEmbedding",
     "SNE",
     "TSNE",

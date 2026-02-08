@@ -75,11 +75,6 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default None.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default None.
     tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -92,6 +87,11 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
+    early_exaggeration_coeff : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is None (no early exaggeration).
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration. Default is None.
     discard_NNs : bool, optional
         Whether to discard the nearest neighbors from the negative sampling.
         Default is False.
@@ -124,12 +124,12 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: Optional[float] = None,
-        early_exaggeration_iter: Optional[int] = None,
         max_iter_affinity: int = 100,
         metric: str = "sqeuclidean",
         n_negatives: int = 5,
         sparsity: bool = True,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
         discard_NNs: bool = False,
         compile: bool = False,
