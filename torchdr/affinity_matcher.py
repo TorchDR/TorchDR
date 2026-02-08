@@ -353,13 +353,32 @@ class AffinityMatcher(DRModule):
 
     @compile_if_requested
     def _training_step(self):
-        """Perform one optimization step (zero grad, loss/gradients, update)."""
+        """Perform one optimization step (zero grad, loss/gradients, update).
+
+        Two gradient modes are supported:
+
+        **Direct gradients** (``_use_direct_gradients = True``): subclasses
+        (e.g. UMAP) implement :meth:`_compute_gradients` which returns
+        hand-derived embedding gradients. No loss scalar is computed.
+        This is faster when closed-form gradients are available.
+
+        **Autograd** (default): :meth:`_compute_loss` returns a scalar loss
+        and ``loss.backward()`` computes gradients via PyTorch autograd.
+        Used by TSNE, LargeVis, InfoTSNE, etc.
+
+        In both modes the optimizer then steps using the accumulated gradients.
+        """
         self.optimizer_.zero_grad(set_to_none=True)
 
+        # When an encoder is used, the embedding is the encoder's output.
+        # Gradients will flow back through the encoder via autograd (autograd
+        # mode) or via embedding_.backward(gradient=...) (direct mode).
         if self.encoder is not None:
             self.embedding_ = self.encoder(self.X_train_)
 
         if getattr(self, "_use_direct_gradients", False):
+            # --- Direct gradient mode ---
+            # Subclass computes closed-form gradients w.r.t. the embedding.
             gradients = self._compute_gradients()
             if gradients is not None:
                 if self.encoder is not None:
@@ -368,10 +387,14 @@ class AffinityMatcher(DRModule):
                             "[TorchDR] encoder with distributed direct "
                             "gradients is not yet supported."
                         )
-                    # Chain rule through encoder
+                    # Backprop through the encoder: embedding_ is the output
+                    # of encoder(X), so .backward(gradient=...) applies the
+                    # chain rule to update the encoder's parameters.
                     self.embedding_.backward(gradient=gradients)
                 elif getattr(self, "world_size", 1) > 1:
-                    # Distributed: place chunk gradients into full tensor, all-reduce
+                    # Distributed: each rank computes gradients for its chunk
+                    # of the embedding. Assemble into full-size tensor and
+                    # all-reduce so every rank has the complete gradient.
                     expected_chunk_size = len(self.chunk_indices_)
                     if gradients.shape[0] != expected_chunk_size:
                         raise RuntimeError(
@@ -388,11 +411,15 @@ class AffinityMatcher(DRModule):
                     dist.all_reduce(full_gradients, op=dist.ReduceOp.SUM)
                     self.embedding_.grad = full_gradients
                 else:
+                    # Single-process, no encoder: assign gradients directly.
                     self.embedding_.grad = gradients
             loss = None
         else:
+            # --- Autograd mode ---
+            # Compute a scalar loss and let PyTorch differentiate it.
             loss = self._compute_loss()
             loss.backward()
+            # Distributed: sum gradients across ranks.
             if getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None:
                 dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
