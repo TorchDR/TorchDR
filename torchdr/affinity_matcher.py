@@ -53,7 +53,7 @@ class AffinityMatcher(DRModule):
 
     The embedding is optimized via first-order methods, with gradients computed
     either through PyTorch autograd or manually (when
-    :attr:`_use_direct_gradients` is ``True``).
+    :attr:`_use_closed_form_gradients` is ``True``).
 
     When an :attr:`encoder` (neural network) is provided, its parameters are
     optimized instead of a raw embedding matrix, enabling out-of-sample
@@ -357,10 +357,11 @@ class AffinityMatcher(DRModule):
 
         Two gradient modes are supported:
 
-        **Direct gradients** (``_use_direct_gradients = True``): subclasses
-        (e.g. UMAP) implement :meth:`_compute_gradients` which returns
-        hand-derived embedding gradients. No loss scalar is computed.
-        This is faster when closed-form gradients are available.
+        **Closed-form gradients** (``_use_closed_form_gradients = True``):
+        subclasses (e.g. UMAP) implement :meth:`_compute_gradients` which
+        returns analytically derived embedding gradients. No loss scalar is
+        computed. This is faster when a closed-form gradient expression is
+        available.
 
         **Autograd** (default): :meth:`_compute_loss` returns a scalar loss
         and ``loss.backward()`` computes gradients via PyTorch autograd.
@@ -376,9 +377,9 @@ class AffinityMatcher(DRModule):
         if self.encoder is not None:
             self.embedding_ = self.encoder(self.X_train_)
 
-        if getattr(self, "_use_direct_gradients", False):
-            # --- Direct gradient mode ---
-            # Subclass computes closed-form gradients w.r.t. the embedding.
+        if getattr(self, "_use_closed_form_gradients", False):
+            # --- Closed-form gradient mode ---
+            # Subclass computes analytical gradients w.r.t. the embedding.
             gradients = self._compute_gradients()
             if gradients is not None:
                 if self.encoder is not None:
@@ -458,14 +459,14 @@ class AffinityMatcher(DRModule):
         return loss
 
     def _compute_gradients(self):
-        """Compute embedding gradients manually.
+        """Compute closed-form embedding gradients.
 
         Must be implemented by subclasses that set
-        ``_use_direct_gradients = True``.
+        ``_use_closed_form_gradients = True``.
         """
         raise NotImplementedError(
             "[TorchDR] ERROR : _compute_gradients method must be implemented "
-            "when _use_direct_gradients is True."
+            "when _use_closed_form_gradients is True."
         )
 
     # --- Lifecycle hooks ---
