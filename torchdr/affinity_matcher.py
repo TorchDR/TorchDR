@@ -1,4 +1,4 @@
-"""Affinity matcher base classes."""
+"""Affinity matcher module."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Titouan Vayer <titouan.vayer@inria.fr>
@@ -39,9 +39,9 @@ LOSS_DICT = {
 
 
 class AffinityMatcher(DRModule):
-    r"""Perform dimensionality reduction by matching two affinity matrices.
+    r"""Dimensionality reduction by matching two affinity matrices.
 
-    It amounts to solving a problem of the form:
+    Solves an optimization problem of the form:
 
     .. math::
 
@@ -51,68 +51,67 @@ class AffinityMatcher(DRModule):
     input affinity matrix and :math:`\mathbf{Q}` is the affinity matrix of the
     embedding.
 
-    The embedding optimization is performed using a first-order optimization method, with gradients calculated via PyTorch's automatic differentiation.
+    The embedding is optimized via first-order methods, with gradients computed
+    either through PyTorch autograd or manually (when
+    :attr:`_use_closed_form_gradients` is ``True``).
+
+    When an :attr:`encoder` (neural network) is provided, its parameters are
+    optimized instead of a raw embedding matrix, enabling out-of-sample
+    extension via :meth:`transform`.
 
     Parameters
     ----------
     affinity_in : Affinity
         The affinity object for the input space.
     affinity_out : Affinity, optional
-        The affinity object for the output embedding space. Default is None.
-        When None, a custom _loss method must be implemented.
+        The affinity object for the output embedding space.
+        When None, a custom :meth:`_compute_loss` method must be implemented.
     kwargs_affinity_out : dict, optional
         Additional keyword arguments for the affinity_out method.
     n_components : int, optional
         Number of dimensions for the embedding. Default is 2.
     loss_fn : str, optional
-        Loss function to use for the optimization. Default is "square_loss".
+        Loss function for optimization. Default is "square_loss".
     kwargs_loss : dict, optional
         Additional keyword arguments for the loss function.
     optimizer : str or torch.optim.Optimizer, optional
-        Name of an optimizer from torch.optim or an optimizer class.
+        Optimizer name from ``torch.optim`` or an optimizer class.
         Default is "Adam".
     optimizer_kwargs : dict, optional
         Additional keyword arguments for the optimizer.
     lr : float or 'auto', optional
-        Learning rate for the optimizer. Default is 1e0.
+        Learning rate. Default is 1e0.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
-        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
+        Scheduler name from ``torch.optim.lr_scheduler`` or a scheduler class.
         Default is None (no scheduler).
     scheduler_kwargs : dict, optional
         Additional keyword arguments for the scheduler.
     min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-7.
+        Gradient norm threshold for convergence. Default is 1e-7.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, torch.Tensor, or np.ndarray, optional
-        Initialization method for the embedding. Default is "pca".
+        Initialization for the embedding. Default is "pca".
     init_scaling : float, optional
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
-        Device to use for computations. Default is "auto".
+        Device for computations. Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
+        Backend for handling sparsity and memory efficiency.
+        Default is None (standard PyTorch).
     verbose : bool, optional
-        Verbosity of the optimization process. Default is False.
+        Verbosity. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is None.
     check_interval : int, optional
-        Number of iterations between two checks for convergence. Default is 50.
+        Iterations between convergence checks. Default is 50.
     compile : bool, default=False
-        Whether to use torch.compile for faster computation.
+        Whether to use ``torch.compile`` for faster computation.
     encoder : torch.nn.Module, optional
-        A neural network that maps input data to the embedding space.
-        When provided, the model optimizes the encoder parameters instead of
-        a raw embedding matrix. This enables out-of-sample extension via
-        ``transform(X_new)``. The encoder output dimension must match
-        ``n_components``. Default is None (standard embedding optimization).
-    """  # noqa: E501
+        Neural network mapping input data to the embedding space.
+        Output dimension must match :attr:`n_components`.
+        Default is None (optimize a raw embedding matrix).
+    """
 
     def __init__(
         self,
@@ -171,7 +170,7 @@ class AffinityMatcher(DRModule):
         self.init = init
         self.init_scaling = init_scaling
 
-        # --- check affinity_in ---
+        # --- Validate affinity_in ---
         if not isinstance(affinity_in, Affinity) and not affinity_in == "precomputed":
             raise ValueError(
                 '[TorchDR] affinity_in must be an Affinity instance or "precomputed".'
@@ -181,11 +180,12 @@ class AffinityMatcher(DRModule):
             self.affinity_in._pre_processed = True
             self.affinity_in.compile = self.compile
 
-        # --- check affinity_out ---
+        # --- Validate affinity_out ---
         if affinity_out is not None:
             if not isinstance(affinity_out, Affinity):
                 raise ValueError(
-                    "[TorchDR] ERROR : affinity_out must be an Affinity instance when not None."
+                    "[TorchDR] ERROR : affinity_out must be an Affinity instance "
+                    "when not None."
                 )
             affinity_out._pre_processed = True
 
@@ -196,24 +196,26 @@ class AffinityMatcher(DRModule):
 
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
+    # --- Fitting and optimization loop ---
+
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
-        """Fit the model from data in X.
+        """Compute the input affinity and optimize the embedding.
 
         Parameters
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
-            or (n_samples, n_samples) if precomputed is True
-            Input data.
+            Input data (or ``(n_samples, n_samples)`` when
+            ``affinity_in="precomputed"``).
         y : None
             Ignored.
 
         Returns
         -------
-        embedding_ : torch.Tensor
-            The embedding of the input data.
+        embedding_ : torch.Tensor of shape (n_samples, n_components)
+            The optimized embedding.
         """
+        # --- Resolve metadata and device ---
         if isinstance(X, DataLoader):
-            # Extract all metadata from first batch in ONE pass
             self.n_samples_in_ = len(X.dataset)
             for batch in X:
                 if isinstance(batch, (list, tuple)):
@@ -227,7 +229,6 @@ class AffinityMatcher(DRModule):
                     "[TorchDR] DataLoader is empty, cannot determine metadata. "
                     "Ensure DataLoader yields at least one batch."
                 )
-            # Resolve device
             self.device_ = (
                 self._dataloader_device_ if self.device == "auto" else self.device
             )
@@ -235,7 +236,7 @@ class AffinityMatcher(DRModule):
             self.n_samples_in_, self.n_features_in_ = X.shape
             self.device_ = X.device if self.device == "auto" else self.device
 
-        # --- Encoder validation ---
+        # --- Validate encoder ---
         if self.encoder is not None:
             if not isinstance(self.encoder, torch.nn.Module):
                 raise TypeError("[TorchDR] encoder must be an nn.Module instance.")
@@ -251,18 +252,17 @@ class AffinityMatcher(DRModule):
                         f" != n_components ({self.n_components})."
                     )
 
-        # --- Input affinity computation ---
+        # --- Compute input affinity ---
 
         self.on_affinity_computation_start()
 
-        # check if affinity_in is precomputed else compute it
         if self.affinity_in == "precomputed":
             if self.verbose:
                 self.logger.info("----- Using precomputed affinity matrix -----")
             if self.n_features_in_ != self.n_samples_in_:
                 raise ValueError(
-                    '[TorchDR] ERROR : When affinity_in="precomputed" the input X '
-                    "in fit must be a tensor of lazy tensor of shape "
+                    '[TorchDR] ERROR : When affinity_in="precomputed" the input '
+                    "X in fit must be a tensor of lazy tensor of shape "
                     "(n_samples, n_samples)."
                 )
             check_nonnegativity(X)
@@ -270,7 +270,8 @@ class AffinityMatcher(DRModule):
         else:
             if self.verbose:
                 self.logger.info(
-                    f"----- Computing the input affinity matrix with {self.affinity_in.__class__.__name__} -----"
+                    "----- Computing the input affinity matrix with "
+                    f"{self.affinity_in.__class__.__name__} -----"
                 )
             if isinstance(self.affinity_in, SparseAffinity):
                 affinity_matrix, nn_indices = self.affinity_in(X, return_indices=True)
@@ -278,7 +279,7 @@ class AffinityMatcher(DRModule):
             else:
                 affinity_matrix = self.affinity_in(X)
 
-            # LazyTensors (from keops backend) can't be registered as buffers
+            # LazyTensors (keops) cannot be registered as buffers
             if self.affinity_in.backend == "keops":
                 self.affinity_in_ = affinity_matrix
             else:
@@ -286,7 +287,7 @@ class AffinityMatcher(DRModule):
 
         self.on_affinity_computation_end()
 
-        # --- Embedding optimization ---
+        # --- Optimize embedding ---
 
         if self.verbose:
             self.logger.info("----- Optimizing the embedding -----")
@@ -297,9 +298,7 @@ class AffinityMatcher(DRModule):
         self._configure_optimizer()
         self._configure_scheduler()
 
-        # Drop local reference to input data (no longer needed after initialization).
-        # Memory is freed only if the caller doesn't hold another reference.
-        # Keep X when encoder is used (stored as X_train_ for forward pass).
+        # Free input data (not needed after init, unless encoder stores X_train_)
         if self.affinity_in != "precomputed" and self.encoder is None:
             del X
             if torch.cuda.is_available():
@@ -321,18 +320,15 @@ class AffinityMatcher(DRModule):
 
             if self.verbose and (self.n_iter_ % self.check_interval == 0):
                 lr = self.optimizer_.param_groups[0]["lr"]
-
                 msg_parts = []
                 if loss is not None:
                     msg_parts.append(f"Loss: {loss.item():.2e}")
                 msg_parts.append(f"Grad norm: {grad_norm:.2e}")
                 msg_parts.append(f"LR: {lr:.2e}")
-
                 msg = " | ".join(msg_parts)
                 self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
 
-            check_convergence = self.n_iter_ % self.check_interval == 0
-            if check_convergence:
+            if self.n_iter_ % self.check_interval == 0:
                 if self.encoder is not None:
                     grad_norm = (
                         sum(
@@ -347,26 +343,43 @@ class AffinityMatcher(DRModule):
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         self.logger.info(
-                            f"Convergence reached at iter {self.n_iter_} with grad norm: "
-                            f"{grad_norm:.2e}."
+                            f"Convergence reached at iter {self.n_iter_} "
+                            f"with grad norm: {grad_norm:.2e}."
                         )
                     break
 
-        # Always clear memory after training
         self.clear_memory()
-
         return self.embedding_
 
     @compile_if_requested
     def _training_step(self):
+        """Perform one optimization step (zero grad, loss/gradients, update).
+
+        Two gradient modes are supported:
+
+        **Closed-form gradients** (``_use_closed_form_gradients = True``):
+        subclasses (e.g. UMAP) implement :meth:`_compute_gradients` which
+        returns analytically derived embedding gradients. No loss scalar is
+        computed. This is faster when a closed-form gradient expression is
+        available.
+
+        **Autograd** (default): :meth:`_compute_loss` returns a scalar loss
+        and ``loss.backward()`` computes gradients via PyTorch autograd.
+        Used by TSNE, LargeVis, InfoTSNE, etc.
+
+        In both modes the optimizer then steps using the accumulated gradients.
+        """
         self.optimizer_.zero_grad(set_to_none=True)
 
-        # When using an encoder, recompute embedding via forward pass each step
+        # When an encoder is used, the embedding is the encoder's output.
+        # Gradients will flow back through the encoder via autograd (autograd
+        # mode) or via embedding_.backward(gradient=...) (direct mode).
         if self.encoder is not None:
             self.embedding_ = self.encoder(self.X_train_)
 
-        if getattr(self, "_use_direct_gradients", False):
-            # Direct gradients: _compute_gradients() returns only the chunk's gradients [chunk_size, dim].
+        if getattr(self, "_use_closed_form_gradients", False):
+            # --- Closed-form gradient mode ---
+            # Subclass computes analytical gradients w.r.t. the embedding.
             gradients = self._compute_gradients()
             if gradients is not None:
                 if self.encoder is not None:
@@ -375,16 +388,21 @@ class AffinityMatcher(DRModule):
                             "[TorchDR] encoder with distributed direct "
                             "gradients is not yet supported."
                         )
-                    # Chain rule: propagate manual gradients through encoder
+                    # Backprop through the encoder: embedding_ is the output
+                    # of encoder(X), so .backward(gradient=...) applies the
+                    # chain rule to update the encoder's parameters.
                     self.embedding_.backward(gradient=gradients)
                 elif getattr(self, "world_size", 1) > 1:
-                    # Multi-GPU: Place chunk gradients in full-sized tensor and combine across GPUs
+                    # Distributed: each rank computes gradients for its chunk
+                    # of the embedding. Assemble into full-size tensor and
+                    # all-reduce so every rank has the complete gradient.
                     expected_chunk_size = len(self.chunk_indices_)
                     if gradients.shape[0] != expected_chunk_size:
                         raise RuntimeError(
                             f"Gradient size mismatch in distributed mode: "
-                            f"expected {expected_chunk_size} gradients for chunk "
-                            f"but _compute_gradients() returned {gradients.shape[0]}"
+                            f"expected {expected_chunk_size} gradients for "
+                            f"chunk but _compute_gradients() returned "
+                            f"{gradients.shape[0]}"
                         )
                     full_gradients = torch.zeros_like(self.embedding_)
                     chunk_start = self.chunk_indices_[0].item()
@@ -394,16 +412,16 @@ class AffinityMatcher(DRModule):
                     dist.all_reduce(full_gradients, op=dist.ReduceOp.SUM)
                     self.embedding_.grad = full_gradients
                 else:
-                    # Single-GPU: Directly assign chunk gradients
+                    # Single-process, no encoder: assign gradients directly.
                     self.embedding_.grad = gradients
             loss = None
         else:
-            # Autograd: backward() automatically computes gradients for ALL points in embedding_ [n_samples, dim]
-            # that participated in the loss computation (chunk points, their neighbors, and sampled negatives).
+            # --- Autograd mode ---
+            # Compute a scalar loss and let PyTorch differentiate it.
             loss = self._compute_loss()
             loss.backward()
+            # Distributed: sum gradients across ranks.
             if getattr(self, "world_size", 1) > 1 and self.embedding_.grad is not None:
-                # Multi-GPU: Combine full-sized sparse gradients across GPUs
                 dist.all_reduce(self.embedding_.grad, op=dist.ReduceOp.SUM)
 
         self.optimizer_.step()
@@ -411,23 +429,25 @@ class AffinityMatcher(DRModule):
             self.scheduler_.step()
         return loss
 
-    def _compute_gradients(self):
-        raise NotImplementedError(
-            "[TorchDR] ERROR : _compute_gradients method must be implemented when "
-            "_use_direct_gradients is True."
-        )
+    # --- Loss and gradient computation ---
 
     def _compute_loss(self):
+        """Compute the loss between input and output affinities.
+
+        Uses :attr:`loss_fn` to compare :attr:`affinity_in_` and the output
+        affinity computed from :attr:`embedding_`. Subclasses can override
+        this for custom loss structures.
+        """
         if self.affinity_out is None:
             raise ValueError(
-                "[TorchDR] ERROR : affinity_out is not set. Set it or implement _compute_loss method."
+                "[TorchDR] ERROR : affinity_out is not set. "
+                "Set it or implement _compute_loss method."
             )
 
-        # Use local copies to avoid mutating self.kwargs_affinity_out/self.kwargs_loss
         kwargs_affinity_out = dict(self.kwargs_affinity_out or {})
         kwargs_loss = dict(self.kwargs_loss or {})
 
-        # If cross entropy loss and affinity_out is LogAffinity, use log domain
+        # Cross-entropy with LogAffinity: use log domain for numerical stability
         if (self.loss_fn == "cross_entropy_loss") and isinstance(
             self.affinity_out, LogAffinity
         ):
@@ -435,100 +455,47 @@ class AffinityMatcher(DRModule):
             kwargs_loss.setdefault("log", True)
 
         Q = self.affinity_out(self.embedding_, **kwargs_affinity_out)
-
         loss = LOSS_DICT[self.loss_fn](self.affinity_in_, Q, **kwargs_loss)
         return loss
 
+    def _compute_gradients(self):
+        """Compute closed-form embedding gradients.
+
+        Must be implemented by subclasses that set
+        ``_use_closed_form_gradients = True``.
+        """
+        raise NotImplementedError(
+            "[TorchDR] ERROR : _compute_gradients method must be implemented "
+            "when _use_closed_form_gradients is True."
+        )
+
+    # --- Lifecycle hooks ---
+    # Override in subclasses to inject logic at specific stages of fitting.
+
     def on_affinity_computation_start(self):
+        """Called before computing the input affinity matrix."""
         pass
 
     def on_affinity_computation_end(self):
+        """Called after computing the input affinity matrix."""
         pass
 
     def on_training_step_start(self):
+        """Called at the beginning of each optimization step."""
         pass
 
     def on_training_step_end(self):
+        """Called at the end of each optimization step."""
         pass
 
-    def _set_params(self):
-        if self.encoder is not None:
-            self.params_ = [{"params": self.encoder.parameters()}]
-        else:
-            self.params_ = [{"params": self.embedding_}]
-        return self.params_
-
-    def _configure_optimizer(self):
-        if isinstance(self.optimizer, str):
-            # Try to get the optimizer from torch.optim
-            try:
-                optimizer_class = getattr(torch.optim, self.optimizer)
-            except AttributeError:
-                raise ValueError(
-                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found in torch.optim."
-                )
-        else:
-            if not issubclass(self.optimizer, torch.optim.Optimizer):
-                raise ValueError(
-                    "[TorchDR] ERROR: optimizer must be a string (name of an optimizer in "
-                    "torch.optim) or a subclass of torch.optim.Optimizer."
-                )
-            optimizer_class = self.optimizer
-
-        self.optimizer_ = optimizer_class(
-            self.params_, lr=torch.tensor(self.lr_), **(self.optimizer_kwargs or {})
-        )
-        return self.optimizer_
-
-    def _set_learning_rate(self):
-        if self.lr == "auto":
-            if self.verbose:
-                self.logger.warning(
-                    "lr set to 'auto' without "
-                    "any implemented rule. Setting lr=1.0 by default."
-                )
-            self.lr_ = 1.0
-        else:
-            self.lr_ = self.lr
-
-    def _configure_scheduler(self, n_iter: Optional[int] = None):
-        n_iter = n_iter or self.max_iter
-
-        if not hasattr(self, "optimizer_"):
-            raise ValueError(
-                "[TorchDR] ERROR : optimizer not set. "
-                "Please call _configure_optimizer before _configure_scheduler."
-            )
-
-        # If scheduler is None, don't create a scheduler
-        if self.scheduler is None:
-            self.scheduler_ = None
-            return self.scheduler_
-
-        scheduler_kwargs = self.scheduler_kwargs or {}
-
-        if isinstance(self.scheduler, str):
-            # Try to get the scheduler from torch.optim.lr_scheduler
-            try:
-                scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler)
-                self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
-            except AttributeError:
-                raise ValueError(
-                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found in torch.optim.lr_scheduler."
-                )
-        else:
-            # Check if the scheduler is a subclass of LRScheduler
-            if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
-                raise ValueError(
-                    "[TorchDR] ERROR: scheduler must be a string (name of a scheduler in "
-                    "torch.optim.lr_scheduler) or a subclass of torch.optim.lr_scheduler.LRScheduler."
-                )
-            self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
-
-        return self.scheduler_
+    # --- Embedding initialization ---
 
     def _init_embedding(self, X):
-        # Ensure device_ is set (for backward compatibility when called directly)
+        """Initialize the embedding from the :attr:`init` strategy or encoder.
+
+        Supports ``"pca"``, ``"normal"``/``"random"``, ``"hyperbolic"``,
+        or a user-provided tensor.
+        """
         if not hasattr(self, "device_"):
             if isinstance(X, DataLoader):
                 raise RuntimeError(
@@ -537,7 +504,7 @@ class AffinityMatcher(DRModule):
                 )
             self.device_ = X.device if self.device == "auto" else self.device
 
-        # Encoder path: store training data and compute initial embedding
+        # Encoder: store training data and compute initial embedding
         if self.encoder is not None:
             self.register_buffer("X_train_", X, persistent=False)
             self.encoder.to(device=self.device_, dtype=X.dtype)
@@ -545,7 +512,6 @@ class AffinityMatcher(DRModule):
                 self.embedding_ = self.encoder(self.X_train_).detach()
             return self.embedding_
 
-        # Get n_samples and dtype (use cached values for DataLoader)
         if isinstance(X, DataLoader):
             n = self.n_samples_in_
             X_dtype = self._dataloader_dtype_
@@ -555,11 +521,10 @@ class AffinityMatcher(DRModule):
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):
             embedding_ = to_torch(self.init)
-            target_device = self.device_
-            embedding_ = embedding_.to(device=target_device, dtype=X_dtype)
+            embedding_ = embedding_.to(device=self.device_, dtype=X_dtype)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
-        elif self.init == "normal" or self.init == "random":
+        elif self.init in ("normal", "random"):
             embedding_ = torch.randn(
                 (n, self.n_components),
                 device=self.device_,
@@ -569,7 +534,6 @@ class AffinityMatcher(DRModule):
 
         elif self.init == "pca":
             if isinstance(X, DataLoader):
-                # Use IncrementalPCA for DataLoader input (2 passes: fit + transform)
                 from torchdr.spectral_embedding import IncrementalPCA
 
                 embedding_ = IncrementalPCA(
@@ -581,16 +545,15 @@ class AffinityMatcher(DRModule):
                 embedding_ = PCA(
                     n_components=self.n_components, device=self.device
                 ).fit_transform(X)
-            target_device = self.device_
-            if embedding_.device != target_device:
-                embedding_ = embedding_.to(target_device)
+            if embedding_.device != self.device_:
+                embedding_ = embedding_.to(self.device_)
             self.embedding_ = self.init_scaling * embedding_ / embedding_[:, 0].std()
 
         elif self.init == "hyperbolic":
             embedding_ = torch.randn(
                 (n, self.n_components),
                 device=self.device_,
-                dtype=torch.float64,  # better double precision on hyperbolic manifolds
+                dtype=torch.float64,
             )
             poincare_ball = PoincareBallManifold()
             embedding_ = self.init_scaling * embedding_
@@ -609,11 +572,97 @@ class AffinityMatcher(DRModule):
 
         return self.embedding_.requires_grad_()
 
+    # --- Optimizer and scheduler configuration ---
+
+    def _set_params(self):
+        """Set the parameters to optimize (encoder weights or embedding)."""
+        if self.encoder is not None:
+            self.params_ = [{"params": self.encoder.parameters()}]
+        else:
+            self.params_ = [{"params": self.embedding_}]
+        return self.params_
+
+    def _set_learning_rate(self):
+        """Resolve the learning rate (handles ``lr='auto'``)."""
+        if self.lr == "auto":
+            if self.verbose:
+                self.logger.warning(
+                    "lr set to 'auto' without "
+                    "any implemented rule. Setting lr=1.0 by default."
+                )
+            self.lr_ = 1.0
+        else:
+            self.lr_ = self.lr
+
+    def _configure_optimizer(self):
+        """Instantiate the optimizer from :attr:`optimizer`."""
+        if isinstance(self.optimizer, str):
+            try:
+                optimizer_class = getattr(torch.optim, self.optimizer)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Optimizer '{self.optimizer}' not found "
+                    "in torch.optim."
+                )
+        else:
+            if not issubclass(self.optimizer, torch.optim.Optimizer):
+                raise ValueError(
+                    "[TorchDR] ERROR: optimizer must be a string (name of an "
+                    "optimizer in torch.optim) or a subclass of "
+                    "torch.optim.Optimizer."
+                )
+            optimizer_class = self.optimizer
+
+        self.optimizer_ = optimizer_class(
+            self.params_,
+            lr=torch.tensor(self.lr_),
+            **(self.optimizer_kwargs or {}),
+        )
+        return self.optimizer_
+
+    def _configure_scheduler(self, n_iter: Optional[int] = None):
+        """Instantiate the learning rate scheduler from :attr:`scheduler`."""
+        n_iter = n_iter or self.max_iter
+
+        if not hasattr(self, "optimizer_"):
+            raise ValueError(
+                "[TorchDR] ERROR : optimizer not set. "
+                "Please call _configure_optimizer before _configure_scheduler."
+            )
+
+        if self.scheduler is None:
+            self.scheduler_ = None
+            return self.scheduler_
+
+        scheduler_kwargs = self.scheduler_kwargs or {}
+
+        if isinstance(self.scheduler, str):
+            try:
+                scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler)
+                self.scheduler_ = scheduler_class(self.optimizer_, **scheduler_kwargs)
+            except AttributeError:
+                raise ValueError(
+                    f"[TorchDR] ERROR: Scheduler '{self.scheduler}' not found "
+                    "in torch.optim.lr_scheduler."
+                )
+        else:
+            if not issubclass(self.scheduler, torch.optim.lr_scheduler.LRScheduler):
+                raise ValueError(
+                    "[TorchDR] ERROR: scheduler must be a string (name of a "
+                    "scheduler in torch.optim.lr_scheduler) or a subclass of "
+                    "torch.optim.lr_scheduler.LRScheduler."
+                )
+            self.scheduler_ = self.scheduler(self.optimizer_, **scheduler_kwargs)
+
+        return self.scheduler_
+
+    # --- Memory management ---
+
     def clear_memory(self):
-        """Clear all training-related memory including buffers and optimizer state."""
+        """Clear training-related state (affinities, optimizer, scheduler)."""
         super().clear_memory()
 
-        # Clear affinity_in_ if it's a LazyTensor (from keops backend)
+        # LazyTensors (keops) are not buffers and must be deleted explicitly
         if hasattr(self, "affinity_in_") and isinstance(self.affinity_in, Affinity):
             if self.affinity_in.backend == "keops":
                 delattr(self, "affinity_in_")

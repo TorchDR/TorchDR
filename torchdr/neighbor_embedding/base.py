@@ -36,7 +36,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     - **Loss decomposition**: By default, the loss is decomposed into an
       attractive term and a repulsive term via :meth:`_compute_attractive_loss`
-      and :meth:`_compute_repulsive_loss`. When :attr:`_use_direct_gradients` is
+      and :meth:`_compute_repulsive_loss`. When :attr:`_use_closed_form_gradients` is
       ``True``, subclasses implement :meth:`_compute_attractive_gradients` and
       :meth:`_compute_repulsive_gradients` instead. Subclasses that need a
       different loss structure can override :meth:`_compute_loss` directly.
@@ -234,7 +234,7 @@ class NeighborEmbedding(AffinityMatcher):
 
     @torch.no_grad()
     def _compute_gradients(self):
-        """Compute gradients directly (used when _use_direct_gradients is True)."""
+        """Compute gradients directly (used when _use_closed_form_gradients is True)."""
         gradients = (
             self.early_exaggeration_coeff_ * self._compute_attractive_gradients()
             + self.repulsion_strength * self._compute_repulsive_gradients()
@@ -244,13 +244,13 @@ class NeighborEmbedding(AffinityMatcher):
     def _compute_attractive_gradients(self):
         raise NotImplementedError(
             "[TorchDR] ERROR : _compute_attractive_gradients method must be implemented "
-            "when _use_direct_gradients is True."
+            "when _use_closed_form_gradients is True."
         )
 
     def _compute_repulsive_gradients(self):
         raise NotImplementedError(
             "[TorchDR] ERROR : _compute_repulsive_gradients method must be implemented "
-            "when _use_direct_gradients is True."
+            "when _use_closed_form_gradients is True."
         )
 
     # --- Input validation and fit ---

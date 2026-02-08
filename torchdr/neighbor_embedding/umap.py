@@ -166,7 +166,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         self.negative_sample_rate = negative_sample_rate
 
         self.sparsity = True
-        self._use_direct_gradients = True
+        self._use_closed_form_gradients = True
         self._eps = 1e-3
 
         if a is None or b is None:

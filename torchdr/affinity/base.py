@@ -33,29 +33,22 @@ class Affinity(nn.Module, ABC):
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances.
+        Distance metric for pairwise distances. Default is "sqeuclidean".
     zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero.
+        Whether to set the diagonal to zero. Default is True.
     device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data. If None is passed, it is
-        converted to "auto". Default is "auto".
+        Device for computation. ``"auto"`` uses the input data's device.
+        Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-          (e.g., FaissConfig(temp_memory=2.0))
-        Default is None.
+        Backend for handling sparsity and memory efficiency.
+        Default is None (standard PyTorch).
     verbose : bool, optional
         Verbosity. Default is False.
     compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
+        Whether to compile the affinity computation. Default is False.
     _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
+        If True, skips ``to_torch`` conversion (inputs are already tensors
+        on the correct device). Default is False.
     """
 
     def __init__(
@@ -83,39 +76,7 @@ class Affinity(nn.Module, ABC):
 
         self.logger = set_logger(self.__class__.__name__, self.verbose)
 
-    def _get_compute_device(self, X):
-        """Get the target device for computations.
-
-        Parameters
-        ----------
-        X : torch.Tensor or DataLoader
-            Input data to infer device from if self.device is "auto".
-
-        Returns
-        -------
-        torch.device
-            The device to use for computations.
-        """
-        if self.device != "auto":
-            return self.device
-
-        # For DataLoader, extract device from first batch
-        if isinstance(X, DataLoader):
-            # Check for cached metadata first
-            from torchdr.distance.faiss import get_dataloader_metadata
-
-            metadata = get_dataloader_metadata(X)
-            if metadata is not None and "device" in metadata:
-                return metadata["device"]
-            # Get device from first batch (fallback, should rarely happen)
-            for batch in X:
-                if isinstance(batch, (list, tuple)):
-                    batch = batch[0]
-                return batch.device
-            # If DataLoader is empty, default to CPU
-            return torch.device("cpu")
-
-        return X.device
+    # --- Public API ---
 
     def __call__(self, X: Union[torch.Tensor, np.ndarray], **kwargs):
         r"""Compute the affinity matrix from the input data.
@@ -134,106 +95,88 @@ class Affinity(nn.Module, ABC):
             X = to_torch(X)
         return self._compute_affinity(X, **kwargs)
 
+    # --- Core computation (must be implemented by subclasses) ---
+
     def _compute_affinity(self, X: torch.Tensor):
-        r"""Compute the affinity matrix from the input data.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Input data.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_compute_affinity` method is not implemented by the subclass,
-            a NotImplementedError is raised.
-        """
+        r"""Compute the affinity matrix. Must be overridden by subclasses."""
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_affinity` method is not implemented."
         )
 
-    def _get_n_samples(self, X):
-        """Get number of samples from input (tensor or DataLoader).
-
-        Parameters
-        ----------
-        X : torch.Tensor or DataLoader
-            Input data.
-
-        Returns
-        -------
-        n_samples : int
-            Number of samples.
-        """
-        if isinstance(X, DataLoader):
-            return len(X.dataset)
-        return X.shape[0]
-
-    def _get_dtype(self, X):
-        """Get dtype from input (tensor or DataLoader).
-
-        Parameters
-        ----------
-        X : torch.Tensor or DataLoader
-            Input data.
-
-        Returns
-        -------
-        dtype : torch.dtype
-            Data type.
-        """
-        if isinstance(X, DataLoader):
-            # Check for cached metadata first
-            from torchdr.distance.faiss import get_dataloader_metadata
-
-            metadata = get_dataloader_metadata(X)
-            if metadata is not None:
-                return metadata["dtype"]
-            # Get dtype from first batch (fallback, should rarely happen)
-            for batch in X:
-                if isinstance(batch, (list, tuple)):
-                    batch = batch[0]
-                return batch.dtype
-            # If DataLoader is empty, raise error
-            raise ValueError("[TorchDR] DataLoader is empty, cannot determine dtype.")
-        return X.dtype
+    # --- Distance computation ---
 
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
     ):
-        r"""Compute the pairwise distance matrix from the input data.
-
-        It uses the specified metric and optionally leveraging KeOps
-        for memory efficient computation.
+        r"""Compute the pairwise distance matrix.
 
         Parameters
         ----------
         X : torch.Tensor of shape (n_samples, n_features)
             Input data.
         k : int, optional
-            Number of nearest neighbors to compute the distance matrix. Default is None.
+            Number of nearest neighbors. Default is None (full matrix).
         return_indices : bool, optional
-            Whether to return the indices of the k-nearest neighbors.
-            Default is False.
+            Whether to return k-NN indices. Default is False.
 
         Returns
         -------
         C : torch.Tensor or pykeops.torch.LazyTensor
-            The pairwise distance matrix. The type of the returned matrix depends on the
-            value of the `backend` attribute. If `backend` is `keops`, a KeOps LazyTensor
-            is returned. Otherwise, a torch.Tensor is returned.
+            The pairwise distance matrix.
         """
         return pairwise_distances(
             X=X,
             metric=self.metric,
             backend=self.backend,
-            exclude_diag=self.zero_diag,  # infinite distance means zero affinity
+            exclude_diag=self.zero_diag,
             k=k,
             return_indices=return_indices,
-            device=self.device,  # Pass computation device (can be "auto")
+            device=self.device,
         )
+
+    # --- Utilities ---
+
+    def _get_compute_device(self, X):
+        """Return the target device (from ``self.device`` or inferred from X)."""
+        if self.device != "auto":
+            return self.device
+
+        if isinstance(X, DataLoader):
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None and "device" in metadata:
+                return metadata["device"]
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.device
+            return torch.device("cpu")
+
+        return X.device
+
+    def _get_n_samples(self, X):
+        """Return the number of samples in the input."""
+        if isinstance(X, DataLoader):
+            return len(X.dataset)
+        return X.shape[0]
+
+    def _get_dtype(self, X):
+        """Return the dtype of the input."""
+        if isinstance(X, DataLoader):
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None:
+                return metadata["dtype"]
+            for batch in X:
+                if isinstance(batch, (list, tuple)):
+                    batch = batch[0]
+                return batch.dtype
+            raise ValueError("[TorchDR] DataLoader is empty, cannot determine dtype.")
+        return X.dtype
+
+    # --- Memory management ---
 
     def clear_memory(self):
         """Clear non-persistent buffers to free memory."""
@@ -249,28 +192,24 @@ class Affinity(nn.Module, ABC):
 class LogAffinity(Affinity):
     r"""Base class for affinity matrices in log domain.
 
+    Subclasses must implement :meth:`_compute_log_affinity`.
+
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances.
+        Distance metric for pairwise distances. Default is "sqeuclidean".
     device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data.
+        Device for computation. ``"auto"`` uses the input data's device.
+        Default is "auto".
     backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
+        Backend for handling sparsity and memory efficiency.
+        Default is None (standard PyTorch).
     verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
+        Verbosity. Default is False.
     compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
+        Whether to compile the affinity computation. Default is False.
     _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
+        If True, skips ``to_torch`` conversion. Default is False.
     """
 
     def __init__(
@@ -296,23 +235,24 @@ class LogAffinity(Affinity):
         )
 
     def __call__(
-        self, X: Union[torch.Tensor, np.ndarray], log: bool = False, **kwargs: Any
+        self,
+        X: Union[torch.Tensor, np.ndarray],
+        log: bool = False,
+        **kwargs: Any,
     ):
-        r"""Compute the affinity matrix from the input data.
+        r"""Compute the affinity matrix (or its log) from the input data.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
             Input data.
         log : bool, optional
-            If True, returns the log of the affinity matrix. Else, returns
-            the affinity matrix by exponentiating the log affinity matrix.
+            If True, returns the log affinity. Otherwise, exponentiates it.
 
         Returns
         -------
         affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            The computed log affinity matrix if `log` is True, otherwise the
-            exponentiated log affinity matrix.
+            The affinity matrix (or log affinity if ``log=True``).
         """
         if not self._pre_processed:
             X = to_torch(X)
@@ -323,21 +263,7 @@ class LogAffinity(Affinity):
             return log_affinity.exp()
 
     def _compute_log_affinity(self, X: torch.Tensor, **kwargs):
-        r"""Compute the log affinity matrix from the input data.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Input data.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_compute_log_affinity` method is not implemented by the subclass,
-            a NotImplementedError is raised.
-        """
+        r"""Compute the log affinity matrix. Must be overridden by subclasses."""
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_log_affinity` method is not implemented."
         )
@@ -346,57 +272,39 @@ class LogAffinity(Affinity):
 class SparseAffinity(Affinity):
     r"""Base class for sparse affinity matrices.
 
-    If sparsity is enabled, returns the affinity matrix in a rectangular format
-    with the corresponding indices.
-    Otherwise, returns the full affinity matrix and None.
+    Returns the affinity matrix in rectangular format (n_samples, k) with
+    the corresponding k-NN indices when sparsity is enabled. Otherwise,
+    returns the full (n_samples, n_samples) matrix.
 
-    **Distributed Training:** This class supports multi-GPU distributed training
-    via the ``distributed`` parameter. When enabled (using ``torchrun``), each GPU
-    processes one chunk of the dataset in parallel:
+    **Distributed training:** When ``distributed='auto'`` (default) and
+    launched with ``torchrun``, each GPU processes a chunk of the dataset
+    in parallel. Requires ``sparsity=True`` and ``backend="faiss"``.
 
-    - The full dataset (n_samples) is partitioned across GPUs by rows
-    - Each GPU computes k-NN affinities for its assigned chunk against the full dataset
-    - GPU i handles rows [chunk_start_i, chunk_end_i) where chunks are balanced across GPUs
-    - All GPUs maintain the full dataset in memory but only compute distances for their chunk
-    - Distributed mode requires ``sparsity=True`` and ``backend="faiss"``
-
-    Example: With 2 GPUs and 10,000 samples, GPU 0 computes rows 0-5,000 and
-    GPU 1 computes rows 5,000-10,000. Launch with:
-    ``torchrun --nproc_per_node=2 script.py``
+    Subclasses must implement :meth:`_compute_sparse_affinity`.
 
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances.
-        Default is "sqeuclidean".
+        Distance metric for pairwise distances. Default is "sqeuclidean".
     zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+        Whether to set the diagonal to zero. Default is True.
     device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
-    compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
-    sparsity : bool or 'auto', optional
-        Whether to compute the affinity matrix in a sparse format. Default is "auto".
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
+        Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
+    backend : {"keops", "faiss", None} or FaissConfig, optional
+        Backend for handling sparsity and memory efficiency.
+        Default is None (standard PyTorch).
+    verbose : bool, optional
+        Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity computation. Default is False.
+    sparsity : bool or 'auto', optional
+        Whether to use sparse (rectangular) format. Default is True.
+    distributed : bool or 'auto', optional
+        Whether to use distributed multi-GPU computation.
+        ``"auto"`` detects ``torchrun`` automatically. Default is "auto".
     _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
+        If True, skips ``to_torch`` conversion. Default is False.
     """
 
     def __init__(
@@ -412,6 +320,7 @@ class SparseAffinity(Affinity):
         random_state: float = None,
         _pre_processed: bool = False,
     ):
+        # --- Distributed setup ---
         if distributed == "auto":
             self.distributed = dist.is_initialized()
         else:
@@ -420,35 +329,34 @@ class SparseAffinity(Affinity):
         if self.distributed:
             if not dist.is_initialized():
                 raise RuntimeError(
-                    "[TorchDR] distributed=True requires launching with torchrun. "
+                    "[TorchDR] distributed=True requires launching with "
+                    "torchrun. "
                     "Example: torchrun --nproc_per_node=4 your_script.py"
                 )
 
-            # Create distributed context
             self.dist_ctx = DistributedContext()
             self.rank = self.dist_ctx.rank
             self.world_size = self.dist_ctx.world_size
             self.is_multi_gpu = self.world_size > 1
 
-            # Bind to local CUDA device
             if device == "cpu":
                 raise ValueError(
                     "[TorchDR] Distributed mode requires GPU (device cannot be 'cpu')"
                 )
             device = torch.device(f"cuda:{self.dist_ctx.local_rank}")
 
-            # Force sparsity for distributed mode
+            # Force sparsity and FAISS backend for distributed mode
             self._sparsity_forced = not sparsity
             if self._sparsity_forced:
                 sparsity = True
 
-            # Track if backend was forced (for warning messages)
-            self._backend_forced = backend not in ["faiss", None] and not isinstance(
-                backend, FaissConfig
-            )
+            self._backend_forced = backend not in [
+                "faiss",
+                None,
+            ] and not isinstance(backend, FaissConfig)
             if self._backend_forced:
                 self._original_backend = backend
-                backend = "faiss"  # Override backend for distributed mode
+                backend = "faiss"
         else:
             self.dist_ctx = None
             self.rank = 0
@@ -474,45 +382,87 @@ class SparseAffinity(Affinity):
                 )
             if self._backend_forced:
                 self.logger.warning(
-                    f"Distributed mode requires FAISS backend, switching from '{self._original_backend}' to 'faiss'."
+                    f"Distributed mode requires FAISS backend, "
+                    f"switching from '{self._original_backend}' to 'faiss'."
                 )
             if self.is_multi_gpu:
                 self.logger.info(
                     f"Distributed mode enabled: rank {self.rank}/{self.world_size}"
                 )
 
+    # --- Sparsity property ---
+
     @property
     def sparsity(self):
-        """Return the sparsity of the affinity matrix."""
+        """Return the sparsity setting."""
         return self._sparsity
 
     @sparsity.setter
     def sparsity(self, value):
-        """Set the sparsity of the affinity matrix."""
+        """Set the sparsity setting."""
         self._sparsity = bool_arg(value)
+
+    # --- Public API ---
+
+    def __call__(
+        self,
+        X: Union[torch.Tensor, np.ndarray],
+        return_indices: bool = True,
+        **kwargs,
+    ):
+        r"""Compute the sparse affinity matrix from the input data.
+
+        Parameters
+        ----------
+        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
+            Input data.
+        return_indices : bool, optional
+            Whether to return k-NN indices. Default is True.
+
+        Returns
+        -------
+        affinity_matrix : torch.Tensor
+            The computed affinity matrix.
+        indices : torch.Tensor or None
+            k-NN indices if ``return_indices=True`` and sparsity is enabled.
+        """
+        if not self._pre_processed:
+            X = to_torch(X)
+        return self._compute_sparse_affinity(X, return_indices, **kwargs)
+
+    # --- Core computation (must be implemented by subclasses) ---
+
+    def _compute_sparse_affinity(
+        self, X: torch.Tensor, return_indices: bool = True, **kwargs
+    ):
+        r"""Compute the sparse affinity matrix. Must be overridden."""
+        raise NotImplementedError(
+            "[TorchDR] ERROR : `_compute_sparse_affinity` method is not implemented."
+        )
+
+    # --- Distance computation ---
 
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
     ):
-        """Override to pass distributed context to pairwise_distances.
+        """Compute pairwise distances, passing distributed context if active.
 
         Parameters
         ----------
         X : torch.Tensor
-            Input data tensor.
+            Input data.
         k : int, optional
             Number of nearest neighbors.
         return_indices : bool, default=False
-            Whether to return indices along with distances.
+            Whether to return k-NN indices.
 
         Returns
         -------
         distances : torch.Tensor
             Distance matrix.
         indices : torch.Tensor, optional
-            Indices if return_indices=True.
+            Indices if ``return_indices=True``.
         """
-        # Pass distributed context to pairwise_distances if in distributed mode
         result = pairwise_distances(
             X=X,
             metric=self.metric,
@@ -524,7 +474,7 @@ class SparseAffinity(Affinity):
             distributed_ctx=self.dist_ctx if self.distributed else None,
         )
 
-        # Store chunk bounds for later use (e.g., distributed symmetrization)
+        # Store chunk bounds for downstream use (e.g. distributed symmetrization)
         if self.distributed and self.dist_ctx is not None:
             chunk_start, chunk_end = self.dist_ctx.compute_chunk_bounds(
                 self._get_n_samples(X)
@@ -535,94 +485,38 @@ class SparseAffinity(Affinity):
 
         return result
 
-    def __call__(
-        self, X: Union[torch.Tensor, np.ndarray], return_indices: bool = True, **kwargs
-    ):
-        r"""Compute the affinity matrix from the input data.
-
-        Parameters
-        ----------
-        X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Input data.
-
-        Returns
-        -------
-        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            The computed affinity matrix.
-        indices : torch.Tensor
-            If return_indices is True, returns the indices of the non-zero elements
-            in the affinity matrix if sparsity is enabled. Otherwise, returns None.
-        """
-        if not self._pre_processed:
-            X = to_torch(X)
-        return self._compute_sparse_affinity(X, return_indices, **kwargs)
-
-    def _compute_sparse_affinity(
-        self, X: torch.Tensor, return_indices: bool = True, **kwargs
-    ):
-        r"""Compute the sparse affinity matrix from the input data.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Input data.
-        return_indices : bool, optional
-            If True, returns the indices of the non-zero elements in the affinity matrix
-            if sparsity is enabled. Default is False.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_compute_sparse_affinity` method is not implemented by
-            the subclass, a NotImplementedError is raised.
-        """
-        raise NotImplementedError(
-            "[TorchDR] ERROR : `_compute_sparse_affinity` method is not implemented."
-        )
-
 
 class SparseLogAffinity(SparseAffinity, LogAffinity):
     r"""Base class for sparse log affinity matrices.
 
-    If sparsity is enabled, returns the log affinity matrix in a rectangular format
-    with the corresponding indices.
-    Otherwise, returns the full affinity matrix and None.
+    Combines :class:`SparseAffinity` (sparse format, distributed support)
+    with :class:`LogAffinity` (log-domain computation).
+
+    Subclasses must implement :meth:`_compute_sparse_log_affinity`.
 
     Parameters
     ----------
     metric : str, optional
-        The distance metric to use for computing pairwise distances.
-        Default is "sqeuclidean".
+        Distance metric for pairwise distances. Default is "sqeuclidean".
     zero_diag : bool, optional
-        Whether to set the diagonal of the affinity matrix to zero. Default is True.
+        Whether to set the diagonal to zero. Default is True.
     device : str, optional
-        The device to use for computation. Typically "cuda" for GPU or "cpu" for CPU.
-        If "auto", uses the device of the input data. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
-    verbose : bool, optional
-        If True, prints additional information during computation. Default is False.
-    compile : bool, optional
-        Whether to compile the affinity matrix computation. Default is False.
-    sparsity : bool or 'auto', optional
-        Whether to compute the affinity matrix in a sparse format. Default is "auto".
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
+        Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
+    backend : {"keops", "faiss", None} or FaissConfig, optional
+        Backend for handling sparsity and memory efficiency.
+        Default is None (standard PyTorch).
+    verbose : bool, optional
+        Verbosity. Default is False.
+    compile : bool, optional
+        Whether to compile the affinity computation. Default is False.
+    sparsity : bool or 'auto', optional
+        Whether to use sparse (rectangular) format. Default is True.
+    distributed : bool or 'auto', optional
+        Whether to use distributed multi-GPU computation.
+        ``"auto"`` detects ``torchrun`` automatically. Default is "auto".
     _pre_processed : bool, optional
-        If True, assumes inputs are already torch tensors on the correct device
-        and skips the `to_torch` conversion. Default is False.
+        If True, skips ``to_torch`` conversion. Default is False.
     """
 
     def __call__(
@@ -632,30 +526,23 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
         return_indices: bool = True,
         **kwargs,
     ):
-        r"""Compute and return the log affinity matrix from input data.
-
-        If sparsity is enabled, returns the log affinity in rectangular format with the
-        corresponding indices. Otherwise, returns the full affinity matrix and None.
+        r"""Compute the sparse (log) affinity matrix from the input data.
 
         Parameters
         ----------
         X : torch.Tensor or np.ndarray of shape (n_samples, n_features)
-            Input data used to compute the affinity matrix.
+            Input data.
         log : bool, optional
-            If True, returns the log of the affinity matrix. Else, returns
-            the affinity matrix by exponentiating the log affinity matrix.
+            If True, returns the log affinity. Otherwise, exponentiates it.
         return_indices : bool, optional
-            If True, returns the indices of the non-zero elements in the affinity matrix
-            if sparsity is enabled. Default is False.
+            Whether to return k-NN indices. Default is True.
 
         Returns
         -------
-        affinity_matrix : torch.Tensor or pykeops.torch.LazyTensor
-            The computed log affinity matrix if `log` is True, otherwise the
-            exponentiated log affinity matrix.
-        indices : torch.Tensor
-            If return_indices is True, returns the indices of the non-zero elements
-            in the affinity matrix if sparsity is enabled. Otherwise, returns None.
+        affinity_matrix : torch.Tensor
+            The affinity matrix (or log affinity if ``log=True``).
+        indices : torch.Tensor or None
+            k-NN indices if ``return_indices=True`` and sparsity is enabled.
         """
         if not self._pre_processed:
             X = to_torch(X)
@@ -676,24 +563,7 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
     def _compute_sparse_log_affinity(
         self, X: torch.Tensor, return_indices: bool = False, **kwargs
     ):
-        r"""Compute the log affinity matrix in a sparse format from the input data.
-
-        This method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        X : torch.Tensor of shape (n_samples, n_features)
-            Input data.
-        return_indices : bool, optional
-            If True, returns the indices of the non-zero elements in the affinity matrix
-            if sparsity is enabled. Default is False.
-
-        Raises
-        ------
-        NotImplementedError
-            If the `_compute_sparse_log_affinity` method is not implemented by
-            the subclass, a NotImplementedError is raised.
-        """
+        r"""Compute the sparse log affinity matrix. Must be overridden."""
         raise NotImplementedError(
             "[TorchDR] ERROR : `_compute_sparse_log_affinity` method is "
             "not implemented."
