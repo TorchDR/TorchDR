@@ -253,22 +253,7 @@ class NeighborEmbedding(AffinityMatcher):
             "when _use_direct_gradients is True."
         )
 
-    # --- Early exaggeration ---
-
-    def on_training_step_end(self):
-        """End early exaggeration phase when the iteration threshold is reached."""
-        if (
-            self.early_exaggeration_coeff_ > 1
-            and self.n_iter_ == self.early_exaggeration_iter
-        ):
-            self.early_exaggeration_coeff_ = 1
-            # Reinitialize optimizer with post-exaggeration hyperparameters
-            # (higher momentum, adjusted learning rate).
-            self._set_learning_rate()
-            self._configure_optimizer()
-            self._configure_scheduler()
-
-        return self
+    # --- Input validation and fit ---
 
     def _check_n_neighbors(self, n):
         """Validate that the number of samples exceeds perplexity / n_neighbors."""
@@ -291,6 +276,23 @@ class NeighborEmbedding(AffinityMatcher):
         self.early_exaggeration_coeff_ = self.early_exaggeration_coeff
 
         return super()._fit_transform(X, y)
+
+    # --- Early exaggeration ---
+
+    def on_training_step_end(self):
+        """End early exaggeration phase when the iteration threshold is reached."""
+        if (
+            self.early_exaggeration_coeff_ > 1
+            and self.n_iter_ == self.early_exaggeration_iter
+        ):
+            self.early_exaggeration_coeff_ = 1
+            # Reinitialize optimizer with post-exaggeration hyperparameters
+            # (higher momentum, adjusted learning rate).
+            self._set_learning_rate()
+            self._configure_optimizer()
+            self._configure_scheduler()
+
+        return self
 
     # --- Auto learning rate and optimizer ---
 
