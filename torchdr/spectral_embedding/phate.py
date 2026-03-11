@@ -58,6 +58,10 @@ class PHATE(AffinityMatcher):
         - "faiss": kNN with FAISS backend
         - "keops": kNN with KeOps backend
         - FaissConfig: kNN with a custom FAISS configuration
+    n_landmarks : int or None, optional
+        Number of landmarks for landmark PHATE. If None, landmarking is disabled.
+    random_landmarking : bool, optional
+        If True, use random landmark assignment; otherwise use spectral landmarking.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "Adam".
@@ -119,6 +123,8 @@ class PHATE(AffinityMatcher):
         knn_max: Optional[int] = None,
         thresh: Optional[float] = 1e-4,
         knn_backend: Union[str, FaissConfig, None] = None,
+        n_landmarks: Optional[int] = None,
+        random_landmarking: bool = False,
         optimizer: str = "Adam",
         optimizer_kwargs: dict = {},
         lr: float = 1e0,
@@ -153,6 +159,8 @@ class PHATE(AffinityMatcher):
         self.knn_max = knn_max
         self.thresh = thresh
         self.knn_backend = knn_backend
+        self.n_landmarks = n_landmarks
+        self.random_landmarking = random_landmarking
         self.mds_solver = mds_solver
         self.pairs_per_iter = pairs_per_iter
         self.sgd_learning_rate = sgd_learning_rate
@@ -174,6 +182,23 @@ class PHATE(AffinityMatcher):
             raise ValueError(
                 f"[TorchDR] ERROR : sgd_stress_tol must be positive. Got {self.sgd_stress_tol}."
             )
+        if self.n_landmarks is not None and self.n_landmarks <= 1:
+            raise ValueError(
+                "[TorchDR] ERROR : n_landmarks must be > 1 or None. "
+                f"Got {self.n_landmarks}."
+            )
+        if self.random_landmarking and self.n_landmarks is None:
+            warnings.warn(
+                "random_landmarking=True has no effect when n_landmarks=None.",
+                RuntimeWarning,
+            )
+        if self.n_landmarks is not None and self.mds_solver != "sgd":
+            warnings.warn(
+                "Landmark PHATE currently uses SGD-MDS optimization in TorchDR. "
+                "Overriding mds_solver to 'sgd'.",
+                RuntimeWarning,
+            )
+            self.mds_solver = "sgd"
 
         affinity_in = PHATEAffinity(
             k=k,
@@ -182,10 +207,13 @@ class PHATE(AffinityMatcher):
             knn_max=knn_max,
             thresh=thresh,
             knn_backend=knn_backend,
+            n_landmarks=n_landmarks,
+            random_landmarking=random_landmarking,
             metric=metric_in,
             backend=backend,
             device=device,
             verbose=verbose,
+            random_state=random_state,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -324,6 +352,19 @@ class PHATE(AffinityMatcher):
         if d_max > 0:
             with torch.no_grad():
                 self.embedding_.mul_(d_max)
+
+        transitions = getattr(self.affinity_in, "transitions_", None)
+        if transitions is not None:
+            if self.verbose:
+                self.logger.info(
+                    "Interpolating landmark embedding back to full data "
+                    f"(n={transitions.shape[0]}, n_landmarks={transitions.shape[1]})."
+                )
+            transitions = transitions.to(
+                device=self.embedding_.device, dtype=self.embedding_.dtype
+            )
+            self.landmark_embedding_ = self.embedding_
+            self.embedding_ = transitions @ self.landmark_embedding_
 
         if self.verbose:
             self.logger.info(

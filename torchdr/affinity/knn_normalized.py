@@ -10,6 +10,7 @@ import time
 from typing import Optional, Tuple, Union
 
 import torch
+from sklearn.cluster import MiniBatchKMeans
 
 from torchdr.affinity.base import Affinity, LogAffinity, SparseAffinity
 from torchdr.distance import FaissConfig
@@ -290,6 +291,11 @@ class PHATEAffinity(Affinity):
         - "faiss": kNN with FAISS backend
         - "keops": kNN with KeOps backend
         - FaissConfig: kNN with a custom FAISS configuration
+    n_landmarks : int or None, optional (default=None)
+        Number of landmarks used for landmark PHATE. If None, landmarking is disabled.
+    random_landmarking : bool, optional (default=False)
+        If True, landmark assignment uses random landmark selection; if False,
+        uses spectral clustering (default PHATE behavior).
     compile : bool, optional
         Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
@@ -309,6 +315,9 @@ class PHATEAffinity(Affinity):
         thresh: Optional[float] = 1e-4,
         knn_max: Optional[int] = None,
         knn_backend: Union[str, FaissConfig, None] = None,
+        n_landmarks: Optional[int] = None,
+        random_landmarking: bool = False,
+        random_state: Optional[float] = None,
         compile: bool = False,
         _pre_processed: bool = False,
     ):
@@ -322,6 +331,7 @@ class PHATEAffinity(Affinity):
             device=device,
             backend=backend,
             verbose=verbose,
+            random_state=random_state,
             compile=compile,
             zero_diag=False,
             _pre_processed=_pre_processed,
@@ -333,6 +343,8 @@ class PHATEAffinity(Affinity):
         self.thresh = thresh
         self.knn_max = knn_max
         self.knn_backend = knn_backend
+        self.n_landmarks = n_landmarks
+        self.random_landmarking = random_landmarking
 
         if self.thresh is not None and not (0 < self.thresh < 1):
             raise ValueError(
@@ -341,6 +353,11 @@ class PHATEAffinity(Affinity):
         if self.knn_max is not None and self.knn_max <= 0:
             raise ValueError(
                 f"[TorchDR] ERROR : knn_max must be positive or None. Got {self.knn_max}."
+            )
+        if self.n_landmarks is not None and self.n_landmarks <= 1:
+            raise ValueError(
+                "[TorchDR] ERROR : n_landmarks must be > 1 or None. "
+                f"Got {self.n_landmarks}."
             )
 
         if not isinstance(self.knn_backend, FaissConfig):
@@ -353,6 +370,94 @@ class PHATEAffinity(Affinity):
                 )
         if self.knn_backend is None:
             self.knn_backend = "torch"
+
+    def _clear_landmark_state(self):
+        for name in ["transitions_", "clusters_", "landmark_op_", "landmark_indices_"]:
+            if hasattr(self, name):
+                delattr(self, name)
+
+    def _build_landmark_operator(
+        self, X: torch.Tensor, kernel: torch.Tensor, transition: torch.Tensor
+    ) -> Optional[torch.Tensor]:
+        n = X.shape[0]
+        if self.n_landmarks is None or n <= self.n_landmarks:
+            return None
+
+        n_landmarks_target = int(self.n_landmarks)
+        if n_landmarks_target <= 1:
+            return None
+
+        if self.random_landmarking:
+            if self.random_state is not None:
+                gen_device = X.device if X.device.type in {"cpu", "cuda"} else "cpu"
+                generator = torch.Generator(device=gen_device)
+                generator.manual_seed(int(self.random_state))
+                permutation = torch.randperm(n, device=X.device, generator=generator)
+            else:
+                permutation = torch.randperm(n, device=X.device)
+
+            landmark_indices = permutation[:n_landmarks_target]
+            distances = torch.cdist(
+                X.to(torch.float32),
+                X[landmark_indices].to(torch.float32),
+            )
+            cluster_assignments = distances.argmin(dim=1)
+
+            self.register_buffer(
+                "landmark_indices_", landmark_indices, persistent=False
+            )
+        else:
+            n_svd = min(100, max(2, n - 1))
+            degrees = kernel.sum(dim=1, keepdim=True).clamp_min(1e-12)
+            diff_aff = kernel / torch.sqrt(degrees @ degrees.T)
+
+            # CPU PHATE uses spectral features before KMeans; use low-rank PCA/SVD
+            # on the symmetric diffusion affinity for scalability.
+            _, _, V = torch.pca_lowrank(
+                diff_aff.to(torch.float32), q=n_svd, center=False, niter=2
+            )
+            spectral_features = transition @ V[:, :n_svd]
+
+            kmeans = MiniBatchKMeans(
+                n_clusters=n_landmarks_target,
+                init_size=3 * n_landmarks_target,
+                n_init=1,
+                batch_size=10000,
+                random_state=None
+                if self.random_state is None
+                else int(self.random_state),
+            )
+            labels_np = kmeans.fit_predict(spectral_features.detach().cpu().numpy())
+            cluster_assignments = torch.from_numpy(labels_np).to(
+                device=X.device, dtype=torch.long
+            )
+
+        _, cluster_assignments = torch.unique(
+            cluster_assignments, sorted=True, return_inverse=True
+        )
+        n_landmarks_eff = int(cluster_assignments.max().item()) + 1
+
+        if self.verbose and n_landmarks_eff < n_landmarks_target:
+            self.logger.info(
+                "Requested n_landmarks=%d, obtained %d non-empty landmark clusters.",
+                n_landmarks_target,
+                n_landmarks_eff,
+            )
+
+        pmn = torch.zeros(
+            (n_landmarks_eff, n), dtype=kernel.dtype, device=kernel.device
+        )
+        pmn.index_add_(0, cluster_assignments, kernel)
+
+        pnm = pmn.T
+        pmn = pmn / pmn.sum(dim=1, keepdim=True).clamp_min(1e-12)
+        pnm = pnm / pnm.sum(dim=1, keepdim=True).clamp_min(1e-12)
+        landmark_op = pmn @ pnm
+
+        self.register_buffer("clusters_", cluster_assignments, persistent=False)
+        self.register_buffer("transitions_", pnm, persistent=False)
+        self.register_buffer("landmark_op_", landmark_op, persistent=False)
+        return landmark_op
 
     def _resolve_knn_backend(self):
         if isinstance(self.knn_backend, FaissConfig):
@@ -453,18 +558,23 @@ class PHATEAffinity(Affinity):
 
     @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
+        self._clear_landmark_state()
+
         t_total = time.perf_counter()
         t0 = time.perf_counter()
-        affinity = self._compute_sparse_knn_kernel(X)
+        kernel = self._compute_sparse_knn_kernel(X)
         t_kernel = time.perf_counter() - t0
 
         t0 = time.perf_counter()
-        affinity = (affinity + matrix_transpose(affinity)) / 2
-        affinity = affinity / sum_red(affinity, dim=1).clamp_min(1e-12)
+        kernel = (kernel + matrix_transpose(kernel)) / 2
+        transition = kernel / sum_red(kernel, dim=1).clamp_min(1e-12)
         t_stochastic = time.perf_counter() - t0
 
+        landmark_op = self._build_landmark_operator(X, kernel, transition)
+        diffusion_source = landmark_op if landmark_op is not None else transition
+
         t0 = time.perf_counter()
-        affinity = matrix_power(affinity.to(torch.float64), self.t)
+        affinity = matrix_power(diffusion_source.to(torch.float64), self.t)
         t_diffusion = time.perf_counter() - t0
 
         t0 = time.perf_counter()
