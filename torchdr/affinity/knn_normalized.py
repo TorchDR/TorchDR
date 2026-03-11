@@ -334,7 +334,7 @@ class PHATEAffinity(Affinity):
         super().__init__(
             metric=metric,
             device=device,
-            backend=None,
+            backend=backend,
             verbose=verbose,
             random_state=random_state,
             compile=compile,
@@ -347,7 +347,6 @@ class PHATEAffinity(Affinity):
         self.t = t
         self.thresh = thresh
         self.knn_max = knn_max
-        self.knn_backend = backend
         self.n_landmarks = n_landmarks
         self.random_landmarking = random_landmarking
 
@@ -455,7 +454,7 @@ class PHATEAffinity(Affinity):
 
     def _compute_sparse_knn_kernel(self, X: torch.Tensor):
         t_knn_start = time.perf_counter()
-        search_backend = None
+        search_backend = self.backend
         n = X.shape[0]
         k_sigma = check_neighbor_param(self.k, n)
         max_neighbors = n - 1
@@ -489,7 +488,7 @@ class PHATEAffinity(Affinity):
             self.logger.info(
                 "Starting kNN graph query (k_build=%d, backend=%s)...",
                 k_build,
-                "None",
+                str(search_backend),
             )
         knn_dist, knn_indices = _query_knn(k_build)
         if self.verbose:
@@ -497,7 +496,7 @@ class PHATEAffinity(Affinity):
                 "kNN graph query completed in %.2fs (k_build=%d, backend=%s).",
                 time.perf_counter() - t_knn_start,
                 k_build,
-                "None",
+                str(search_backend),
             )
         sigma = knn_dist[:, k_sigma - 1].clamp_min(1e-12)
         weights = torch.exp(-((knn_dist / sigma[:, None]) ** self.alpha))
