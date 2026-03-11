@@ -3,6 +3,7 @@
 # Author: Guillaume Huguet @guillaumehu
 #         Danqi Liao @Danqi7
 #         Hugues Van Assel @huguesva
+#         Matthew Scicluna <mattcscicluna@gmail.com>
 #
 # License: BSD 3-Clause License
 
@@ -16,8 +17,8 @@ import numpy as np
 
 from torchdr.affinity import PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import square_loss, check_NaNs, to_torch
-from torchdr.distance import pairwise_distances, FaissConfig
+from torchdr.utils import check_NaNs, to_torch
+from torchdr.distance import FaissConfig
 
 
 class PHATE(AffinityMatcher):
@@ -51,31 +52,16 @@ class PHATE(AffinityMatcher):
     thresh : float or None, optional
         Threshold used to keep alpha-decay affinities in the pre-diffusion
         kernel. Default is 1e-4. If None, keeps strict kNN-only entries.
-    knn_backend : {"torch", "faiss", "keops", None} or FaissConfig, optional
+    backend : {"faiss", "keops", None} or FaissConfig, optional
         Backend used to build a sparse kNN kernel before diffusion:
-        - None: same as "torch" (default behavior)
-        - "torch": kNN with PyTorch backend
-        - "faiss": kNN with FAISS backend
-        - "keops": kNN with KeOps backend
+        - None: PyTorch backend (current default)
+        - "faiss": reserved for future FAISS support
+        - "keops": reserved for future KeOps support
         - FaissConfig: kNN with a custom FAISS configuration
     n_landmarks : int or None, optional
         Number of landmarks for landmark PHATE. If None, landmarking is disabled.
     random_landmarking : bool, optional
         If True, use random landmark assignment; otherwise use spectral landmarking.
-    optimizer : str or torch.optim.Optimizer, optional
-        Name of an optimizer from torch.optim or an optimizer class.
-        Default is "Adam".
-    optimizer_kwargs : dict, optional
-        Additional keyword arguments for the optimizer.
-    lr : float or 'auto', optional
-        Learning rate for the optimizer. Default is 1e0.
-    scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
-        Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
-        Default is None (no scheduler).
-    scheduler_kwargs : dict, optional
-        Additional keyword arguments for the scheduler.
-    min_grad_norm : float, optional
-        Tolerance for stopping criterion. Default is 1e-15.
     max_iter : int, optional
         Maximum number of iterations. Default is 1000.
     init : str, torch.Tensor, or np.ndarray, optional
@@ -84,25 +70,15 @@ class PHATE(AffinityMatcher):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Which backend to use for handling sparsity and memory efficiency.
-        Can be:
-        - "keops": Use KeOps for memory-efficient symbolic computations
-        - "faiss": Use FAISS for fast k-NN computations with default settings
-        - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
-        Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
     random_state : float, optional
         Random seed for reproducibility. Default is None.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
-    mds_solver : {"adam", "sgd"}, optional
+    mds_solver : {"sgd"}, optional
         Solver used for the PHATE MDS optimization step.
-        - "adam": existing full-matrix autograd optimization
-        - "sgd": sampled-pair SGD-MDS-style optimization
-        Default is "adam".
+        Only ``"sgd"`` is supported.
     pairs_per_iter : int or None, optional
         Number of pairs sampled per iteration when ``mds_solver="sgd"``.
         If None, uses ``2 * n_samples * log(n_samples)``.
@@ -122,7 +98,7 @@ class PHATE(AffinityMatcher):
         decay: Optional[float] = None,
         knn_max: Optional[int] = None,
         thresh: Optional[float] = 1e-4,
-        knn_backend: Union[str, FaissConfig, None] = None,
+        backend: Union[str, FaissConfig, None] = None,
         n_landmarks: Optional[int] = None,
         random_landmarking: bool = False,
         optimizer: str = "Adam",
@@ -135,19 +111,18 @@ class PHATE(AffinityMatcher):
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
         metric_in: str = "euclidean",
-        mds_solver: str = "adam",
+        mds_solver: str = "sgd",
         pairs_per_iter: Optional[int] = None,
         sgd_learning_rate: float = 1e-3,
         sgd_stress_tol: float = 1e-6,
     ):
-        if isinstance(backend, FaissConfig) or backend == "faiss" or backend == "keops":
+        if isinstance(backend, FaissConfig) or backend in {"faiss", "keops"}:
             raise ValueError(
-                f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
+                f"[TorchDR] ERROR : backend={backend} is not implemented yet for PHATE."
             )
 
         self.metric_in = metric_in
@@ -158,7 +133,7 @@ class PHATE(AffinityMatcher):
         self.alpha = alpha
         self.knn_max = knn_max
         self.thresh = thresh
-        self.knn_backend = knn_backend
+        self.knn_backend = backend
         self.n_landmarks = n_landmarks
         self.random_landmarking = random_landmarking
         self.mds_solver = mds_solver
@@ -166,9 +141,9 @@ class PHATE(AffinityMatcher):
         self.sgd_learning_rate = sgd_learning_rate
         self.sgd_stress_tol = sgd_stress_tol
 
-        if self.mds_solver not in {"adam", "sgd"}:
+        if self.mds_solver != "sgd":
             raise ValueError(
-                f"[TorchDR] ERROR : mds_solver must be one of {{'adam', 'sgd'}}. Got {self.mds_solver}."
+                f"[TorchDR] ERROR : mds_solver must be 'sgd'. Got {self.mds_solver}."
             )
         if self.pairs_per_iter is not None and self.pairs_per_iter <= 0:
             raise ValueError(
@@ -192,13 +167,6 @@ class PHATE(AffinityMatcher):
                 "random_landmarking=True has no effect when n_landmarks=None.",
                 RuntimeWarning,
             )
-        if self.n_landmarks is not None and self.mds_solver != "sgd":
-            warnings.warn(
-                "Landmark PHATE currently uses SGD-MDS optimization in TorchDR. "
-                "Overriding mds_solver to 'sgd'.",
-                RuntimeWarning,
-            )
-            self.mds_solver = "sgd"
 
         affinity_in = PHATEAffinity(
             k=k,
@@ -206,11 +174,10 @@ class PHATE(AffinityMatcher):
             alpha=alpha,
             knn_max=knn_max,
             thresh=thresh,
-            knn_backend=knn_backend,
+            backend=backend,
             n_landmarks=n_landmarks,
             random_landmarking=random_landmarking,
             metric=metric_in,
-            backend=backend,
             device=device,
             verbose=verbose,
             random_state=random_state,
@@ -229,16 +196,13 @@ class PHATE(AffinityMatcher):
             init=init,
             init_scaling=init_scaling,
             device=device,
-            backend=backend,
+            backend=None,
             verbose=verbose,
             random_state=random_state,
             check_interval=check_interval,
         )
 
     def _fit_transform(self, X, y=None):
-        # Keep existing behavior by default.
-        if self.mds_solver != "sgd":
-            return super()._fit_transform(X, y=y)
         return self._fit_transform_sgd(X, y=y)
 
     def _fit_transform_sgd(self, X, y=None):
@@ -429,17 +393,3 @@ class PHATE(AffinityMatcher):
 
         self.embedding_ = embedding_.requires_grad_(True)
         return self.embedding_
-
-    def _compute_loss(self):
-        Q = (
-            -pairwise_distances(
-                self.embedding_,
-                metric="sqeuclidean",
-                backend=self.backend,
-                device=self.device,
-            )
-            .clamp(min=1e-12)
-            .sqrt()
-        )  # for numerical stability
-        loss = square_loss(self.affinity_in_, Q) / (self.affinity_in_**2).sum()
-        return loss.sqrt()

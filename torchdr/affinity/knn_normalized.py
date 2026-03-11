@@ -2,6 +2,7 @@
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #         Cédric Vincent-Cuaz <cedric.vincent-cuaz@inria.fr>
+#         Matthew Scicluna <mattcscicluna@gmail.com>
 #
 # License: BSD 3-Clause License
 
@@ -266,8 +267,12 @@ class PHATEAffinity(Affinity):
         Metric to use for pairwise distances computation.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None}, optional (default=None)
-        Which backend to use for the final potential-distance affinity computation.
+    backend : {"faiss", "keops", None} or FaissConfig, optional (default=None)
+        Backend used to build the kNN graph before diffusion:
+        - None: PyTorch backend (current default)
+        - "faiss": reserved for future FAISS support
+        - "keops": reserved for future KeOps support
+        - FaissConfig: kNN with a custom FAISS configuration
     verbose : bool, optional (default=False)
         Whether to print verbose output during computation.
     k : int, optional (default=5)
@@ -284,13 +289,6 @@ class PHATEAffinity(Affinity):
         Maximum number of neighbors to query when expanding the kNN search for
         thresholded alpha-decay neighborhoods. If None, expansion can grow up to
         ``n_samples - 1``.
-    knn_backend : {"torch", "faiss", "keops", None} or FaissConfig, optional (default=None)
-        Backend used to build a sparse kNN kernel before diffusion:
-        - None: same as "torch" (default behavior)
-        - "torch": kNN with PyTorch backend
-        - "faiss": kNN with FAISS backend
-        - "keops": kNN with KeOps backend
-        - FaissConfig: kNN with a custom FAISS configuration
     n_landmarks : int or None, optional (default=None)
         Number of landmarks used for landmark PHATE. If None, landmarking is disabled.
     random_landmarking : bool, optional (default=False)
@@ -314,22 +312,29 @@ class PHATEAffinity(Affinity):
         t: int = 5,
         thresh: Optional[float] = 1e-4,
         knn_max: Optional[int] = None,
-        knn_backend: Union[str, FaissConfig, None] = None,
         n_landmarks: Optional[int] = None,
         random_landmarking: bool = False,
         random_state: Optional[float] = None,
         compile: bool = False,
         _pre_processed: bool = False,
     ):
-        if backend == "faiss" or backend == "keops":
+        if not isinstance(backend, FaissConfig):
+            valid_backend = {None, "faiss", "keops"}
+            if backend not in valid_backend:
+                raise ValueError(
+                    "[TorchDR] ERROR : backend must be one of "
+                    "{None, 'faiss', 'keops'} or a FaissConfig. "
+                    f"Got {backend}."
+                )
+        if isinstance(backend, FaissConfig) or backend in {"faiss", "keops"}:
             raise ValueError(
-                f"[TorchDR] ERROR : {self.__class__.__name__} class does not support backend {backend}."
+                f"[TorchDR] ERROR : backend={backend} is not implemented yet for PHATEAffinity."
             )
 
         super().__init__(
             metric=metric,
             device=device,
-            backend=backend,
+            backend=None,
             verbose=verbose,
             random_state=random_state,
             compile=compile,
@@ -342,7 +347,7 @@ class PHATEAffinity(Affinity):
         self.t = t
         self.thresh = thresh
         self.knn_max = knn_max
-        self.knn_backend = knn_backend
+        self.knn_backend = backend
         self.n_landmarks = n_landmarks
         self.random_landmarking = random_landmarking
 
@@ -359,17 +364,6 @@ class PHATEAffinity(Affinity):
                 "[TorchDR] ERROR : n_landmarks must be > 1 or None. "
                 f"Got {self.n_landmarks}."
             )
-
-        if not isinstance(self.knn_backend, FaissConfig):
-            valid_knn_backend = {None, "torch", "faiss", "keops"}
-            if self.knn_backend not in valid_knn_backend:
-                raise ValueError(
-                    "[TorchDR] ERROR : knn_backend must be one of "
-                    "{None, 'torch', 'faiss', 'keops'} or a FaissConfig. "
-                    f"Got {self.knn_backend}."
-                )
-        if self.knn_backend is None:
-            self.knn_backend = "torch"
 
     def _clear_landmark_state(self):
         for name in ["transitions_", "clusters_", "landmark_op_", "landmark_indices_"]:
@@ -459,16 +453,9 @@ class PHATEAffinity(Affinity):
         self.register_buffer("landmark_op_", landmark_op, persistent=False)
         return landmark_op
 
-    def _resolve_knn_backend(self):
-        if isinstance(self.knn_backend, FaissConfig):
-            return self.knn_backend
-        if self.knn_backend == "torch":
-            return None
-        return self.knn_backend
-
     def _compute_sparse_knn_kernel(self, X: torch.Tensor):
         t_knn_start = time.perf_counter()
-        search_backend = self._resolve_knn_backend()
+        search_backend = None
         n = X.shape[0]
         k_sigma = check_neighbor_param(self.k, n)
         max_neighbors = n - 1
@@ -480,48 +467,29 @@ class PHATEAffinity(Affinity):
                 f"Got knn_max={self.knn_max}, k={self.k}."
             )
 
-        # Build a single neighbor graph, then threshold within this fixed graph.
+        # Match CPU PHATE default behavior: if thresholding is enabled and knn_max
+        # is not provided, allow the neighborhood search to grow up to n-1.
         if self.thresh is None:
             k_build = k_sigma
-        elif self.knn_max is not None:
-            k_build = max_neighbors
         else:
-            # Practical default cap to avoid dense-all-neighbors queries on large datasets.
-            k_build = min(max_neighbors, max(2048, 32 * k_sigma))
+            k_build = max_neighbors
 
         def _query_knn(k_query: int):
-            try:
-                return pairwise_distances(
-                    X,
-                    metric=self.metric,
-                    backend=search_backend,
-                    k=k_query,
-                    exclude_diag=True,
-                    return_indices=True,
-                    device=self.device,
-                )
-            except Exception as err:
-                if self.knn_backend != "torch":
-                    warnings.warn(
-                        f"PHATE knn_backend='{self.knn_backend}' failed ({err}). "
-                        "Falling back to torch kNN backend.",
-                        RuntimeWarning,
-                    )
-                return pairwise_distances(
-                    X,
-                    metric=self.metric,
-                    backend=None,
-                    k=k_query,
-                    exclude_diag=True,
-                    return_indices=True,
-                    device=self.device,
-                )
+            return pairwise_distances(
+                X,
+                metric=self.metric,
+                backend=search_backend,
+                k=k_query,
+                exclude_diag=True,
+                return_indices=True,
+                device=self.device,
+            )
 
         if self.verbose:
             self.logger.info(
                 "Starting kNN graph query (k_build=%d, backend=%s)...",
                 k_build,
-                self.knn_backend,
+                "None",
             )
         knn_dist, knn_indices = _query_knn(k_build)
         if self.verbose:
@@ -529,7 +497,7 @@ class PHATEAffinity(Affinity):
                 "kNN graph query completed in %.2fs (k_build=%d, backend=%s).",
                 time.perf_counter() - t_knn_start,
                 k_build,
-                self.knn_backend,
+                "None",
             )
         sigma = knn_dist[:, k_sigma - 1].clamp_min(1e-12)
         weights = torch.exp(-((knn_dist / sigma[:, None]) ** self.alpha))
@@ -538,7 +506,11 @@ class PHATEAffinity(Affinity):
         if self.thresh is not None:
             keep_mask = weights >= self.thresh
             keep_mask[:, :k_sigma] = True
-            if k_build < max_neighbors and bool((weights[:, -1] >= self.thresh).any()):
+            if (
+                self.knn_max is not None
+                and k_build < (n - 1)
+                and bool((weights[:, -1] >= self.thresh).any())
+            ):
                 warnings.warn(
                     "PHATE thresholded alpha-decay neighborhoods hit the build cap "
                     f"(k_build={k_build}) while boundary affinity is still above thresh. "
