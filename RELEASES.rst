@@ -30,6 +30,7 @@ Added
 - Add automatic releases via GitHub Actions `PR #226 <https://github.com/TorchDR/TorchDR/pull/226>`_.
 - Add cross-platform CI testing for macOS and Windows `PR #258 <https://github.com/TorchDR/TorchDR/pull/258>`_.
 - Add tests for CLI, distributed, and sparse modules `PR #246 <https://github.com/TorchDR/TorchDR/pull/246>`_.
+- Add PHATE landmarking support with ``n_landmarks`` and ``random_landmarking`` options, including interpolation from landmark embeddings back to full data `PR #TBD <https://github.com/TorchDR/TorchDR/compare/main...MattScicluna:TorchDR:fix_nan_aff_phate>`_.
 
 Changed
 ~~~~~~~
@@ -39,6 +40,7 @@ Changed
 - Refactor device management for consistency `PR #211 <https://github.com/TorchDR/TorchDR/pull/211>`_.
 - Improve memory management with torch buffers `PR #203 <https://github.com/TorchDR/TorchDR/pull/203>`_.
 - Optimize root_search with masked_scatter_ `PR #204 <https://github.com/TorchDR/TorchDR/pull/204>`_.
+- Relative to TorchDR ``main``, align PHATE neighborhood expansion behavior with CPU PHATE default behavior (notably when ``knn_max=None``), enforce SGD-only PHATE optimization path, and standardize PHATE backend semantics (``None`` accepted; ``faiss``/``keops`` reserved) `PR #TBD <https://github.com/TorchDR/TorchDR/compare/main...MattScicluna:TorchDR:fix_nan_aff_phate>`_.
 
 Fixed
 ~~~~~
