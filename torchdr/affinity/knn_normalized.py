@@ -5,7 +5,9 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Tuple, Union
+import warnings
+import time
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -264,7 +266,7 @@ class PHATEAffinity(Affinity):
     device : str, optional
         Device to use for computations. Default is "auto".
     backend : {"keops", "faiss", None}, optional (default=None)
-        Which backend to use for handling sparsity and memory efficiency.
+        Which backend to use for the final potential-distance affinity computation.
     verbose : bool, optional (default=False)
         Whether to print verbose output during computation.
     k : int, optional (default=5)
@@ -273,6 +275,21 @@ class PHATEAffinity(Affinity):
         Exponent for the alpha-decay kernel in affinity computation.
     t : int, optional (default=5)
         Number of diffusion steps (power to raise diffusion matrix).
+    thresh : float or None, optional (default=1e-4)
+        Threshold applied to alpha-decay affinities when building the pre-diffusion
+        kernel. Neighbors with affinity below ``thresh`` are dropped. If None,
+        keeps only the searched kNN entries.
+    knn_max : int or None, optional (default=None)
+        Maximum number of neighbors to query when expanding the kNN search for
+        thresholded alpha-decay neighborhoods. If None, expansion can grow up to
+        ``n_samples - 1``.
+    knn_backend : {"torch", "faiss", "keops", None} or FaissConfig, optional (default=None)
+        Backend used to build a sparse kNN kernel before diffusion:
+        - None: same as "torch" (default behavior)
+        - "torch": kNN with PyTorch backend
+        - "faiss": kNN with FAISS backend
+        - "keops": kNN with KeOps backend
+        - FaissConfig: kNN with a custom FAISS configuration
     compile : bool, optional
         Whether to compile the computation. Default is False.
     _pre_processed : bool, optional
@@ -289,6 +306,9 @@ class PHATEAffinity(Affinity):
         k: int = 5,
         alpha: float = 10.0,
         t: int = 5,
+        thresh: Optional[float] = 1e-4,
+        knn_max: Optional[int] = None,
+        knn_backend: Union[str, FaissConfig, None] = None,
         compile: bool = False,
         _pre_processed: bool = False,
     ):
@@ -310,22 +330,167 @@ class PHATEAffinity(Affinity):
         self.k = k
         self.alpha = alpha
         self.t = t
+        self.thresh = thresh
+        self.knn_max = knn_max
+        self.knn_backend = knn_backend
+
+        if self.thresh is not None and not (0 < self.thresh < 1):
+            raise ValueError(
+                f"[TorchDR] ERROR : thresh must be in (0, 1) or None. Got {self.thresh}."
+            )
+        if self.knn_max is not None and self.knn_max <= 0:
+            raise ValueError(
+                f"[TorchDR] ERROR : knn_max must be positive or None. Got {self.knn_max}."
+            )
+
+        if not isinstance(self.knn_backend, FaissConfig):
+            valid_knn_backend = {None, "torch", "faiss", "keops"}
+            if self.knn_backend not in valid_knn_backend:
+                raise ValueError(
+                    "[TorchDR] ERROR : knn_backend must be one of "
+                    "{None, 'torch', 'faiss', 'keops'} or a FaissConfig. "
+                    f"Got {self.knn_backend}."
+                )
+        if self.knn_backend is None:
+            self.knn_backend = "torch"
+
+    def _resolve_knn_backend(self):
+        if isinstance(self.knn_backend, FaissConfig):
+            return self.knn_backend
+        if self.knn_backend == "torch":
+            return None
+        return self.knn_backend
+
+    def _compute_sparse_knn_kernel(self, X: torch.Tensor):
+        t_knn_start = time.perf_counter()
+        search_backend = self._resolve_knn_backend()
+        n = X.shape[0]
+        k_sigma = check_neighbor_param(self.k, n)
+        max_neighbors = n - 1
+        if self.knn_max is not None:
+            max_neighbors = min(int(self.knn_max), max_neighbors)
+        if max_neighbors < k_sigma:
+            raise ValueError(
+                "[TorchDR] ERROR : knn_max must be >= k. "
+                f"Got knn_max={self.knn_max}, k={self.k}."
+            )
+
+        # Build a single neighbor graph, then threshold within this fixed graph.
+        if self.thresh is None:
+            k_build = k_sigma
+        elif self.knn_max is not None:
+            k_build = max_neighbors
+        else:
+            # Practical default cap to avoid dense-all-neighbors queries on large datasets.
+            k_build = min(max_neighbors, max(2048, 32 * k_sigma))
+
+        def _query_knn(k_query: int):
+            try:
+                return pairwise_distances(
+                    X,
+                    metric=self.metric,
+                    backend=search_backend,
+                    k=k_query,
+                    exclude_diag=True,
+                    return_indices=True,
+                    device=self.device,
+                )
+            except Exception as err:
+                if self.knn_backend != "torch":
+                    warnings.warn(
+                        f"PHATE knn_backend='{self.knn_backend}' failed ({err}). "
+                        "Falling back to torch kNN backend.",
+                        RuntimeWarning,
+                    )
+                return pairwise_distances(
+                    X,
+                    metric=self.metric,
+                    backend=None,
+                    k=k_query,
+                    exclude_diag=True,
+                    return_indices=True,
+                    device=self.device,
+                )
+
+        if self.verbose:
+            self.logger.info(
+                "Starting kNN graph query (k_build=%d, backend=%s)...",
+                k_build,
+                self.knn_backend,
+            )
+        knn_dist, knn_indices = _query_knn(k_build)
+        if self.verbose:
+            self.logger.info(
+                "kNN graph query completed in %.2fs (k_build=%d, backend=%s).",
+                time.perf_counter() - t_knn_start,
+                k_build,
+                self.knn_backend,
+            )
+        sigma = knn_dist[:, k_sigma - 1].clamp_min(1e-12)
+        weights = torch.exp(-((knn_dist / sigma[:, None]) ** self.alpha))
+
+        keep_mask = torch.ones_like(weights, dtype=torch.bool)
+        if self.thresh is not None:
+            keep_mask = weights >= self.thresh
+            keep_mask[:, :k_sigma] = True
+            if k_build < max_neighbors and bool((weights[:, -1] >= self.thresh).any()):
+                warnings.warn(
+                    "PHATE thresholded alpha-decay neighborhoods hit the build cap "
+                    f"(k_build={k_build}) while boundary affinity is still above thresh. "
+                    "Increase knn_max for closer parity with graph-tools PHATE.",
+                    RuntimeWarning,
+                )
+
+        sigma = sigma.clamp_min(1e-12)
+        self.register_buffer("sigma_", sigma, persistent=False)
+        weights = weights * keep_mask.to(dtype=weights.dtype)
+
+        kernel = torch.zeros((n, n), dtype=X.dtype, device=X.device)
+        row_idx = torch.arange(n, device=X.device).unsqueeze(1).expand_as(knn_indices)
+        kernel[row_idx, knn_indices.long()] = weights
+        kernel.fill_diagonal_(1.0)
+        return kernel
 
     @compile_if_requested
     def _compute_affinity(self, X: torch.Tensor):
-        C = self._distance_matrix(X)
+        t_total = time.perf_counter()
+        t0 = time.perf_counter()
+        affinity = self._compute_sparse_knn_kernel(X)
+        t_kernel = time.perf_counter() - t0
 
-        minK_values, _ = kmin(C, k=self.k, dim=1)
-        sigma = minK_values[:, -1]
-        self.register_buffer("sigma_", sigma, persistent=False)
-        affinity = _log_P_PHATE(C, self.sigma_, self.alpha).exp()
+        t0 = time.perf_counter()
         affinity = (affinity + matrix_transpose(affinity)) / 2
-        affinity = affinity / sum_red(affinity, dim=1)
-        affinity = matrix_power(affinity, self.t)
+        affinity = affinity / sum_red(affinity, dim=1).clamp_min(1e-12)
+        t_stochastic = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        affinity = matrix_power(affinity.to(torch.float64), self.t)
+        t_diffusion = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        # Match CPU PHATE stabilization for log potential (gamma=1).
+        potential = -(affinity + 1e-7).log()
         affinity = -pairwise_distances(
-            -affinity.clamp(min=1e-12).log(), metric="euclidean", backend=self.backend
+            potential,
+            metric="euclidean",
+            backend=self.backend,
+            device=self.device,
         )
-        return affinity
+        t_potential_dist = time.perf_counter() - t0
+        total = time.perf_counter() - t_total
+
+        if self.verbose:
+            self.logger.info(
+                "PHATEAffinity timing (s): kernel=%.2f, normalize=%.2f, "
+                "matrix_power=%.2f, potential_dist=%.2f, total=%.2f",
+                t_kernel,
+                t_stochastic,
+                t_diffusion,
+                t_potential_dist,
+                total,
+            )
+
+        return affinity.to(X.dtype)
 
 
 class UMAPAffinity(SparseAffinity):
