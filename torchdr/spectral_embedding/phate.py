@@ -68,7 +68,7 @@ class PHATE(AffinityMatcher):
     init : str, torch.Tensor, or np.ndarray, optional
         Initialization method for the embedding. Default is "pca".
     init_scaling : float, optional
-        Scaling factor for the initial embedding. Default is 1e-4.
+        Scaling factor for the initial embedding. Default is 1.0.
     device : str, optional
         Device to use for computations. Default is "auto".
     verbose : bool, optional
@@ -104,7 +104,7 @@ class PHATE(AffinityMatcher):
         random_landmarking: bool = False,
         max_iter: int = 1000,
         init: str = "pca",
-        init_scaling: float = 1e-4,
+        init_scaling: float = 1.0,
         device: str = "auto",
         verbose: bool = False,
         random_state: Optional[float] = None,
@@ -391,10 +391,7 @@ class PHATE(AffinityMatcher):
 
         with torch.no_grad():
             std = embedding_[:, 0].std().clamp_min(1e-12)
-            # CPU SGD-MDS uses unit-scale initialization; avoid tiny Adam-style
-            # defaults (1e-4) for SGD-MDS dynamics.
-            init_scale = 1.0 if self.init_scaling == 1e-4 else float(self.init_scaling)
-            embedding_ = init_scale * embedding_ / std
+            embedding_ = float(self.init_scaling) * embedding_ / std
 
         self.embedding_ = embedding_.requires_grad_(True)
         return self.embedding_

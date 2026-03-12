@@ -154,3 +154,24 @@ def test_phate_landmark_interpolation_consistency():
     assert embedding.shape == (X.shape[0], 2)
     assert phate.landmark_embedding_.shape[0] <= 40
     assert phate.landmark_embedding_.shape[1] == 2
+
+
+def test_phate_init_scaling_is_respected_in_sgd_init():
+    torch.manual_seed(0)
+    n = 64
+    target_dist = torch.rand(n, n, dtype=torch.float32)
+    target_dist = (target_dist + target_dist.T) / 2
+    target_dist.fill_diagonal_(0)
+
+    phate = PHATE(
+        backend=None,
+        device="cpu",
+        init="random",
+        init_scaling=1e-4,
+        max_iter=1,
+    )
+    embedding = phate._init_embedding_sgd(target_dist)
+    first_dim_std = embedding[:, 0].std()
+
+    assert torch.isfinite(embedding).all()
+    assert torch.allclose(first_dim_std, torch.tensor(1e-4), rtol=1e-2, atol=1e-8)
