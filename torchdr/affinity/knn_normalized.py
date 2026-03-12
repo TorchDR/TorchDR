@@ -11,7 +11,6 @@ import time
 from typing import Optional, Tuple, Union
 
 import torch
-from sklearn.cluster import MiniBatchKMeans
 
 from torchdr.affinity.base import Affinity, LogAffinity, SparseAffinity
 from torchdr.distance import FaissConfig
@@ -369,6 +368,83 @@ class PHATEAffinity(Affinity):
             if hasattr(self, name):
                 delattr(self, name)
 
+    def _kmeans_assignments_torch(
+        self,
+        X: torch.Tensor,
+        centers: torch.Tensor,
+        chunk_size: int,
+    ) -> torch.Tensor:
+        labels_chunks = []
+        X = X.to(dtype=torch.float32)
+        centers = centers.to(dtype=torch.float32)
+        center_sq = (centers * centers).sum(dim=1)[None, :]
+
+        for start in range(0, X.shape[0], chunk_size):
+            x_chunk = X[start : start + chunk_size]
+            x_sq = (x_chunk * x_chunk).sum(dim=1, keepdim=True)
+            distances = x_sq + center_sq - 2.0 * (x_chunk @ centers.T)
+            labels_chunks.append(torch.argmin(distances, dim=1))
+
+        return torch.cat(labels_chunks, dim=0)
+
+    def _kmeans_torch(
+        self,
+        X: torch.Tensor,
+        n_clusters: int,
+        max_iter: int = 30,
+        tol: float = 1e-4,
+    ) -> torch.Tensor:
+        Xf = X.to(dtype=torch.float32)
+        n = X.shape[0]
+        if n_clusters >= n:
+            return torch.arange(n, device=X.device, dtype=torch.long)
+
+        gen_device = X.device if X.device.type in {"cpu", "cuda"} else "cpu"
+        generator = torch.Generator(device=gen_device)
+        if self.random_state is not None:
+            generator.manual_seed(int(self.random_state))
+
+        init_idx = torch.randperm(n, device=X.device, generator=generator)[:n_clusters]
+        centers = Xf[init_idx].clone()
+
+        target_entries = 16_000_000
+        chunk_size = max(256, min(n, target_entries // max(1, n_clusters)))
+        prev_labels = None
+
+        for _ in range(max_iter):
+            labels = self._kmeans_assignments_torch(Xf, centers, chunk_size=chunk_size)
+            if prev_labels is not None and torch.equal(labels, prev_labels):
+                break
+            prev_labels = labels
+
+            new_centers = torch.zeros_like(centers)
+            new_centers.index_add_(0, labels, Xf)
+
+            counts = torch.bincount(labels, minlength=n_clusters).to(dtype=torch.float32)
+            non_empty = counts > 0
+            new_centers[non_empty] = new_centers[non_empty] / counts[non_empty, None]
+
+            empty = ~non_empty
+            if bool(empty.any()):
+                empty_idx = torch.where(empty)[0]
+                refill_idx = torch.randint(
+                    0,
+                    n,
+                    (empty_idx.shape[0],),
+                    device=X.device,
+                    generator=generator,
+                )
+                new_centers[empty_idx] = Xf[refill_idx]
+
+            center_shift = torch.linalg.norm(
+                new_centers - centers, dim=1
+            ).mean()
+            centers = new_centers
+            if center_shift <= tol:
+                break
+
+        return self._kmeans_assignments_torch(Xf, centers, chunk_size=chunk_size)
+
     def _build_landmark_operator(
         self, X: torch.Tensor, kernel: torch.Tensor, transition: torch.Tensor
     ) -> Optional[torch.Tensor]:
@@ -409,20 +485,9 @@ class PHATEAffinity(Affinity):
             _, _, V = torch.pca_lowrank(
                 diff_aff.to(torch.float32), q=n_svd, center=False, niter=2
             )
-            spectral_features = transition @ V[:, :n_svd]
-
-            kmeans = MiniBatchKMeans(
-                n_clusters=n_landmarks_target,
-                init_size=3 * n_landmarks_target,
-                n_init=1,
-                batch_size=10000,
-                random_state=None
-                if self.random_state is None
-                else int(self.random_state),
-            )
-            labels_np = kmeans.fit_predict(spectral_features.detach().cpu().numpy())
-            cluster_assignments = torch.from_numpy(labels_np).to(
-                device=X.device, dtype=torch.long
+            spectral_features = (transition @ V[:, :n_svd]).to(torch.float32)
+            cluster_assignments = self._kmeans_torch(
+                spectral_features, n_clusters=n_landmarks_target
             )
 
         _, cluster_assignments = torch.unique(

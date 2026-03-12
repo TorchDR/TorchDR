@@ -14,6 +14,7 @@ from typing import Optional, Union
 
 import torch
 import numpy as np
+from torch.utils.data import DataLoader
 
 from torchdr.affinity import PHATEAffinity
 from torchdr.affinity_matcher import AffinityMatcher
@@ -101,12 +102,6 @@ class PHATE(AffinityMatcher):
         backend: Union[str, FaissConfig, None] = None,
         n_landmarks: Optional[int] = None,
         random_landmarking: bool = False,
-        optimizer: str = "Adam",
-        optimizer_kwargs: dict = {},
-        lr: float = 1e0,
-        scheduler: Optional[str] = None,
-        scheduler_kwargs: dict = {},
-        min_grad_norm: float = 1e-15,
         max_iter: int = 1000,
         init: str = "pca",
         init_scaling: float = 1e-4,
@@ -186,12 +181,12 @@ class PHATE(AffinityMatcher):
             affinity_in=affinity_in,
             affinity_out=None,
             n_components=n_components,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
-            lr=lr,
-            scheduler=scheduler,
-            scheduler_kwargs=scheduler_kwargs,
-            min_grad_norm=min_grad_norm,
+            optimizer="Adam",
+            optimizer_kwargs=None,
+            lr=1e0,
+            scheduler=None,
+            scheduler_kwargs=None,
+            min_grad_norm=1e-7,
             max_iter=max_iter,
             init=init,
             init_scaling=init_scaling,
@@ -208,6 +203,16 @@ class PHATE(AffinityMatcher):
     def _fit_transform_sgd(self, X, y=None):
         # Sampled-pair SGD-MDS-style solver specialized for PHATE.
         t_total = time.perf_counter()
+        if isinstance(X, DataLoader):
+            raise NotImplementedError(
+                "[TorchDR] ERROR : PHATE with mds_solver='sgd' does not support "
+                "DataLoader input. Pass a tensor/ndarray instead."
+            )
+        if not isinstance(X, torch.Tensor):
+            raise TypeError(
+                "[TorchDR] ERROR : PHATE expects a torch.Tensor input in "
+                f"_fit_transform_sgd. Got type={type(X).__name__}."
+            )
         if X.ndim != 2:
             raise ValueError(
                 f"[TorchDR] ERROR : expected 2D input tensor, got shape={tuple(X.shape)}."

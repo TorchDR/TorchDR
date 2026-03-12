@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 from sklearn.decomposition import KernelPCA as skKernelPCA
+from torch.utils.data import DataLoader, TensorDataset
 
 from torchdr.affinity import NormalizedGaussianAffinity, SinkhornAffinity
 from torchdr.utils import pykeops
@@ -90,3 +91,13 @@ def test_phate(device):
     with pytest.raises(ValueError):
         PHATE(backend="faiss", device=device)
         PHATE(backend="keops", device=device)
+
+
+def test_phate_dataloader_not_supported():
+    X, _ = toy_dataset()
+    X = torch.tensor(X, dtype=torch.float32)
+    dataloader = DataLoader(TensorDataset(X), batch_size=32, shuffle=False)
+    phate = PHATE(backend=None, device="cpu", max_iter=5)
+
+    with pytest.raises(NotImplementedError, match="does not support DataLoader"):
+        phate.fit_transform(dataloader)
