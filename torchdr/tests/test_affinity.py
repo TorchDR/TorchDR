@@ -420,3 +420,86 @@ def test_phate_affinity(dtype, metric):
         f"Expected sigma_ shape {(n,)}, got {affinity.sigma_.shape}"
     )
     assert torch.all(affinity.sigma_ > 0), "sigma_ values should be positive"
+
+
+def test_phate_affinity_thresh_and_knn_max_edge_cases():
+    X, _ = toy_dataset(n=60, dtype="float32")
+
+    with pytest.raises(ValueError, match="thresh must be in"):
+        PHATEAffinity(device=DEVICE, backend=None, k=5, thresh=0.0)
+    with pytest.raises(ValueError, match="thresh must be in"):
+        PHATEAffinity(device=DEVICE, backend=None, k=5, thresh=1.0)
+    with pytest.raises(ValueError, match="knn_max must be positive"):
+        PHATEAffinity(device=DEVICE, backend=None, k=5, knn_max=0)
+
+    # knn_max < k is validated at compute time.
+    affinity = PHATEAffinity(device=DEVICE, backend=None, k=8, knn_max=5, t=2)
+    with pytest.raises(ValueError, match="knn_max must be >= k"):
+        affinity(X)
+
+
+def test_phate_affinity_thresh_none_uses_k_neighbors_only():
+    X, _ = toy_dataset(n=80, dtype="float32")
+    affinity = PHATEAffinity(
+        device=DEVICE,
+        backend=None,
+        k=7,
+        t=2,
+        thresh=None,
+        knn_max=20,
+    )
+    kernel = affinity._compute_sparse_knn_kernel(torch.tensor(X))
+    # With thresh=None, each row keeps strict kNN entries plus self-loop.
+    row_nnz = (kernel > 0).sum(dim=1)
+    assert torch.all(row_nnz == 8)
+
+
+def test_phate_affinity_warns_when_threshold_hits_knn_cap():
+    X, _ = toy_dataset(n=80, dtype="float32")
+    affinity = PHATEAffinity(
+        device=DEVICE,
+        backend=None,
+        k=5,
+        alpha=1.0,
+        t=2,
+        thresh=1e-8,
+        knn_max=5,
+    )
+    with pytest.warns(RuntimeWarning, match="hit the build cap"):
+        affinity(X)
+
+
+def test_phate_affinity_landmark_transitions_and_interpolation_are_finite():
+    X, _ = toy_dataset(n=120, dtype="float32")
+    X = torch.tensor(X)
+
+    affinity = PHATEAffinity(
+        device=DEVICE,
+        backend=None,
+        k=5,
+        t=3,
+        n_landmarks=30,
+        random_landmarking=False,
+    )
+    _ = affinity(X)
+
+    assert hasattr(affinity, "transitions_")
+    assert hasattr(affinity, "landmark_op_")
+
+    transitions = affinity.transitions_
+    n_landmarks_eff = transitions.shape[1]
+    assert transitions.shape[0] == X.shape[0]
+    assert n_landmarks_eff <= 30
+    assert torch.isfinite(transitions).all()
+    assert torch.allclose(
+        transitions.sum(dim=1),
+        torch.ones(X.shape[0], device=transitions.device, dtype=transitions.dtype),
+        atol=1e-5,
+    )
+
+    landmark_embedding = torch.randn(
+        n_landmarks_eff, 2, device=transitions.device, dtype=transitions.dtype
+    )
+    interpolated = transitions @ landmark_embedding
+    assert interpolated.shape == (X.shape[0], 2)
+    assert torch.isfinite(interpolated).all()

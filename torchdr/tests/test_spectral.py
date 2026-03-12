@@ -101,3 +101,56 @@ def test_phate_dataloader_not_supported():
 
     with pytest.raises(NotImplementedError, match="does not support DataLoader"):
         phate.fit_transform(dataloader)
+
+
+def test_phate_landmark_vs_non_landmark_shapes_and_finite():
+    X, _ = toy_dataset(n=180)
+    X = torch.tensor(X, dtype=torch.float32)
+
+    phate_exact = PHATE(
+        backend=None,
+        device="cpu",
+        max_iter=5,
+        random_state=0,
+        check_interval=1,
+    )
+    emb_exact = phate_exact.fit_transform(X)
+
+    phate_landmark = PHATE(
+        backend=None,
+        device="cpu",
+        max_iter=5,
+        random_state=0,
+        check_interval=1,
+        n_landmarks=30,
+        random_landmarking=False,
+    )
+    emb_landmark = phate_landmark.fit_transform(X)
+
+    assert emb_exact.shape == (X.shape[0], 2)
+    assert emb_landmark.shape == (X.shape[0], 2)
+    assert torch.isfinite(emb_exact).all()
+    assert torch.isfinite(emb_landmark).all()
+
+
+def test_phate_landmark_interpolation_consistency():
+    X, _ = toy_dataset(n=200)
+    X = torch.tensor(X, dtype=torch.float32)
+
+    phate = PHATE(
+        backend=None,
+        device="cpu",
+        max_iter=5,
+        random_state=1,
+        check_interval=1,
+        n_landmarks=40,
+        random_landmarking=False,
+    )
+    embedding = phate.fit_transform(X)
+
+    assert hasattr(phate, "landmark_embedding_")
+    assert torch.isfinite(embedding).all()
+    assert torch.isfinite(phate.landmark_embedding_).all()
+    assert embedding.shape == (X.shape[0], 2)
+    assert phate.landmark_embedding_.shape[0] <= 40
+    assert phate.landmark_embedding_.shape[1] == 2
