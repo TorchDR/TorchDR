@@ -30,7 +30,7 @@ Added
 - Add automatic releases via GitHub Actions `PR #226 <https://github.com/TorchDR/TorchDR/pull/226>`_.
 - Add cross-platform CI testing for macOS and Windows `PR #258 <https://github.com/TorchDR/TorchDR/pull/258>`_.
 - Add tests for CLI, distributed, and sparse modules `PR #246 <https://github.com/TorchDR/TorchDR/pull/246>`_.
-- Add PHATE landmarking support with ``n_landmarks`` and ``random_landmarking`` options, including interpolation from landmark embeddings back to full data `PR #TBD <https://github.com/TorchDR/TorchDR/compare/main...MattScicluna:TorchDR:fix_nan_aff_phate>`_.
+- Add PHATE landmarking support with ``n_landmarks`` and ``random_landmarking`` options, including interpolation from landmark embeddings back to full data `PR #259 <https://github.com/TorchDR/TorchDR/pull/259>`_.
 
 Changed
 ~~~~~~~
