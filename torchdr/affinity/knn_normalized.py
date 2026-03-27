@@ -322,10 +322,16 @@ class PHATEAffinity(Affinity):
         affinity = (affinity + matrix_transpose(affinity)) / 2
         affinity = affinity / sum_red(affinity, dim=1)
         affinity = matrix_power(affinity, self.t)
-        affinity = -pairwise_distances(
-            -affinity.clamp(min=1e-12).log(), metric="euclidean", backend=self.backend
+        # Use a more stable potential-distance path than the x^2 + y^2 - 2xy
+        # formulation to avoid catastrophic cancellation on near-constant rows.
+        potential = -(affinity.to(torch.float64).clamp(min=1e-7).log())
+        dist = torch.cdist(
+            potential,
+            potential,
+            p=2.0,
+            compute_mode="donot_use_mm_for_euclid_dist",
         )
-        return affinity
+        return -dist.to(dtype=X.dtype)
 
 
 class UMAPAffinity(SparseAffinity):
