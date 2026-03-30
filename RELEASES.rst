@@ -4,14 +4,6 @@
 Release Notes
 =============
 
-Unreleased
-----------
-
-Added
-~~~~~
-
-- Add PHATE NaN regression test on deterministic synthetic data to cover `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
-
 Version 0.4 (2026-02-03)
 ------------------------
 
@@ -38,6 +30,7 @@ Added
 - Add automatic releases via GitHub Actions `PR #226 <https://github.com/TorchDR/TorchDR/pull/226>`_.
 - Add cross-platform CI testing for macOS and Windows `PR #258 <https://github.com/TorchDR/TorchDR/pull/258>`_.
 - Add tests for CLI, distributed, and sparse modules `PR #246 <https://github.com/TorchDR/TorchDR/pull/246>`_.
+- Add PHATE NaN regression test on deterministic synthetic data to cover `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
 
 Changed
 ~~~~~~~
