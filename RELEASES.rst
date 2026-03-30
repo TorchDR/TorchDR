@@ -4,14 +4,6 @@
 Release Notes
 =============
 
-Unreleased
-----------
-
-Fixed
-~~~~~
-
-- Fix PHATE diffusion-potential distance numerical instability to address NaNs at iter 0 from `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
-
 Version 0.4 (2026-02-03)
 ------------------------
 
@@ -58,6 +50,7 @@ Fixed
 - Fix TSNEkhorn docstring parameter name `PR #237 <https://github.com/TorchDR/TorchDR/pull/237>`_.
 - Fix UMAP spectral init docstring `PR #207 <https://github.com/TorchDR/TorchDR/pull/207>`_.
 - Add warning when distributed launch detected without GPU `PR #238 <https://github.com/TorchDR/TorchDR/pull/238>`_.
+- Fix PHATE diffusion-potential distance numerical instability to address NaNs at iter 0 from `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
 
 Removed
 ~~~~~~~
