@@ -4,6 +4,14 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+Fixed
+~~~~~
+
+- Fix PHATE diffusion-potential distance numerical instability to address NaNs at iter 0 from `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
+
 Version 0.4 (2026-02-03)
 ------------------------
 
