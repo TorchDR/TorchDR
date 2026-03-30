@@ -4,6 +4,14 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+Added
+~~~~~
+
+- Add PHATE NaN regression test on deterministic synthetic data to cover `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
+
 Version 0.4 (2026-02-03)
 ------------------------
 
