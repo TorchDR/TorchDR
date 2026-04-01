@@ -437,8 +437,9 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
 
     - At each iteration, :attr:`n_negatives` indices are sampled uniformly
       (excluding the point itself) for each point in the local chunk.
-    - When :attr:`discard_NNs` is ``True``, nearest neighbors are also
-      excluded from the negative samples to avoid conflicting gradients.
+    - When :attr:`exclude_neighbors_from_negative_sampling` is ``True``,
+      nearest neighbors are also excluded from the negative samples to avoid
+      conflicting gradients.
     - The sampled indices are stored in :attr:`neg_indices_` and refreshed
       every iteration via :meth:`on_training_step_start`.
 
@@ -508,8 +509,9 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         Number of negative samples to use. Default is 5.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
-    discard_NNs : bool, optional
-        Whether to discard nearest neighbors from negative sampling. Default is False.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
+        Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
     **kwargs
@@ -543,10 +545,31 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         n_negatives: int = 5,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
         compile: bool = False,
         **kwargs,
     ):
+        legacy_exclude_neighbors = kwargs.pop("discard_NNs", None)
+        if legacy_exclude_neighbors is not None:
+            if (
+                exclude_neighbors_from_negative_sampling is not None
+                and exclude_neighbors_from_negative_sampling != legacy_exclude_neighbors
+            ):
+                raise ValueError(
+                    "[TorchDR] ERROR : received conflicting values for "
+                    "'exclude_neighbors_from_negative_sampling' and the deprecated "
+                    "'discard_NNs' alias."
+                )
+            warnings.warn(
+                "[TorchDR] 'discard_NNs' is deprecated. Use "
+                "'exclude_neighbors_from_negative_sampling' instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            exclude_neighbors_from_negative_sampling = legacy_exclude_neighbors
+        elif exclude_neighbors_from_negative_sampling is None:
+            exclude_neighbors_from_negative_sampling = False
+
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -574,7 +597,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         )
 
         self.n_negatives = n_negatives
-        self.discard_NNs = discard_NNs
+        self.exclude_neighbors_from_negative_sampling = (
+            exclude_neighbors_from_negative_sampling
+        )
+        # Backward-compatible alias kept for one deprecation cycle.
+        self.discard_NNs = self.exclude_neighbors_from_negative_sampling
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit and keep a CPU copy only for models that support transform."""
@@ -595,10 +622,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         global_self_idx = self.chunk_indices_.unsqueeze(1)
 
         # Optionally include NN indices (rows aligned with local slice)
-        if self.discard_NNs:
+        if self.exclude_neighbors_from_negative_sampling:
             if not hasattr(self, "NN_indices_"):
                 self.logger.warning(
-                    "NN_indices_ not found. Cannot discard NNs from negative sampling."
+                    "NN_indices_ not found. Cannot exclude neighbors from "
+                    "negative sampling."
                 )
                 exclude = global_self_idx
             else:
@@ -730,7 +758,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
 
     def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
         """Sample negatives from the training set for transform optimization."""
-        if not self.discard_NNs:
+        if not self.exclude_neighbors_from_negative_sampling:
             return torch.randint(
                 n_new,
                 n_new + n_train,

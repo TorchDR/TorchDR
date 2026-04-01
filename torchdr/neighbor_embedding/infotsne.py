@@ -90,8 +90,8 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is False.
     compile : bool, optional
         Whether to compile the loss function with `torch.compile` for faster
@@ -130,7 +130,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         n_negatives: int = 300,
         sparsity: bool = True,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -171,7 +171,9 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
-            discard_NNs=discard_NNs,
+            exclude_neighbors_from_negative_sampling=(
+                exclude_neighbors_from_negative_sampling
+            ),
             compile=compile,
             distributed=distributed,
             **kwargs,

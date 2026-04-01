@@ -185,7 +185,7 @@ def test_transform_negative_sampling_discards_neighbors():
         random_state=0,
         n_neighbors=2,
         negative_sample_rate=1,
-        discard_NNs=True,
+        exclude_neighbors_from_negative_sampling=True,
         optimizer="SGD",
     )
     model.device_ = DEVICE
@@ -199,6 +199,21 @@ def test_transform_negative_sampling_discards_neighbors():
     assert neg_local.min() >= 0
     assert neg_local.max() < 5
     assert not (neg_local.unsqueeze(-1) == nn_indices.unsqueeze(1)).any()
+
+
+def test_discard_nns_alias_is_supported_with_warning():
+    """The deprecated discard_NNs alias should still work for one cycle."""
+    with pytest.warns(FutureWarning, match="discard_NNs"):
+        model = UMAP(
+            n_components=2,
+            backend=BACKEND,
+            n_neighbors=2,
+            optimizer="SGD",
+            discard_NNs=True,
+        )
+
+    assert model.exclude_neighbors_from_negative_sampling is True
+    assert model.discard_NNs is True
 
 
 def test_umap_transform_init_uses_exact_neighbor_embedding():

@@ -76,8 +76,8 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         Interval for checking convergence, by default 50.
     iter_per_phase : int, optional
         Number of iterations for each phase of the algorithm, by default 100.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
@@ -113,13 +113,16 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
-        discard_NNs: bool = True,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = False,
         **kwargs,
     ):
         if distributed:
             raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
+
+        if exclude_neighbors_from_negative_sampling is None:
+            exclude_neighbors_from_negative_sampling = True
 
         self.n_neighbors = n_neighbors
         self.metric = metric
@@ -157,7 +160,9 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             n_negatives=self.n_further,
-            discard_NNs=discard_NNs,
+            exclude_neighbors_from_negative_sampling=(
+                exclude_neighbors_from_negative_sampling
+            ),
             compile=compile,
             distributed=distributed,
             **kwargs,
