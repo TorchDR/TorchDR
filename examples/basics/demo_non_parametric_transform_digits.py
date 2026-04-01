@@ -1,5 +1,5 @@
 r"""
-Non-Parametric UMAP Transform on Handwritten Digits
+UMAP Non-Parametric Transform on Handwritten Digits
 ==================================================
 
 We fit a reference UMAP embedding on one subset of the sklearn handwritten
@@ -120,7 +120,7 @@ axes[0].scatter(
     s=5,
     alpha=0.55,
 )
-axes[0].set_title(f"Reference embedding\nfit on {len(X_reference_pca)} points")
+axes[0].set_title(f"UMAP reference embedding\nfit on {len(X_reference_pca)} points")
 axes[0].set_xticks([])
 axes[0].set_yticks([])
 
@@ -140,7 +140,7 @@ scatter = axes[1].scatter(
     alpha=0.8,
 )
 axes[1].set_title(
-    "Inference-only query points\n"
+    "UMAP transform on inference-only query points\n"
     f"transform on {len(X_query_pca)} points, "
     f"10-NN accuracy = {label_transfer_accuracy:.3f}"
 )
