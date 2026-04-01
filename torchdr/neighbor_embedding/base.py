@@ -13,10 +13,9 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 from torchdr.affinity import Affinity
-from torchdr.affinity.entropic import _log_Pe
 from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import to_torch, binary_search, logsumexp_red
+from torchdr.utils import to_torch
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -577,6 +576,17 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         self.n_negatives = n_negatives
         self.discard_NNs = discard_NNs
 
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+        """Fit and keep a CPU copy only for models that support transform."""
+        embedding = super()._fit_transform(X, y)
+
+        if self._supports_non_parametric_transform():
+            self.embedding_train_ = embedding.detach().cpu().clone()
+        elif hasattr(self, "embedding_train_"):
+            delattr(self, "embedding_train_")
+
+        return embedding
+
     def on_affinity_computation_end(self):
         """Build per-row exclusion indices for negative sampling."""
         super().on_affinity_computation_end()
@@ -662,8 +672,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
     def _compute_bipartite_affinity(self, C, indices):
         """Compute bipartite affinity from new points to training points.
 
-        Default implementation uses entropic affinity (for LargeVis, InfoTSNE).
-        UMAP overrides this with its own formula.
+        Subclasses must implement this method.
 
         Parameters
         ----------
@@ -677,28 +686,68 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         affinity : torch.Tensor of shape (n_new, k)
             Bipartite affinity weights (non-negative, not symmetrized).
         """
-        perplexity = self._get_n_neighbors_transform()
-        target_entropy = (
-            torch.log(torch.tensor(perplexity, dtype=C.dtype, device=C.device)) + 1
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement "
+            "_compute_bipartite_affinity for transform."
         )
 
-        def entropy_gap(eps):
-            log_P = _log_Pe(C, eps)
-            log_P_norm = log_P - logsumexp_red(log_P, dim=1)
-            H = -(log_P_norm.exp() * log_P_norm).sum(dim=1)
-            return H - target_entropy
-
-        eps = binary_search(
-            f=entropy_gap,
-            n=C.shape[0],
-            max_iter=getattr(self, "max_iter_affinity", 100),
-            dtype=C.dtype,
-            device=C.device,
+    def _supports_non_parametric_transform(self):
+        """Return whether the subclass implements non-parametric transform."""
+        return (
+            self.__class__._compute_bipartite_affinity
+            is not NegativeSamplingNeighborEmbedding._compute_bipartite_affinity
         )
 
-        log_P = _log_Pe(C, eps)
-        log_P = log_P - logsumexp_red(log_P, dim=1)
-        return log_P.exp()
+    def _get_transform_learning_rate(self):
+        """Return the transform learning rate as 1/4 of the fit-time LR."""
+        if self.lr == "auto":
+            early_exaggeration = getattr(self, "early_exaggeration_coeff", 1) or 1
+            fit_lr = max(self.n_samples_in_ / early_exaggeration / 4, 50)
+            return float(fit_lr) / 4.0
+        if isinstance(self.lr, (int, float)):
+            return float(self.lr) / 4.0
+
+        raise RuntimeError(
+            "[TorchDR] Transform learning rate is unavailable. "
+            "Fit the model before calling transform."
+        )
+
+    def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
+        """Sample negatives from the training set for transform optimization."""
+        if not self.discard_NNs:
+            return torch.randint(
+                n_new,
+                n_new + n_train,
+                (n_new, self.n_negatives),
+                device=self.device_,
+            )
+
+        exclusion = nn_indices.long().sort(dim=1).values
+        n_possible = n_train - exclusion.shape[1]
+        if self.n_negatives > n_possible:
+            raise ValueError(
+                f"[TorchDR] ERROR : requested {self.n_negatives} transform negatives but "
+                f"only {n_possible} training points are available after excluding neighbors."
+            )
+
+        negatives = torch.randint(
+            0,
+            n_train,
+            (n_new, self.n_negatives),
+            device=self.device_,
+        )
+
+        collisions = (negatives.unsqueeze(-1) == exclusion.unsqueeze(1)).any(dim=2)
+        while collisions.any():
+            negatives[collisions] = torch.randint(
+                0,
+                n_train,
+                (collisions.sum().item(),),
+                device=self.device_,
+            )
+            collisions = (negatives.unsqueeze(-1) == exclusion.unsqueeze(1)).any(dim=2)
+
+        return negatives + n_new
 
     def _transform(self, X_new, X_train=None):
         """Transform new data using non-parametric neighbor embedding.
@@ -721,6 +770,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         embedding_new : torch.Tensor of shape (n_new, n_components)
             Embedding of the new data.
         """
+        if not self._supports_non_parametric_transform():
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not support non-parametric transform."
+            )
+
         if X_train is None:
             raise ValueError(
                 "[TorchDR] X_train is required for non-parametric transform. "
@@ -841,10 +895,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         embedding_new = torch.nn.Parameter(embedding_new.clone())
 
         # LR: 1/4 of fit-time LR (following umap-learn)
-        if isinstance(self.lr, (int, float)):
-            lr = self.lr / 4.0
-        else:
-            lr = 0.25
+        lr = self._get_transform_learning_rate()
         max_iter_transform = min(self.max_iter // 3, 100)
 
         optimizer = torch.optim.SGD([embedding_new], lr=lr)
@@ -857,12 +908,8 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
                 self.embedding_ = torch.cat([embedding_new, train_emb.detach()], dim=0)
                 self.n_iter_.fill_(step)
 
-                # Sample negatives from training set (offset by n_new)
-                self.neg_indices_ = torch.randint(
-                    n_new,
-                    n_new + n_train,
-                    (n_new, self.n_negatives),
-                    device=self.device_,
+                self.neg_indices_ = self._sample_transform_neg_indices(
+                    n_new, n_train, nn_indices
                 )
 
                 optimizer.zero_grad(set_to_none=True)

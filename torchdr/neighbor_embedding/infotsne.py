@@ -8,8 +8,9 @@ from typing import Dict, Union, Optional, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
+from torchdr.affinity.entropic import _log_Pe
 from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
-from torchdr.utils import logsumexp_red, cross_entropy_loss
+from torchdr.utils import logsumexp_red, cross_entropy_loss, binary_search
 from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
@@ -195,3 +196,27 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         )
         log_Q = -(1 + distances_sq).log()
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Entropic bipartite affinity: exp(-d / sigma) normalized per row."""
+        target_entropy = (
+            torch.log(torch.tensor(self.perplexity, dtype=C.dtype, device=C.device)) + 1
+        )
+
+        def entropy_gap(eps):
+            log_P = _log_Pe(C, eps)
+            log_P_norm = log_P - logsumexp_red(log_P, dim=1)
+            H = -(log_P_norm.exp() * log_P_norm).sum(dim=1)
+            return H - target_entropy
+
+        eps = binary_search(
+            f=entropy_gap,
+            n=C.shape[0],
+            max_iter=self.max_iter_affinity,
+            dtype=C.dtype,
+            device=C.device,
+        )
+
+        log_P = _log_Pe(C, eps)
+        log_P = log_P - logsumexp_red(log_P, dim=1)
+        return log_P.exp()

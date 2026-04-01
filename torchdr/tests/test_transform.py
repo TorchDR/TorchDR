@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from torchdr.neighbor_embedding import UMAP, LargeVis, InfoTSNE
+from torchdr.neighbor_embedding import UMAP, LargeVis, InfoTSNE, PACMAP, TSNE
 from torchdr.tests.utils import toy_dataset
 from torchdr.utils import check_shape
 
@@ -131,3 +131,79 @@ def test_embedding_train_stored_on_cpu():
     assert hasattr(model, "embedding_train_")
     assert model.embedding_train_.device == torch.device("cpu")
     assert model.embedding_train_.shape == (n, 2)
+
+
+def test_transform_unsupported_model_raises():
+    """Models without bipartite affinity should fail fast in transform."""
+    model = PACMAP(n_components=2, n_neighbors=5)
+    model.is_fitted_ = True
+    model.device_ = DEVICE
+
+    X_test = torch.randn(5, 3)
+    X_train = torch.randn(20, 3)
+
+    with pytest.raises(
+        NotImplementedError, match="does not support non-parametric transform"
+    ):
+        model.transform(X_test, X_train=X_train)
+
+
+def test_transform_auto_lr_reuses_fit_learning_rate():
+    """Transform should reuse the fit-time LR when lr='auto'."""
+    X, _ = toy_dataset(50, "float32")
+    model = LargeVis(
+        n_components=2,
+        device=DEVICE,
+        init="normal",
+        max_iter=10,
+        random_state=0,
+        perplexity=10,
+    )
+    model.fit(X)
+
+    assert model.lr == "auto"
+    expected_fit_lr = max(model.n_samples_in_ / model.early_exaggeration_coeff / 4, 50)
+    assert model._get_transform_learning_rate() == pytest.approx(expected_fit_lr / 4.0)
+    assert model._get_transform_learning_rate() != pytest.approx(0.25)
+
+
+def test_transform_negative_sampling_discards_neighbors():
+    """Transform negative sampling should exclude nearest neighbors when requested."""
+    model = UMAP(
+        n_components=2,
+        device=DEVICE,
+        init="normal",
+        max_iter=10,
+        random_state=0,
+        n_neighbors=2,
+        negative_sample_rate=1,
+        discard_NNs=True,
+        optimizer="SGD",
+    )
+    model.device_ = DEVICE
+
+    nn_indices = torch.tensor([[0, 1], [1, 3]])
+    neg_indices = model._sample_transform_neg_indices(
+        n_new=2, n_train=5, nn_indices=nn_indices
+    )
+    neg_local = neg_indices - 2
+
+    assert neg_local.min() >= 0
+    assert neg_local.max() < 5
+    assert not (neg_local.unsqueeze(-1) == nn_indices.unsqueeze(1)).any()
+
+
+def test_embedding_train_not_stored_for_non_transform_model():
+    """Models without non-parametric transform should not keep a CPU clone."""
+    X, _ = toy_dataset(40, "float32")
+    model = TSNE(
+        n_components=2,
+        device=DEVICE,
+        init="normal",
+        max_iter=5,
+        random_state=0,
+        perplexity=10,
+    )
+    model.fit(X)
+
+    assert not hasattr(model, "embedding_train_")
