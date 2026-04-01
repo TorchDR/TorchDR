@@ -13,9 +13,10 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 from torchdr.affinity import Affinity
+from torchdr.affinity.entropic import _log_Pe
 from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
-from torchdr.utils import to_torch
+from torchdr.utils import to_torch, binary_search, logsumexp_red
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -676,9 +677,6 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         affinity : torch.Tensor of shape (n_new, k)
             Bipartite affinity weights (non-negative, not symmetrized).
         """
-        from torchdr.affinity.entropic import _log_Pe
-        from torchdr.utils import binary_search, logsumexp_red
-
         perplexity = self._get_n_neighbors_transform()
         target_entropy = (
             torch.log(torch.tensor(perplexity, dtype=C.dtype, device=C.device)) + 1
