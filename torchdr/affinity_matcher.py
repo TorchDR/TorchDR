@@ -348,6 +348,9 @@ class AffinityMatcher(DRModule):
                         )
                     break
 
+        # Store training embedding on CPU for non-parametric transform.
+        self.embedding_train_ = self.embedding_.data.detach().cpu().clone()
+
         self.clear_memory()
         return self.embedding_
 

@@ -13,8 +13,9 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 from torchdr.affinity import Affinity
-from torchdr.distance import FaissConfig
+from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.utils import to_torch
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -647,3 +648,163 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
             neg_indices = negatives + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
+
+    # --- Non-parametric transform ---
+
+    def _get_n_neighbors_transform(self):
+        """Return the number of neighbors for the transform kNN search."""
+        for attr in ("n_neighbors", "perplexity"):
+            if hasattr(self, attr):
+                return int(getattr(self, attr))
+        raise ValueError("[TorchDR] Cannot determine n_neighbors for transform.")
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Compute bipartite affinity from new points to training points.
+
+        Subclasses must override this method.
+
+        Parameters
+        ----------
+        C : torch.Tensor of shape (n_new, k)
+            Distances from new points to their k nearest training neighbors.
+        indices : torch.Tensor of shape (n_new, k)
+            Indices of k nearest training neighbors.
+
+        Returns
+        -------
+        affinity : torch.Tensor of shape (n_new, k)
+            Bipartite affinity weights (non-negative, not symmetrized).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement "
+            "_compute_bipartite_affinity for transform."
+        )
+
+    def _compute_transform_loss(
+        self, embedding_new, train_emb, nn_indices, affinity, n_train
+    ):
+        """Compute the transform loss (autograd mode). Subclasses override."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement _compute_transform_loss."
+        )
+
+    def _compute_transform_gradients(
+        self, embedding_new, train_emb, nn_indices, affinity, n_train
+    ):
+        """Compute transform gradients (closed-form mode). Subclasses override."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement "
+            "_compute_transform_gradients."
+        )
+
+    def _transform(self, X_new, X_train=None):
+        """Transform new data using non-parametric neighbor embedding.
+
+        Finds nearest neighbors in the training data, builds a bipartite
+        affinity graph, initializes positions as weighted averages of
+        training neighbors' embeddings, and optimizes with frozen training
+        embeddings.
+
+        Parameters
+        ----------
+        X_new : array-like of shape (n_new, n_features)
+            New data to transform.
+        X_train : array-like of shape (n_train, n_features)
+            Training data used during fit. Required because training data
+            is not stored to avoid memory overhead.
+
+        Returns
+        -------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Embedding of the new data.
+        """
+        if X_train is None:
+            raise ValueError(
+                "[TorchDR] X_train is required for non-parametric transform. "
+                "Pass the training data: model.transform(X_new, X_train=X_train)"
+            )
+
+        if not hasattr(self, "embedding_train_"):
+            raise RuntimeError(
+                "[TorchDR] Training embedding not available. "
+                "Call fit() or fit_transform() first."
+            )
+
+        X_new = to_torch(X_new).to(device=self.device_)
+        X_train = to_torch(X_train).to(device=self.device_)
+
+        # Step 1: kNN from new points to training points
+        k = self._get_n_neighbors_transform()
+        C, nn_indices = pairwise_distances(
+            X=X_new,
+            Y=X_train,
+            metric=self.metric,
+            backend=self.backend,
+            k=k,
+            return_indices=True,
+            device=self.device_,
+        )
+
+        # Step 2: bipartite affinity (subclass-specific)
+        affinity = self._compute_bipartite_affinity(C, nn_indices)
+
+        # Step 3: initialize as weighted average of training neighbors
+        weights = affinity / affinity.sum(dim=1, keepdim=True).clamp(min=1e-10)
+        train_emb = self.embedding_train_.to(device=self.device_)
+        neighbor_emb = train_emb[nn_indices.long()]  # (n_new, k, n_components)
+        embedding_new = (weights.unsqueeze(-1) * neighbor_emb).sum(dim=1)
+
+        # Step 4: optimize with frozen training embeddings
+        embedding_new = self._optimize_transform(
+            embedding_new, affinity, nn_indices, train_emb
+        )
+        return embedding_new
+
+    def _optimize_transform(self, embedding_new, affinity, nn_indices, train_emb):
+        """Optimize new embeddings with frozen training embeddings via SGD.
+
+        Parameters
+        ----------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Initial positions for new points.
+        affinity : torch.Tensor of shape (n_new, k)
+            Bipartite affinity from new to training points.
+        nn_indices : torch.Tensor of shape (n_new, k)
+            Indices of nearest training neighbors.
+        train_emb : torch.Tensor of shape (n_train, n_components)
+            Frozen training embeddings.
+
+        Returns
+        -------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Optimized positions.
+        """
+        n_train = train_emb.shape[0]
+        embedding_new = torch.nn.Parameter(embedding_new.clone())
+
+        # LR: 1/4 of fit-time LR (following umap-learn)
+        if isinstance(self.lr, (int, float)):
+            lr = self.lr / 4.0
+        else:
+            lr = 0.25
+        max_iter = min(self.max_iter // 3, 100)
+
+        optimizer = torch.optim.SGD([embedding_new], lr=lr)
+
+        for step in range(max_iter):
+            optimizer.zero_grad(set_to_none=True)
+
+            if getattr(self, "_use_closed_form_gradients", False):
+                grad = self._compute_transform_gradients(
+                    embedding_new, train_emb, nn_indices, affinity, n_train
+                )
+                embedding_new.grad = grad
+            else:
+                loss = self._compute_transform_loss(
+                    embedding_new, train_emb, nn_indices, affinity, n_train
+                )
+                loss.backward()
+
+            optimizer.step()
+
+        return embedding_new.data

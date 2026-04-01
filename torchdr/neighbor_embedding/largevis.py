@@ -9,7 +9,7 @@ import torch
 
 from torchdr.affinity import EntropicAffinity
 from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_red
+from torchdr.utils import cross_entropy_loss, sum_red, binary_search, logsumexp_red
 from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
@@ -199,3 +199,60 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.affinity_in_, Q)
+
+    # --- Non-parametric transform ---
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Entropic bipartite affinity: exp(-d / sigma) normalized per row."""
+        from torchdr.affinity.entropic import _log_Pe
+
+        target_entropy = (
+            torch.log(torch.tensor(self.perplexity, dtype=C.dtype, device=C.device)) + 1
+        )
+
+        def entropy_gap(eps):
+            log_P = _log_Pe(C, eps)
+            log_P_normalized = log_P - logsumexp_red(log_P, dim=1)
+            H = -(log_P_normalized.exp() * log_P_normalized).sum(dim=1)
+            return H - target_entropy
+
+        eps = binary_search(
+            f=entropy_gap,
+            n=C.shape[0],
+            max_iter=self.max_iter_affinity,
+            dtype=C.dtype,
+            device=C.device,
+        )
+
+        log_P = _log_Pe(C, eps)
+        # Normalize per row (row-stochastic)
+        log_P = log_P - logsumexp_red(log_P, dim=1)
+        return log_P.exp()
+
+    def _compute_transform_loss(
+        self, embedding_new, train_emb, nn_indices, affinity, n_train
+    ):
+        """LargeVis transform loss with bipartite indexing."""
+        n_new = embedding_new.shape[0]
+
+        # Attractive: cross-entropy between bipartite affinity and output kernel
+        new_points = embedding_new  # (n_new, d)
+        neighbor_points = train_emb[nn_indices.long()]  # (n_new, k, d)
+        diff_attr = new_points.unsqueeze(1) - neighbor_points
+        distances_sq_attr = (diff_attr**2).sum(dim=-1)  # (n_new, k)
+        Q_attr = 1.0 / (1.0 + distances_sq_attr)
+        Q_attr = Q_attr / (Q_attr + 1)
+        attractive_loss = cross_entropy_loss(affinity, Q_attr)
+
+        # Repulsive: negative sampling from training points
+        neg_indices = torch.randint(
+            0, n_train, (n_new, self.n_negatives), device=embedding_new.device
+        )
+        neg_points = train_emb[neg_indices.long()]
+        diff_rep = new_points.unsqueeze(1) - neg_points
+        distances_sq_rep = (diff_rep**2).sum(dim=-1)
+        Q_rep = 1.0 / (1.0 + distances_sq_rep)
+        Q_rep = Q_rep / (Q_rep + 1)
+        repulsive_loss = -sum_red((1 - Q_rep).log(), dim=(0, 1)) / n_new
+
+        return attractive_loss + self.repulsion_strength * repulsive_loss
