@@ -11,6 +11,7 @@ from torchdr.utils import check_shape
 
 
 DEVICE = "cpu"
+BACKEND = None
 
 
 @pytest.mark.parametrize(
@@ -30,6 +31,7 @@ def test_transform_shape(DRModel, kwargs, dtype):
 
     model = DRModel(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=100,
@@ -49,6 +51,7 @@ def test_transform_none_returns_training():
 
     model = UMAP(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=50,
@@ -68,6 +71,7 @@ def test_transform_missing_X_train_raises():
 
     model = UMAP(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=50,
@@ -84,7 +88,7 @@ def test_transform_missing_X_train_raises():
 
 def test_transform_not_fitted_raises():
     """transform before fit raises ValueError."""
-    model = UMAP(n_components=2, n_neighbors=10, optimizer="SGD")
+    model = UMAP(n_components=2, n_neighbors=10, optimizer="SGD", backend=BACKEND)
     X_test, _ = toy_dataset(20, "float32")
     with pytest.raises(ValueError, match="not fitted"):
         model.transform(X_test, X_train=X_test)
@@ -98,6 +102,7 @@ def test_transform_numpy_input():
 
     model = UMAP(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=50,
@@ -119,6 +124,7 @@ def test_embedding_train_stored_on_cpu():
 
     model = UMAP(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=50,
@@ -135,7 +141,7 @@ def test_embedding_train_stored_on_cpu():
 
 def test_transform_unsupported_model_raises():
     """Models without bipartite affinity should fail fast in transform."""
-    model = PACMAP(n_components=2, n_neighbors=5)
+    model = PACMAP(n_components=2, n_neighbors=5, backend=BACKEND)
     model.is_fitted_ = True
     model.device_ = DEVICE
 
@@ -153,6 +159,7 @@ def test_transform_auto_lr_reuses_fit_learning_rate():
     X, _ = toy_dataset(50, "float32")
     model = LargeVis(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=10,
@@ -171,6 +178,7 @@ def test_transform_negative_sampling_discards_neighbors():
     """Transform negative sampling should exclude nearest neighbors when requested."""
     model = UMAP(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=10,
@@ -198,6 +206,7 @@ def test_embedding_train_not_stored_for_non_transform_model():
     X, _ = toy_dataset(40, "float32")
     model = TSNE(
         n_components=2,
+        backend=BACKEND,
         device=DEVICE,
         init="normal",
         max_iter=5,
