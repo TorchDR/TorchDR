@@ -56,6 +56,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     ----
     This implementation supports multi-GPU training when launched with ``torchrun``.
     Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
+    It also supports the shared non-parametric transform path implemented in
+    :class:`NegativeSamplingNeighborEmbedding`.
 
     Parameters
     ----------
@@ -298,7 +300,13 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     # --- Non-parametric transform ---
 
     def _compute_bipartite_affinity(self, C, indices):
-        """UMAP bipartite affinity: exp(-(d - rho) / sigma), no symmetrization."""
+        """Build the UMAP bipartite affinity used during transform.
+
+        This is the UMAP-specific hook for the shared non-parametric transform
+        pipeline in :class:`NegativeSamplingNeighborEmbedding`. It mirrors the
+        unsymmetrized UMAP neighbor graph construction on the bipartite graph
+        from new points to the fitted training set.
+        """
         rho = kmin(C, k=1, dim=1)[0].squeeze(-1).contiguous()
 
         log_n_neighbors = torch.log2(
@@ -320,7 +328,11 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         return _log_P_UMAP(C, rho, eps).exp()
 
     def _make_transform_epochs_per_sample(self, affinity, n_epochs):
-        """Convert transform edge strengths into UMAP's epoch schedule."""
+        """Convert transform edge strengths into UMAP's epoch schedule.
+
+        This keeps the transform path aligned with UMAP's usual edge-sampling
+        logic while still using TorchDR's vectorized, mask-based optimizer.
+        """
         epochs_per_sample = torch.full_like(affinity, float("inf"))
         if n_epochs <= 0:
             return epochs_per_sample
@@ -338,7 +350,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         return epochs_per_sample
 
     def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
-        """Match UMAP's exact-neighbor initialization when possible."""
+        """Match UMAP's transform initialization when exact matches exist.
+
+        The default weighted-average initialization from the base class is kept,
+        except that rows with an affinity of 1 are snapped to the corresponding
+        training embedding exactly, as in ``umap-learn``.
+        """
         embedding_new = super()._initialize_transform_embedding(
             affinity, nn_indices, train_emb
         )
@@ -357,7 +374,9 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         """Set up UMAP edge-sampling state for transform.
 
         Reuses the same edge-sampling schedule as fit, but on the bipartite
-        graph between new points and the frozen training embedding.
+        graph between new points and the frozen training embedding. The actual
+        optimization still runs through TorchDR's vectorized mask-based update
+        path rather than ``umap-learn``'s edge-wise CPU loop.
         """
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 

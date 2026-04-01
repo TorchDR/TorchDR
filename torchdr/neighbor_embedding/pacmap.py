@@ -25,6 +25,10 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively,
     and :math:`d_{ij} = 1 + \|\mathbf{z}_i - \mathbf{z}_j\|^2` (more details in :cite:`wang2021understanding`).
 
+    Unlike UMAP, LargeVis, and InfoTSNE, PACMAP does not currently implement
+    the bipartite affinity hook needed for the shared non-parametric transform
+    pipeline, so :meth:`transform` is not supported for unseen points.
+
     Parameters
     ----------
     n_neighbors : int, optional

@@ -443,11 +443,32 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
     - The sampled indices are stored in :attr:`neg_indices_` and refreshed
       every iteration via :meth:`on_training_step_start`.
 
+    **Non-parametric transform support:**
+
+    This family also provides the shared machinery for *out-of-sample*
+    non-parametric transform. The base implementation handles the generic
+    transform lifecycle:
+
+    - find nearest neighbors from new points to the reference training set;
+    - build a bipartite affinity from new points to training points;
+    - initialize new embeddings from that bipartite graph;
+    - optimize only the new points while keeping the fitted training
+      embedding frozen.
+
+    The design is intentionally split so the base class owns the generic
+    transform pipeline, while each algorithm only provides the
+    method-specific bipartite affinity through
+    :meth:`_compute_bipartite_affinity`. This keeps the out-of-sample logic
+    centralized and prevents each subclass from reimplementing the same
+    transform scaffolding.
+
     **Inherits** distributed multi-GPU support from
     :class:`NeighborEmbedding`.
 
     **Subclasses** must implement :meth:`_compute_attractive_loss` and
     :meth:`_compute_repulsive_loss` (or the gradient equivalents).
+    Subclasses that support non-parametric transform must additionally
+    implement :meth:`_compute_bipartite_affinity`.
 
     **Direct subclasses**: :class:`UMAP`, :class:`LargeVis`,
     :class:`InfoTSNE`, :class:`PACMAP`.
@@ -604,7 +625,13 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         self.discard_NNs = self.exclude_neighbors_from_negative_sampling
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
-        """Fit and keep a CPU copy only for models that support transform."""
+        """Fit and keep a CPU copy of the embedding only when transform is supported.
+
+        The transform path needs access to the fitted reference embedding, but
+        storing that extra CPU copy for every estimator would be wasteful.
+        The copy is therefore created only for subclasses that opt into the
+        non-parametric transform pipeline.
+        """
         embedding = super()._fit_transform(X, y)
 
         if self._supports_non_parametric_transform():
@@ -700,7 +727,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
     def _compute_bipartite_affinity(self, C, indices):
         """Compute bipartite affinity from new points to training points.
 
-        Subclasses must implement this method.
+        This hook is the method-specific part of the shared non-parametric
+        transform pipeline. The base class handles neighbor search,
+        initialization, and optimization; subclasses only need to define how
+        distances from new points to training neighbors are converted into
+        affinity weights.
 
         Parameters
         ----------
@@ -720,7 +751,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         )
 
     def _supports_non_parametric_transform(self):
-        """Return whether the subclass implements non-parametric transform."""
+        """Return whether the subclass opted into non-parametric transform.
+
+        Support is explicit: a subclass enables the shared transform pipeline
+        by overriding :meth:`_compute_bipartite_affinity`.
+        """
         return (
             self.__class__._compute_bipartite_affinity
             is not NegativeSamplingNeighborEmbedding._compute_bipartite_affinity
@@ -757,7 +792,14 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         return min(self.max_iter // 3, 100)
 
     def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
-        """Sample negatives from the training set for transform optimization."""
+        """Sample transform negatives from the frozen training embedding.
+
+        During non-parametric transform, repulsive negatives are drawn only
+        from the reference training points. When
+        :attr:`exclude_neighbors_from_negative_sampling` is enabled, the
+        positive training neighbors of each new point are removed from that
+        negative pool.
+        """
         if not self.exclude_neighbors_from_negative_sampling:
             return torch.randint(
                 n_new,
@@ -788,7 +830,13 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         return compressed + shifts + n_new
 
     def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
-        """Initialize transformed points from the bipartite neighbor graph."""
+        """Initialize transformed points from the bipartite neighbor graph.
+
+        The default initialization is the affinity-weighted average of the
+        training neighbors' fitted embeddings. Subclasses can override this to
+        match algorithm-specific initialization rules while still reusing the
+        shared transform pipeline.
+        """
         weights = affinity / affinity.sum(dim=1, keepdim=True).clamp(min=1e-10)
         neighbor_emb = train_emb[nn_indices.long()]
         return (weights.unsqueeze(-1) * neighbor_emb).sum(dim=1)
@@ -798,7 +846,8 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
 
         Finds nearest neighbors in the training data, builds a bipartite
         affinity graph, initializes positions from that graph, and optimizes
-        with frozen training embeddings.
+        only the new points while keeping the fitted training embedding
+        frozen.
 
         Parameters
         ----------
@@ -867,7 +916,9 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         Builds a combined embedding ``[embedding_new, train_emb]`` so that
         the existing ``_compute_loss`` / ``_compute_gradients`` methods
         work unmodified — queries index into the new part and keys index
-        into the training part.
+        into the training part. This is the key design choice that keeps the
+        transform code small: the transform path reuses the usual objective
+        implementation instead of introducing a second optimization codepath.
 
         Subclasses can override to set up additional state (e.g. UMAP's
         edge-sampling buffers). Must call ``super()._enter_transform(...)``.
@@ -916,7 +967,8 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         Uses the concatenation trick: builds
         ``embedding_ = cat([embedding_new, train_emb])`` so that the
         existing ``_compute_loss`` / ``_compute_gradients`` methods
-        can be reused without modification.
+        can be reused without modification. Only ``embedding_new`` is a trainable
+        parameter; ``train_emb`` acts as the frozen reference geometry.
 
         Parameters
         ----------

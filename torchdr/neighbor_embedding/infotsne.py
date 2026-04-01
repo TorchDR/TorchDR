@@ -32,6 +32,8 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
     ----
     This implementation supports multi-GPU training when launched with ``torchrun``.
     Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
+    It also supports the shared non-parametric transform path implemented in
+    :class:`NegativeSamplingNeighborEmbedding`.
 
     Parameters
     ----------
@@ -200,7 +202,13 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         return logsumexp_red(log_Q, dim=1).sum() / self.n_samples_in_
 
     def _compute_bipartite_affinity(self, C, indices):
-        """Entropic bipartite affinity: exp(-d / sigma) normalized per row."""
+        """Build the InfoTSNE bipartite affinity used during transform.
+
+        This is the InfoTSNE-specific hook for the shared non-parametric
+        transform pipeline in :class:`NegativeSamplingNeighborEmbedding`.
+        It converts distances from each new point to its training neighbors
+        into a row-normalized entropic affinity.
+        """
         target_entropy = (
             torch.log(torch.tensor(self.perplexity, dtype=C.dtype, device=C.device)) + 1
         )
