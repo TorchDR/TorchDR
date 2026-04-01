@@ -724,6 +724,10 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         """Return the transform learning rate as 1/4 of the fit-time LR."""
         return self._get_fit_learning_rate() / 4.0
 
+    def _get_max_iter_transform(self):
+        """Return the number of optimization steps used during transform."""
+        return min(self.max_iter // 3, 100)
+
     def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
         """Sample negatives from the training set for transform optimization."""
         if not self.discard_NNs:
@@ -735,39 +739,38 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
             )
 
         exclusion = nn_indices.long().sort(dim=1).values
-        n_possible = n_train - exclusion.shape[1]
-        if self.n_negatives > n_possible:
+        n_excluded = exclusion.shape[1]
+        n_possible = n_train - n_excluded
+        if n_possible <= 0:
             raise ValueError(
-                f"[TorchDR] ERROR : requested {self.n_negatives} transform negatives but "
-                f"only {n_possible} training points are available after excluding neighbors."
+                "[TorchDR] ERROR : no candidates are available for transform negative "
+                "sampling after excluding neighbors."
             )
 
-        negatives = torch.randint(
+        compressed = torch.randint(
             0,
-            n_train,
+            n_possible,
             (n_new, self.n_negatives),
             device=self.device_,
         )
+        adjusted_exclusion = exclusion - torch.arange(
+            n_excluded, device=exclusion.device, dtype=exclusion.dtype
+        )
+        shifts = torch.searchsorted(adjusted_exclusion, compressed, right=True)
+        return compressed + shifts + n_new
 
-        collisions = (negatives.unsqueeze(-1) == exclusion.unsqueeze(1)).any(dim=2)
-        while collisions.any():
-            negatives[collisions] = torch.randint(
-                0,
-                n_train,
-                (collisions.sum().item(),),
-                device=self.device_,
-            )
-            collisions = (negatives.unsqueeze(-1) == exclusion.unsqueeze(1)).any(dim=2)
-
-        return negatives + n_new
+    def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
+        """Initialize transformed points from the bipartite neighbor graph."""
+        weights = affinity / affinity.sum(dim=1, keepdim=True).clamp(min=1e-10)
+        neighbor_emb = train_emb[nn_indices.long()]
+        return (weights.unsqueeze(-1) * neighbor_emb).sum(dim=1)
 
     def _transform(self, X_new, X_train=None):
         """Transform new data using non-parametric neighbor embedding.
 
         Finds nearest neighbors in the training data, builds a bipartite
-        affinity graph, initializes positions as weighted averages of
-        training neighbors' embeddings, and optimizes with frozen training
-        embeddings.
+        affinity graph, initializes positions from that graph, and optimizes
+        with frozen training embeddings.
 
         Parameters
         ----------
@@ -817,11 +820,12 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         # Step 2: bipartite affinity (subclass-specific)
         affinity = self._compute_bipartite_affinity(C, nn_indices)
 
-        # Step 3: initialize as weighted average of training neighbors
-        weights = affinity / affinity.sum(dim=1, keepdim=True).clamp(min=1e-10)
         train_emb = self.embedding_train_.to(device=self.device_)
-        neighbor_emb = train_emb[nn_indices.long()]  # (n_new, k, n_components)
-        embedding_new = (weights.unsqueeze(-1) * neighbor_emb).sum(dim=1)
+
+        # Step 3: initialize from the bipartite graph
+        embedding_new = self._initialize_transform_embedding(
+            affinity, nn_indices, train_emb
+        )
 
         # Step 4: optimize with frozen training embeddings
         embedding_new = self._optimize_transform(
@@ -908,7 +912,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
 
         # LR: 1/4 of fit-time LR (following umap-learn)
         lr = self._get_transform_learning_rate()
-        max_iter_transform = min(self.max_iter // 3, 100)
+        max_iter_transform = self._get_max_iter_transform()
 
         optimizer = torch.optim.SGD([embedding_new], lr=lr)
 

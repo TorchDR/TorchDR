@@ -317,11 +317,45 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
         return _log_P_UMAP(C, rho, eps).exp()
 
+    def _make_transform_epochs_per_sample(self, affinity, n_epochs):
+        """Convert transform edge strengths into UMAP's epoch schedule."""
+        epochs_per_sample = torch.full_like(affinity, float("inf"))
+        if n_epochs <= 0:
+            return epochs_per_sample
+
+        max_affinity = affinity.max()
+        if max_affinity <= 0:
+            return epochs_per_sample
+
+        threshold = max_affinity / float(n_epochs)
+        active_edges = affinity >= threshold
+        eps = torch.finfo(affinity.dtype).tiny
+        epochs_per_sample[active_edges] = max_affinity / affinity[active_edges].clamp(
+            min=eps
+        )
+        return epochs_per_sample
+
+    def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
+        """Match UMAP's exact-neighbor initialization when possible."""
+        embedding_new = super()._initialize_transform_embedding(
+            affinity, nn_indices, train_emb
+        )
+        exact_match = torch.isclose(
+            affinity, torch.ones_like(affinity), atol=1e-6, rtol=0.0
+        )
+        if exact_match.any():
+            exact_rows = exact_match.any(dim=1)
+            exact_cols = exact_match.to(torch.int64).argmax(dim=1)
+            embedding_new[exact_rows] = train_emb[
+                nn_indices[exact_rows, exact_cols[exact_rows]].long()
+            ]
+        return embedding_new
+
     def _enter_transform(self, embedding_new, train_emb, affinity, nn_indices):
         """Set up UMAP edge-sampling state for transform.
 
-        Sets ``epochs_per_sample`` and ``epoch_of_next_sample`` to zeros so
-        all edges are active every iteration (no edge-sampling during transform).
+        Reuses the same edge-sampling schedule as fit, but on the bipartite
+        graph between new points and the frozen training embedding.
         """
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 
@@ -329,9 +363,10 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         for attr in ("epochs_per_sample", "epoch_of_next_sample", "mask_affinity_in_"):
             saved[attr] = getattr(self, attr, None)
 
-        # All edges active every step (no edge-sampling for transform)
-        n_new, k = affinity.shape
-        self.epochs_per_sample = torch.zeros(n_new, k, device=self.device_)
-        self.epoch_of_next_sample = torch.zeros(n_new, k, device=self.device_)
+        epochs_per_sample = self._make_transform_epochs_per_sample(
+            affinity, self._get_max_iter_transform()
+        )
+        self.epochs_per_sample = epochs_per_sample
+        self.epoch_of_next_sample = epochs_per_sample.clone()
 
         return saved

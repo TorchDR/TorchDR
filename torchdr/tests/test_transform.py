@@ -201,6 +201,62 @@ def test_transform_negative_sampling_discards_neighbors():
     assert not (neg_local.unsqueeze(-1) == nn_indices.unsqueeze(1)).any()
 
 
+def test_umap_transform_init_uses_exact_neighbor_embedding():
+    """UMAP transform should reuse the exact neighbor embedding when affinity is 1."""
+    model = UMAP(
+        n_components=2,
+        backend=BACKEND,
+        device=DEVICE,
+        init="normal",
+        max_iter=30,
+        random_state=0,
+        n_neighbors=2,
+        optimizer="SGD",
+    )
+    train_emb = torch.tensor([[0.0, 0.0], [1.0, 2.0], [3.0, 4.0]])
+    affinity = torch.tensor([[1.0, 0.25], [0.25, 0.75]])
+    nn_indices = torch.tensor([[1, 2], [0, 2]])
+
+    embedding_new = model._initialize_transform_embedding(
+        affinity, nn_indices, train_emb
+    )
+
+    assert torch.equal(embedding_new[0], train_emb[1])
+    expected = 0.25 * train_emb[0] + 0.75 * train_emb[2]
+    assert torch.allclose(embedding_new[1], expected)
+
+
+def test_umap_transform_uses_epoch_schedule():
+    """UMAP transform should keep fit-style epoch sampling instead of all-edges updates."""
+    model = UMAP(
+        n_components=2,
+        backend=BACKEND,
+        device=DEVICE,
+        init="normal",
+        max_iter=90,
+        random_state=0,
+        n_neighbors=2,
+        optimizer="SGD",
+    )
+    model.device_ = torch.device(DEVICE)
+
+    embedding_new = torch.zeros(2, 2)
+    train_emb = torch.zeros(4, 2)
+    affinity = torch.tensor([[1.0, 0.1], [0.05, 0.01]])
+    nn_indices = torch.tensor([[0, 1], [2, 3]])
+
+    saved = model._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+    try:
+        assert torch.equal(model.epoch_of_next_sample, model.epochs_per_sample)
+        assert not torch.equal(
+            model.epochs_per_sample, torch.zeros_like(model.epochs_per_sample)
+        )
+        assert torch.isfinite(model.epochs_per_sample[0, 0])
+        assert torch.isinf(model.epochs_per_sample[1, 1])
+    finally:
+        model._exit_transform(saved)
+
+
 def test_embedding_train_not_stored_for_non_transform_model():
     """Models without non-parametric transform should not keep a CPU clone."""
     X, _ = toy_dataset(40, "float32")
