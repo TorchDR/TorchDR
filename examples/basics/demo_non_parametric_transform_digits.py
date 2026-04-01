@@ -9,10 +9,10 @@ where a reference embedding is already available and new samples only arrive
 with their input features.
 
 We use the built-in digits dataset rather than full MNIST so the example stays
-fully self-contained and lightweight enough for the documentation gallery. We
-report a simple deployment metric:
-10-NN label transfer accuracy from the reference embedding to the transformed
-query points.
+fully self-contained and lightweight enough for the documentation gallery. By
+default, we fit the reference embedding on 1,400 points and transform 300
+inference-only query points. We report a simple deployment metric: 10-NN label
+transfer accuracy from the reference embedding to the transformed query points.
 
 """
 
@@ -32,10 +32,10 @@ from torchdr import UMAP
 
 
 RANDOM_STATE = 0
-N_REFERENCE = int(os.environ.get("TORCHDR_EXAMPLE_N_REFERENCE", "1200"))
-N_QUERY = int(os.environ.get("TORCHDR_EXAMPLE_N_QUERY", "500"))
+N_REFERENCE = int(os.environ.get("TORCHDR_EXAMPLE_N_REFERENCE", "1400"))
+N_QUERY = int(os.environ.get("TORCHDR_EXAMPLE_N_QUERY", "300"))
 PCA_DIM = 50
-MAX_ITER = int(os.environ.get("TORCHDR_EXAMPLE_MAX_ITER", "100"))
+MAX_ITER = int(os.environ.get("TORCHDR_EXAMPLE_MAX_ITER", "150"))
 
 
 # %%
@@ -49,20 +49,17 @@ digits = load_digits()
 X = (digits.data / 16.0).astype("float32")
 y = digits.target.astype("int64")
 
-X_subset, _, y_subset, _ = train_test_split(
-    X,
-    y,
-    train_size=N_REFERENCE + N_QUERY,
-    stratify=y,
-    random_state=RANDOM_STATE,
-)
+if N_REFERENCE + N_QUERY > len(X):
+    raise ValueError(
+        f"Requested {N_REFERENCE + N_QUERY} samples but digits only contains {len(X)}."
+    )
 
 X_reference, X_query, y_reference, y_query = train_test_split(
-    X_subset,
-    y_subset,
+    X,
+    y,
     train_size=N_REFERENCE,
     test_size=N_QUERY,
-    stratify=y_subset,
+    stratify=y,
     random_state=RANDOM_STATE,
 )
 
@@ -82,7 +79,7 @@ umap = UMAP(
     n_components=2,
     n_neighbors=15,
     max_iter=MAX_ITER,
-    init="normal",
+    init="pca",
     optimizer="SGD",
     backend=None,
     device="cpu",
@@ -104,8 +101,8 @@ knn = KNeighborsClassifier(n_neighbors=10)
 knn.fit(Z_reference, y_reference)
 label_transfer_accuracy = knn.score(Z_query, y_query)
 
-print(f"Reference samples: {len(X_reference_pca)}")
-print(f"Query samples: {len(X_query_pca)}")
+print(f"Reference samples used for fit: {len(X_reference_pca)}")
+print(f"Query samples used for transform only: {len(X_query_pca)}")
 print(f"10-NN label transfer accuracy: {label_transfer_accuracy:.3f}")
 
 
@@ -120,10 +117,10 @@ axes[0].scatter(
     Z_reference[:, 1],
     c=y_reference,
     cmap="tab10",
-    s=4,
-    alpha=0.45,
+    s=5,
+    alpha=0.55,
 )
-axes[0].set_title("Reference embedding")
+axes[0].set_title(f"Reference embedding\nfit on {len(X_reference_pca)} points")
 axes[0].set_xticks([])
 axes[0].set_yticks([])
 
@@ -143,7 +140,9 @@ scatter = axes[1].scatter(
     alpha=0.8,
 )
 axes[1].set_title(
-    f"Held-out query points\n10-NN transfer accuracy = {label_transfer_accuracy:.3f}"
+    "Inference-only query points\n"
+    f"transform on {len(X_query_pca)} points, "
+    f"10-NN accuracy = {label_transfer_accuracy:.3f}"
 )
 axes[1].set_xticks([])
 axes[1].set_yticks([])
