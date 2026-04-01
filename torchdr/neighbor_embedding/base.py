@@ -698,19 +698,31 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
             is not NegativeSamplingNeighborEmbedding._compute_bipartite_affinity
         )
 
+    def _get_fit_learning_rate(self):
+        """Return the learning rate configured at the start of fit."""
+        saved_lr = getattr(self, "lr_", None)
+        had_lr = hasattr(self, "lr_")
+        saved_early_exaggeration = getattr(self, "early_exaggeration_coeff_", None)
+        had_early_exaggeration = hasattr(self, "early_exaggeration_coeff_")
+
+        try:
+            self.early_exaggeration_coeff_ = self.early_exaggeration_coeff
+            self._set_learning_rate()
+            return float(self.lr_)
+        finally:
+            if had_lr:
+                self.lr_ = saved_lr
+            elif hasattr(self, "lr_"):
+                delattr(self, "lr_")
+
+            if had_early_exaggeration:
+                self.early_exaggeration_coeff_ = saved_early_exaggeration
+            elif hasattr(self, "early_exaggeration_coeff_"):
+                delattr(self, "early_exaggeration_coeff_")
+
     def _get_transform_learning_rate(self):
         """Return the transform learning rate as 1/4 of the fit-time LR."""
-        if self.lr == "auto":
-            early_exaggeration = getattr(self, "early_exaggeration_coeff", 1) or 1
-            fit_lr = max(self.n_samples_in_ / early_exaggeration / 4, 50)
-            return float(fit_lr) / 4.0
-        if isinstance(self.lr, (int, float)):
-            return float(self.lr) / 4.0
-
-        raise RuntimeError(
-            "[TorchDR] Transform learning rate is unavailable. "
-            "Fit the model before calling transform."
-        )
+        return self._get_fit_learning_rate() / 4.0
 
     def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
         """Sample negatives from the training set for transform optimization."""
