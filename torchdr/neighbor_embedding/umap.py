@@ -317,45 +317,21 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
         return _log_P_UMAP(C, rho, eps).exp()
 
-    @torch.no_grad()
-    def _compute_transform_gradients(
-        self, embedding_new, train_emb, nn_indices, affinity, n_train
-    ):
-        """Compute UMAP attractive + repulsive gradients for transform.
+    def _enter_transform(self, embedding_new, train_emb, affinity, nn_indices):
+        """Set up UMAP edge-sampling state for transform.
 
-        Mirrors the fit-time gradient computation but operates on a bipartite
-        graph (new points → training points) with frozen training embeddings.
+        Sets ``epochs_per_sample`` and ``epoch_of_next_sample`` to zeros so
+        all edges are active every iteration (no edge-sampling during transform).
         """
-        # --- Attractive gradients ---
-        new_points = embedding_new.data  # (n_new, d)
-        neighbor_points = train_emb[nn_indices.long()]  # (n_new, k, d)
-        diff_attr = new_points.unsqueeze(1) - neighbor_points  # (n_new, k, d)
-        D = (diff_attr**2).sum(dim=-1)  # (n_new, k) sqeuclidean
+        saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 
-        positive_edges = D > 0
-        D_ = 1 + self._a * D**self._b
-        D_coeff = D.pow(self._b - 1)
-        D_coeff.mul_(2 * self._a * self._b).div_(D_)
-        D_coeff.masked_fill_(~positive_edges, 0)
+        # Save UMAP-specific state
+        for attr in ("epochs_per_sample", "epoch_of_next_sample", "mask_affinity_in_"):
+            saved[attr] = getattr(self, attr, None)
 
-        attractive_grad = torch.einsum("ijk,ij->ik", diff_attr, D_coeff)
-        attractive_grad.clamp_(-4, 4)
+        # All edges active every step (no edge-sampling for transform)
+        n_new, k = affinity.shape
+        self.epochs_per_sample = torch.zeros(n_new, k, device=self.device_)
+        self.epoch_of_next_sample = torch.zeros(n_new, k, device=self.device_)
 
-        # --- Repulsive gradients ---
-        neg_indices = torch.randint(
-            0,
-            n_train,
-            (embedding_new.shape[0], self.n_negatives),
-            device=embedding_new.device,
-        )
-        neg_points = train_emb[neg_indices.long()]  # (n_new, n_neg, d)
-        diff_rep = new_points.unsqueeze(1) - neg_points  # (n_new, n_neg, d)
-        D_neg = (diff_rep**2).sum(dim=-1)  # (n_new, n_neg)
-
-        D_neg_ = 1 + self._a * D_neg**self._b
-        D_neg_coeff = D_neg.add(self._eps).mul(D_neg_).reciprocal_().mul_(-2 * self._b)
-
-        repulsive_grad = torch.einsum("ijk,ij->ik", diff_rep, D_neg_coeff)
-        repulsive_grad.clamp_(-4, 4)
-
-        return attractive_grad + self.repulsion_strength * repulsive_grad
+        return saved

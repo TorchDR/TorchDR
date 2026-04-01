@@ -661,7 +661,8 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
     def _compute_bipartite_affinity(self, C, indices):
         """Compute bipartite affinity from new points to training points.
 
-        Subclasses must override this method.
+        Default implementation uses entropic affinity (for LargeVis, InfoTSNE).
+        UMAP overrides this with its own formula.
 
         Parameters
         ----------
@@ -675,27 +676,31 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         affinity : torch.Tensor of shape (n_new, k)
             Bipartite affinity weights (non-negative, not symmetrized).
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement "
-            "_compute_bipartite_affinity for transform."
+        from torchdr.affinity.entropic import _log_Pe
+        from torchdr.utils import binary_search, logsumexp_red
+
+        perplexity = self._get_n_neighbors_transform()
+        target_entropy = (
+            torch.log(torch.tensor(perplexity, dtype=C.dtype, device=C.device)) + 1
         )
 
-    def _compute_transform_loss(
-        self, embedding_new, train_emb, nn_indices, affinity, n_train
-    ):
-        """Compute the transform loss (autograd mode). Subclasses override."""
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement _compute_transform_loss."
+        def entropy_gap(eps):
+            log_P = _log_Pe(C, eps)
+            log_P_norm = log_P - logsumexp_red(log_P, dim=1)
+            H = -(log_P_norm.exp() * log_P_norm).sum(dim=1)
+            return H - target_entropy
+
+        eps = binary_search(
+            f=entropy_gap,
+            n=C.shape[0],
+            max_iter=getattr(self, "max_iter_affinity", 100),
+            dtype=C.dtype,
+            device=C.device,
         )
 
-    def _compute_transform_gradients(
-        self, embedding_new, train_emb, nn_indices, affinity, n_train
-    ):
-        """Compute transform gradients (closed-form mode). Subclasses override."""
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement "
-            "_compute_transform_gradients."
-        )
+        log_P = _log_Pe(C, eps)
+        log_P = log_P - logsumexp_red(log_P, dim=1)
+        return log_P.exp()
 
     def _transform(self, X_new, X_train=None):
         """Transform new data using non-parametric neighbor embedding.
@@ -760,8 +765,62 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         )
         return embedding_new
 
+    def _enter_transform(self, embedding_new, train_emb, affinity, nn_indices):
+        """Save fit-time state and set up for transform.
+
+        Builds a combined embedding ``[embedding_new, train_emb]`` so that
+        the existing ``_compute_loss`` / ``_compute_gradients`` methods
+        work unmodified — queries index into the new part and keys index
+        into the training part.
+
+        Subclasses can override to set up additional state (e.g. UMAP's
+        edge-sampling buffers). Must call ``super()._enter_transform(...)``.
+
+        Returns
+        -------
+        saved : dict
+            State to restore in :meth:`_exit_transform`.
+        """
+        n_new = embedding_new.shape[0]
+        n_train = train_emb.shape[0]
+
+        saved = {}
+        for attr in (
+            "embedding_",
+            "chunk_indices_",
+            "NN_indices_",
+            "affinity_in_",
+            "n_samples_in_",
+            "early_exaggeration_coeff_",
+            "n_iter_",
+        ):
+            saved[attr] = getattr(self, attr, None)
+
+        self.chunk_indices_ = torch.arange(n_new, device=self.device_)
+        # Offset NN indices into the combined [new | train] space
+        self.NN_indices_ = nn_indices + n_new
+        self.affinity_in_ = affinity
+        self.n_samples_in_ = n_new + n_train
+        self.early_exaggeration_coeff_ = 1
+        self.n_iter_ = torch.tensor(0, device=self.device_)
+
+        return saved
+
+    def _exit_transform(self, saved):
+        """Restore fit-time state after transform."""
+        for attr, value in saved.items():
+            if value is not None:
+                setattr(self, attr, value)
+            elif hasattr(self, attr):
+                delattr(self, attr)
+
     def _optimize_transform(self, embedding_new, affinity, nn_indices, train_emb):
         """Optimize new embeddings with frozen training embeddings via SGD.
+
+        Uses the concatenation trick: builds
+        ``embedding_ = cat([embedding_new, train_emb])`` so that the
+        existing ``_compute_loss`` / ``_compute_gradients`` methods
+        can be reused without modification.
 
         Parameters
         ----------
@@ -779,6 +838,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         embedding_new : torch.Tensor of shape (n_new, n_components)
             Optimized positions.
         """
+        n_new = embedding_new.shape[0]
         n_train = train_emb.shape[0]
         embedding_new = torch.nn.Parameter(embedding_new.clone())
 
@@ -787,24 +847,37 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
             lr = self.lr / 4.0
         else:
             lr = 0.25
-        max_iter = min(self.max_iter // 3, 100)
+        max_iter_transform = min(self.max_iter // 3, 100)
 
         optimizer = torch.optim.SGD([embedding_new], lr=lr)
 
-        for step in range(max_iter):
-            optimizer.zero_grad(set_to_none=True)
+        saved = self._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 
-            if getattr(self, "_use_closed_form_gradients", False):
-                grad = self._compute_transform_gradients(
-                    embedding_new, train_emb, nn_indices, affinity, n_train
-                )
-                embedding_new.grad = grad
-            else:
-                loss = self._compute_transform_loss(
-                    embedding_new, train_emb, nn_indices, affinity, n_train
-                )
-                loss.backward()
+        try:
+            for step in range(max_iter_transform):
+                # Rebuild combined embedding each step (new points change)
+                self.embedding_ = torch.cat([embedding_new, train_emb.detach()], dim=0)
+                self.n_iter_.fill_(step)
 
-            optimizer.step()
+                # Sample negatives from training set (offset by n_new)
+                self.neg_indices_ = torch.randint(
+                    n_new,
+                    n_new + n_train,
+                    (n_new, self.n_negatives),
+                    device=self.device_,
+                )
+
+                optimizer.zero_grad(set_to_none=True)
+
+                if getattr(self, "_use_closed_form_gradients", False):
+                    gradients = self._compute_gradients()
+                    embedding_new.grad = gradients
+                else:
+                    loss = self._compute_loss()
+                    loss.backward()
+
+                optimizer.step()
+        finally:
+            self._exit_transform(saved)
 
         return embedding_new.data
