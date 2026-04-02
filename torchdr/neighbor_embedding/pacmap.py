@@ -25,6 +25,10 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively,
     and :math:`d_{ij} = 1 + \|\mathbf{z}_i - \mathbf{z}_j\|^2` (more details in :cite:`wang2021understanding`).
 
+    Unlike UMAP, LargeVis, and InfoTSNE, PACMAP does not currently implement
+    the bipartite affinity hook needed for the shared non-parametric transform
+    pipeline, so :meth:`transform` is not supported for unseen points.
+
     Parameters
     ----------
     n_neighbors : int, optional
@@ -76,8 +80,8 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         Interval for checking convergence, by default 50.
     iter_per_phase : int, optional
         Number of iterations for each phase of the algorithm, by default 100.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is True.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
@@ -113,7 +117,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
-        discard_NNs: bool = True,
+        exclude_neighbors_from_negative_sampling: bool = True,
         compile: bool = False,
         distributed: Union[bool, str] = False,
         **kwargs,
@@ -157,7 +161,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             n_negatives=self.n_further,
-            discard_NNs=discard_NNs,
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             distributed=distributed,
             **kwargs,

@@ -13,8 +13,9 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 from torchdr.affinity import Affinity
-from torchdr.distance import FaissConfig
+from torchdr.distance import FaissConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.utils import to_torch
 
 
 class NeighborEmbedding(AffinityMatcher):
@@ -436,16 +437,38 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
 
     - At each iteration, :attr:`n_negatives` indices are sampled uniformly
       (excluding the point itself) for each point in the local chunk.
-    - When :attr:`discard_NNs` is ``True``, nearest neighbors are also
-      excluded from the negative samples to avoid conflicting gradients.
+    - When :attr:`exclude_neighbors_from_negative_sampling` is ``True``,
+      nearest neighbors are also excluded from the negative samples to avoid
+      conflicting gradients.
     - The sampled indices are stored in :attr:`neg_indices_` and refreshed
       every iteration via :meth:`on_training_step_start`.
+
+    **Non-parametric transform support:**
+
+    This family also provides the shared machinery for *out-of-sample*
+    non-parametric transform. The base implementation handles the generic
+    transform lifecycle:
+
+    - find nearest neighbors from new points to the reference training set;
+    - build a bipartite affinity from new points to training points;
+    - initialize new embeddings from that bipartite graph;
+    - optimize only the new points while keeping the fitted training
+      embedding frozen.
+
+    The design is intentionally split so the base class owns the generic
+    transform pipeline, while each algorithm only provides the
+    method-specific bipartite affinity through
+    :meth:`_compute_bipartite_affinity`. This keeps the out-of-sample logic
+    centralized and prevents each subclass from reimplementing the same
+    transform scaffolding.
 
     **Inherits** distributed multi-GPU support from
     :class:`NeighborEmbedding`.
 
     **Subclasses** must implement :meth:`_compute_attractive_loss` and
     :meth:`_compute_repulsive_loss` (or the gradient equivalents).
+    Subclasses that support non-parametric transform must additionally
+    implement :meth:`_compute_bipartite_affinity`.
 
     **Direct subclasses**: :class:`UMAP`, :class:`LargeVis`,
     :class:`InfoTSNE`, :class:`PACMAP`.
@@ -507,8 +530,9 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         Number of negative samples to use. Default is 5.
     check_interval : int, optional
         Number of iterations between two checks for convergence. Default is 50.
-    discard_NNs : bool, optional
-        Whether to discard nearest neighbors from negative sampling. Default is False.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
+        Default is False.
     compile : bool, default=False
         Whether to use torch.compile for faster computation.
     **kwargs
@@ -542,7 +566,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         n_negatives: int = 5,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         **kwargs,
     ):
@@ -573,7 +597,26 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         )
 
         self.n_negatives = n_negatives
-        self.discard_NNs = discard_NNs
+        self.exclude_neighbors_from_negative_sampling = (
+            exclude_neighbors_from_negative_sampling
+        )
+
+    def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
+        """Fit and keep a CPU copy of the embedding only when transform is supported.
+
+        The transform path needs access to the fitted reference embedding, but
+        storing that extra CPU copy for every estimator would be wasteful.
+        The copy is therefore created only for subclasses that opt into the
+        non-parametric transform pipeline.
+        """
+        embedding = super()._fit_transform(X, y)
+
+        if self._supports_non_parametric_transform():
+            self.embedding_train_ = embedding.detach().cpu().clone()
+        elif hasattr(self, "embedding_train_"):
+            delattr(self, "embedding_train_")
+
+        return embedding
 
     def on_affinity_computation_end(self):
         """Build per-row exclusion indices for negative sampling."""
@@ -583,10 +626,11 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         global_self_idx = self.chunk_indices_.unsqueeze(1)
 
         # Optionally include NN indices (rows aligned with local slice)
-        if self.discard_NNs:
+        if self.exclude_neighbors_from_negative_sampling:
             if not hasattr(self, "NN_indices_"):
                 self.logger.warning(
-                    "NN_indices_ not found. Cannot discard NNs from negative sampling."
+                    "NN_indices_ not found. Cannot exclude neighbors from "
+                    "negative sampling."
                 )
                 exclude = global_self_idx
             else:
@@ -647,3 +691,311 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
             neg_indices = negatives + shifts
 
         self.register_buffer("neg_indices_", neg_indices, persistent=False)
+
+    # --- Non-parametric transform ---
+
+    def _get_n_neighbors_transform(self):
+        """Return the number of neighbors for the transform kNN search."""
+        for attr in ("n_neighbors", "perplexity"):
+            if hasattr(self, attr):
+                return int(getattr(self, attr))
+        raise ValueError("[TorchDR] Cannot determine n_neighbors for transform.")
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Compute bipartite affinity from new points to training points.
+
+        This hook is the method-specific part of the shared non-parametric
+        transform pipeline. The base class handles neighbor search,
+        initialization, and optimization; subclasses only need to define how
+        distances from new points to training neighbors are converted into
+        affinity weights.
+
+        Parameters
+        ----------
+        C : torch.Tensor of shape (n_new, k)
+            Distances from new points to their k nearest training neighbors.
+        indices : torch.Tensor of shape (n_new, k)
+            Indices of k nearest training neighbors.
+
+        Returns
+        -------
+        affinity : torch.Tensor of shape (n_new, k)
+            Bipartite affinity weights (non-negative, not symmetrized).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement "
+            "_compute_bipartite_affinity for transform."
+        )
+
+    def _supports_non_parametric_transform(self):
+        """Return whether the subclass opted into non-parametric transform.
+
+        Support is explicit: a subclass enables the shared transform pipeline
+        by overriding :meth:`_compute_bipartite_affinity`.
+        """
+        return (
+            self.__class__._compute_bipartite_affinity
+            is not NegativeSamplingNeighborEmbedding._compute_bipartite_affinity
+        )
+
+    def _get_fit_learning_rate(self):
+        """Return the learning rate configured at the start of fit."""
+        saved_lr = getattr(self, "lr_", None)
+        had_lr = hasattr(self, "lr_")
+        saved_early_exaggeration = getattr(self, "early_exaggeration_coeff_", None)
+        had_early_exaggeration = hasattr(self, "early_exaggeration_coeff_")
+
+        try:
+            self.early_exaggeration_coeff_ = self.early_exaggeration_coeff
+            self._set_learning_rate()
+            return float(self.lr_)
+        finally:
+            if had_lr:
+                self.lr_ = saved_lr
+            elif hasattr(self, "lr_"):
+                delattr(self, "lr_")
+
+            if had_early_exaggeration:
+                self.early_exaggeration_coeff_ = saved_early_exaggeration
+            elif hasattr(self, "early_exaggeration_coeff_"):
+                delattr(self, "early_exaggeration_coeff_")
+
+    def _get_transform_learning_rate(self):
+        """Return the transform learning rate as 1/4 of the fit-time LR."""
+        return self._get_fit_learning_rate() / 4.0
+
+    def _get_max_iter_transform(self):
+        """Return the number of optimization steps used during transform."""
+        return min(self.max_iter // 3, 100)
+
+    def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
+        """Sample transform negatives from the frozen training embedding.
+
+        During non-parametric transform, repulsive negatives are drawn only
+        from the reference training points. When
+        :attr:`exclude_neighbors_from_negative_sampling` is enabled, the
+        positive training neighbors of each new point are removed from that
+        negative pool.
+        """
+        if not self.exclude_neighbors_from_negative_sampling:
+            return torch.randint(
+                n_new,
+                n_new + n_train,
+                (n_new, self.n_negatives),
+                device=self.device_,
+            )
+
+        exclusion = nn_indices.long().sort(dim=1).values
+        n_excluded = exclusion.shape[1]
+        n_possible = n_train - n_excluded
+        if n_possible <= 0:
+            raise ValueError(
+                "[TorchDR] ERROR : no candidates are available for transform negative "
+                "sampling after excluding neighbors."
+            )
+
+        compressed = torch.randint(
+            0,
+            n_possible,
+            (n_new, self.n_negatives),
+            device=self.device_,
+        )
+        adjusted_exclusion = exclusion - torch.arange(
+            n_excluded, device=exclusion.device, dtype=exclusion.dtype
+        )
+        shifts = torch.searchsorted(adjusted_exclusion, compressed, right=True)
+        return compressed + shifts + n_new
+
+    def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
+        """Initialize transformed points from the bipartite neighbor graph.
+
+        The default initialization is the affinity-weighted average of the
+        training neighbors' fitted embeddings. Subclasses can override this to
+        match algorithm-specific initialization rules while still reusing the
+        shared transform pipeline.
+        """
+        weights = affinity / affinity.sum(dim=1, keepdim=True).clamp(min=1e-10)
+        neighbor_emb = train_emb[nn_indices.long()]
+        return (weights.unsqueeze(-1) * neighbor_emb).sum(dim=1)
+
+    def _transform(self, X_new, X_train=None):
+        """Transform new data using non-parametric neighbor embedding.
+
+        Finds nearest neighbors in the training data, builds a bipartite
+        affinity graph, initializes positions from that graph, and optimizes
+        only the new points while keeping the fitted training embedding
+        frozen.
+
+        Parameters
+        ----------
+        X_new : array-like of shape (n_new, n_features)
+            New data to transform.
+        X_train : array-like of shape (n_train, n_features)
+            Training data used during fit. Required because training data
+            is not stored to avoid memory overhead.
+
+        Returns
+        -------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Embedding of the new data.
+        """
+        if not self._supports_non_parametric_transform():
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not support non-parametric transform."
+            )
+
+        if X_train is None:
+            raise ValueError(
+                "[TorchDR] X_train is required for non-parametric transform. "
+                "Pass the training data: model.transform(X_new, X_train=X_train)"
+            )
+
+        if not hasattr(self, "embedding_train_"):
+            raise RuntimeError(
+                "[TorchDR] Training embedding not available. "
+                "Call fit() or fit_transform() first."
+            )
+
+        X_new = to_torch(X_new).to(device=self.device_)
+        X_train = to_torch(X_train).to(device=self.device_)
+
+        # Step 1: kNN from new points to training points
+        k = self._get_n_neighbors_transform()
+        C, nn_indices = pairwise_distances(
+            X=X_new,
+            Y=X_train,
+            metric=self.metric,
+            backend=self.backend,
+            k=k,
+            return_indices=True,
+            device=self.device_,
+        )
+
+        # Step 2: bipartite affinity (subclass-specific)
+        affinity = self._compute_bipartite_affinity(C, nn_indices)
+
+        train_emb = self.embedding_train_.to(device=self.device_)
+
+        # Step 3: initialize from the bipartite graph
+        embedding_new = self._initialize_transform_embedding(
+            affinity, nn_indices, train_emb
+        )
+
+        # Step 4: optimize with frozen training embeddings
+        embedding_new = self._optimize_transform(
+            embedding_new, affinity, nn_indices, train_emb
+        )
+        return embedding_new
+
+    def _enter_transform(self, embedding_new, train_emb, affinity, nn_indices):
+        """Save fit-time state and set up for transform.
+
+        Builds a combined embedding ``[embedding_new, train_emb]`` so that
+        the existing ``_compute_loss`` / ``_compute_gradients`` methods
+        work unmodified — queries index into the new part and keys index
+        into the training part. This is the key design choice that keeps the
+        transform code small: the transform path reuses the usual objective
+        implementation instead of introducing a second optimization codepath.
+
+        Subclasses can override to set up additional state (e.g. UMAP's
+        edge-sampling buffers). Must call ``super()._enter_transform(...)``.
+
+        Returns
+        -------
+        saved : dict
+            State to restore in :meth:`_exit_transform`.
+        """
+        n_new = embedding_new.shape[0]
+        n_train = train_emb.shape[0]
+
+        saved = {}
+        for attr in (
+            "embedding_",
+            "chunk_indices_",
+            "NN_indices_",
+            "affinity_in_",
+            "n_samples_in_",
+            "early_exaggeration_coeff_",
+            "n_iter_",
+        ):
+            saved[attr] = getattr(self, attr, None)
+
+        self.chunk_indices_ = torch.arange(n_new, device=self.device_)
+        # Offset NN indices into the combined [new | train] space
+        self.NN_indices_ = nn_indices + n_new
+        self.affinity_in_ = affinity
+        self.n_samples_in_ = n_new + n_train
+        self.early_exaggeration_coeff_ = 1
+        self.n_iter_ = torch.tensor(0, device=self.device_)
+
+        return saved
+
+    def _exit_transform(self, saved):
+        """Restore fit-time state after transform."""
+        for attr, value in saved.items():
+            if value is not None:
+                setattr(self, attr, value)
+            elif hasattr(self, attr):
+                delattr(self, attr)
+
+    def _optimize_transform(self, embedding_new, affinity, nn_indices, train_emb):
+        """Optimize new embeddings with frozen training embeddings via SGD.
+
+        Uses the concatenation trick: builds
+        ``embedding_ = cat([embedding_new, train_emb])`` so that the
+        existing ``_compute_loss`` / ``_compute_gradients`` methods
+        can be reused without modification. Only ``embedding_new`` is a trainable
+        parameter; ``train_emb`` acts as the frozen reference geometry.
+
+        Parameters
+        ----------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Initial positions for new points.
+        affinity : torch.Tensor of shape (n_new, k)
+            Bipartite affinity from new to training points.
+        nn_indices : torch.Tensor of shape (n_new, k)
+            Indices of nearest training neighbors.
+        train_emb : torch.Tensor of shape (n_train, n_components)
+            Frozen training embeddings.
+
+        Returns
+        -------
+        embedding_new : torch.Tensor of shape (n_new, n_components)
+            Optimized positions.
+        """
+        n_new = embedding_new.shape[0]
+        n_train = train_emb.shape[0]
+        embedding_new = torch.nn.Parameter(embedding_new.clone())
+
+        # LR: 1/4 of fit-time LR (following umap-learn)
+        lr = self._get_transform_learning_rate()
+        max_iter_transform = self._get_max_iter_transform()
+
+        optimizer = torch.optim.SGD([embedding_new], lr=lr)
+
+        saved = self._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+
+        try:
+            for step in range(max_iter_transform):
+                # Rebuild combined embedding each step (new points change)
+                self.embedding_ = torch.cat([embedding_new, train_emb.detach()], dim=0)
+                self.n_iter_.fill_(step)
+
+                self.neg_indices_ = self._sample_transform_neg_indices(
+                    n_new, n_train, nn_indices
+                )
+
+                optimizer.zero_grad(set_to_none=True)
+
+                if getattr(self, "_use_closed_form_gradients", False):
+                    gradients = self._compute_gradients()
+                    embedding_new.grad = gradients
+                else:
+                    loss = self._compute_loss()
+                    loss.backward()
+
+                optimizer.step()
+        finally:
+            self._exit_transform(saved)
+
+        return embedding_new.data

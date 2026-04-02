@@ -9,8 +9,10 @@ import torch
 import numpy as np
 
 from torchdr.affinity import UMAPAffinity
+from torchdr.affinity.knn_normalized import _log_P_UMAP
 from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from torchdr.distance import pairwise_distances_indexed, FaissConfig
+from torchdr.utils import binary_search, kmin
 
 from scipy.optimize import curve_fit
 
@@ -54,6 +56,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     ----
     This implementation supports multi-GPU training when launched with ``torchrun``.
     Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
+    It also supports the shared non-parametric transform path implemented in
+    :class:`NegativeSamplingNeighborEmbedding`.
 
     Parameters
     ----------
@@ -113,8 +117,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         Number of negative samples for the noise-contrastive loss, by default 10.
     check_interval : int, optional
         Check interval for the algorithm, by default 50.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is False.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
@@ -153,7 +157,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         metric: str = "sqeuclidean",
         negative_sample_rate: int = 5,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -205,7 +209,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             verbose=verbose,
             random_state=random_state,
             check_interval=check_interval,
-            discard_NNs=discard_NNs,
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
@@ -290,3 +294,98 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad
+
+    # --- Non-parametric transform ---
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Build the UMAP bipartite affinity used during transform.
+
+        This is the UMAP-specific hook for the shared non-parametric transform
+        pipeline in :class:`NegativeSamplingNeighborEmbedding`. It mirrors the
+        unsymmetrized UMAP neighbor graph construction on the bipartite graph
+        from new points to the fitted training set.
+        """
+        rho = kmin(C, k=1, dim=1)[0].squeeze(-1).contiguous()
+
+        log_n_neighbors = torch.log2(
+            torch.tensor(self.n_neighbors, dtype=C.dtype, device=C.device)
+        )
+
+        def marginal_gap(eps):
+            log_marg = _log_P_UMAP(C, rho, eps).logsumexp(1)
+            return log_marg.exp().squeeze() - log_n_neighbors
+
+        eps = binary_search(
+            f=marginal_gap,
+            n=C.shape[0],
+            max_iter=self.max_iter_affinity,
+            dtype=C.dtype,
+            device=C.device,
+        )
+
+        return _log_P_UMAP(C, rho, eps).exp()
+
+    def _make_transform_epochs_per_sample(self, affinity, n_epochs):
+        """Convert transform edge strengths into UMAP's epoch schedule.
+
+        This keeps the transform path aligned with UMAP's usual edge-sampling
+        logic while still using TorchDR's vectorized, mask-based optimizer.
+        """
+        epochs_per_sample = torch.full_like(affinity, float("inf"))
+        if n_epochs <= 0:
+            return epochs_per_sample
+
+        max_affinity = affinity.max()
+        if max_affinity <= 0:
+            return epochs_per_sample
+
+        threshold = max_affinity / float(n_epochs)
+        active_edges = affinity >= threshold
+        eps = torch.finfo(affinity.dtype).tiny
+        epochs_per_sample[active_edges] = max_affinity / affinity[active_edges].clamp(
+            min=eps
+        )
+        return epochs_per_sample
+
+    def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
+        """Match UMAP's transform initialization when exact matches exist.
+
+        The default weighted-average initialization from the base class is kept,
+        except that rows with an affinity of 1 are snapped to the corresponding
+        training embedding exactly, as in ``umap-learn``.
+        """
+        embedding_new = super()._initialize_transform_embedding(
+            affinity, nn_indices, train_emb
+        )
+        exact_match = torch.isclose(
+            affinity, torch.ones_like(affinity), atol=1e-6, rtol=0.0
+        )
+        if exact_match.any():
+            exact_rows = exact_match.any(dim=1)
+            exact_cols = exact_match.to(torch.int64).argmax(dim=1)
+            embedding_new[exact_rows] = train_emb[
+                nn_indices[exact_rows, exact_cols[exact_rows]].long()
+            ]
+        return embedding_new
+
+    def _enter_transform(self, embedding_new, train_emb, affinity, nn_indices):
+        """Set up UMAP edge-sampling state for transform.
+
+        Reuses the same edge-sampling schedule as fit, but on the bipartite
+        graph between new points and the frozen training embedding. The actual
+        optimization still runs through TorchDR's vectorized mask-based update
+        path rather than ``umap-learn``'s edge-wise CPU loop.
+        """
+        saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+
+        # Save UMAP-specific state
+        for attr in ("epochs_per_sample", "epoch_of_next_sample", "mask_affinity_in_"):
+            saved[attr] = getattr(self, attr, None)
+
+        epochs_per_sample = self._make_transform_epochs_per_sample(
+            affinity, self._get_max_iter_transform()
+        )
+        self.epochs_per_sample = epochs_per_sample
+        self.epoch_of_next_sample = epochs_per_sample.clone()
+
+        return saved

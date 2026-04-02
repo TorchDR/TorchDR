@@ -150,16 +150,21 @@ class DRModule(BaseEstimator, nn.Module, ABC):
         self.is_fitted_ = True
         return self.embedding_
 
-    def transform(self, X: Optional[ArrayLike] = None) -> ArrayLike:
+    def transform(self, X: Optional[ArrayLike] = None, **kwargs) -> ArrayLike:
         """Transform data into the learned embedding space.
 
         If ``X`` is None, returns the training embedding. When an encoder
         is set, new data is transformed via ``encoder(X)``.
+        For non-parametric neighbor embedding models (UMAP, LargeVis, ...),
+        pass the training data as ``X_train`` keyword argument.
 
         Parameters
         ----------
         X : ArrayLike of shape (n_samples, n_features), optional
             Data to transform. If None, returns the training embedding.
+        **kwargs
+            Additional keyword arguments passed to :meth:`_transform`.
+            For non-parametric models, ``X_train`` is required.
 
         Returns
         -------
@@ -179,11 +184,29 @@ class DRModule(BaseEstimator, nn.Module, ABC):
                 X_tensor = to_torch(X).to(device=self.device_)
                 with torch.no_grad():
                     return self.encoder(X_tensor)
-            raise NotImplementedError(
-                "Transforming new data is not implemented for this model."
-            )
+            return self._transform(X, **kwargs)
 
         return self.embedding_
+
+    def _transform(self, X: ArrayLike, **kwargs) -> ArrayLike:
+        """Transform new data (subclasses override this).
+
+        Parameters
+        ----------
+        X : ArrayLike of shape (n_samples, n_features)
+            Data to transform.
+        **kwargs
+            Subclass-specific arguments.
+
+        Returns
+        -------
+        embedding : ArrayLike of shape (n_samples, n_components)
+        """
+        raise NotImplementedError(
+            "Transforming new data without an encoder is not supported "
+            "for this model. Pass an encoder to enable transform, or use "
+            "a model that supports non-parametric transform (e.g. UMAP)."
+        )
 
     # --- Core algorithm (must be implemented by subclasses) ---
 
