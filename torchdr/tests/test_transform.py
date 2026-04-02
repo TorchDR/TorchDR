@@ -201,21 +201,6 @@ def test_transform_negative_sampling_discards_neighbors():
     assert not (neg_local.unsqueeze(-1) == nn_indices.unsqueeze(1)).any()
 
 
-def test_discard_nns_alias_is_supported_with_warning():
-    """The deprecated discard_NNs alias should still work for one cycle."""
-    with pytest.warns(FutureWarning, match="discard_NNs"):
-        model = UMAP(
-            n_components=2,
-            backend=BACKEND,
-            n_neighbors=2,
-            optimizer="SGD",
-            discard_NNs=True,
-        )
-
-    assert model.exclude_neighbors_from_negative_sampling is True
-    assert model.discard_NNs is True
-
-
 def test_umap_transform_init_uses_exact_neighbor_embedding():
     """UMAP transform should reuse the exact neighbor embedding when affinity is 1."""
     model = UMAP(

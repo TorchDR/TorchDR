@@ -566,31 +566,10 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         repulsion_strength: float = 1.0,
         n_negatives: int = 5,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         **kwargs,
     ):
-        legacy_exclude_neighbors = kwargs.pop("discard_NNs", None)
-        if legacy_exclude_neighbors is not None:
-            if (
-                exclude_neighbors_from_negative_sampling is not None
-                and exclude_neighbors_from_negative_sampling != legacy_exclude_neighbors
-            ):
-                raise ValueError(
-                    "[TorchDR] ERROR : received conflicting values for "
-                    "'exclude_neighbors_from_negative_sampling' and the deprecated "
-                    "'discard_NNs' alias."
-                )
-            warnings.warn(
-                "[TorchDR] 'discard_NNs' is deprecated. Use "
-                "'exclude_neighbors_from_negative_sampling' instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            exclude_neighbors_from_negative_sampling = legacy_exclude_neighbors
-        elif exclude_neighbors_from_negative_sampling is None:
-            exclude_neighbors_from_negative_sampling = False
-
         super().__init__(
             affinity_in=affinity_in,
             affinity_out=affinity_out,
@@ -621,8 +600,6 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         self.exclude_neighbors_from_negative_sampling = (
             exclude_neighbors_from_negative_sampling
         )
-        # Backward-compatible alias kept for one deprecation cycle.
-        self.discard_NNs = self.exclude_neighbors_from_negative_sampling
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Fit and keep a CPU copy of the embedding only when transform is supported.

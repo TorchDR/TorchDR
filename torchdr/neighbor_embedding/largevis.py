@@ -134,7 +134,7 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -175,9 +175,7 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
-            exclude_neighbors_from_negative_sampling=(
-                exclude_neighbors_from_negative_sampling
-            ),
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             distributed=distributed,
             **kwargs,

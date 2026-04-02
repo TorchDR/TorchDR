@@ -117,16 +117,13 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
-        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        exclude_neighbors_from_negative_sampling: bool = True,
         compile: bool = False,
         distributed: Union[bool, str] = False,
         **kwargs,
     ):
         if distributed:
             raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
-
-        if exclude_neighbors_from_negative_sampling is None:
-            exclude_neighbors_from_negative_sampling = True
 
         self.n_neighbors = n_neighbors
         self.metric = metric
@@ -164,9 +161,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             n_negatives=self.n_further,
-            exclude_neighbors_from_negative_sampling=(
-                exclude_neighbors_from_negative_sampling
-            ),
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             distributed=distributed,
             **kwargs,

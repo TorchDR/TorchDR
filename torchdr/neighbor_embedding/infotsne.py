@@ -132,7 +132,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
         n_negatives: int = 300,
         sparsity: bool = True,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -173,9 +173,7 @@ class InfoTSNE(NegativeSamplingNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
-            exclude_neighbors_from_negative_sampling=(
-                exclude_neighbors_from_negative_sampling
-            ),
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             distributed=distributed,
             **kwargs,

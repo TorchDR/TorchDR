@@ -157,7 +157,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         metric: str = "sqeuclidean",
         negative_sample_rate: int = 5,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        exclude_neighbors_from_negative_sampling: bool = False,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -209,9 +209,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             verbose=verbose,
             random_state=random_state,
             check_interval=check_interval,
-            exclude_neighbors_from_negative_sampling=(
-                exclude_neighbors_from_negative_sampling
-            ),
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
