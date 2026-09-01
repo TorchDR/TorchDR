@@ -87,9 +87,12 @@ def neighborhood_preservation(
 
     Notes
     -----
-    The metric computes the Jaccard similarity (intersection over union) between
-    the K-nearest neighbor sets in the original and reduced spaces for each point,
-    then averages across all points.
+    For each point, the metric computes the fraction of its ``K`` original-space
+    nearest neighbors that also appear among its ``K`` embedding-space nearest
+    neighbors, then averages across all points. Equivalently, it divides the
+    neighborhood intersection size by ``K``. This is a neighborhood-overlap
+    (or neighbor-recall) score, not Jaccard similarity, whose denominator would
+    be the size of the neighborhood union.
 
     For large datasets, using backend='faiss' is recommended for efficiency.
     The metric excludes self-neighbors (i.e., the point itself).

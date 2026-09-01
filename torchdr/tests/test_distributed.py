@@ -201,3 +201,31 @@ class TestGetFaissConfig:
         assert config.temp_memory == 4.0
         assert config.index_type == "IVF"
         assert config.nprobe == 10
+
+    def test_with_ivfpq_base_config(self):
+        """Test preserving product quantization settings from a base config."""
+        from torchdr.distance import FaissConfig
+
+        ctx = DistributedContext()
+        ctx.local_rank = 2
+
+        base = FaissConfig(
+            temp_memory=1.5,
+            device=7,
+            index_type="IVFPQ",
+            nprobe=12,
+            nlist=256,
+            M=32,
+            nbits=6,
+            useFloat16=True,
+        )
+        config = ctx.get_faiss_config(base)
+
+        assert config.device == 2
+        assert config.temp_memory == 1.5
+        assert config.index_type == "IVFPQ"
+        assert config.nprobe == 12
+        assert config.nlist == 256
+        assert config.M == 32
+        assert config.nbits == 6
+        assert config.faiss_kwargs == {"useFloat16": True}

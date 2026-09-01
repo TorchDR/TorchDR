@@ -7,6 +7,7 @@
 import torch
 import numpy as np
 import warnings
+from weakref import WeakKeyDictionary
 from typing import Union, Optional, Dict, Any, Tuple, List
 
 from torch.utils.data import (
@@ -21,7 +22,7 @@ from torchdr.utils.faiss import faiss
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 # Cache for DataLoader metadata to avoid redundant iterations
-_DATALOADER_METADATA_CACHE = {}
+_DATALOADER_METADATA_CACHE = WeakKeyDictionary()
 
 
 def get_dataloader_metadata(dataloader):
@@ -38,7 +39,7 @@ def get_dataloader_metadata(dataloader):
         Cached metadata dictionary with keys 'n_samples', 'n_features', 'dtype',
         or None if not cached.
     """
-    return _DATALOADER_METADATA_CACHE.get(id(dataloader))
+    return _DATALOADER_METADATA_CACHE.get(dataloader)
 
 
 def _cache_dataloader_metadata(dataloader, metadata):
@@ -51,7 +52,7 @@ def _cache_dataloader_metadata(dataloader, metadata):
     metadata : dict
         Metadata dictionary with keys 'n_samples', 'n_features', 'dtype'.
     """
-    _DATALOADER_METADATA_CACHE[id(dataloader)] = metadata
+    _DATALOADER_METADATA_CACHE[dataloader] = metadata
 
 
 def _is_deterministic_sampler(sampler):
@@ -236,7 +237,8 @@ def pairwise_distances_faiss(
     Supported metrics are:
       - "euclidean": returns the Euclidean distance (square root of the squared distance)
       - "sqeuclidean": returns the squared Euclidean distance (as computed by FAISS)
-      - "angular": returns the negative inner-product (after normalizing vectors)
+      - "angular": returns the negative inner product. Inputs are not normalized;
+        normalize them beforehand to obtain cosine-similarity neighbor ordering.
 
     If Y is not provided then we assume a self–search and, if `exclude_diag` is True,
     the self–neighbor is removed from the results.
@@ -269,7 +271,7 @@ def pairwise_distances_faiss(
         Nearest neighbor distances.
         For metric=="euclidean", distances are Euclidean (i.e. square root of L2^2).
         For metric=="sqeuclidean", distances are the squared Euclidean distances.
-        For metric=="angular", distances are the (normalized) inner product scores.
+        For metric=="angular", distances are the negative raw inner-product scores.
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
 
