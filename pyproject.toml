@@ -11,7 +11,7 @@ authors = [
 ]
 license = {text = "BSD (3-Clause)"}
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = [
     "torch",
     "scikit-learn",
@@ -39,7 +39,6 @@ classifiers=[
   "Operating System :: POSIX",
   "Operating System :: Unix",
   "Operating System :: MacOS",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
