@@ -44,7 +44,6 @@ Changed
 Fixed
 ~~~~~
 
-- Preserve NumPy's global random state when computing k-means ARI `PR #283 <https://github.com/TorchDR/TorchDR/pull/283>`_.
 - Correct PACMAP mid-near pair selection to use global sample indices `PR #277 <https://github.com/TorchDR/TorchDR/pull/277>`_.
 - Fix memory leak in AffinityMatcher by freeing input data after initialization `PR #223 <https://github.com/TorchDR/TorchDR/pull/223>`_.
 - Fix PACMAP device handling `PR #215 <https://github.com/TorchDR/TorchDR/pull/215>`_.
