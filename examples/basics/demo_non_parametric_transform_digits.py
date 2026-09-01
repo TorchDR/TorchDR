@@ -1,6 +1,6 @@
 r"""
 UMAP Non-Parametric Transform on Handwritten Digits
-==================================================
+===================================================
 
 We fit a reference UMAP embedding on one subset of the sklearn handwritten
 digits dataset and then map unseen samples with :meth:`torchdr.UMAP.transform`
