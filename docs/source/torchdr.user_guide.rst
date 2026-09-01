@@ -134,6 +134,60 @@ In the above table, :math:`\mathrm{Neg}(i)` denotes the set of negative samples
 for point :math:`i`. They are usually sampled uniformly at random from the dataset.
 
 
+.. _non-parametric-transform-section:
+
+
+Transforming New Data with a Frozen Reference Embedding
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:class:`UMAP <UMAP>`, :class:`LargeVis <LargeVis>`, and
+:class:`InfoTSNE <InfoTSNE>` support out-of-sample transformation. This makes it
+possible to fit a reference embedding once and then place unseen observations in
+the same low-dimensional space without moving the reference points::
+
+    from torchdr import UMAP
+
+    model = UMAP(n_neighbors=15, device="cuda")
+    Z_reference = model.fit_transform(X_reference)
+    Z_query = model.transform(X_query, X_train=X_reference)
+
+These methods are non-parametric: fitting does not learn an encoder that can be
+directly evaluated on ``X_query``. Instead, ``transform`` constructs a bipartite
+neighborhood graph between the query and reference observations. For every
+query observation, TorchDR:
+
+1. finds its nearest neighbors in ``X_train``;
+2. converts their input-space distances into method-specific affinity weights;
+3. initializes its position from the weighted average of the corresponding
+   reference embedding coordinates; and
+4. optimizes only the query coordinate, using the fitted reference embedding as
+   a frozen set of attractive neighbors and repulsive negative samples.
+
+Only the fitted reference embedding is retained by the estimator. The original
+input features are not stored, which avoids keeping another potentially large
+copy of the training data. Consequently, ``X_train`` passed to ``transform``
+must contain the exact samples used during fitting, in the same row order. The
+query and reference arrays must also have the same number of features and must
+use the same preprocessing. For example, when using a fitted scaler or PCA
+model, apply its ``transform`` method to both arrays before passing them to
+TorchDR.
+
+.. note::
+
+    Non-parametric transformation still performs nearest-neighbor search and a
+    short iterative optimization. It is therefore more expensive than applying
+    a learned encoder, but cheaper than fitting a new joint embedding. The
+    result is also not equivalent to calling ``fit_transform`` on the
+    concatenation of the reference and query data: reference coordinates remain
+    fixed, and the bipartite graph contains no query-to-query edges. This
+    transform path is intended for a single process and device rather than
+    distributed multi-GPU inference.
+
+For a complete reference/query workflow with preprocessing, visualization, and
+label-transfer evaluation, see
+:ref:`sphx_glr_auto_examples_basics_demo_non_parametric_transform_digits.py`.
+
+
 .. _spectral-section:
 
 

@@ -31,6 +31,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
     ----
     This implementation supports multi-GPU training when launched with ``torchrun``.
     Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
+    It also supports the shared non-parametric transform path implemented in
+    :class:`NegativeSamplingNeighborEmbedding`.
 
     Parameters
     ----------
@@ -92,9 +94,11 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Default is None (no early exaggeration).
     early_exaggeration_iter : int, optional
         Number of iterations for early exaggeration. Default is None.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is False.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -131,7 +135,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -172,6 +177,7 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
@@ -199,3 +205,13 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.affinity_in_, Q)
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Build the LargeVis bipartite affinity used during transform.
+
+        This is the LargeVis-specific hook for the shared non-parametric
+        transform pipeline in :class:`NegativeSamplingNeighborEmbedding`.
+        It converts distances from each new point to its training neighbors
+        into a row-normalized entropic affinity.
+        """
+        return self._compute_bipartite_entropic_affinity(C)
