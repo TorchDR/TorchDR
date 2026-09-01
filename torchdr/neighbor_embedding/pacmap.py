@@ -239,7 +239,9 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
                     device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                self.mid_near_indices[:, i] = idxs[:, 1]
+                self.mid_near_indices[:, i] = mid_near_candidates_indices.gather(
+                    1, idxs[:, 1].unsqueeze(1)
+                ).squeeze(1)
 
             Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,
