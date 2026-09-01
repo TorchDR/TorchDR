@@ -35,7 +35,6 @@ Added
 Changed
 ~~~~~~~
 
-- Require Python 3.8 or newer in package metadata `PR #284 <https://github.com/TorchDR/TorchDR/pull/284>`_.
 - Rename SampledNeighborEmbedding to NegativeSamplingNeighborEmbedding `PR #225 <https://github.com/TorchDR/TorchDR/pull/225>`_.
 - Standardize device parameter to 'auto' default across all modules `PR #241 <https://github.com/TorchDR/TorchDR/pull/241>`_.
 - Refactor device management for consistency `PR #211 <https://github.com/TorchDR/TorchDR/pull/211>`_.
