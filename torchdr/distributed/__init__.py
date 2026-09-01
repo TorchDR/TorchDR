@@ -305,6 +305,8 @@ class DistributedContext:
                 index_type=base_config.index_type,
                 nprobe=base_config.nprobe,
                 nlist=base_config.nlist,
+                M=base_config.M,
+                nbits=base_config.nbits,
                 **base_config.faiss_kwargs,
             )
 
