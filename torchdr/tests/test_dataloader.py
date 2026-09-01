@@ -4,6 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+import gc
+import weakref
+
 import pytest
 import torch
 from torch.testing import assert_close
@@ -14,7 +17,11 @@ from torchdr.distance import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
-from torchdr.distance.faiss import get_dataloader_metadata
+from torchdr.distance.faiss import (
+    _DATALOADER_METADATA_CACHE,
+    _cache_dataloader_metadata,
+    get_dataloader_metadata,
+)
 from torchdr.utils import faiss
 
 
@@ -262,6 +269,23 @@ class TestDataLoaderOptimizations:
         assert dist.shape == (len(sample_data), k)
         assert idx.shape == (len(sample_data), k)
 
+    def test_metadata_cache_releases_destroyed_dataloader(self, sample_data):
+        """Cached metadata should not outlive its DataLoader."""
+        dataloader = DataLoader(
+            TensorDataset(sample_data), batch_size=100, shuffle=False
+        )
+        metadata = {"cache_test_marker": object()}
+        _cache_dataloader_metadata(dataloader, metadata)
+
+        dataloader_ref = weakref.ref(dataloader)
+        assert metadata in _DATALOADER_METADATA_CACHE.values()
+
+        del dataloader
+        gc.collect()
+
+        assert dataloader_ref() is None
+        assert metadata not in _DATALOADER_METADATA_CACHE.values()
+
     def test_shuffle_validation_sequential_sampler(self, sample_data):
         """Test that sequential sampler (shuffle=False) is accepted."""
         dataset = TensorDataset(sample_data)
@@ -320,3 +344,118 @@ class TestDataLoaderOptimizations:
         assert metadata is not None
         assert metadata["n_samples"] == len(sample_data)
         assert metadata["n_features"] == sample_data.shape[1]
+
+
+class TestIVFPQIndex:
+    """Test IVFPQ index type for memory-efficient approximate search."""
+
+    @pytest.fixture
+    def sample_data(self):
+        """Create sample data with dimension divisible by common M values."""
+        torch.manual_seed(42)
+        # Use 32 features (divisible by 8, 16, 32)
+        n_samples = 2000
+        n_features = 32
+        return torch.randn(n_samples, n_features)
+
+    @pytest.fixture
+    def dataloader(self, sample_data):
+        """Create DataLoader from sample data."""
+        dataset = TensorDataset(sample_data)
+        return DataLoader(dataset, batch_size=200, shuffle=False)
+
+    def test_ivfpq_basic(self, sample_data, dataloader):
+        """Test basic IVFPQ functionality."""
+        k = 10
+        config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=10, M=8, nbits=8)
+
+        dist, idx = pairwise_distances(
+            dataloader, k=k, backend=config, return_indices=True
+        )
+
+        assert dist.shape == (len(sample_data), k)
+        assert idx.shape == (len(sample_data), k)
+        # Indices should be valid
+        assert (idx >= 0).all()
+        assert (idx < len(sample_data)).all()
+
+    def test_ivfpq_tensor_input(self, sample_data):
+        """Test IVFPQ with tensor input."""
+        k = 10
+        config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=10, M=8, nbits=8)
+
+        dist, idx = pairwise_distances(
+            sample_data, k=k, backend=config, return_indices=True
+        )
+
+        assert dist.shape == (len(sample_data), k)
+        assert idx.shape == (len(sample_data), k)
+
+    def test_ivfpq_different_m_values(self, sample_data, dataloader):
+        """Test IVFPQ with different M values."""
+        k = 10
+        # 32 is divisible by 8, 16, 32
+        for M in [8, 16, 32]:
+            config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=10, M=M, nbits=8)
+            dist, idx = pairwise_distances(
+                dataloader, k=k, backend=config, return_indices=True
+            )
+            assert dist.shape == (len(sample_data), k)
+
+    def test_ivfpq_invalid_m(self):
+        """Test that IVFPQ raises error when M doesn't divide dimension."""
+        torch.manual_seed(42)
+        # 33 features is not divisible by 8
+        X = torch.randn(500, 33)
+        config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=10, M=8, nbits=8)
+
+        with pytest.raises(ValueError, match="must be divisible by M"):
+            pairwise_distances(X, k=10, backend=config, return_indices=True)
+
+    def test_ivfpq_vs_flat_recall(self, sample_data):
+        """Test that IVFPQ has reasonable recall compared to exact search."""
+        k = 10
+
+        # Get exact results with Flat index
+        dist_flat, idx_flat = pairwise_distances(
+            sample_data, k=k, backend="faiss", return_indices=True
+        )
+
+        # Get approximate results with IVFPQ (high nprobe for better accuracy)
+        config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=50, M=8, nbits=8)
+        dist_pq, idx_pq = pairwise_distances(
+            sample_data, k=k, backend=config, return_indices=True
+        )
+
+        # Compute recall: fraction of true neighbors found
+        # With high nprobe, recall should be reasonable (>50% for k=10)
+        recall = 0
+        for i in range(len(sample_data)):
+            true_neighbors = set(idx_flat[i].tolist())
+            found_neighbors = set(idx_pq[i].tolist())
+            recall += len(true_neighbors & found_neighbors) / k
+        recall /= len(sample_data)
+
+        # With nprobe=50 and nlist=50 (searching all clusters), recall should be high
+        assert recall > 0.5, f"IVFPQ recall {recall:.2f} is too low"
+
+    def test_ivfpq_config_repr(self):
+        """Test that IVFPQ config has correct repr."""
+        config = FaissConfig(index_type="IVFPQ", nlist=100, nprobe=10, M=16, nbits=8)
+        repr_str = repr(config)
+
+        assert "IVFPQ" in repr_str
+        assert "M=16" in repr_str
+        assert "nbits=8" in repr_str
+
+    def test_ivfpq_exclude_diag(self, sample_data, dataloader):
+        """Test IVFPQ with exclude_diag."""
+        k = 10
+        config = FaissConfig(index_type="IVFPQ", nlist=50, nprobe=10, M=8, nbits=8)
+
+        dist, idx = pairwise_distances(
+            dataloader, k=k, backend=config, exclude_diag=True, return_indices=True
+        )
+
+        assert dist.shape == (len(sample_data), k)
+        assert idx.shape == (len(sample_data), k)

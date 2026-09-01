@@ -51,7 +51,6 @@ from .neighbor_embedding import (
     LargeVis,
     NeighborEmbedding,
     NegativeSamplingNeighborEmbedding,
-    SparseNeighborEmbedding,
     TSNEkhorn,
     PACMAP,
 )
@@ -60,7 +59,6 @@ from .spectral_embedding import (
     ExactIncrementalPCA,
     KernelPCA,
     PCA,
-    DistributedPCA,
     PHATE,
 )
 
@@ -94,9 +92,7 @@ __all__ = [
     "KernelPCA",
     "IncrementalPCA",
     "ExactIncrementalPCA",
-    "DistributedPCA",
     "NeighborEmbedding",
-    "SparseNeighborEmbedding",
     "NegativeSamplingNeighborEmbedding",
     "SNE",
     "TSNE",

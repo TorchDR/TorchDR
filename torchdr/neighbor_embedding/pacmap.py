@@ -25,6 +25,10 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     where :math:`\mathrm{NB}(i)`, :math:`\mathrm{MN}(i)` and :math:`\mathrm{FP}(i)` are the nearest neighbors, mid-near neighbors and far neighbors of point :math:`i` respectively,
     and :math:`d_{ij} = 1 + \|\mathbf{z}_i - \mathbf{z}_j\|^2` (more details in :cite:`wang2021understanding`).
 
+    Unlike UMAP, LargeVis, and InfoTSNE, PACMAP does not currently implement
+    the bipartite affinity hook needed for the shared non-parametric transform
+    pipeline, so :meth:`transform` is not supported for unseen points.
+
     Parameters
     ----------
     n_neighbors : int, optional
@@ -76,9 +80,11 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         Interval for checking convergence, by default 50.
     iter_per_phase : int, optional
         Number of iterations for each phase of the algorithm, by default 100.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is True.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -113,12 +119,20 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
-        discard_NNs: bool = True,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = False,
+        **kwargs,
     ):
         if distributed:
             raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
+
+        # PACMAP historically excluded neighbors by default.  ``None`` lets us
+        # preserve that default while still detecting whether the deprecated
+        # alias was supplied on its own.
+        if exclude_neighbors_from_negative_sampling is None and discard_NNs is None:
+            exclude_neighbors_from_negative_sampling = True
 
         self.n_neighbors = n_neighbors
         self.metric = metric
@@ -156,9 +170,11 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             n_negatives=self.n_further,
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            **kwargs,
         )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None):
@@ -237,7 +253,9 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
                     device=self.device,
                 )
                 _, idxs = kmin(D_mid_near_candidates, k=2, dim=1)
-                self.mid_near_indices[:, i] = idxs[:, 1]
+                self.mid_near_indices[:, i] = mid_near_candidates_indices.gather(
+                    1, idxs[:, 1].long().unsqueeze(1)
+                ).squeeze(1)
 
             Q_mid_near = 1 + pairwise_distances_indexed(
                 self.embedding_,

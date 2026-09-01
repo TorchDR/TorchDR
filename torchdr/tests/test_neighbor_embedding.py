@@ -12,6 +12,7 @@ import pytest
 import torch
 from sklearn.metrics import silhouette_score
 
+import torchdr.neighbor_embedding.pacmap as pacmap_module
 from torchdr.neighbor_embedding import (
     SNE,
     TSNE,
@@ -37,6 +38,58 @@ DEVICE = "cpu"
 
 
 param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
+
+
+def test_pacmap_mid_near_indices_are_global(monkeypatch):
+    """PACMAP should map selected candidate positions to sample indices."""
+    n_samples = 10
+    model = PACMAP(
+        n_neighbors=2,
+        MN_ratio=0.5,
+        backend=None,
+        device=DEVICE,
+    )
+    model.n_samples_in_ = n_samples
+    model.X_ = torch.arange(n_samples, dtype=torch.float32).unsqueeze(1)
+    model.embedding_ = torch.zeros(n_samples, 2)
+    model.NN_indices_ = torch.zeros(n_samples, 2, dtype=torch.long)
+    model.self_idxs = torch.arange(n_samples).unsqueeze(1)
+    model.mid_near_indices = torch.empty(n_samples, 1, dtype=torch.long)
+    model.w_NB = 1
+    model.w_MN = 1
+
+    compressed_candidates = torch.tensor([1, 6, 2, 3, 4, 5]).repeat(n_samples, 1)
+    observed = {}
+
+    def fake_randint(low, high, size, device=None):
+        assert (low, high, size) == (1, n_samples - 1, (n_samples, 6))
+        return compressed_candidates.clone().to(device)
+
+    call_count = 0
+
+    def fake_pairwise_distances_indexed(*args, key_indices, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return torch.zeros(n_samples, model.n_neighbors)
+        if call_count == 2:
+            observed["candidates"] = key_indices.clone()
+            return torch.arange(6, dtype=torch.float32).repeat(n_samples, 1)
+        observed["selected"] = key_indices.clone()
+        return torch.zeros(n_samples, model.n_mid_near)
+
+    monkeypatch.setattr(pacmap_module.torch, "randint", fake_randint)
+    monkeypatch.setattr(
+        pacmap_module,
+        "pairwise_distances_indexed",
+        fake_pairwise_distances_indexed,
+    )
+
+    model._compute_attractive_loss()
+
+    expected = observed["candidates"][:, 1]
+    assert torch.equal(observed["selected"].squeeze(1), expected)
+    assert torch.all(expected > 5)
 
 
 @pytest.mark.parametrize(
@@ -79,17 +132,19 @@ def test_COSNE(dtype):
     X, y = iris_dataset(dtype)
 
     model = COSNE(
-        lr=1e-1,
+        lr=5e-2,
         n_components=2,
         device=DEVICE,
-        max_iter=1000,
+        max_iter=2000,
         random_state=0,
         gamma=1,
-        lambda1=0.01,
+        learning_rate_for_h_loss=0.01,
+        init_scaling=0.01,
     )
     Z = model.fit_transform(X)
 
     check_shape(Z, (X.shape[0], 2))
+    assert not np.isnan(Z).any(), "COSNE embedding has NaNs."
     assert silhouette_score(Z, y) > 0.15, "Silhouette score should not be too low."
 
 

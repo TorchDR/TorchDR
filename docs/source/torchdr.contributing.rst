@@ -30,11 +30,11 @@ GitHub, clone, and develop on a branch. Steps:
 
       $ pip install -e .[dev,doc] && pre-commit install
 
-4. Create a ``feature`` branch to hold your development changes::
+4. Create a branch to hold your development changes::
 
       $ git checkout -b my-feature
 
-   Always use a ``feature`` branch. It's good practice to never work on the ``master`` branch!
+   Always use a dedicated branch. It's good practice to never work on the ``main`` branch!
 
 5. Develop the feature on your feature branch. Add changed files using ``git add`` and then commit the changes using ``git commit``::
 
@@ -59,17 +59,19 @@ check the following points:
 - If your pull request addresses an issue, please use the pull request title to describe the issue and mention the issue number in the pull request description. This will make sure a link back to the original issue is created.
 - The documentation is updated if necessary. You can edit the documentation using any text editor and then generate the HTML output by typing ``make html`` from the ``docs/`` directory. The resulting HTML files will be placed in ``docs/build/html/`` and are viewable in a web browser.
 
-When creating a pull request (PR), use the appropriate prefix to indicate its status:
+Use a ``[Type] Description`` format for your PR title, where type is one of:
+``Feature``, ``Fix``, ``Refactor``, ``Doc``, ``Test``, ``Chore``.
+For example: ``[Fix] Resolve NaN in PHATE potential distance``.
 
-- ``[MRG]`` **(Ready for Merge)**: Use this prefix if your contribution is complete and ready for a detailed review. A core maintainer will review your code and approve it for merging if it meets the required standards.
+If your PR is not yet ready for review, open it as a
+`Draft Pull Request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#draft-pull-requests>`_.
+Draft PRs are useful to:
 
-- ``[WIP]`` **(Work in Progress)**: Use this prefix for an incomplete contribution where further work is planned before seeking a full review. Consider including a `task list <https://github.com/blog/1375-task-lists-in-gfm-issues-pulls-comments>`_ in your PR description to outline planned work or track progress. Change the prefix to `[MRG]` once the PR is mature and ready for detailed review.
+- Indicate that you are actively working on something to prevent duplicated efforts.
+- Request early feedback on functionality, design, or API.
+- Seek collaborators to assist with development.
 
-
-A ``[WIP]`` PR can serve multiple purposes:
-1- Indicate that you are actively working on something to prevent duplicated efforts by others.
-2- Request early feedback on functionality, design, or API.
-3- Seek collaborators to assist with development.
+When your work is ready for review, click **Ready for review** to convert the draft into a regular PR.
 
 
 New contributor tips

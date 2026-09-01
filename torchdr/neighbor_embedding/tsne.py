@@ -8,12 +8,12 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.neighbor_embedding.base import SparseNeighborEmbedding
+from torchdr.neighbor_embedding.base import NeighborEmbedding
 from torchdr.distance import FaissConfig, pairwise_distances, pairwise_distances_indexed
 from torchdr.utils import logsumexp_red, cross_entropy_loss
 
 
-class TSNE(SparseNeighborEmbedding):
+class TSNE(NeighborEmbedding):
     r"""t-Stochastic Neighbor Embedding (t-SNE) introduced in :cite:`van2008visualizing`.
 
     It uses a :class:`~torchdr.EntropicAffinity` as input affinity :math:`\mathbf{P}`
@@ -83,6 +83,12 @@ class TSNE(SparseNeighborEmbedding):
         Interval for checking the convergence of the algorithm, by default 50.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool or 'auto', optional
+        Whether to use distributed computation across multiple GPUs.
+        - "auto": Automatically detect if running with torchrun (default)
+        - True: Force distributed mode (requires torchrun)
+        - False: Disable distributed mode
+        Default is "auto".
     """  # noqa: E501
 
     def __init__(
@@ -111,6 +117,7 @@ class TSNE(SparseNeighborEmbedding):
         sparsity: bool = True,
         check_interval: int = 50,
         compile: bool = False,
+        distributed: Union[bool, str] = "auto",
         **kwargs,
     ):
         self.metric = metric
@@ -126,6 +133,7 @@ class TSNE(SparseNeighborEmbedding):
             backend=backend,
             verbose=verbose,
             sparsity=sparsity,
+            distributed=distributed,
         )
         super().__init__(
             affinity_in=affinity_in,
@@ -147,12 +155,14 @@ class TSNE(SparseNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             check_interval=check_interval,
             compile=compile,
+            distributed=distributed,
             **kwargs,
         )
 
     def _compute_attractive_loss(self):
         distances_sq = pairwise_distances_indexed(
             self.embedding_,
+            query_indices=self.chunk_indices_,
             key_indices=self.NN_indices_,
             metric="sqeuclidean",
         )
@@ -164,4 +174,7 @@ class TSNE(SparseNeighborEmbedding):
             self.embedding_, metric="sqeuclidean", backend=self.backend
         )
         log_Q = -(1 + distances_sq).log()
-        return logsumexp_red(log_Q, dim=(0, 1))
+        loss = logsumexp_red(log_Q, dim=(0, 1))
+        if getattr(self, "world_size", 1) > 1:
+            loss = loss / self.world_size
+        return loss

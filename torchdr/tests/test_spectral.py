@@ -48,7 +48,11 @@ def test_KernelPCA_sklearn(n_components):
     ).fit(X)
     X_sk = model_sk.transform(X)
     # NB: signs can be opposite, so we test allclose on absolute values
-    np.testing.assert_allclose(np.abs(X_sk), np.abs(res_1), rtol=rtol)
+    # Compare only common dimensions since TorchDR removes null space eigenvalues
+    n_common = min(X_sk.shape[1], res_1.shape[1])
+    np.testing.assert_allclose(
+        np.abs(X_sk[:, :n_common]), np.abs(res_1[:, :n_common]), rtol=rtol
+    )
 
 
 def test_KernelPCA_no_transform():

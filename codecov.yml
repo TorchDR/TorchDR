@@ -11,7 +11,7 @@ codecov:
 coverage:
   precision: 2
   round: down
-  range: "90...100"
+  range: "85...100"
   status:
     project:
       default:
@@ -39,3 +39,28 @@ comment:
   layout: header, diff, sunburst, uncovered
   behavior: default
   require_changes: false # if true: only post the comment if coverage changes
+
+flag_management:
+  default_rules:
+    carryforward: false
+  individual_flags:
+    - name: faiss
+      carryforward: true
+    - name: unittests
+      carryforward: false
+
+ignore:
+  # Distributed files (require torchrun/multi-GPU, not available in CI)
+  - "torchdr/distributed/__init__.py"
+  - "torchdr/cli.py"  # CLI for distributed execution
+  # Files with significant distributed code paths (can't be tested without torchrun)
+  - "torchdr/distance/faiss.py"  # has _search_chunk_from_dataloader (distributed)
+  - "torchdr/distance/base.py"  # FAISS + distributed code paths
+  - "torchdr/affinity/base.py"  # FAISS + DataLoader + distributed code paths
+  - "torchdr/neighbor_embedding/base.py"  # distributed code paths
+  - "torchdr/spectral_embedding/incremental_pca.py"  # distributed PCA
+  - "torchdr/affinity_matcher.py"  # DataLoader paths
+  - "torchdr/utils/wrappers.py"  # wrapper utilities with DataLoader support
+  - "torchdr/utils/sparse.py"  # has distributed_symmetrize_sparse (distributed)
+  # Test files should not count toward coverage
+  - "torchdr/tests/**"

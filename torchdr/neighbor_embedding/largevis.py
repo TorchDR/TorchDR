@@ -31,6 +31,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
     ----
     This implementation supports multi-GPU training when launched with ``torchrun``.
     Set ``distributed='auto'`` (default) to automatically detect and use multiple GPUs.
+    It also supports the shared non-parametric transform path implemented in
+    :class:`NegativeSamplingNeighborEmbedding`.
 
     Parameters
     ----------
@@ -75,11 +77,6 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Verbosity, by default False.
     random_state : float, optional
         Random seed for reproducibility, by default None.
-    early_exaggeration_coeff : float, optional
-        Coefficient for the attraction term during the early exaggeration phase.
-        By default None.
-    early_exaggeration_iter : int, optional
-        Number of iterations for early exaggeration, by default None.
     tol_affinity : float, optional
         Precision threshold for the entropic affinity root search.
     max_iter_affinity : int, optional
@@ -92,9 +89,16 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Whether to use sparsity mode for the input affinity. Default is True.
     check_interval : int, optional
         Interval for checking convergence, by default 50.
-    discard_NNs : bool, optional
-        Whether to discard the nearest neighbors from the negative sampling.
+    early_exaggeration_coeff : float, optional
+        Coefficient for the attraction term during the early exaggeration phase.
+        Default is None (no early exaggeration).
+    early_exaggeration_iter : int, optional
+        Number of iterations for early exaggeration. Default is None.
+    exclude_neighbors_from_negative_sampling : bool, optional
+        Whether to exclude nearest neighbors from negative sampling.
         Default is False.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -124,16 +128,18 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         backend: Union[str, FaissConfig, None] = "faiss",
         verbose: bool = False,
         random_state: Optional[float] = None,
-        early_exaggeration_coeff: Optional[float] = None,
-        early_exaggeration_iter: Optional[int] = None,
         max_iter_affinity: int = 100,
         metric: str = "sqeuclidean",
         n_negatives: int = 5,
         sparsity: bool = True,
+        early_exaggeration_coeff: Optional[float] = None,
+        early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
-        discard_NNs: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        **kwargs,
     ):
         self.metric = metric
         self.perplexity = perplexity
@@ -171,9 +177,11 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
             early_exaggeration_iter=early_exaggeration_iter,
             n_negatives=n_negatives,
             check_interval=check_interval,
+            exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
             discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
+            **kwargs,
         )
 
     def _compute_repulsive_loss(self):
@@ -197,3 +205,13 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         Q = 1.0 / (1.0 + distances_sq)
         Q = Q / (Q + 1)
         return cross_entropy_loss(self.affinity_in_, Q)
+
+    def _compute_bipartite_affinity(self, C, indices):
+        """Build the LargeVis bipartite affinity used during transform.
+
+        This is the LargeVis-specific hook for the shared non-parametric
+        transform pipeline in :class:`NegativeSamplingNeighborEmbedding`.
+        It converts distances from each new point to its training neighbors
+        into a row-normalized entropic affinity.
+        """
+        return self._compute_bipartite_entropic_affinity(C)
