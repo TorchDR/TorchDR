@@ -265,6 +265,25 @@ def test_kmeans_ari_reproducibility():
 
 
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
+@pytest.mark.parametrize("random_state", [None, 42])
+def test_kmeans_ari_preserves_numpy_random_state(random_state):
+    """Test kmeans_ari does not mutate NumPy's global random state."""
+    try:
+        import torchmetrics  # noqa: F401
+    except ImportError:
+        pytest.skip("torchmetrics not installed")
+
+    X, y = toy_dataset(100, "float32")
+    np.random.seed(1234)
+    state_before = np.random.get_state()
+
+    kmeans_ari(X, y, random_state=random_state)
+
+    state_after = np.random.get_state()
+    np.testing.assert_equal(state_after, state_before)
+
+
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_kmeans_ari_gpu():
     """Test kmeans_ari with GPU device."""

@@ -135,8 +135,11 @@ def kmeans_ari(
             f"n_clusters ({n_clusters}) cannot be greater than n_samples ({n_samples})"
         )
 
-    if random_state is not None:
-        np.random.seed(random_state)
+    seed = (
+        int(random_state)
+        if random_state is not None
+        else int(np.random.default_rng().integers(2**31))
+    )
 
     use_gpu = (device.type == "cuda") and hasattr(faiss, "StandardGpuResources")
 
@@ -147,7 +150,7 @@ def kmeans_ari(
         nredo=nredo,
         verbose=verbose,
         gpu=use_gpu,
-        seed=random_state if random_state is not None else np.random.randint(2**31),
+        seed=seed,
     )
 
     if device.type == "cuda" and not use_gpu:
