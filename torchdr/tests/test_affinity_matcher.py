@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 import torch
 import numpy as np
@@ -65,6 +67,31 @@ def test_convergence_reached():
     )
     model.fit_transform(torch.rand(5, 2))
     assert model.n_iter_ < 2  # should converge in less than 2 iterations
+
+
+def test_verbose_logs_current_gradient_norm(caplog):
+    class TestAffinity(Affinity):
+        def __call__(self, X, **kwargs):
+            return X @ X.T
+
+        def _compute_affinity(self, X):
+            return X @ X.T
+
+    model = AffinityMatcher(
+        affinity_in=TestAffinity(),
+        affinity_out=TestAffinity(),
+        max_iter=1,
+        min_grad_norm=0,
+        verbose=True,
+        check_interval=1,
+    )
+
+    with caplog.at_level(logging.INFO, logger=model.logger.name):
+        model.fit_transform(torch.rand(5, 2))
+
+    expected = f"Grad norm: {model.embedding_.grad.norm(2).item():.2e}"
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(expected in message for message in messages)
 
 
 def test_scheduler_not_configure_optimizer():

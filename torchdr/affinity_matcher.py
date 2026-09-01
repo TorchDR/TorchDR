@@ -304,7 +304,6 @@ class AffinityMatcher(DRModule):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        grad_norm = float("nan")
         for step in range(self.max_iter):
             self.n_iter_.fill_(step)
 
@@ -318,16 +317,6 @@ class AffinityMatcher(DRModule):
                 f"at iter {step}.",
             )
 
-            if self.verbose and (self.n_iter_ % self.check_interval == 0):
-                lr = self.optimizer_.param_groups[0]["lr"]
-                msg_parts = []
-                if loss is not None:
-                    msg_parts.append(f"Loss: {loss.item():.2e}")
-                msg_parts.append(f"Grad norm: {grad_norm:.2e}")
-                msg_parts.append(f"LR: {lr:.2e}")
-                msg = " | ".join(msg_parts)
-                self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
-
             if self.n_iter_ % self.check_interval == 0:
                 if self.encoder is not None:
                     grad_norm = (
@@ -340,6 +329,17 @@ class AffinityMatcher(DRModule):
                     )
                 else:
                     grad_norm = self.embedding_.grad.norm(2).item()
+
+                if self.verbose:
+                    lr = self.optimizer_.param_groups[0]["lr"]
+                    msg_parts = []
+                    if loss is not None:
+                        msg_parts.append(f"Loss: {loss.item():.2e}")
+                    msg_parts.append(f"Grad norm: {grad_norm:.2e}")
+                    msg_parts.append(f"LR: {lr:.2e}")
+                    msg = " | ".join(msg_parts)
+                    self.logger.info(f"[{self.n_iter_}/{self.max_iter}] {msg}")
+
                 if grad_norm < self.min_grad_norm:
                     if self.verbose:
                         self.logger.info(
