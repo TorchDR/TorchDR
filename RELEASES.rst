@@ -64,7 +64,6 @@ Removed
 Documentation
 ~~~~~~~~~~~~~
 
-- Clarify that FAISS angular distances use unnormalized inner products `PR #285 <https://github.com/TorchDR/TorchDR/pull/285>`_.
 - Add multi-GPU distributed training documentation `PR #243 <https://github.com/TorchDR/TorchDR/pull/243>`_.
 - Add DistributedPCA documentation `PR #252 <https://github.com/TorchDR/TorchDR/pull/252>`_.
 - Add DataLoader feature documentation `PR #245 <https://github.com/TorchDR/TorchDR/pull/245>`_.
