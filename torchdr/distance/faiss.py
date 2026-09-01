@@ -7,6 +7,7 @@
 import torch
 import numpy as np
 import warnings
+from weakref import WeakKeyDictionary
 from typing import Union, Optional, Dict, Any, Tuple, List
 
 from torch.utils.data import (
@@ -21,7 +22,7 @@ from torchdr.utils.faiss import faiss
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
 # Cache for DataLoader metadata to avoid redundant iterations
-_DATALOADER_METADATA_CACHE = {}
+_DATALOADER_METADATA_CACHE = WeakKeyDictionary()
 
 
 def get_dataloader_metadata(dataloader):
@@ -38,7 +39,7 @@ def get_dataloader_metadata(dataloader):
         Cached metadata dictionary with keys 'n_samples', 'n_features', 'dtype',
         or None if not cached.
     """
-    return _DATALOADER_METADATA_CACHE.get(id(dataloader))
+    return _DATALOADER_METADATA_CACHE.get(dataloader)
 
 
 def _cache_dataloader_metadata(dataloader, metadata):
@@ -51,7 +52,7 @@ def _cache_dataloader_metadata(dataloader, metadata):
     metadata : dict
         Metadata dictionary with keys 'n_samples', 'n_features', 'dtype'.
     """
-    _DATALOADER_METADATA_CACHE[id(dataloader)] = metadata
+    _DATALOADER_METADATA_CACHE[dataloader] = metadata
 
 
 def _is_deterministic_sampler(sampler):
