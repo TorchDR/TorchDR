@@ -2,6 +2,7 @@
 
 # License: BSD 3-Clause License
 
+import numpy as np
 import pytest
 import torch
 
@@ -114,6 +115,7 @@ def test_transform_numpy_input():
 
     # X_train and X_test are numpy arrays from toy_dataset
     Z = model.transform(X_test, X_train=X_train)
+    assert isinstance(Z, np.ndarray)
     assert Z.shape == (n_test, 2)
 
 
@@ -201,8 +203,29 @@ def test_transform_negative_sampling_discards_neighbors():
     assert not (neg_local.unsqueeze(-1) == nn_indices.unsqueeze(1)).any()
 
 
+def test_negative_sampling_handles_padding_and_duplicate_exclusions():
+    """The shared sampler must ignore invalid and repeated exclusion entries."""
+    exclusion = torch.tensor([[-1, 1, 1, 4], [0, 2, 2, 99]])
+    adjusted, n_available = UMAP._prepare_exclusion_sampling(exclusion, n_candidates=5)
+    draws = UMAP._draw_with_exclusions(adjusted, n_available, n_draws=2000)
+
+    assert draws.min() >= 0
+    assert draws.max() < 5
+    assert not torch.isin(draws[0], torch.tensor([1, 4])).any()
+    assert not torch.isin(draws[1], torch.tensor([0, 2])).any()
+    assert torch.equal(torch.unique(draws[0]).sort().values, torch.tensor([0, 2, 3]))
+    assert torch.equal(torch.unique(draws[1]).sort().values, torch.tensor([1, 3, 4]))
+
+
+def test_negative_sampling_rejects_fully_excluded_rows():
+    """A row with no valid negative candidate should fail deterministically."""
+    exclusion = torch.tensor([[0, 1, 1, -1]])
+    with pytest.raises(ValueError, match="No candidates remain"):
+        UMAP._prepare_exclusion_sampling(exclusion, n_candidates=2)
+
+
 def test_umap_transform_init_uses_exact_neighbor_embedding():
-    """UMAP transform should reuse the exact neighbor embedding when affinity is 1."""
+    """UMAP should snap only zero-distance matches, not arbitrary strong edges."""
     model = UMAP(
         n_components=2,
         backend=BACKEND,
@@ -216,14 +239,84 @@ def test_umap_transform_init_uses_exact_neighbor_embedding():
     train_emb = torch.tensor([[0.0, 0.0], [1.0, 2.0], [3.0, 4.0]])
     affinity = torch.tensor([[1.0, 0.25], [0.25, 0.75]])
     nn_indices = torch.tensor([[1, 2], [0, 2]])
+    neighbor_distances = torch.tensor([[0.0, 1.0], [0.1, 0.2]])
 
     embedding_new = model._initialize_transform_embedding(
-        affinity, nn_indices, train_emb
+        affinity, nn_indices, train_emb, neighbor_distances=neighbor_distances
     )
 
     assert torch.equal(embedding_new[0], train_emb[1])
     expected = 0.25 * train_emb[0] + 0.75 * train_emb[2]
     assert torch.allclose(embedding_new[1], expected)
+
+
+def test_umap_bipartite_affinity_only_marks_exact_matches():
+    """A nonzero nearest distance must not be assigned unit UMAP affinity."""
+    model = UMAP(
+        n_neighbors=3,
+        backend=BACKEND,
+        device=DEVICE,
+        optimizer="SGD",
+        max_iter_affinity=100,
+    )
+    distances = torch.tensor([[0.2, 0.5, 1.0], [0.0, 0.5, 1.0]], dtype=torch.float64)
+    indices = torch.tensor([[0, 1, 2], [0, 1, 2]])
+
+    affinity = model._compute_bipartite_affinity(distances, indices)
+
+    assert affinity[0, 0] < 1
+    assert affinity[1, 0] == 1
+    target_marginal = torch.log2(torch.tensor(3.0, dtype=affinity.dtype))
+    assert torch.allclose(
+        affinity[:, 1:].sum(dim=1),
+        target_marginal.expand(2),
+        atol=1e-5,
+        rtol=1e-5,
+    )
+
+
+@pytest.mark.parametrize("DRModel", [LargeVis, InfoTSNE])
+def test_entropic_transform_affinity_matches_fit_invariants(DRModel):
+    """Transform affinities should preserve perplexity and total unit mass."""
+    model = DRModel(
+        perplexity=3,
+        backend=BACKEND,
+        device=DEVICE,
+        max_iter_affinity=200,
+    )
+    distances = torch.tensor(
+        [
+            [0.0, 0.2, 0.5, 1.0, 1.8, 2.9, 4.3, 6.0, 8.0],
+            [0.1, 0.4, 0.9, 1.6, 2.5, 3.6, 4.9, 6.4, 8.1],
+        ],
+        dtype=torch.float64,
+    )
+    indices = torch.arange(9).expand(2, -1)
+
+    affinity = model._compute_bipartite_affinity(distances, indices)
+    row_probabilities = affinity / affinity.sum(dim=1, keepdim=True)
+    shannon_entropy = -(row_probabilities * row_probabilities.log()).sum(dim=1)
+
+    assert model._get_n_neighbors_transform(n_train=100) == 9
+    assert torch.allclose(
+        affinity.sum(dim=1), torch.full((2,), 0.5, dtype=affinity.dtype)
+    )
+    assert affinity.sum().item() == pytest.approx(1.0)
+    assert torch.allclose(
+        shannon_entropy,
+        torch.log(torch.tensor(3.0, dtype=affinity.dtype)).expand(2),
+        atol=1e-5,
+        rtol=1e-5,
+    )
+    assert not torch.allclose(
+        row_probabilities,
+        torch.full_like(row_probabilities, 1 / row_probabilities.shape[1]),
+    )
+
+    boundary_affinity = model._compute_bipartite_affinity(
+        distances[:, :3], indices[:, :3]
+    )
+    assert torch.equal(boundary_affinity, torch.full_like(boundary_affinity, 1 / 6))
 
 
 def test_umap_transform_uses_epoch_schedule():
@@ -247,6 +340,7 @@ def test_umap_transform_uses_epoch_schedule():
 
     saved = model._enter_transform(embedding_new, train_emb, affinity, nn_indices)
     try:
+        assert model.n_samples_in_ == embedding_new.shape[0]
         assert torch.equal(model.epoch_of_next_sample, model.epochs_per_sample)
         assert not torch.equal(
             model.epochs_per_sample, torch.zeros_like(model.epochs_per_sample)
@@ -255,6 +349,92 @@ def test_umap_transform_uses_epoch_schedule():
         assert torch.isinf(model.epochs_per_sample[1, 1])
     finally:
         model._exit_transform(saved)
+
+    assert model.embedding_ is None
+    assert not hasattr(model, "n_samples_in_")
+    assert not hasattr(model, "epochs_per_sample")
+
+
+def test_transform_restores_registered_parameter_embedding():
+    """Temporary concatenation must not corrupt Parameter registration."""
+    model = UMAP(
+        n_neighbors=2,
+        backend=BACKEND,
+        device=DEVICE,
+        optimizer="SGD",
+        max_iter=6,
+    )
+    model.device_ = torch.device(DEVICE)
+    original_embedding = torch.nn.Parameter(torch.randn(4, 2))
+    model.embedding_ = original_embedding
+    embedding_new = torch.zeros(2, 2)
+    train_emb = original_embedding.detach()
+    affinity = torch.tensor([[1.0, 0.2], [0.8, 0.4]])
+    nn_indices = torch.tensor([[0, 1], [2, 3]])
+
+    saved = model._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+    model.embedding_ = torch.cat([embedding_new, train_emb], dim=0)
+    model._exit_transform(saved)
+
+    assert model.embedding_ is original_embedding
+    assert model._parameters["embedding_"] is original_embedding
+
+
+def test_transform_validates_reference_shape_and_features():
+    """Transform should reject references that cannot align with the fitted model."""
+    model = UMAP(n_neighbors=2, backend=BACKEND, device=DEVICE, optimizer="SGD")
+    model.is_fitted_ = True
+    model.device_ = torch.device(DEVICE)
+    model.n_features_in_ = 3
+    model.embedding_train_ = torch.randn(5, 2)
+
+    with pytest.raises(ValueError, match="X_new has 4 features"):
+        model.transform(torch.randn(2, 4), X_train=torch.randn(5, 3))
+    with pytest.raises(ValueError, match="X_train has 4 features"):
+        model.transform(torch.randn(2, 3), X_train=torch.randn(5, 4))
+    with pytest.raises(ValueError, match="same training samples"):
+        model.transform(torch.randn(2, 3), X_train=torch.randn(4, 3))
+
+
+def test_duplicate_training_rows_keep_reference_embedding_aligned():
+    """The stored reference must use the original, not deduplicated, row space."""
+    X_unique = torch.randn(8, 3)
+    X_train = torch.cat([X_unique, X_unique[:2]], dim=0)
+    model = UMAP(
+        n_neighbors=2,
+        backend=BACKEND,
+        device=DEVICE,
+        init="normal",
+        max_iter=6,
+        random_state=0,
+        optimizer="SGD",
+    )
+
+    model.fit(X_train)
+    fit_embedding = model.embedding_
+    fit_sample_count = model.n_samples_in_
+    transformed = model.transform(torch.randn(2, 3), X_train=X_train)
+
+    assert model.embedding_train_.shape[0] == X_train.shape[0]
+    assert transformed.shape == (2, 2)
+    assert model.embedding_ is fit_embedding
+    assert model.n_samples_in_ == fit_sample_count
+    assert not hasattr(model, "neg_indices_")
+
+
+def test_negative_sampling_parameter_alias_is_backward_compatible():
+    """The pre-PR public parameter remains usable during its deprecation window."""
+    with pytest.warns(FutureWarning, match="discard_NNs"):
+        model = UMAP(discard_NNs=True)
+    assert model.exclude_neighbors_from_negative_sampling is True
+
+    with pytest.raises(ValueError, match="Conflicting values"):
+        UMAP(
+            exclude_neighbors_from_negative_sampling=True,
+            discard_NNs=False,
+        )
+
+    assert PACMAP().exclude_neighbors_from_negative_sampling is True
 
 
 def test_embedding_train_not_stored_for_non_transform_model():

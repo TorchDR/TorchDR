@@ -16,8 +16,6 @@ transfer accuracy from the reference embedding to the transformed query points.
 
 """
 
-# Author: OpenAI Codex
-#
 # License: BSD 3-Clause License
 
 import os

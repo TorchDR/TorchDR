@@ -12,7 +12,7 @@ from torchdr.affinity import UMAPAffinity
 from torchdr.affinity.knn_normalized import _log_P_UMAP
 from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
 from torchdr.distance import pairwise_distances_indexed, FaissConfig
-from torchdr.utils import binary_search, kmin
+from torchdr.utils import binary_search
 
 from scipy.optimize import curve_fit
 
@@ -120,6 +120,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     exclude_neighbors_from_negative_sampling : bool, optional
         Whether to exclude nearest neighbors from negative sampling.
         Default is False.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -157,7 +159,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         metric: str = "sqeuclidean",
         negative_sample_rate: int = 5,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -210,6 +213,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             random_state=random_state,
             check_interval=check_interval,
             exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
+            discard_NNs=discard_NNs,
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
@@ -305,15 +309,23 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         unsymmetrized UMAP neighbor graph construction on the bipartite graph
         from new points to the fitted training set.
         """
-        rho = kmin(C, k=1, dim=1)[0].squeeze(-1).contiguous()
+        # umap-learn reduces local_connectivity by one for transform.  With
+        # UMAP's default local_connectivity=1 this means rho=0, unlike fit-time
+        # graph construction.  Taking the nearest distance here would force one
+        # affinity to 1 for every query and make every point look like an exact
+        # match during initialization.
+        rho = torch.zeros(C.shape[0], dtype=C.dtype, device=C.device)
 
         log_n_neighbors = torch.log2(
             torch.tensor(self.n_neighbors, dtype=C.dtype, device=C.device)
         )
 
         def marginal_gap(eps):
-            log_marg = _log_P_UMAP(C, rho, eps).logsumexp(1)
-            return log_marg.exp().squeeze() - log_n_neighbors
+            # Match smooth_knn_dist's bipartite transform convention: the
+            # closest edge participates in the graph but is omitted from the
+            # bandwidth calibration sum.
+            log_marg = _log_P_UMAP(C[:, 1:], rho, eps).logsumexp(1)
+            return log_marg.exp().reshape(-1) - log_n_neighbors
 
         eps = binary_search(
             f=marginal_gap,
@@ -347,19 +359,25 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         )
         return epochs_per_sample
 
-    def _initialize_transform_embedding(self, affinity, nn_indices, train_emb):
+    def _initialize_transform_embedding(
+        self, affinity, nn_indices, train_emb, neighbor_distances=None
+    ):
         """Match UMAP's transform initialization when exact matches exist.
 
         The default weighted-average initialization from the base class is kept,
-        except that rows with an affinity of 1 are snapped to the corresponding
-        training embedding exactly, as in ``umap-learn``.
+        except that rows containing a zero-distance neighbor are snapped to the
+        corresponding training embedding exactly, as in ``umap-learn``.
         """
         embedding_new = super()._initialize_transform_embedding(
-            affinity, nn_indices, train_emb
+            affinity,
+            nn_indices,
+            train_emb,
+            neighbor_distances=neighbor_distances,
         )
-        exact_match = torch.isclose(
-            affinity, torch.ones_like(affinity), atol=1e-6, rtol=0.0
-        )
+        if neighbor_distances is None:
+            return embedding_new
+
+        exact_match = neighbor_distances == 0
         if exact_match.any():
             exact_rows = exact_match.any(dim=1)
             exact_cols = exact_match.to(torch.int64).argmax(dim=1)
@@ -376,15 +394,15 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         optimization still runs through TorchDR's vectorized mask-based update
         path rather than ``umap-learn``'s edge-wise CPU loop.
         """
+        epochs_per_sample = self._make_transform_epochs_per_sample(
+            affinity, self._get_max_iter_transform()
+        )
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 
         # Save UMAP-specific state
         for attr in ("epochs_per_sample", "epoch_of_next_sample", "mask_affinity_in_"):
-            saved[attr] = getattr(self, attr, None)
+            saved[attr] = (hasattr(self, attr), getattr(self, attr, None))
 
-        epochs_per_sample = self._make_transform_epochs_per_sample(
-            affinity, self._get_max_iter_transform()
-        )
         self.epochs_per_sample = epochs_per_sample
         self.epoch_of_next_sample = epochs_per_sample.clone()
 

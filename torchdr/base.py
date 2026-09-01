@@ -142,6 +142,14 @@ class DRModule(BaseEstimator, nn.Module, ABC):
                     self.embedding_.data = embedding_unique[inverse_indices]
                 else:
                     self.embedding_ = embedding_unique[inverse_indices]
+
+                # Transform-capable estimators keep a lightweight copy of the
+                # fitted reference embedding.  `_fit_transform` only sees the
+                # unique rows, whereas callers are documented to pass the
+                # original training data to `transform`.  Keep both objects in
+                # the same index space after duplicate expansion.
+                if hasattr(self, "embedding_train_"):
+                    self.embedding_train_ = self.embedding_.detach().cpu().clone()
             else:
                 self.embedding_ = self._fit_transform(X, y=y)
         else:
@@ -178,15 +186,18 @@ class DRModule(BaseEstimator, nn.Module, ABC):
             )
 
         if X is not None:
-            if getattr(self, "encoder", None) is not None:
-                from torchdr.utils import to_torch
-
-                X_tensor = to_torch(X).to(device=self.device_)
-                with torch.no_grad():
-                    return self.encoder(X_tensor)
-            return self._transform(X, **kwargs)
+            return self._transform_new_data(X, **kwargs)
 
         return self.embedding_
+
+    @handle_input_output()
+    def _transform_new_data(self, X: torch.Tensor, **kwargs) -> ArrayLike:
+        """Transform validated new data and preserve its input backend."""
+        if getattr(self, "encoder", None) is not None:
+            X = X.to(device=self.device_)
+            with torch.no_grad():
+                return self.encoder(X)
+        return self._transform(X, **kwargs)
 
     def _transform(self, X: ArrayLike, **kwargs) -> ArrayLike:
         """Transform new data (subclasses override this).

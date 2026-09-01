@@ -83,6 +83,8 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     exclude_neighbors_from_negative_sampling : bool, optional
         Whether to exclude nearest neighbors from negative sampling.
         Default is True.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -117,13 +119,20 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         FP_ratio: float = 2,
         check_interval: int = 50,
         iter_per_phase: int = 100,
-        exclude_neighbors_from_negative_sampling: bool = True,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = False,
         **kwargs,
     ):
         if distributed:
             raise ValueError("[TorchDR] ERROR : PACMAP does not support distributed.")
+
+        # PACMAP historically excluded neighbors by default.  ``None`` lets us
+        # preserve that default while still detecting whether the deprecated
+        # alias was supplied on its own.
+        if exclude_neighbors_from_negative_sampling is None and discard_NNs is None:
+            exclude_neighbors_from_negative_sampling = True
 
         self.n_neighbors = n_neighbors
         self.metric = metric
@@ -162,6 +171,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
             check_interval=check_interval,
             n_negatives=self.n_further,
             exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
+            discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
             **kwargs,

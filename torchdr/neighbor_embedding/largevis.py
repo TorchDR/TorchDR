@@ -8,9 +8,8 @@ from typing import Dict, Optional, Union, Type
 import torch
 
 from torchdr.affinity import EntropicAffinity
-from torchdr.affinity.entropic import _log_Pe
 from torchdr.neighbor_embedding.base import NegativeSamplingNeighborEmbedding
-from torchdr.utils import cross_entropy_loss, sum_red, binary_search, logsumexp_red
+from torchdr.utils import cross_entropy_loss, sum_red
 from torchdr.distance import FaissConfig, pairwise_distances_indexed
 
 
@@ -98,6 +97,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
     exclude_neighbors_from_negative_sampling : bool, optional
         Whether to exclude nearest neighbors from negative sampling.
         Default is False.
+    discard_NNs : bool, optional
+        Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool or 'auto', optional
@@ -134,7 +135,8 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         early_exaggeration_coeff: Optional[float] = None,
         early_exaggeration_iter: Optional[int] = None,
         check_interval: int = 50,
-        exclude_neighbors_from_negative_sampling: bool = False,
+        exclude_neighbors_from_negative_sampling: Optional[bool] = None,
+        discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
         **kwargs,
@@ -176,6 +178,7 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
             n_negatives=n_negatives,
             check_interval=check_interval,
             exclude_neighbors_from_negative_sampling=exclude_neighbors_from_negative_sampling,
+            discard_NNs=discard_NNs,
             compile=compile,
             distributed=distributed,
             **kwargs,
@@ -211,24 +214,4 @@ class LargeVis(NegativeSamplingNeighborEmbedding):
         It converts distances from each new point to its training neighbors
         into a row-normalized entropic affinity.
         """
-        target_entropy = (
-            torch.log(torch.tensor(self.perplexity, dtype=C.dtype, device=C.device)) + 1
-        )
-
-        def entropy_gap(eps):
-            log_P = _log_Pe(C, eps)
-            log_P_norm = log_P - logsumexp_red(log_P, dim=1)
-            H = -(log_P_norm.exp() * log_P_norm).sum(dim=1)
-            return H - target_entropy
-
-        eps = binary_search(
-            f=entropy_gap,
-            n=C.shape[0],
-            max_iter=self.max_iter_affinity,
-            dtype=C.dtype,
-            device=C.device,
-        )
-
-        log_P = _log_Pe(C, eps)
-        log_P = log_P - logsumexp_red(log_P, dim=1)
-        return log_P.exp()
+        return self._compute_bipartite_entropic_affinity(C)
