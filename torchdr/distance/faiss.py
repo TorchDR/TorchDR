@@ -236,7 +236,8 @@ def pairwise_distances_faiss(
     Supported metrics are:
       - "euclidean": returns the Euclidean distance (square root of the squared distance)
       - "sqeuclidean": returns the squared Euclidean distance (as computed by FAISS)
-      - "angular": returns the negative inner-product (after normalizing vectors)
+      - "angular": returns the negative inner product. Inputs are not normalized;
+        normalize them beforehand to obtain cosine-similarity neighbor ordering.
 
     If Y is not provided then we assume a self–search and, if `exclude_diag` is True,
     the self–neighbor is removed from the results.
@@ -269,7 +270,7 @@ def pairwise_distances_faiss(
         Nearest neighbor distances.
         For metric=="euclidean", distances are Euclidean (i.e. square root of L2^2).
         For metric=="sqeuclidean", distances are the squared Euclidean distances.
-        For metric=="angular", distances are the (normalized) inner product scores.
+        For metric=="angular", distances are the negative raw inner-product scores.
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
 
