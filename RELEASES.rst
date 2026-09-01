@@ -44,6 +44,7 @@ Changed
 Fixed
 ~~~~~
 
+- Preserve custom IVFPQ settings in distributed FAISS configurations `PR #278 <https://github.com/TorchDR/TorchDR/pull/278>`_.
 - Fix memory leak in AffinityMatcher by freeing input data after initialization `PR #223 <https://github.com/TorchDR/TorchDR/pull/223>`_.
 - Fix PACMAP device handling `PR #215 <https://github.com/TorchDR/TorchDR/pull/215>`_.
 - Fix AffinityMatcher kwargs mutation `PR #240 <https://github.com/TorchDR/TorchDR/pull/240>`_.
