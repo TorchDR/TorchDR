@@ -4,6 +4,9 @@
 #
 # License: BSD 3-Clause License
 
+import gc
+import weakref
+
 import pytest
 import torch
 from torch.testing import assert_close
@@ -14,7 +17,11 @@ from torchdr.distance import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
-from torchdr.distance.faiss import get_dataloader_metadata
+from torchdr.distance.faiss import (
+    _DATALOADER_METADATA_CACHE,
+    _cache_dataloader_metadata,
+    get_dataloader_metadata,
+)
 from torchdr.utils import faiss
 
 
@@ -261,6 +268,23 @@ class TestDataLoaderOptimizations:
         # Verify results are correct
         assert dist.shape == (len(sample_data), k)
         assert idx.shape == (len(sample_data), k)
+
+    def test_metadata_cache_releases_destroyed_dataloader(self, sample_data):
+        """Cached metadata should not outlive its DataLoader."""
+        dataloader = DataLoader(
+            TensorDataset(sample_data), batch_size=100, shuffle=False
+        )
+        metadata = {"cache_test_marker": object()}
+        _cache_dataloader_metadata(dataloader, metadata)
+
+        dataloader_ref = weakref.ref(dataloader)
+        assert metadata in _DATALOADER_METADATA_CACHE.values()
+
+        del dataloader
+        gc.collect()
+
+        assert dataloader_ref() is None
+        assert metadata not in _DATALOADER_METADATA_CACHE.values()
 
     def test_shuffle_validation_sequential_sampler(self, sample_data):
         """Test that sequential sampler (shuffle=False) is accepted."""
