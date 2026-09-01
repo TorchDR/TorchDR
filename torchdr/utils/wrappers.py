@@ -26,7 +26,7 @@ def output_contiguous(func):
     def wrapper(*args, **kwargs):
         output = func(*args, **kwargs)
         if isinstance(output, tuple):
-            output = (
+            output = tuple(
                 out.contiguous() if isinstance(out, torch.Tensor) else out
                 for out in output
             )

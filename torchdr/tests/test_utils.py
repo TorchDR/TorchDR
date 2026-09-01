@@ -1222,7 +1222,9 @@ class TestValidateTensor:
 class TestToTorch:
     def test_to_torch_numpy(self):
         X = np.random.randn(10, 5)
-        X_torch, backend, device = to_torch(X, return_backend_device=True)
+        output = to_torch(X, return_backend_device=True)
+        assert isinstance(output, tuple)
+        X_torch, backend, device = output
         assert isinstance(X_torch, torch.Tensor)
         assert backend == "numpy"
         assert device == "cpu"
@@ -1230,7 +1232,9 @@ class TestToTorch:
 
     def test_to_torch_tensor(self):
         X = torch.randn(10, 5)
-        X_torch, backend, device = to_torch(X, return_backend_device=True)
+        output = to_torch(X, return_backend_device=True)
+        assert isinstance(output, tuple)
+        X_torch, backend, device = output
         assert backend == "torch"
         assert device == X.device
 
