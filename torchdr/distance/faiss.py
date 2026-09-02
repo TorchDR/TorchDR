@@ -17,7 +17,7 @@ from torch.utils.data import (
     BatchSampler,
 )
 
-from torchdr.utils.faiss import faiss
+from torchdr.utils.faiss import faiss, faiss_torch_interop
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
@@ -275,6 +275,12 @@ def pairwise_distances_faiss(
     indices : torch.Tensor of shape (n, k)
         Indices of the k nearest neighbors.
 
+    Notes
+    -----
+    FAISS computes index distances in float32. Tensor inputs are passed directly
+    to FAISS on CPU or GPU when the installed FAISS build provides its PyTorch
+    interoperability wrappers; results are cast back to the input dtype.
+
     Examples
     --------
     >>> import torch
@@ -311,15 +317,21 @@ def pairwise_distances_faiss(
         k = int(k)
 
     dtype = X.dtype
-    X_np = X.detach().cpu().numpy().astype(np.float32)
-    _, d = X_np.shape
+    _, d = X.shape
 
     if Y is None or Y is X:
-        Y_np = X_np
+        Y = X
         do_exclude = exclude_diag
     else:
-        Y_np = Y.detach().cpu().numpy().astype(np.float32)
         do_exclude = False
+
+    if X.dtype != torch.float32 or Y.dtype != torch.float32:
+        warnings.warn(
+            "[TorchDR] FAISS computes distances in float32; input values will "
+            "be converted and results cast back to the input dtype.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if metric == "angular":
         flat_index = faiss.IndexFlatIP(d)
@@ -333,13 +345,13 @@ def pairwise_distances_faiss(
     if config.index_type == "Flat":
         index = flat_index
     elif config.index_type == "IVF":
-        n_vectors = len(Y_np)
+        n_vectors = len(Y)
         if config.nlist == 100 and n_vectors > 10000:
             config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
         index = faiss.IndexIVFFlat(flat_index, d, config.nlist, metric_type)
         index.nprobe = config.nprobe
     elif config.index_type == "IVFPQ":
-        n_vectors = len(Y_np)
+        n_vectors = len(Y)
         if config.nlist == 100 and n_vectors > 10000:
             config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
         if d % config.M != 0:
@@ -362,8 +374,11 @@ def pairwise_distances_faiss(
     else:
         compute_device = torch.device(device)
 
+    use_gpu_index = compute_device.type == "cuda" and hasattr(
+        faiss, "StandardGpuResources"
+    )
     if compute_device.type == "cuda":
-        if hasattr(faiss, "StandardGpuResources"):
+        if use_gpu_index:
             index = _setup_gpu_index(index, config, d)
         else:
             warnings.warn(
@@ -371,27 +386,47 @@ def pairwise_distances_faiss(
                 "This may be slow. For faster performance, install `faiss-gpu`."
             )
 
+    if use_gpu_index and faiss_torch_interop:
+        device_id = (
+            config.device if isinstance(config.device, int) else config.device[0]
+        )
+        index_device = torch.device("cuda", device_id)
+    else:
+        index_device = torch.device("cpu")
+
+    X_faiss = X.detach().to(device=index_device, dtype=torch.float32).contiguous()
+    Y_faiss = Y.detach().to(device=index_device, dtype=torch.float32).contiguous()
+
+    if not faiss_torch_interop:
+        X_faiss = X_faiss.cpu().numpy()
+        Y_faiss = Y_faiss.cpu().numpy()
+
     if needs_training and not index.is_trained:
-        train_data = Y_np
+        train_data = Y_faiss
         max_train_points = 256 * config.nlist
-        if len(Y_np) > max_train_points:
+        if len(Y_faiss) > max_train_points:
             sample_indices = np.random.choice(
-                len(Y_np), max_train_points, replace=False
+                len(Y_faiss), max_train_points, replace=False
             )
-            train_data = Y_np[sample_indices]
+            if isinstance(Y_faiss, torch.Tensor):
+                sample_indices = torch.as_tensor(sample_indices, device=Y_faiss.device)
+            train_data = Y_faiss[sample_indices]
         index.train(train_data)
 
-    index.add(Y_np)
+    index.add(Y_faiss)
 
     if do_exclude:
         k_search = k + 1
     else:
         k_search = k
 
-    D, Ind = index.search(X_np, k_search)
+    D, Ind = index.search(X_faiss, k_search)
 
     if metric == "euclidean":
-        D = np.sqrt(D)
+        if isinstance(D, torch.Tensor):
+            D = torch.sqrt(D)
+        else:
+            D = np.sqrt(D)
     elif metric == "angular":
         D = -D
 
@@ -399,8 +434,12 @@ def pairwise_distances_faiss(
         D = D[:, 1:]
         Ind = Ind[:, 1:]
 
-    distances = torch.from_numpy(D).to(compute_device).to(dtype)
-    indices = torch.from_numpy(Ind).to(compute_device).long()
+    if not isinstance(D, torch.Tensor):
+        D = torch.from_numpy(D)
+        Ind = torch.from_numpy(Ind)
+
+    distances = D.to(device=compute_device, dtype=dtype)
+    indices = Ind.to(device=compute_device, dtype=torch.long)
 
     return distances, indices
 
