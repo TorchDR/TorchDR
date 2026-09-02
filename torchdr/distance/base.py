@@ -16,7 +16,8 @@ from .faiss import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
-from torchdr.distributed import DistributedContext, validate_distributed_input
+from torchdr.distributed import DistributedContext
+from torchdr.distributed.input_contract import validate_distributed_input
 
 
 def pairwise_distances(
@@ -83,7 +84,8 @@ def pairwise_distances(
         - Requires k to be specified (sparse computation)
         - Forces backend to "faiss" if not already set
         - Results remain distributed (no gathering across GPUs)
-        - Every rank must pass the same full dataset; this is validated
+        - Every rank must pass the same full dataset; detectable metadata
+          mismatches and sharded DataLoaders are rejected before indexing
         Default is None (single GPU computation).
 
     Returns
@@ -96,9 +98,8 @@ def pairwise_distances(
     Raises
     ------
     ValueError
-        In distributed mode, if the ranks were not given the same full
-        dataset (sharded DataLoader, or mismatched shape, dtype or content).
-        See :func:`~torchdr.distributed.validate_distributed_input`.
+        In distributed mode, if rank metadata differs or a DataLoader iterates
+        only a shard of its dataset.
 
     Examples
     --------
@@ -117,7 +118,7 @@ def pairwise_distances(
     ...     dataloader, k=15, return_indices=True
     ... )
 
-    >>> # DataLoader with multi-GPU (after torch.distributed.init_process_group)
+    >>> # DataLoader with multi-GPU (launched with torchrun or the torchdr CLI)
     >>> from torchdr.distributed import DistributedContext
     >>> dist_ctx = DistributedContext()
     >>> distances, indices = pairwise_distances(
@@ -198,25 +199,19 @@ def pairwise_distances(
         chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
         X_chunk = X[chunk_start:chunk_end]
 
-        # Compute k-NN: queries=chunk, database=full dataset
-        # Note: exclude_diag doesn't work since X_chunk is a subset of X
-        # We handle self-neighbors by searching for k+1 if needed
-        k_search = k + 1 if exclude_diag else k
-
+        # Compute k-NN: queries=chunk, database=full dataset. Query row j of the
+        # chunk is global row chunk_start + j, which is what lets exclude_diag
+        # identify the self-neighbor even though X_chunk is a subset of X.
         C, indices = pairwise_distances_faiss(
             X=X_chunk,
             Y=X,  # Full dataset as database
             metric=metric,
-            k=k_search,
-            exclude_diag=False,  # Can't use since X_chunk != X
+            k=k,
+            exclude_diag=exclude_diag,
             config=config,
             device=device,
+            query_ids=torch.arange(chunk_start, chunk_end, device=X.device),
         )
-
-        # Remove self-distances if needed
-        if exclude_diag:
-            C = C[:, 1:]
-            indices = indices[:, 1:]
 
         if return_indices:
             return C, indices

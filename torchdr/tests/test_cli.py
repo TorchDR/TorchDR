@@ -4,10 +4,17 @@
 #
 # License: BSD 3-Clause License
 
+import sys
+
 import pytest
 from unittest.mock import patch, MagicMock
 
 from torchdr.cli import get_gpu_count, main
+
+
+def assert_launches_through_current_interpreter(cmd):
+    """Check the launcher runs torchrun as a module of the running Python."""
+    assert cmd[:3] == [sys.executable, "-m", "torch.distributed.run"]
 
 
 class TestGetGpuCount:
@@ -44,7 +51,7 @@ class TestMain:
         assert exc_info.value.code == 0
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
-        assert "torchrun" in cmd
+        assert_launches_through_current_interpreter(cmd)
         assert "--standalone" in cmd
         assert "--nproc_per_node=4" in cmd
         assert "script.py" in cmd
@@ -86,6 +93,21 @@ class TestMain:
                 main()
 
         assert exc_info.value.code == 1
+
+    @pytest.mark.parametrize("gpus", ["0", "-1"])
+    @patch("torchdr.cli.subprocess.run")
+    @patch("torchdr.cli.get_gpu_count")
+    def test_non_positive_gpus_rejected(self, mock_gpu_count, mock_run, capsys, gpus):
+        """A non-positive --gpus value fails before torchrun is invoked."""
+        mock_gpu_count.return_value = 4
+
+        with patch("sys.argv", ["torchdr", "--gpus", gpus, "script.py"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        assert "positive" in capsys.readouterr().err
+        mock_run.assert_not_called()
 
     @patch("torchdr.cli.subprocess.run")
     @patch("torchdr.cli.get_gpu_count")
@@ -138,3 +160,31 @@ class TestMain:
                 main()
 
         assert exc_info.value.code == 1
+
+    @patch("torchdr.cli.subprocess.run")
+    @patch("torchdr.cli.get_gpu_count")
+    def test_does_not_depend_on_torchrun_on_path(self, mock_gpu_count, mock_run):
+        """The launcher must not rely on a `torchrun` executable being on PATH."""
+        mock_gpu_count.return_value = 2
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with patch("sys.argv", ["torchdr", "--gpus", "2", "script.py"]):
+            with pytest.raises(SystemExit):
+                main()
+
+        cmd = mock_run.call_args[0][0]
+        assert_launches_through_current_interpreter(cmd)
+        assert "torchrun" not in cmd
+
+    @patch("torchdr.cli.subprocess.run")
+    @patch("torchdr.cli.get_gpu_count")
+    def test_exit_code_is_propagated(self, mock_gpu_count, mock_run):
+        """The launcher exits with the torchrun exit code, unchanged."""
+        mock_gpu_count.return_value = 1
+        mock_run.return_value = MagicMock(returncode=7)
+
+        with patch("sys.argv", ["torchdr", "script.py"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 7

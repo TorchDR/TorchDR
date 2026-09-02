@@ -59,7 +59,7 @@ from .manifold import (
 )
 from .radam import RiemannianAdam
 from .visu import plot_disk, plot_poincare_disk
-from torchdr.distributed import DistributedContext, validate_distributed_input
+from torchdr.distributed import DistributedContext
 
 __all__ = [
     "seed_everything",
@@ -114,5 +114,4 @@ __all__ = [
     "plot_poincare_disk",
     "compile_if_requested",
     "DistributedContext",
-    "validate_distributed_input",
 ]

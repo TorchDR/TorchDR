@@ -389,6 +389,18 @@ In your script, simply use TorchDR as usual:
     model = torchdr.UMAP(n_neighbors=15, verbose=True)
     embedding = model.fit_transform(X)
 
+.. warning::
+
+   Importing TorchDR already creates the process group when the launcher
+   provides GPUs, and destroys it at interpreter exit. Adding the usual
+   ``torch.distributed.init_process_group`` call to your script therefore
+   fails with ``ValueError: trying to initialize the default process group
+   twice!``. Scripts that must create the group explicitly, for example to run
+   on CPU with Gloo, should call ``torchdr.distributed.init_distributed()``
+   instead: it reuses an existing group and is a no-op outside a distributed
+   launch. The matching ``torchdr.distributed.shutdown_distributed()`` only
+   destroys a group that TorchDR itself created.
+
 **Requirements:**
 
 - ``backend="faiss"`` (default for most methods)
