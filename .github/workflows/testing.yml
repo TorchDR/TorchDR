@@ -43,6 +43,17 @@ jobs:
       # Run Tests
       - name: Run Tests
         run: pytest torchdr/ --verbose --cov=torchdr --cov-report term --cov-report xml
+      - name: Build and smoke test wheel
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          if unzip -l dist/torchdr-*.whl | grep -q "torchdr/tests/"; then
+            echo "Wheel unexpectedly contains the test suite."
+            exit 1
+          fi
+          python -m pip uninstall --yes torchdr
+          python -m pip install --user --no-deps dist/torchdr-*.whl
+          cd "${RUNNER_TEMP}"
+          python -c "import torchdr, torchdr.affinity, torchdr.distance, torchdr.distributed, torchdr.eval, torchdr.neighbor_embedding, torchdr.spectral_embedding, torchdr.utils"
       # Codecov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

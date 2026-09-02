@@ -52,7 +52,12 @@ dynamic = ["version"]
 torchdr = "torchdr.cli:main"
 
 [tool.setuptools]
-packages = ["torchdr"]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["torchdr*"]
+exclude = ["torchdr.tests*"]
+namespaces = false
 
 [tool.setuptools_scm]
 version_file = "torchdr/_version.py"
