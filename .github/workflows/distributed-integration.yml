@@ -1,0 +1,45 @@
+name: Distributed integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/distributed-integration.yml"
+      - "torchdr/affinity_matcher.py"
+      - "torchdr/distributed/**"
+      - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_integration.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/distributed-integration.yml"
+      - "torchdr/affinity_matcher.py"
+      - "torchdr/distributed/**"
+      - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_integration.py"
+
+jobs:
+  test-distributed-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install TorchDR
+        run: python -m pip install --upgrade pip ".[test]"
+      - name: Run two-process integration test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_integration.py -q
