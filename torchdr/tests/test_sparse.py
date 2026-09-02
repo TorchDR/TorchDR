@@ -28,21 +28,31 @@ def _rowwise_to_dense(values, indices, n_columns):
 
 @pytest.fixture
 def mock_single_rank_collectives(monkeypatch):
-    """Replace distributed collectives with one-rank copies."""
+    """Replace distributed collectives with one-rank copies.
+
+    Returns the dtypes of the payload exchanges, i.e. the calls carrying
+    explicit split sizes, so tests can assert that coordinates and values keep
+    their native dtypes on the wire.
+    """
     exchanged_dtypes = []
 
-    def fake_all_to_all_single(output, input_):
+    def fake_all_to_all_single(
+        output, input_, output_split_sizes=None, input_split_sizes=None
+    ):
+        if input_split_sizes is not None:
+            exchanged_dtypes.append((input_.dtype,))
         output.copy_(input_)
-
-    def fake_all_to_all(outputs, inputs):
-        exchanged_dtypes.append(tuple(tensor.dtype for tensor in inputs))
-        for output, input_ in zip(outputs, inputs):
-            output.copy_(input_)
 
     monkeypatch.setattr(sparse_utils.dist, "is_initialized", lambda: True)
     monkeypatch.setattr(sparse_utils.dist, "get_world_size", lambda: 1)
     monkeypatch.setattr(sparse_utils.dist, "all_to_all_single", fake_all_to_all_single)
-    monkeypatch.setattr(sparse_utils.dist, "all_to_all", fake_all_to_all)
+    monkeypatch.setattr(
+        sparse_utils.dist,
+        "all_to_all",
+        lambda *args, **kwargs: pytest.fail(
+            "the sparse exchange must not use the list-based all_to_all"
+        ),
+    )
     return exchanged_dtypes
 
 

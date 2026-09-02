@@ -13,6 +13,8 @@ on:
       - "torchdr/distributed/**"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_integration.py"
+      - "torchdr/tests/test_distributed_sparse.py"
+      - "torchdr/utils/sparse.py"
   push:
     branches:
       - main
@@ -22,6 +24,8 @@ on:
       - "torchdr/distributed/**"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_integration.py"
+      - "torchdr/tests/test_distributed_sparse.py"
+      - "torchdr/utils/sparse.py"
 
 jobs:
   test-distributed-cpu:
@@ -43,3 +47,10 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_integration.py -q
+      - name: Run two-process sparse symmetrization test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_sparse.py -q
