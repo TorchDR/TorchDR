@@ -7,6 +7,7 @@
 import pytest
 import torch
 
+import torchdr.utils.sparse as sparse_utils
 from torchdr.utils.sparse import (
     distributed_symmetrize_sparse,
     flatten_sparse,
@@ -15,6 +16,34 @@ from torchdr.utils.sparse import (
     symmetrize_sparse,
     _combine_P_PT,
 )
+
+
+def _rowwise_to_dense(values, indices, n_columns):
+    """Convert TorchDR's padded row-wise representation to a dense tensor."""
+    dense = torch.zeros((values.shape[0], n_columns), dtype=values.dtype)
+    valid = indices >= 0
+    dense.scatter_add_(1, indices.clamp_min(0), values * valid)
+    return dense
+
+
+@pytest.fixture
+def mock_single_rank_collectives(monkeypatch):
+    """Replace distributed collectives with one-rank copies."""
+    exchanged_dtypes = []
+
+    def fake_all_to_all_single(output, input_):
+        output.copy_(input_)
+
+    def fake_all_to_all(outputs, inputs):
+        exchanged_dtypes.append(tuple(tensor.dtype for tensor in inputs))
+        for output, input_ in zip(outputs, inputs):
+            output.copy_(input_)
+
+    monkeypatch.setattr(sparse_utils.dist, "is_initialized", lambda: True)
+    monkeypatch.setattr(sparse_utils.dist, "get_world_size", lambda: 1)
+    monkeypatch.setattr(sparse_utils.dist, "all_to_all_single", fake_all_to_all_single)
+    monkeypatch.setattr(sparse_utils.dist, "all_to_all", fake_all_to_all)
+    return exchanged_dtypes
 
 
 class TestFlattenSparse:
@@ -171,41 +200,73 @@ class TestSymmetrizeSparse:
         assert values_out.max() <= 2.0 + 1e-6
 
 
-def test_distributed_symmetrize_preserves_index_and_value_dtypes(monkeypatch):
-    """Collectives must not cast large indices or float64 affinity values."""
-    collective_dtypes = []
+class TestDistributedSymmetrizeSparse:
+    """Tests for the distributed symmetrization path."""
 
-    def fake_all_to_all_single(output, input):
-        output.copy_(input)
+    def test_requires_initialized_process_group(self, monkeypatch):
+        """Distributed symmetrization should fail before any collective."""
+        monkeypatch.setattr(sparse_utils.dist, "is_initialized", lambda: False)
 
-    def fake_all_to_all(outputs, inputs):
-        collective_dtypes.append((outputs[0].dtype, inputs[0].dtype))
-        for output, input in zip(outputs, inputs):
-            output.copy_(input)
+        with pytest.raises(RuntimeError, match="torch.distributed"):
+            distributed_symmetrize_sparse(
+                torch.ones(2, 1),
+                torch.tensor([[1], [0]]),
+                chunk_start=0,
+                chunk_size=2,
+                n_total=2,
+            )
 
-    monkeypatch.setattr("torchdr.utils.sparse.dist.is_initialized", lambda: True)
-    monkeypatch.setattr("torchdr.utils.sparse.dist.get_world_size", lambda: 1)
-    monkeypatch.setattr(
-        "torchdr.utils.sparse.dist.all_to_all_single", fake_all_to_all_single
-    )
-    monkeypatch.setattr("torchdr.utils.sparse.dist.all_to_all", fake_all_to_all)
+    def test_matches_centralized_result_and_preserves_dtypes(
+        self, mock_single_rank_collectives
+    ):
+        """Reciprocal edges must retain distinct P and P-transpose values."""
+        values = torch.tensor(
+            [[0.2, 0.1], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8]],
+            dtype=torch.float64,
+        )
+        indices = torch.tensor([[1, 3], [0, 2], [1, 3], [2, 0]])
 
-    large_index = 2**24 + 1
-    values = torch.tensor([[0.125]], dtype=torch.float64)
-    indices = torch.tensor([[large_index]], dtype=torch.long)
+        actual_values, actual_indices = distributed_symmetrize_sparse(
+            values,
+            indices,
+            chunk_start=0,
+            chunk_size=4,
+            n_total=4,
+            mode="sum_minus_prod",
+        )
+        expected_values, expected_indices = symmetrize_sparse(
+            values, indices, mode="sum_minus_prod"
+        )
 
-    values_out, indices_out = distributed_symmetrize_sparse(
-        values,
-        indices,
-        chunk_start=0,
-        chunk_size=1,
-        n_total=large_index + 1,
-        mode="sum",
-    )
+        torch.testing.assert_close(
+            _rowwise_to_dense(actual_values, actual_indices, 4),
+            _rowwise_to_dense(expected_values, expected_indices, 4),
+        )
+        assert actual_values.dtype == torch.float64
+        assert actual_indices.dtype == torch.int64
+        assert mock_single_rank_collectives == [
+            (torch.int64,),
+            (torch.float64,),
+        ]
 
-    assert collective_dtypes == [
-        (torch.int64, torch.int64),
-        (torch.float64, torch.float64),
-    ]
-    assert values_out.dtype == torch.float64
-    assert indices_out[0, 0].item() == large_index
+    def test_large_indices_are_not_rounded(self, mock_single_rank_collectives):
+        """Collectives must preserve indices above float32's exact range."""
+        large_index = 2**24 + 1
+        values = torch.tensor([[0.125]], dtype=torch.float64)
+        indices = torch.tensor([[large_index]], dtype=torch.long)
+
+        values_out, indices_out = distributed_symmetrize_sparse(
+            values,
+            indices,
+            chunk_start=0,
+            chunk_size=1,
+            n_total=large_index + 1,
+            mode="sum",
+        )
+
+        assert mock_single_rank_collectives == [
+            (torch.int64,),
+            (torch.float64,),
+        ]
+        assert values_out.dtype == torch.float64
+        assert indices_out[0, 0].item() == large_index
