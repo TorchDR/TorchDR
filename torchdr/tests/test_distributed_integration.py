@@ -10,7 +10,11 @@ import pytest
 import torch
 import torch.distributed as dist
 
-from torchdr.distributed import DistributedContext
+from torchdr.distributed import (
+    DistributedContext,
+    init_distributed,
+    shutdown_distributed,
+)
 from torchdr.spectral_embedding import PCA
 
 
@@ -22,16 +26,29 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module", autouse=True)
 def distributed_process_group():
-    """Initialize the process group created by torchrun."""
-    dist.init_process_group(backend="gloo")
+    """Join the process group started by the launcher.
+
+    TorchDR already creates a NCCL group on import when the launcher provides
+    GPUs, so the group must not be created a second time here. On CPU runners
+    the automatic setup is skipped and this creates the Gloo group itself.
+    """
+    init_distributed(backend="gloo")
+    if not dist.is_initialized():
+        pytest.skip("no process group; launch with torch.distributed.run")
     yield
     dist.barrier()
-    dist.destroy_process_group()
+    shutdown_distributed()
+
+
+def _collective_device():
+    """Return a device the active backend can communicate on."""
+    return "cuda" if dist.get_backend() == "nccl" else "cpu"
 
 
 def test_real_distributed_collectives():
     """Exercise context discovery and PCA collectives across real processes."""
     context = DistributedContext()
+    device = _collective_device()
 
     assert context.is_initialized
     assert context.world_size == 2
@@ -50,10 +67,10 @@ def test_real_distributed_collectives():
             [7.0, 5.0, 8.0, 10.0],
         ],
         dtype=torch.float64,
-    )
+    ).to(device)
     local_data = full_data.chunk(context.world_size)[context.rank].contiguous()
 
-    distributed_pca = PCA(n_components=2, distributed=True, device="cpu")
+    distributed_pca = PCA(n_components=2, distributed=True, device=device)
     embedding = distributed_pca.fit_transform(local_data)
 
     assert embedding.shape == (len(local_data), 2)
@@ -68,7 +85,7 @@ def test_real_distributed_collectives():
     dist.all_gather(gathered_components, distributed_pca.components_)
     torch.testing.assert_close(gathered_components[0], gathered_components[1])
 
-    reference_pca = PCA(n_components=2, distributed=False, device="cpu")
+    reference_pca = PCA(n_components=2, distributed=False, device=device)
     reference_pca.fit(full_data)
     distributed_projector = distributed_pca.components_.T @ distributed_pca.components_
     reference_projector = reference_pca.components_.T @ reference_pca.components_

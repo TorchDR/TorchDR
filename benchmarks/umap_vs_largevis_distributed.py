@@ -3,7 +3,6 @@
 Compare neighborhood preservation scores for both methods.
 """
 
-import os
 import time
 import gzip
 import pickle
@@ -14,23 +13,29 @@ import torch
 import torch.distributed as dist
 
 from torchdr import UMAP, LargeVis
+from torchdr.distributed import (
+    get_rank,
+    get_world_size,
+    is_distributed as distributed_active,
+    shutdown_distributed,
+)
 from torchdr.eval import neighborhood_preservation
 
 
 def setup_distributed():
-    """Initialize distributed training if launched with torchrun."""
-    if "LOCAL_RANK" in os.environ:
-        local_rank = int(os.environ["LOCAL_RANK"])
-        torch.cuda.set_device(local_rank)
-        dist.init_process_group(backend="nccl")
-        return True, dist.get_rank(), dist.get_world_size()
-    return False, 0, 1
+    """Report the distributed state TorchDR prepared on import.
+
+    TorchDR creates the process group itself under ``torchrun`` or the
+    ``torchdr`` CLI, so calling ``torch.distributed.init_process_group`` here
+    would raise ``ValueError: trying to initialize the default process group
+    twice!``.
+    """
+    return distributed_active(), get_rank(), get_world_size()
 
 
 def cleanup_distributed():
-    """Clean up distributed training environment."""
-    if dist.is_initialized():
-        dist.destroy_process_group()
+    """Release the process group if TorchDR created it."""
+    shutdown_distributed()
 
 
 def load_zheng_dataset():

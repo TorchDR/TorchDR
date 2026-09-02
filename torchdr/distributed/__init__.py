@@ -12,14 +12,119 @@ utilities for managing distributed multi-GPU computation.
 import atexit
 import os
 import warnings
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.distributed as dist
 
-__all__ = ["is_distributed", "get_rank", "get_world_size", "DistributedContext"]
+__all__ = [
+    "is_distributed",
+    "get_rank",
+    "get_world_size",
+    "init_distributed",
+    "shutdown_distributed",
+    "DistributedContext",
+]
 
 _distributed_initialized_by_torchdr = False
+_cleanup_registered = False
+
+
+def init_distributed(backend: Optional[str] = None) -> bool:
+    """Initialize the process group for a launcher-provided rendezvous.
+
+    This is the single entry point TorchDR uses to create a process group. It
+    is called automatically on import when the process was started by
+    ``torchrun`` or the ``torchdr`` CLI and a GPU is available, so scripts
+    normally need no distributed boilerplate at all.
+
+    Call this function instead of :func:`torch.distributed.init_process_group`
+    in scripts that must also run without a launcher, or in CPU test processes
+    that the automatic setup deliberately skips. Calling
+    :func:`torch.distributed.init_process_group` directly after importing
+    TorchDR raises ``ValueError: trying to initialize the default process group
+    twice!`` because the group already exists.
+
+    The function is idempotent and never raises when there is nothing to do:
+    it returns ``False`` when a process group already exists, when no launcher
+    is detected, or when :mod:`torch.distributed` is unavailable.
+
+    Parameters
+    ----------
+    backend : str, optional
+        Process group backend. Defaults to ``"nccl"`` when CUDA is available
+        and ``"gloo"`` otherwise.
+
+    Returns
+    -------
+    bool
+        True if this call created the process group, False if it was a no-op.
+
+    Examples
+    --------
+    >>> from torchdr.distributed import init_distributed, shutdown_distributed
+    >>> init_distributed()  # no-op unless launched with torchrun
+    False
+    """
+    global _distributed_initialized_by_torchdr, _cleanup_registered
+
+    if not dist.is_available():
+        return False
+
+    if dist.is_initialized():
+        current = dist.get_backend()
+        if backend is not None and str(backend).lower() != str(current).lower():
+            warnings.warn(
+                f"A process group is already initialized with backend "
+                f"'{current}'. The requested backend '{backend}' is ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return False
+
+    if "LOCAL_RANK" not in os.environ:
+        return False
+
+    cuda_available = torch.cuda.is_available()
+    if backend is None:
+        backend = "nccl" if cuda_available else "gloo"
+
+    if cuda_available:
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+
+    dist.init_process_group(backend=backend)
+    _distributed_initialized_by_torchdr = True
+
+    if not _cleanup_registered:
+        atexit.register(_auto_cleanup_distributed)
+        _cleanup_registered = True
+
+    return True
+
+
+def shutdown_distributed() -> bool:
+    """Destroy the process group if TorchDR created it.
+
+    Groups created by the caller or by another library are left untouched, so
+    this is safe to call unconditionally at the end of a script. TorchDR also
+    calls it automatically at interpreter exit.
+
+    Returns
+    -------
+    bool
+        True if this call destroyed the process group, False otherwise.
+    """
+    global _distributed_initialized_by_torchdr
+
+    if not dist.is_available():
+        return False
+
+    if _distributed_initialized_by_torchdr and dist.is_initialized():
+        dist.destroy_process_group()
+        _distributed_initialized_by_torchdr = False
+        return True
+
+    return False
 
 
 def _auto_setup_distributed():
@@ -32,9 +137,8 @@ def _auto_setup_distributed():
 
     Note: Only initializes if CUDA is available. TorchDR distributed mode is
     GPU-only since PyTorch already provides efficient CPU parallelization.
+    Explicitly calling :func:`init_distributed` still creates a Gloo group.
     """
-    global _distributed_initialized_by_torchdr
-
     if "LOCAL_RANK" in os.environ and not dist.is_initialized():
         # Only setup distributed for GPU training
         if not torch.cuda.is_available():
@@ -49,16 +153,7 @@ def _auto_setup_distributed():
             )
             return
 
-        local_rank = int(os.environ["LOCAL_RANK"])
-        torch.cuda.set_device(local_rank)
-
-        # Initialize process group (GPU-only with NCCL backend)
-        dist.init_process_group(backend="nccl")
-
-        _distributed_initialized_by_torchdr = True
-
-        # Register cleanup function
-        atexit.register(_auto_cleanup_distributed)
+        init_distributed(backend="nccl")
 
 
 def _auto_cleanup_distributed():
@@ -68,11 +163,7 @@ def _auto_cleanup_distributed():
     interpreter exits. It only destroys the process group if it was
     initialized by TorchDR's auto-setup.
     """
-    global _distributed_initialized_by_torchdr
-
-    if _distributed_initialized_by_torchdr and dist.is_initialized():
-        dist.destroy_process_group()
-        _distributed_initialized_by_torchdr = False
+    shutdown_distributed()
 
 
 def is_distributed():
@@ -142,8 +233,8 @@ class DistributedContext:
     >>> from torchdr.distributed import DistributedContext
     >>> from torchdr.distance import pairwise_distances
     >>>
-    >>> # Initialize distributed (usually done by launcher like torchrun)
-    >>> # torch.distributed.init_process_group(...)
+    >>> # The process group is created on import under torchrun or the
+    >>> # torchdr CLI; call init_distributed() only outside those launchers.
     >>>
     >>> # Create distributed context
     >>> dist_ctx = DistributedContext()

@@ -91,6 +91,13 @@ Arguments after the script name are passed directly to your script.
             )
             sys.exit(1)
 
+        if n_gpus < 1:
+            print(
+                f"Error: --gpus must be a positive number or 'all', got '{args.gpus}'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         if n_gpus > available_gpus:
             print(
                 f"Warning: Requested {n_gpus} GPUs but only {available_gpus} "
@@ -98,6 +105,10 @@ Arguments after the script name are passed directly to your script.
                 file=sys.stderr,
             )
             n_gpus = available_gpus
+
+        if n_gpus < 1:
+            print("Error: No GPUs detected on this system", file=sys.stderr)
+            sys.exit(1)
 
     # Print hardware detection summary
     print("TorchDR Multi-GPU Launcher")
@@ -107,8 +118,13 @@ Arguments after the script name are passed directly to your script.
 
     # Build torchrun command (single-node only)
     # Use --standalone to avoid port conflicts on shared systems (uses localhost:0)
+    # Invoke torchrun through the running interpreter so the workers always use
+    # the environment TorchDR is installed in, even when no ``torchrun``
+    # executable is on PATH.
     cmd = [
-        "torchrun",
+        sys.executable,
+        "-m",
+        "torch.distributed.run",
         "--standalone",
         f"--nproc_per_node={n_gpus}",
         args.script,
@@ -125,7 +141,8 @@ Arguments after the script name are passed directly to your script.
         sys.exit(result.returncode)
     except FileNotFoundError:
         print(
-            "Error: torchrun not found. Make sure PyTorch is installed.",
+            f"Error: could not launch '{sys.executable} -m torch.distributed.run'. "
+            "Make sure PyTorch is installed in this environment.",
             file=sys.stderr,
         )
         sys.exit(1)
