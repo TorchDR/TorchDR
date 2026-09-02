@@ -174,6 +174,40 @@ def test_pairwise_distances_faiss_k_as_tensor():
 
 
 @pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_avoids_numpy_round_trip(monkeypatch):
+    """Test that FAISS consumes tensor inputs without converting to NumPy."""
+    from torchdr.utils.faiss import faiss_torch_interop
+
+    if not faiss_torch_interop:
+        pytest.skip("installed FAISS does not provide PyTorch interoperability")
+
+    x = torch.randn(20, 8, dtype=torch.float32)
+
+    def fail_numpy_conversion(self):
+        raise AssertionError("unexpected conversion to NumPy")
+
+    monkeypatch.setattr(torch.Tensor, "numpy", fail_numpy_conversion)
+
+    distances, indices = pairwise_distances(
+        x, k=5, backend="faiss", return_indices=True, device="cpu"
+    )
+
+    check_shape(distances, (20, 5))
+    check_shape(indices, (20, 5))
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_pairwise_distances_faiss_warns_on_float64():
+    """Test that FAISS' float32 precision boundary is explicit."""
+    x = torch.randn(20, 8, dtype=torch.float64)
+
+    with pytest.warns(UserWarning, match="FAISS computes distances in float32"):
+        distances = pairwise_distances(x, k=5, backend="faiss", device="cpu")
+
+    assert distances.dtype == torch.float64
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
 def test_faiss_config_repr():
     """Test FaissConfig __repr__ method."""
     from torchdr.distance import FaissConfig
@@ -1270,6 +1304,40 @@ def test_faiss_check_installation_success():
     # Should be able to create an index
     index = faiss_module.IndexFlatL2(10)
     assert index is not None
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_enable_faiss_torch_interop_success():
+    """Test that the installed FAISS tensor wrappers can be enabled."""
+    from torchdr.utils.faiss import _enable_faiss_torch_interop
+
+    assert _enable_faiss_torch_interop() is True
+
+
+def test_enable_faiss_torch_interop_without_faiss(monkeypatch):
+    """Test that tensor interoperability stays disabled without FAISS."""
+    from importlib import import_module
+
+    faiss_utils = import_module("torchdr.utils.faiss")
+
+    monkeypatch.setattr(faiss_utils, "faiss", None)
+
+    assert faiss_utils._enable_faiss_torch_interop() is False
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_enable_faiss_torch_interop_without_wrappers(monkeypatch):
+    """Test compatibility with FAISS builds lacking tensor wrappers."""
+    from importlib import import_module
+
+    faiss_utils = import_module("torchdr.utils.faiss")
+
+    def missing_wrappers(module_name):
+        raise ImportError(module_name)
+
+    monkeypatch.setattr(faiss_utils, "import_module", missing_wrappers)
+
+    assert faiss_utils._enable_faiss_torch_interop() is False
 
 
 def test_faiss_check_installation_mock_broken():
