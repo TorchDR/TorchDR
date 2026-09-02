@@ -1,4 +1,4 @@
-"""Process-level ownership of FAISS GPU resources."""
+"""Thread-local ownership of FAISS GPU resources."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -6,20 +6,30 @@
 
 import contextlib
 import threading
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 
 from torchdr.utils.faiss import faiss
 
-# One FAISS resource per CUDA device, owned by the process for its lifetime.
+# One FAISS resource per CUDA device and calling CPU thread. FAISS documents
+# ``StandardGpuResources`` as not thread-safe because its temporary memory can
+# only have one user at a time. A thread may, and should, share its resource
+# between the GPU indexes it creates on the same device.
 # ``StandardGpuResources`` holds a temporary memory pool, a pinned host buffer
 # and per-device CUDA state, so building one per search costs both time and
-# device memory. This is runtime state, never user configuration: it is not
-# copied, pickled, or reachable from an estimator's parameters.
-_LOCK = threading.Lock()
-_RESOURCES: Dict[int, Any] = {}
-_TEMP_MEMORY: Dict[int, Union[str, float]] = {}
+# device memory. This runtime state is never user configuration: it is not
+# copied, pickled, or reachable from an estimator's parameters. Thread-local
+# ownership also releases a worker's resources when that thread exits.
+_STATE = threading.local()
+
+
+def _thread_state() -> Tuple[Dict[int, Any], Dict[int, Union[str, float]]]:
+    """Return the resource and temp-memory maps for the calling thread."""
+    if not hasattr(_STATE, "resources"):
+        _STATE.resources = {}
+        _STATE.temp_memory = {}
+    return _STATE.resources, _STATE.temp_memory
 
 
 def faiss_gpu_available() -> bool:
@@ -28,7 +38,7 @@ def faiss_gpu_available() -> bool:
 
 
 def get_gpu_resources(device_id: int, temp_memory: Union[str, float] = "auto") -> Any:
-    """Return this process' FAISS GPU resource for ``device_id``.
+    """Return this thread's FAISS GPU resource for ``device_id``.
 
     Parameters
     ----------
@@ -36,15 +46,15 @@ def get_gpu_resources(device_id: int, temp_memory: Union[str, float] = "auto") -
         CUDA device ordinal the resource serves.
     temp_memory : str or float, default='auto'
         Size in GB of the FAISS temporary memory pool, or ``'auto'`` to keep
-        whatever pool FAISS already sized. An explicit size is applied only when
-        it differs from the size in force for that device. ``'auto'`` never
-        resizes an existing pool: FAISS exposes no call that restores its own
-        default, so honouring it would shrink a pool an earlier caller asked for.
+        FAISS' default pool. An explicit size is applied only when it differs
+        from the size in force for that device. Returning to ``'auto'`` after an
+        explicit size recreates the resource because FAISS exposes no method to
+        restore its version- and device-dependent default.
 
     Returns
     -------
     resources : faiss.StandardGpuResources
-        The resource owned by this process for ``device_id``.
+        The resource owned by the calling thread for ``device_id``.
     """
     if not faiss_gpu_available():
         raise RuntimeError(
@@ -54,29 +64,31 @@ def get_gpu_resources(device_id: int, temp_memory: Union[str, float] = "auto") -
 
     device_id = int(device_id)
 
-    with _LOCK:
-        res = _RESOURCES.get(device_id)
-        if res is None:
-            res = faiss.StandardGpuResources()
-            _RESOURCES[device_id] = res
-            _TEMP_MEMORY[device_id] = "auto"
+    resources, temp_memory_by_device = _thread_state()
+    res = resources.get(device_id)
+    current_temp_memory = temp_memory_by_device.get(device_id)
 
-        if temp_memory != "auto" and temp_memory != _TEMP_MEMORY[device_id]:
-            res.setTempMemory(int(float(temp_memory) * 1024**3))
-            _TEMP_MEMORY[device_id] = temp_memory
+    if res is None or (temp_memory == "auto" and current_temp_memory != "auto"):
+        res = faiss.StandardGpuResources()
+        resources[device_id] = res
+        temp_memory_by_device[device_id] = "auto"
 
-        return res
+    if temp_memory != "auto" and temp_memory != temp_memory_by_device[device_id]:
+        res.setTempMemory(int(float(temp_memory) * 1024**3))
+        temp_memory_by_device[device_id] = temp_memory
+
+    return res
 
 
 def reset_gpu_resources() -> None:
-    """Release every FAISS GPU resource held by this process.
+    """Release FAISS GPU resources held by the calling thread.
 
     Frees the temporary memory pools without waiting for interpreter shutdown.
     Intended for tests, which must not leak resources across cases.
     """
-    with _LOCK:
-        _RESOURCES.clear()
-        _TEMP_MEMORY.clear()
+    resources, temp_memory_by_device = _thread_state()
+    resources.clear()
+    temp_memory_by_device.clear()
 
 
 @contextlib.contextmanager

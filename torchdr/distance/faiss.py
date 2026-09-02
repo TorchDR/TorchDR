@@ -126,10 +126,8 @@ class FaissConfig:
         - 'auto': Use FAISS default temporary memory pool (typically a fixed size)
         - float/int: Explicit size in GB (e.g., 2.0 for 2GB)
         - 0: Disable pre-allocation (use cudaMalloc on demand)
-        Only applies to GPU mode. The pool belongs to the process rather than to
-        this config: the first search on a device sizes it and it stays resident
-        until the process exits, so a later config asking for a different
-        explicit size resizes the shared pool for every subsequent search.
+        Only applies to GPU mode. The pool belongs to the calling thread rather
+        than to this config: searches on the same thread and device reuse it.
     device : int, default=0
         GPU device ID to use.
         Only applies when input is on CUDA.
@@ -183,15 +181,18 @@ class FaissConfig:
     -----
     - Increasing temp_memory helps with large batch operations but reduces memory
       available for data storage. FAISS defaults to a pool of roughly 1.5GB per
-      device, which the first GPU search allocates and the process then keeps.
-      Set temp_memory explicitly to bound it on a shared device.
+      device, which the first GPU search allocates and the calling thread keeps.
+      Set temp_memory explicitly to bound it.
     - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
     - IVFPQ provides significant memory savings (e.g., 128D float32 vectors: 512 bytes
       -> ~32 bytes with M=16, nbits=8) at the cost of some accuracy
     - For IVFPQ, ensure the vector dimension is divisible by M
     - The configuration is plain data. FAISS GPU resources are owned by the
-      process, not by the configuration, so a config stays copyable and
-      picklable after it has been used on a GPU.
+      calling thread, not by the configuration, so a config stays copyable and
+      picklable after it has been used on a GPU. Resources are not shared across
+      threads because FAISS does not make ``StandardGpuResources`` thread-safe.
+      Consequently, concurrent CPU threads targeting the same GPU each keep a
+      separate temporary pool.
     """
 
     def __init__(
@@ -556,9 +557,9 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
 
     Notes
     -----
-    The resource is owned by the process rather than by ``config``, so repeated
-    calls on the same device reuse one temporary memory pool and a config stays
-    free of live FAISS objects.
+    The resource is owned by the calling thread rather than by ``config``, so
+    repeated calls on the same thread and device reuse one temporary memory pool
+    while a config stays free of live FAISS objects.
     """
     device_id = _index_device_id(config)
     res = get_gpu_resources(device_id, config.temp_memory)

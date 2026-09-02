@@ -1,4 +1,4 @@
-"""Tests for the process-level FAISS GPU runtime and its stream contract."""
+"""Tests for the thread-local FAISS GPU runtime and its stream contract."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -6,6 +6,7 @@
 
 import copy
 import pickle
+import threading
 
 import pytest
 import torch
@@ -79,20 +80,36 @@ def test_one_resource_per_device_never_shared_across_devices(fake_faiss):
     assert get_gpu_resources(0) is not get_gpu_resources(1)
 
 
-def test_explicit_temp_memory_is_applied_once_and_auto_keeps_the_pool(fake_faiss):
+def test_resources_are_not_shared_across_threads(fake_faiss):
+    main_resource = get_gpu_resources(0)
+    worker_resources = []
+
+    def get_twice():
+        worker_resources.extend([get_gpu_resources(0), get_gpu_resources(0)])
+
+    worker = threading.Thread(target=get_twice)
+    worker.start()
+    worker.join()
+
+    assert worker_resources[0] is worker_resources[1]
+    assert worker_resources[0] is not main_resource
+
+
+def test_explicit_temp_memory_is_applied_once_and_auto_restores_default(fake_faiss):
     res = get_gpu_resources(0, temp_memory=2.0)
     get_gpu_resources(0, temp_memory=2.0)
     assert res.temp_memory_calls == [int(2.0 * 1024**3)]
 
-    # 'auto' must not shrink a pool an earlier caller sized.
-    get_gpu_resources(0, temp_memory="auto")
-    assert res.temp_memory_calls == [int(2.0 * 1024**3)]
+    auto_res = get_gpu_resources(0, temp_memory="auto")
+    assert auto_res is not res
+    assert auto_res.temp_memory_calls == []
 
-    get_gpu_resources(0, temp_memory=1.0)
-    assert res.temp_memory_calls[-1] == 1024**3
+    res = get_gpu_resources(0, temp_memory=1.0)
+    assert res is auto_res
+    assert res.temp_memory_calls == [1024**3]
 
 
-def test_reset_releases_every_resource(fake_faiss):
+def test_reset_releases_calling_thread_resources(fake_faiss):
     first = get_gpu_resources(0)
     reset_gpu_resources()
 
