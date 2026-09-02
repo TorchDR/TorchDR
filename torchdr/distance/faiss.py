@@ -222,6 +222,69 @@ class FaissConfig:
         return f"FaissConfig({', '.join(parts)})"
 
 
+def remove_self_neighbors(
+    distances: torch.Tensor,
+    indices: torch.Tensor,
+    query_ids: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    r"""Drop each query's own index from a ``k + 1`` neighbor search.
+
+    A self-search retrieves ``k + 1`` neighbors so that ``k`` remain once the
+    query itself is removed. The query is not reliably the first result: exact
+    ties put a duplicate observation ahead of it, the ``angular`` metric ranks
+    by raw inner product so a longer vector can outrank it, and an approximate
+    index may not return it at all. Selecting by index is therefore used rather
+    than dropping column 0.
+
+    When a row does not contain its query id, all ``k + 1`` results are valid
+    neighbors and the farthest one is dropped instead.
+
+    Parameters
+    ----------
+    distances : torch.Tensor of shape (n, k + 1)
+        Neighbor distances, sorted by increasing distance.
+    indices : torch.Tensor of shape (n, k + 1)
+        Neighbor indices in the database, aligned with ``distances``.
+    query_ids : torch.Tensor of shape (n,)
+        Database index of each query row. In distributed mode this is the
+        global index of the row, not its position within the local chunk.
+
+    Returns
+    -------
+    distances : torch.Tensor of shape (n, k)
+        Neighbor distances without the self-neighbor.
+    indices : torch.Tensor of shape (n, k)
+        Neighbor indices without the self-neighbor.
+    """
+    k_plus_one = indices.shape[1]
+    query_ids = query_ids.to(device=indices.device)
+
+    # An exact search over distinct points puts every query first. Slicing that
+    # off returns views and allocates nothing, so the common case keeps the cost
+    # of one comparison and pays no memory for the general case below.
+    if bool((indices[:, 0] == query_ids).all()):
+        return distances[:, 1:], indices[:, 1:]
+
+    is_self = indices == query_ids.unsqueeze(1)
+    # argmax gives the first match, or 0 for a row with none; such a row has
+    # k + 1 valid neighbors, so its last (farthest) column is dropped instead.
+    dropped = torch.where(
+        is_self.any(dim=1),
+        is_self.to(torch.uint8).argmax(dim=1),
+        k_plus_one - 1,
+    )
+
+    # Output column j takes input column j before the dropped position and
+    # column j + 1 after it. Both operands are views, so the only tensors
+    # materialized are the mask and the two outputs.
+    after = torch.arange(k_plus_one - 1, device=indices.device) >= dropped.unsqueeze(1)
+
+    return (
+        torch.where(after, distances[:, 1:], distances[:, :-1]),
+        torch.where(after, indices[:, 1:], indices[:, :-1]),
+    )
+
+
 @torch.compiler.disable
 def pairwise_distances_faiss(
     X: torch.Tensor,
@@ -231,6 +294,7 @@ def pairwise_distances_faiss(
     exclude_diag: bool = False,
     config: Optional[FaissConfig] = None,
     device: str = "auto",
+    query_ids: Optional[torch.Tensor] = None,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -241,7 +305,8 @@ def pairwise_distances_faiss(
         normalize them beforehand to obtain cosine-similarity neighbor ordering.
 
     If Y is not provided then we assume a self–search and, if `exclude_diag` is True,
-    the self–neighbor is removed from the results.
+    the self–neighbor is removed from the results. When X is a chunk of a larger
+    database, pass `query_ids` so that `exclude_diag` still applies.
 
     Parameters
     ----------
@@ -255,8 +320,11 @@ def pairwise_distances_faiss(
     metric : str, default "sqeuclidean"
         One of "euclidean", "sqeuclidean", or "angular".
     exclude_diag : bool, default False
-        When True and Y is not provided (i.e. self–search), the self–neighbor (index i for query i)
-        is excluded from the k results.
+        When True, the self–neighbor (the query's own database row) is excluded
+        from the k results. Requires a self–search, unless `query_ids` is given.
+        The removal matches on the index, so it is correct when duplicate
+        observations, the ``angular`` metric or an approximate index place the
+        query away from the first position.
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
         See FaissConfig documentation for available options.
@@ -264,6 +332,10 @@ def pairwise_distances_faiss(
         Device to use for computation. If "auto", uses input device.
         If "cuda", uses FAISS GPU. If "cpu", uses FAISS CPU.
         Output remains on the specified device.
+    query_ids : torch.Tensor of shape (n,), optional
+        Row of Y that each query of X corresponds to. Only used when
+        `exclude_diag` is True, and only needed when X is a chunk of Y rather
+        than Y itself, as in distributed search. Defaults to `arange(n)`.
 
     Returns
     -------
@@ -323,7 +395,9 @@ def pairwise_distances_faiss(
         Y = X
         do_exclude = exclude_diag
     else:
-        do_exclude = False
+        # A chunk of the database can still drop its self-neighbors, but only
+        # if the caller states which database row each query came from.
+        do_exclude = exclude_diag and query_ids is not None
 
     if X.dtype != torch.float32 or Y.dtype != torch.float32:
         warnings.warn(
@@ -430,13 +504,16 @@ def pairwise_distances_faiss(
     elif metric == "angular":
         D = -D
 
-    if do_exclude:
-        D = D[:, 1:]
-        Ind = Ind[:, 1:]
-
     if not isinstance(D, torch.Tensor):
         D = torch.from_numpy(D)
         Ind = torch.from_numpy(Ind)
+
+    # Drop the self-neighbor before casting, so that only the (n, k) result is
+    # materialized in the output dtype rather than the wider (n, k + 1) search.
+    if do_exclude:
+        if query_ids is None:
+            query_ids = torch.arange(Ind.shape[0], device=Ind.device)
+        D, Ind = remove_self_neighbors(D, Ind, query_ids)
 
     distances = D.to(device=compute_device, dtype=dtype)
     indices = Ind.to(device=compute_device, dtype=torch.long)
@@ -542,7 +619,9 @@ def pairwise_distances_faiss_from_dataloader(
     metric : str, default "sqeuclidean"
         Distance metric. One of "euclidean", "sqeuclidean", or "angular".
     exclude_diag : bool, default False
-        When True, exclude self-neighbors from results.
+        When True, exclude self-neighbors from results. Rows are matched by
+        their global index, which stays correct in distributed mode where a
+        rank only queries its own chunk.
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
     device : str, default "auto"
@@ -610,11 +689,13 @@ def pairwise_distances_faiss_from_dataloader(
 
     if distributed_ctx is not None and distributed_ctx.is_initialized:
         # Multi-GPU: each rank searches its chunk
+        chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
         distances, indices = _search_chunk_from_dataloader(
             dataloader, index, k_search, distributed_ctx, n_samples, compute_device
         )
     else:
         # Single GPU: search all queries
+        chunk_start, chunk_end = 0, n_samples
         distances, indices = _search_all_from_dataloader(
             dataloader, index, k_search, compute_device
         )
@@ -626,8 +707,10 @@ def pairwise_distances_faiss_from_dataloader(
         distances = -distances
 
     if exclude_diag:
-        distances = distances[:, 1:]
-        indices = indices[:, 1:]
+        # Global row index of each query, so that the self-neighbor is removed
+        # by identity rather than by position.
+        query_ids = torch.arange(chunk_start, chunk_end, device=indices.device)
+        distances, indices = remove_self_neighbors(distances, indices, query_ids)
 
     return distances.to(dtype), indices
 
