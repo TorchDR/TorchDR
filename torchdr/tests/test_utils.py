@@ -207,6 +207,299 @@ def test_pairwise_distances_faiss_warns_on_float64():
     assert distances.dtype == torch.float64
 
 
+def _duplicated_data(n=128, d=8, n_dup=32, seed=0):
+    """Data whose first ``n_dup`` rows exactly repeat rows ``n_dup:2*n_dup``."""
+    generator = torch.Generator().manual_seed(seed)
+    X = torch.randn(n, d, generator=generator)
+    X[:n_dup] = X[n_dup : 2 * n_dup]
+    return X
+
+
+def _varied_norm_data(n=128, d=8, seed=0):
+    """Data whose norms span two decades.
+
+    With ``metric="angular"`` FAISS ranks by the raw inner product, so the self
+    score ``||x||**2`` of a short vector is beaten by longer vectors and the
+    query is not the first result.
+    """
+    generator = torch.Generator().manual_seed(seed)
+    X = torch.randn(n, d, generator=generator)
+    return X * torch.logspace(-1, 1, n).unsqueeze(1)
+
+
+def _self_neighbor_rows(indices, query_ids):
+    """Rows that list their own index among their neighbors."""
+    return int((indices == query_ids.view(-1, 1)).any(dim=1).sum())
+
+
+def _run_distributed_knn(X, k, metric, backend, world_size):
+    """Concatenate the per-rank output of the distributed k-NN path.
+
+    The distributed branch performs no collective: a rank slices its query rows
+    and searches the full database. A context with a forced rank therefore
+    exercises the production code path without a process group.
+    """
+    from torchdr.distributed import DistributedContext
+
+    distances, indices, query_ids = [], [], []
+    for rank in range(world_size):
+        ctx = DistributedContext(force_enable=True)
+        ctx.rank = rank
+        ctx.world_size = world_size
+        start, end = ctx.compute_chunk_bounds(X.shape[0])
+        C, idx = pairwise_distances(
+            X,
+            k=k,
+            metric=metric,
+            backend=backend,
+            exclude_diag=True,
+            return_indices=True,
+            device="cpu",
+            distributed_ctx=ctx,
+        )
+        assert C.shape[0] == end - start
+        distances.append(C)
+        indices.append(idx)
+        query_ids.append(torch.arange(start, end))
+    return torch.cat(distances), torch.cat(indices), torch.cat(query_ids)
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+class TestFaissSelfNeighborRemoval:
+    """The FAISS self-search must never return the query as its own neighbor.
+
+    The torch and keops backends mask the diagonal, so they satisfy this by
+    construction and serve as the reference. FAISS searches ``k + 1`` neighbors
+    and removes the query afterwards; these tests pin the cases where the query
+    is not the first result.
+    """
+
+    def test_helper_drops_self_wherever_it_appears(self):
+        from torchdr.distance.faiss import remove_self_neighbors
+
+        indices = torch.tensor([[0, 7, 8], [4, 1, 9], [5, 6, 2]])
+        distances = torch.tensor([[0.0, 1.0, 2.0], [0.5, 1.5, 2.5], [0.25, 1.25, 2.25]])
+        query_ids = torch.tensor([0, 1, 2])
+
+        kept_distances, kept_indices = remove_self_neighbors(
+            distances, indices, query_ids
+        )
+
+        assert kept_indices.tolist() == [[7, 8], [4, 9], [5, 6]]
+        assert kept_distances.tolist() == [[1.0, 2.0], [0.5, 2.5], [0.25, 1.25]]
+
+    def test_helper_slices_when_self_is_always_first(self):
+        """The common case must stay the plain column-0 slice."""
+        from torchdr.distance.faiss import remove_self_neighbors
+
+        indices = torch.tensor([[0, 7, 8], [1, 4, 9], [2, 5, 6]])
+        distances = torch.tensor([[0.0, 1.0, 2.0], [0.0, 1.5, 2.5], [0.0, 1.25, 2.25]])
+
+        kept_distances, kept_indices = remove_self_neighbors(
+            distances, indices, torch.tensor([0, 1, 2])
+        )
+
+        assert kept_indices.tolist() == [[7, 8], [4, 9], [5, 6]]
+        assert kept_distances.tolist() == [[1.0, 2.0], [1.5, 2.5], [1.25, 2.25]]
+
+    def test_helper_drops_farthest_when_self_is_absent(self):
+        """An approximate index may not return the query at all."""
+        from torchdr.distance.faiss import remove_self_neighbors
+
+        indices = torch.tensor([[3, 4, 5]])
+        distances = torch.tensor([[1.0, 2.0, 3.0]])
+
+        kept_distances, kept_indices = remove_self_neighbors(
+            distances, indices, torch.tensor([0])
+        )
+
+        assert kept_indices.tolist() == [[3, 4]]
+        assert kept_distances.tolist() == [[1.0, 2.0]]
+
+    def test_helper_uses_global_ids(self):
+        """In distributed mode a chunk's rows keep their global index."""
+        from torchdr.distance.faiss import remove_self_neighbors
+
+        indices = torch.tensor([[9, 10, 11], [3, 11, 12]])
+        distances = torch.tensor([[0.0, 1.0, 2.0], [1.0, 2.0, 3.0]])
+
+        _, kept_indices = remove_self_neighbors(
+            distances, indices, torch.tensor([10, 11])
+        )
+
+        assert kept_indices.tolist() == [[9, 11], [3, 12]]
+
+    def test_query_ids_exclude_the_diagonal_of_a_chunk(self):
+        """``exclude_diag`` applies to a chunk of the database via query_ids."""
+        from torchdr.distance.faiss import pairwise_distances_faiss
+
+        X = _duplicated_data(seed=6)
+        start, end, k = 40, 90, 10
+
+        _, indices = pairwise_distances_faiss(
+            X=X[start:end],
+            Y=X,
+            k=k,
+            exclude_diag=True,
+            device="cpu",
+            query_ids=torch.arange(start, end),
+        )
+
+        check_shape(indices, (end - start, k))
+        assert _self_neighbor_rows(indices, torch.arange(start, end)) == 0
+
+    def test_chunk_without_query_ids_keeps_k_neighbors(self):
+        """Without query_ids a chunk search cannot tell which row is the query."""
+        from torchdr.distance.faiss import pairwise_distances_faiss
+
+        X = _duplicated_data(seed=6)
+        start, end, k = 40, 90, 10
+
+        _, indices = pairwise_distances_faiss(
+            X=X[start:end], Y=X, k=k, exclude_diag=True, device="cpu"
+        )
+
+        check_shape(indices, (end - start, k))
+        assert _self_neighbor_rows(indices, torch.arange(start, end)) > 0
+
+    @pytest.mark.parametrize("metric", ["sqeuclidean", "euclidean"])
+    def test_duplicates_do_not_produce_self_neighbors(self, metric):
+        """A duplicate observation can tie ahead of the query itself."""
+        X = _duplicated_data()
+        k = 10
+
+        _, indices = pairwise_distances(
+            X,
+            k=k,
+            metric=metric,
+            backend="faiss",
+            exclude_diag=True,
+            return_indices=True,
+            device="cpu",
+        )
+
+        check_shape(indices, (X.shape[0], k))
+        assert _self_neighbor_rows(indices, torch.arange(X.shape[0])) == 0
+
+    def test_angular_does_not_produce_self_neighbors(self):
+        """The raw inner product does not rank the query first."""
+        X = _varied_norm_data()
+        k = 10
+
+        distances, indices = pairwise_distances(
+            X,
+            k=k,
+            metric="angular",
+            backend="faiss",
+            exclude_diag=True,
+            return_indices=True,
+            device="cpu",
+        )
+        reference = pairwise_distances(
+            X, k=k, metric="angular", backend=None, exclude_diag=True
+        )
+
+        check_shape(indices, (X.shape[0], k))
+        assert _self_neighbor_rows(indices, torch.arange(X.shape[0])) == 0
+        assert_close(distances, reference, rtol=1e-5, atol=1e-5)
+
+    def test_approximate_index_returns_exactly_k_non_self_neighbors(self):
+        """IVFPQ can rank the query late or omit it entirely."""
+        from torchdr.distance import FaissConfig
+
+        generator = torch.Generator().manual_seed(0)
+        X = torch.randn(1024, 16, generator=generator)
+        k = 10
+        config = FaissConfig(index_type="IVFPQ", nlist=32, nprobe=2, M=4, nbits=4)
+
+        _, indices = pairwise_distances(
+            X,
+            k=k,
+            backend=config,
+            exclude_diag=True,
+            return_indices=True,
+            device="cpu",
+        )
+
+        check_shape(indices, (X.shape[0], k))
+        assert _self_neighbor_rows(indices, torch.arange(X.shape[0])) == 0
+
+    @pytest.mark.parametrize("world_size", [2, 3])
+    def test_distributed_chunks_remove_their_own_global_index(self, world_size):
+        """Rank r queries rows [start, end); its self-neighbor is start + j."""
+        X = _duplicated_data(n=126, n_dup=30, seed=1)
+        k = 8
+
+        distances, indices, query_ids = _run_distributed_knn(
+            X, k, "sqeuclidean", "faiss", world_size
+        )
+        reference = pairwise_distances(
+            X, k=k, metric="sqeuclidean", backend=None, exclude_diag=True
+        )
+
+        check_shape(indices, (X.shape[0], k))
+        assert _self_neighbor_rows(indices, query_ids) == 0
+        assert_close(distances, reference, rtol=1e-4, atol=1e-4)
+
+    def test_distributed_angular_matches_reference(self):
+        X = _varied_norm_data(n=126, seed=2)
+        k = 8
+
+        distances, indices, query_ids = _run_distributed_knn(
+            X, k, "angular", "faiss", world_size=3
+        )
+        reference = pairwise_distances(
+            X, k=k, metric="angular", backend=None, exclude_diag=True
+        )
+
+        assert _self_neighbor_rows(indices, query_ids) == 0
+        assert_close(distances, reference, rtol=1e-5, atol=1e-5)
+
+    def test_dataloader_removes_self_neighbors(self):
+        from torch.utils.data import DataLoader, TensorDataset
+
+        X = _duplicated_data(seed=3)
+        k = 10
+        loader = DataLoader(TensorDataset(X), batch_size=32, shuffle=False)
+
+        _, indices = pairwise_distances(
+            loader, k=k, exclude_diag=True, return_indices=True, device="cpu"
+        )
+
+        check_shape(indices, (X.shape[0], k))
+        assert _self_neighbor_rows(indices, torch.arange(X.shape[0])) == 0
+
+    def test_distinct_points_are_unaffected(self):
+        """The common case still matches the exact reference exactly."""
+        generator = torch.Generator().manual_seed(4)
+        X = torch.randn(128, 8, generator=generator)
+        k = 10
+
+        _, indices = pairwise_distances(
+            X,
+            k=k,
+            backend="faiss",
+            exclude_diag=True,
+            return_indices=True,
+            device="cpu",
+        )
+        _, reference = pairwise_distances(
+            X, k=k, backend=None, exclude_diag=True, return_indices=True
+        )
+
+        assert torch.equal(indices, reference)
+
+    def test_umap_affinity_graph_has_no_self_edges(self):
+        """Consequence downstream: a self-edge replaces a true neighbor."""
+        from torchdr.affinity import UMAPAffinity
+
+        X = _duplicated_data(seed=5)
+        affinity = UMAPAffinity(n_neighbors=10, backend="faiss", device="cpu")
+        _, indices = affinity(X, return_indices=True)
+
+        assert _self_neighbor_rows(indices, torch.arange(X.shape[0])) == 0
+
+
 @pytest.mark.skipif(not faiss, reason="faiss is not available")
 def test_faiss_config_repr():
     """Test FaissConfig __repr__ method."""
