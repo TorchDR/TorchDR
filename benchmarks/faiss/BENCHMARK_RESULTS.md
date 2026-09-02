@@ -103,5 +103,6 @@ sample now being staged on the device rather than on the host.
 
 **Key insight**: tensor staging pays off most on the IVF build, where the
 training and add passes dominate, and regrouping pays off most when the loader
-batch is small. Setting `pin_memory=True` on the DataLoader did not help, since
-the streaming path already uploads through a pinned buffer of its own.
+batch is small. A follow-up comparison found no benefit from managing a second
+pinned buffer and CUDA event inside TorchDR, so the implementation leaves
+pinning to the DataLoader and uses PyTorch's direct transfer otherwise.

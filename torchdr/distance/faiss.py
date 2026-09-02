@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import warnings
 from weakref import WeakKeyDictionary
-from typing import Union, Optional, Dict, Any, Iterable, Tuple, List
+from typing import Union, Optional, Dict, Any, Callable, Iterable, Tuple, List
 
 from torch.utils.data import (
     DataLoader,
@@ -686,8 +686,7 @@ def pairwise_distances_faiss_from_dataloader(
     - Memory efficient: only one batch in CPU RAM at a time
     - GPU memory still required for the full FAISS index
     - Batches reach FAISS as tensors where the build ships the PyTorch
-      wrappers. A host batch is uploaded through a reusable pinned buffer
-      rather than copied through NumPy, and consecutive batches are regrouped
+      wrappers, avoiding a NumPy round trip. Consecutive batches are regrouped
       into FAISS calls of ``config.stream_batch_size`` rows.
     """
     if metric not in LIST_METRICS_FAISS:
@@ -721,15 +720,19 @@ def pairwise_distances_faiss_from_dataloader(
             "Install faiss-gpu for faster computation."
         )
 
-    # One stager for the whole call, so a single pinned buffer serves the
-    # training, add and search passes.
-    stage = _BatchStager(index_device, to_numpy=not faiss_torch_interop)
+    def stage(batch):
+        return _stage_batch(batch, index_device, to_numpy=not faiss_torch_interop)
+
     group_rows = _resolve_stream_rows(config, use_gpu_index)
+    faiss_device = (
+        torch.device("cuda", _index_device_id(config)) if use_gpu_index else None
+    )
 
     # Build FAISS index and extract metadata in one pass
-    index, metadata = _build_index_from_dataloader(
-        dataloader, metric, config, stage, group_rows, use_gpu_index
-    )
+    with faiss_device_scope(faiss_device):
+        index, metadata = _build_index_from_dataloader(
+            dataloader, metric, config, stage, group_rows, use_gpu_index
+        )
     n_samples = metadata["n_samples"]
     dtype = metadata["dtype"]
 
@@ -752,9 +755,10 @@ def pairwise_distances_faiss_from_dataloader(
         chunk_start, chunk_end = 0, n_samples
         queries = _batches(dataloader)
 
-    distances, indices = _search_from_dataloader(
-        queries, index, k_search, stage, group_rows, output_device
-    )
+    with faiss_device_scope(faiss_device):
+        distances, indices = _search_from_dataloader(
+            queries, index, k_search, stage, group_rows, output_device
+        )
 
     # Post-process results
     if metric == "euclidean":
@@ -788,15 +792,12 @@ def _batch_metadata(n_samples: int, batch: torch.Tensor) -> Dict[str, Any]:
     }
 
 
-class _BatchStager:
-    """Present DataLoader batches to FAISS without a NumPy round trip.
+def _stage_batch(batch: torch.Tensor, device: torch.device, to_numpy: bool = False):
+    """Present one DataLoader batch to FAISS without a NumPy round trip.
 
     Batches are made contiguous float32 and moved to the device the index reads
-    from. A host batch that is not already pinned is copied into a reusable
-    pinned buffer first, so the transfer is asynchronous and overlaps the FAISS
-    work already queued for earlier batches. The buffer is rewritten in place,
-    so the previous transfer must have finished before the next copy starts;
-    that is what the recorded event enforces.
+    from. DataLoader-managed pinned batches retain their asynchronous upload;
+    ordinary host batches use PyTorch's direct device transfer.
 
     Parameters
     ----------
@@ -807,51 +808,13 @@ class _BatchStager:
         PyTorch wrappers.
     """
 
-    def __init__(self, device: torch.device, to_numpy: bool = False):
-        self.device = device
-        self.to_numpy = to_numpy
-        self._buffer: Optional[torch.Tensor] = None
-        self._event: Optional[torch.cuda.Event] = None
+    batch = batch.detach().to(dtype=torch.float32).contiguous()
 
-    def __call__(self, batch: torch.Tensor):
-        batch = batch.detach()
-        if batch.dtype != torch.float32:
-            batch = batch.to(torch.float32)
-        batch = batch.contiguous()
-
-        if self.to_numpy:
-            return batch.cpu().numpy()
-        if self.device.type != "cuda":
-            return batch.cpu()
-        if batch.device.type == "cuda":
-            return batch.to(self.device)
-        if self.device.index != torch.cuda.current_device():
-            # An asynchronous upload is only ordered against the FAISS work
-            # when both run on the current device's stream, which is the stream
-            # the FAISS wrappers bind to. Copy synchronously otherwise.
-            return batch.to(self.device)
-        if batch.is_pinned():
-            return batch.to(self.device, non_blocking=True)
-        return self._upload_pinned(batch)
-
-    def _upload_pinned(self, batch: torch.Tensor) -> torch.Tensor:
-        n, d = batch.shape
-        if self._event is None:
-            self._event = torch.cuda.Event()
-        else:
-            self._event.synchronize()
-
-        # Batches shrink only at the end of a pass, so the buffer is normally
-        # allocated once and a shorter view of it serves the final batch.
-        reusable = self._buffer is not None and self._buffer.shape[1] == d
-        if not reusable or self._buffer.shape[0] < n:
-            self._buffer = torch.empty((n, d), dtype=torch.float32, pin_memory=True)
-        staged = self._buffer[:n]
-
-        staged.copy_(batch)
-        uploaded = staged.to(self.device, non_blocking=True)
-        self._event.record()
-        return uploaded
+    if to_numpy:
+        return batch.cpu().numpy()
+    if device.type != "cuda":
+        return batch.cpu()
+    return batch.to(device, non_blocking=batch.is_pinned())
 
 
 def _concatenate(chunks: List[Any]):
@@ -871,7 +834,7 @@ def _batches(dataloader: DataLoader):
 
 def _stream(
     batches: Iterable[torch.Tensor],
-    stage: "_BatchStager",
+    stage: Callable[[torch.Tensor], Any],
     group_rows: Optional[int],
 ):
     """Stage batches for FAISS, in groups of about ``group_rows`` rows.
@@ -998,7 +961,7 @@ def _build_index_from_dataloader(
     dataloader: DataLoader,
     metric: str,
     config: FaissConfig,
-    stage: "_BatchStager",
+    stage: Callable[[torch.Tensor], Any],
     group_rows: Optional[int],
     use_gpu_index: bool,
 ):
@@ -1016,7 +979,7 @@ def _build_index_from_dataloader(
         Distance metric.
     config : FaissConfig
         FAISS configuration.
-    stage : _BatchStager
+    stage : callable
         Converts a batch into something FAISS can consume directly.
     group_rows : int or None
         Rows per add call, or None to add each batch as it arrives.
@@ -1079,7 +1042,7 @@ def _search_from_dataloader(
     batches: Iterable[torch.Tensor],
     index,
     k: int,
-    stage: "_BatchStager",
+    stage: Callable[[torch.Tensor], Any],
     group_rows: Optional[int],
     output_device: torch.device,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -1094,7 +1057,7 @@ def _search_from_dataloader(
         FAISS index to search.
     k : int
         Number of neighbors to find.
-    stage : _BatchStager
+    stage : callable
         Converts a batch into something FAISS can consume directly.
     group_rows : int or None
         Rows per search call, or None to search each batch as it arrives.

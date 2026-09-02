@@ -20,9 +20,9 @@ from torchdr.distance import (
 )
 from torchdr.distance.faiss import (
     _DATALOADER_METADATA_CACHE,
-    _BatchStager,
     _cache_dataloader_metadata,
     _reserve_index_capacity,
+    _stage_batch,
     _stream,
     get_dataloader_metadata,
 )
@@ -306,7 +306,7 @@ class TestBatchStaging:
         batch = torch.randn(8, 6, dtype=torch.float64).T.contiguous().T[:, :4]
         assert not batch.is_contiguous()
 
-        staged = _BatchStager(torch.device("cpu"))(batch)
+        staged = _stage_batch(batch, torch.device("cpu"))
 
         assert isinstance(staged, torch.Tensor)
         assert staged.dtype == torch.float32
@@ -317,14 +317,17 @@ class TestBatchStaging:
         """Builds without the torch wrappers still get float32 arrays."""
         batch = torch.randn(8, 4, dtype=torch.float64)
 
-        staged = _BatchStager(torch.device("cpu"), to_numpy=True)(batch)
+        staged = _stage_batch(batch, torch.device("cpu"), to_numpy=True)
 
         assert isinstance(staged, np.ndarray)
         assert staged.dtype == np.float32
 
     def test_stream_regroups_batches(self):
         """Small batches are merged and large ones split, in order."""
-        stage = _BatchStager(torch.device("cpu"))
+
+        def stage(batch):
+            return _stage_batch(batch, torch.device("cpu"))
+
         batches = [torch.full((3, 2), float(i)) for i in range(4)]
 
         groups = list(_stream(batches, stage, group_rows=6))
@@ -337,7 +340,10 @@ class TestBatchStaging:
 
     def test_stream_can_pass_batches_through(self):
         """A None target hands every batch over as it arrives."""
-        stage = _BatchStager(torch.device("cpu"))
+
+        def stage(batch):
+            return _stage_batch(batch, torch.device("cpu"))
+
         batches = [torch.zeros(3, 2), torch.zeros(3, 2)]
 
         groups = list(_stream(batches, stage, group_rows=None))
