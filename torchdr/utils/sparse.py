@@ -251,9 +251,10 @@ def distributed_symmetrize_sparse(
 
     Notes
     -----
-    Edge exchange is performed on the input device. Coalescing and row-wise
-    packing are then performed on CPU to reduce peak accelerator memory. The
-    returned tensors are moved back to the input device.
+    Edge exchange is performed on the input device with ``all_to_all_single``
+    over flat buffers, which both NCCL and the Gloo CPU backend support.
+    Coalescing and row-wise packing are then performed on CPU to reduce peak
+    accelerator memory. The returned tensors are moved back to the input device.
     """
     if not dist.is_initialized():
         raise RuntimeError(
@@ -276,66 +277,36 @@ def distributed_symmetrize_sparse(
     target_sorted = target_ranks[sorted_idx]
     del i, j, target_ranks
 
-    # Step 3: Build separate index/value buffers. Keeping encoded coordinates
-    # as int64 avoids the precision loss caused by packing indices as float32.
-    send_keys = [
-        torch.empty(0, device=device, dtype=torch.long) for _ in range(world_size)
-    ]
-    send_values = [
-        torch.empty(0, device=device, dtype=v.dtype) for _ in range(world_size)
-    ]
+    # Step 3: Derive the per-rank split sizes. The edges are already ordered by
+    # owning rank, so the boundaries are just the insertion points of the rank
+    # labels and the sorted buffers double as flat send buffers.
+    boundaries = torch.arange(world_size + 1, device=device)
+    send_offsets = torch.searchsorted(target_sorted, boundaries)
+    send_counts = send_offsets[1:] - send_offsets[:-1]
+    recv_counts = torch.empty_like(send_counts)
+    dist.all_to_all_single(recv_counts, send_counts)
+    send_splits = send_counts.tolist()
+    recv_splits = recv_counts.tolist()
+    del boundaries, send_offsets, send_counts, recv_counts, target_sorted, sorted_idx
 
-    if target_sorted.numel() > 0:
-        unique_targets, counts = torch.unique_consecutive(
-            target_sorted, return_counts=True
-        )
-        offsets = torch.cat([torch.tensor([0], device=device), counts.cumsum(0)])
+    # Step 4: Exchange exact integer coordinates and values without dtype casts.
+    # Keeping encoded coordinates as int64 avoids the precision loss caused by
+    # packing indices as float32. One contiguous buffer per payload keeps the
+    # allocation and host-synchronization count independent of the world size
+    # and, unlike the list-based all_to_all, is supported by the Gloo backend.
+    n_received = sum(recv_splits)
+    transpose_keys = torch.empty(n_received, device=device, dtype=torch.long)
+    transpose_values = torch.empty(n_received, device=device, dtype=v.dtype)
+    dist.all_to_all_single(transpose_keys, keys_sorted, recv_splits, send_splits)
+    dist.all_to_all_single(transpose_values, values_sorted, recv_splits, send_splits)
+    del keys_sorted, values_sorted, send_splits, recv_splits
 
-        for idx, r in enumerate(unique_targets.tolist()):
-            start = offsets[idx].item()
-            end = offsets[idx + 1].item()
-            if end > start and r < world_size:
-                send_keys[r] = keys_sorted[start:end]
-                send_values[r] = values_sorted[start:end]
-
-    # Step 4: Exchange sizes and allocate exact receive buffers.
-    send_sizes = torch.tensor(
-        [tensor.numel() for tensor in send_keys], device=device, dtype=torch.long
-    )
-    recv_sizes = torch.zeros(world_size, device=device, dtype=torch.long)
-    dist.all_to_all_single(recv_sizes, send_sizes)
-
-    recv_keys = [
-        torch.empty(size.item(), device=device, dtype=torch.long) for size in recv_sizes
-    ]
-    recv_values = [
-        torch.empty(size.item(), device=device, dtype=v.dtype) for size in recv_sizes
-    ]
-
-    # Step 5: Exchange exact integer coordinates and values without dtype casts.
-    dist.all_to_all(recv_keys, send_keys)
-    dist.all_to_all(recv_values, send_values)
-    del (
-        send_keys,
-        send_values,
-        send_sizes,
-        recv_sizes,
-        keys_sorted,
-        values_sorted,
-        target_sorted,
-        sorted_idx,
-    )
-
-    # Step 6: Offload local and received edges before the memory-heavy unique.
+    # Step 5: Offload local and received edges before the memory-heavy unique.
     local_keys = keys.cpu()
     local_values = v.cpu()
     del keys, v
-    for rank in range(world_size):
-        recv_keys[rank] = recv_keys[rank].cpu()
-        recv_values[rank] = recv_values[rank].cpu()
-    transpose_keys = torch.cat(recv_keys)
-    transpose_values = torch.cat(recv_values)
-    del recv_keys, recv_values
+    transpose_keys = transpose_keys.cpu()
+    transpose_values = transpose_values.cpu()
 
     # Received keys encode original (i, j) entries. Rewrite them in place as
     # (j, i), retaining their provenance as Pᵀ rather than treating them as P.
@@ -343,7 +314,7 @@ def distributed_symmetrize_sparse(
     transpose_keys.remainder_(n_total).mul_(n_total).add_(received_rows)
     del received_rows
 
-    # Step 7: Coalesce P and Pᵀ separately. This is both correct for reciprocal
+    # Step 6: Coalesce P and Pᵀ separately. This is both correct for reciprocal
     # edges and avoids duplicating the already combined edge list a second time.
     i_sym, j_sym, vP, vPT = _merge_sparse_keys(
         local_keys,
@@ -354,7 +325,7 @@ def distributed_symmetrize_sparse(
     )
     del local_keys, local_values, transpose_keys, transpose_values
 
-    # Step 8: Combine components on CPU and pack the rows owned by this rank.
+    # Step 7: Combine components on CPU and pack the rows owned by this rank.
     v_sym = _combine_P_PT(vP, vPT, mode)
     del vP, vPT
     local_mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
@@ -363,5 +334,5 @@ def distributed_symmetrize_sparse(
     v_local = v_sym[local_mask]
     values_out, indices_out = pack_to_rowwise(i_local, j_local, v_local, chunk_size)
 
-    # Step 9: Restore the caller's device contract.
+    # Step 8: Restore the caller's device contract.
     return values_out.to(device), indices_out.to(device)
