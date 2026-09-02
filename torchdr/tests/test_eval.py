@@ -305,6 +305,49 @@ def test_kmeans_ari_gpu():
 
 
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
+def test_kmeans_ari_tensor_input_avoids_full_numpy_round_trip(monkeypatch):
+    """Test that tensor K-means does not convert the full input to NumPy."""
+    try:
+        import torchmetrics  # noqa: F401
+        import faiss.contrib.torch.clustering  # noqa: F401
+    except ImportError:
+        pytest.skip("FAISS tensor clustering dependencies are not installed")
+
+    X = torch.randn(40, 6, dtype=torch.float32)
+    y = torch.arange(40) % 4
+    original_numpy = torch.Tensor.numpy
+
+    def guard_full_input_numpy(self):
+        if self.shape == X.shape:
+            raise AssertionError("full input was converted to NumPy")
+        return original_numpy(self)
+
+    monkeypatch.setattr(torch.Tensor, "numpy", guard_full_input_numpy)
+
+    ari_score, pred_labels = kmeans_ari(X, y, n_clusters=4, niter=2, random_state=0)
+
+    assert isinstance(ari_score, torch.Tensor)
+    assert pred_labels.shape == (40,)
+
+
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
+def test_kmeans_ari_warns_on_float64():
+    """Test that FAISS K-means' float32 precision boundary is explicit."""
+    try:
+        import torchmetrics  # noqa: F401
+    except ImportError:
+        pytest.skip("torchmetrics not installed")
+
+    X = torch.randn(40, 6, dtype=torch.float64)
+    y = torch.arange(40) % 4
+
+    with pytest.warns(UserWarning, match="FAISS K-means computes in float32"):
+        _, pred_labels = kmeans_ari(X, y, n_clusters=4, niter=2, random_state=0)
+
+    assert pred_labels.device == X.device
+
+
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_perfect_clustering():
     """Test kmeans_ari with perfect clustering."""
     try:
