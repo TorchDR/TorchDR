@@ -7,6 +7,8 @@
 import warnings
 import numpy as np
 import torch
+from contextlib import ExitStack, redirect_stdout
+from io import StringIO
 from typing import Union, Optional
 
 from torchdr.utils import to_torch
@@ -16,6 +18,60 @@ try:
     from torchmetrics.clustering import AdjustedRandScore
 except ImportError:
     AdjustedRandScore = None
+
+
+def _fit_faiss_kmeans_tensor(
+    X,
+    n_clusters,
+    niter,
+    nredo,
+    seed,
+    use_gpu,
+    verbose,
+):
+    """Fit FAISS' tensor-native K-means implementation when available."""
+    try:
+        from faiss.contrib.torch.clustering import (
+            DatasetAssign,
+            DatasetAssignGPU,
+            kmeans,
+        )
+    except ImportError:
+        return None
+
+    if use_gpu:
+        resources = faiss.StandardGpuResources()
+        dataset = DatasetAssignGPU(resources, X)
+    else:
+        dataset = DatasetAssign(X)
+
+    best_centroids = None
+    best_objective = float("inf")
+
+    with ExitStack() as stack:
+        if use_gpu:
+            stack.enter_context(torch.cuda.device(X.device))
+        if not verbose:
+            # FAISS' contrib implementation prints one setup line unconditionally.
+            stack.enter_context(redirect_stdout(StringIO()))
+
+        for redo in range(nredo):
+            centroids, stats = kmeans(
+                n_clusters,
+                dataset,
+                niter=niter,
+                seed=seed + redo,
+                verbose=verbose,
+                return_stats=True,
+            )
+            objective = stats[-1]["obj"] if stats else float("inf")
+            if best_centroids is None or objective < best_objective:
+                best_centroids = centroids
+                best_objective = objective
+
+        _, predicted_labels = dataset.perform_search(best_centroids)
+
+    return predicted_labels.ravel()
 
 
 def kmeans_ari(
@@ -95,6 +151,8 @@ def kmeans_ari(
 
     FAISS K-means uses Lloyd's algorithm with optional multiple runs.
     GPU acceleration is automatically used if FAISS-GPU is installed and X is on GPU.
+    FAISS K-means computes in float32. Tensor inputs stay as tensors on the selected
+    CPU or GPU when the installed FAISS build provides tensor-native clustering.
     """
     if faiss is False:
         raise ImportError(
@@ -120,13 +178,10 @@ def kmeans_ari(
     else:
         device = torch.device(device)
 
-    X_np = X.detach().cpu().numpy().astype(np.float32)
-    labels_np = labels.detach().cpu().numpy()
-
-    n_samples, d = X_np.shape
+    n_samples, d = X.shape
 
     if n_clusters is None:
-        n_clusters = len(np.unique(labels_np))
+        n_clusters = int(torch.unique(labels).numel())
 
     if n_clusters < 1:
         raise ValueError(f"n_clusters must be at least 1, got {n_clusters}")
@@ -143,15 +198,16 @@ def kmeans_ari(
 
     use_gpu = (device.type == "cuda") and hasattr(faiss, "StandardGpuResources")
 
-    kmeans = faiss.Kmeans(
-        d,
-        n_clusters,
-        niter=niter,
-        nredo=nredo,
-        verbose=verbose,
-        gpu=use_gpu,
-        seed=seed,
-    )
+    if X.dtype != torch.float32:
+        warnings.warn(
+            "[TorchDR] FAISS K-means computes in float32; input values will "
+            "be converted before clustering.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    data_device = device if use_gpu else torch.device("cpu")
+    X_faiss = X.detach().to(device=data_device, dtype=torch.float32).contiguous()
 
     if device.type == "cuda" and not use_gpu:
         warnings.warn(
@@ -160,12 +216,32 @@ def kmeans_ari(
             stacklevel=2,
         )
 
-    kmeans.train(X_np)
+    predicted_labels_torch = _fit_faiss_kmeans_tensor(
+        X_faiss,
+        n_clusters=n_clusters,
+        niter=niter,
+        nredo=nredo,
+        seed=seed,
+        use_gpu=use_gpu,
+        verbose=verbose,
+    )
 
-    _, predicted_labels_np = kmeans.index.search(X_np, 1)
-    predicted_labels_np = predicted_labels_np.ravel()
+    if predicted_labels_torch is None:
+        X_np = X_faiss.cpu().numpy()
+        kmeans = faiss.Kmeans(
+            d,
+            n_clusters,
+            niter=niter,
+            nredo=nredo,
+            verbose=verbose,
+            gpu=use_gpu,
+            seed=seed,
+        )
+        kmeans.train(X_np)
+        _, predicted_labels_np = kmeans.index.search(X_np, 1)
+        predicted_labels_torch = torch.from_numpy(predicted_labels_np.ravel())
 
-    predicted_labels_torch = torch.from_numpy(predicted_labels_np).long().to(device)
+    predicted_labels_torch = predicted_labels_torch.long().to(device)
     labels_torch = labels.long().to(device)
 
     ari_metric = AdjustedRandScore().to(device)
@@ -173,7 +249,7 @@ def kmeans_ari(
 
     if input_is_numpy:
         ari_score = ari_score.detach().cpu().numpy().item()
-        predicted_labels = predicted_labels_np
+        predicted_labels = predicted_labels_torch.detach().cpu().numpy()
     else:
         predicted_labels = predicted_labels_torch
 
