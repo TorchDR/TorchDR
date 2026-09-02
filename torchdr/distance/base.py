@@ -185,25 +185,19 @@ def pairwise_distances(
         chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
         X_chunk = X[chunk_start:chunk_end]
 
-        # Compute k-NN: queries=chunk, database=full dataset
-        # Note: exclude_diag doesn't work since X_chunk is a subset of X
-        # We handle self-neighbors by searching for k+1 if needed
-        k_search = k + 1 if exclude_diag else k
-
+        # Compute k-NN: queries=chunk, database=full dataset. Query row j of the
+        # chunk is global row chunk_start + j, which is what lets exclude_diag
+        # identify the self-neighbor even though X_chunk is a subset of X.
         C, indices = pairwise_distances_faiss(
             X=X_chunk,
             Y=X,  # Full dataset as database
             metric=metric,
-            k=k_search,
-            exclude_diag=False,  # Can't use since X_chunk != X
+            k=k,
+            exclude_diag=exclude_diag,
             config=config,
             device=device,
+            query_ids=torch.arange(chunk_start, chunk_end, device=X.device),
         )
-
-        # Remove self-distances if needed
-        if exclude_diag:
-            C = C[:, 1:]
-            indices = indices[:, 1:]
 
         if return_indices:
             return C, indices
