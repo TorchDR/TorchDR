@@ -1306,6 +1306,40 @@ def test_faiss_check_installation_success():
     assert index is not None
 
 
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_enable_faiss_torch_interop_success():
+    """Test that the installed FAISS tensor wrappers can be enabled."""
+    from torchdr.utils.faiss import _enable_faiss_torch_interop
+
+    assert _enable_faiss_torch_interop() is True
+
+
+def test_enable_faiss_torch_interop_without_faiss(monkeypatch):
+    """Test that tensor interoperability stays disabled without FAISS."""
+    from importlib import import_module
+
+    faiss_utils = import_module("torchdr.utils.faiss")
+
+    monkeypatch.setattr(faiss_utils, "faiss", None)
+
+    assert faiss_utils._enable_faiss_torch_interop() is False
+
+
+@pytest.mark.skipif(not faiss, reason="faiss is not available")
+def test_enable_faiss_torch_interop_without_wrappers(monkeypatch):
+    """Test compatibility with FAISS builds lacking tensor wrappers."""
+    from importlib import import_module
+
+    faiss_utils = import_module("torchdr.utils.faiss")
+
+    def missing_wrappers(module_name):
+        raise ImportError(module_name)
+
+    monkeypatch.setattr(faiss_utils, "import_module", missing_wrappers)
+
+    assert faiss_utils._enable_faiss_torch_interop() is False
+
+
 def test_faiss_check_installation_mock_broken():
     """Test that _check_faiss_installation detects broken FAISS imports."""
     import sys
