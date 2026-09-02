@@ -55,6 +55,18 @@ def _check_faiss_installation():
 # Perform the check
 faiss, _error_message = _check_faiss_installation()
 
+# Importing FAISS' official PyTorch wrappers patches index methods so they can
+# consume CPU and CUDA tensors directly. Keep a NumPy fallback for older FAISS
+# builds that do not ship the interoperability module.
+faiss_torch_interop = False
+if faiss is not None:
+    try:
+        import faiss.contrib.torch_utils  # noqa: F401
+
+        faiss_torch_interop = True
+    except ImportError:
+        pass
+
 # If FAISS is not available or broken, show a helpful warning
 if faiss is None and _error_message:
     _install_instructions = """
