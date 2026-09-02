@@ -16,7 +16,7 @@ from .faiss import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
-from torchdr.distributed import DistributedContext
+from torchdr.distributed import DistributedContext, validate_distributed_input
 
 
 def pairwise_distances(
@@ -83,6 +83,7 @@ def pairwise_distances(
         - Requires k to be specified (sparse computation)
         - Forces backend to "faiss" if not already set
         - Results remain distributed (no gathering across GPUs)
+        - Every rank must pass the same full dataset; this is validated
         Default is None (single GPU computation).
 
     Returns
@@ -91,6 +92,13 @@ def pairwise_distances(
         Pairwise distances.
     indices : torch.Tensor, optional
         Indices of the k-nearest neighbors. Only returned if k is not None.
+
+    Raises
+    ------
+    ValueError
+        In distributed mode, if the ranks were not given the same full
+        dataset (sharded DataLoader, or mismatched shape, dtype or content).
+        See :func:`~torchdr.distributed.validate_distributed_input`.
 
     Examples
     --------
@@ -117,6 +125,11 @@ def pairwise_distances(
     ... )
     >>> # Each GPU gets its chunk of results
     """
+    # Every rank must hold the same full dataset: each builds a complete index
+    # and returns global sample ids. Check before any index is built.
+    if distributed_ctx is not None and distributed_ctx.is_initialized:
+        validate_distributed_input(X, distributed_ctx)
+
     # Handle DataLoader input
     if isinstance(X, DataLoader):
         if k is None:

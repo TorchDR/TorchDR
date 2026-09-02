@@ -17,7 +17,15 @@ from typing import Tuple
 import torch
 import torch.distributed as dist
 
-__all__ = ["is_distributed", "get_rank", "get_world_size", "DistributedContext"]
+from torchdr.distributed.input_contract import validate_distributed_input
+
+__all__ = [
+    "is_distributed",
+    "get_rank",
+    "get_world_size",
+    "DistributedContext",
+    "validate_distributed_input",
+]
 
 _distributed_initialized_by_torchdr = False
 
