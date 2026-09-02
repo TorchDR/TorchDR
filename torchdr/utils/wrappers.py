@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import functools
+import weakref
 import torch
 from torch.utils.data import DataLoader
 
@@ -201,10 +202,25 @@ def compile_if_requested(func):
 
     The compiled function is cached for subsequent calls.
     """
-    compiled_funcs = {}  # Cache for compiled functions
+    compiled_methods = weakref.WeakKeyDictionary()
+    eager_methods = weakref.WeakSet()
+    compiled_function = None
+    function_uses_eager = False
+
+    def warn_fallback(instance, error):
+        msg = (
+            f"Could not compile {func.__name__} with torch.compile. "
+            f"Falling back to eager execution. Reason: {error}"
+        )
+        if instance is not None and getattr(instance, "logger", None) is not None:
+            instance.logger.warning(msg)
+        else:
+            warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        nonlocal compiled_function, function_uses_eager
+
         # Determine if we should compile
         should_compile = False
         is_method = False
@@ -218,33 +234,33 @@ def compile_if_requested(func):
         if not should_compile:
             return func(*args, **kwargs)
 
-        # Create a unique key for the compiled function
-        # For methods, key on the instance id to recompile for different instances
-        # For functions, key on the function itself
-        key = (id(self), func) if is_method else func
-
-        if key in compiled_funcs:
-            return compiled_funcs[key](*args, **kwargs)
+        if is_method:
+            if self in eager_methods:
+                return func(*args, **kwargs)
+            compiled_func = compiled_methods.get(self)
+        else:
+            if function_uses_eager:
+                return func(*args, **kwargs)
+            compiled_func = compiled_function
 
         try:
-            compiled_func = torch.compile(func)
-            compiled_funcs[key] = compiled_func
+            if compiled_func is None:
+                compiled_func = torch.compile(func)
+            output = compiled_func(*args, **kwargs)
         except Exception as e:
-            msg = (
-                f"Could not compile {func.__name__} with torch.compile. "
-                f"Falling back to eager execution. Reason: {e}"
-            )
-
-            # For methods, try to use a logger
-            if is_method and hasattr(self, "logger") and self.logger is not None:
-                self.logger.warning(msg)
+            warn_fallback(self if is_method else None, e)
+            if is_method:
+                compiled_methods.pop(self, None)
+                eager_methods.add(self)
             else:
-                warnings.warn(f"[TorchDR] WARNING: {msg}", UserWarning)
-
-            # Cache the original function to avoid recompilation attempts
-            compiled_funcs[key] = func
+                compiled_function = None
+                function_uses_eager = True
             return func(*args, **kwargs)
 
-        return compiled_funcs[key](*args, **kwargs)
+        if is_method:
+            compiled_methods[self] = compiled_func
+        else:
+            compiled_function = compiled_func
+        return output
 
     return wrapper
