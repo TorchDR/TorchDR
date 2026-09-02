@@ -13,6 +13,7 @@ from typing import Union, Optional
 
 from torchdr.utils import to_torch
 from torchdr.utils.faiss import faiss
+from torchdr.utils.faiss_runtime import faiss_gpu_available, get_gpu_resources
 
 try:
     from torchmetrics.clustering import AdjustedRandScore
@@ -40,7 +41,10 @@ def _fit_faiss_kmeans_tensor(
         return None
 
     if use_gpu:
-        resources = faiss.StandardGpuResources()
+        device_id = X.device.index
+        if device_id is None:
+            device_id = torch.cuda.current_device()
+        resources = get_gpu_resources(device_id)
         dataset = DatasetAssignGPU(resources, X)
     else:
         dataset = DatasetAssign(X)
@@ -196,7 +200,7 @@ def kmeans_ari(
         else int(np.random.default_rng().integers(2**31))
     )
 
-    use_gpu = (device.type == "cuda") and hasattr(faiss, "StandardGpuResources")
+    use_gpu = (device.type == "cuda") and faiss_gpu_available()
 
     if X.dtype != torch.float32:
         warnings.warn(
