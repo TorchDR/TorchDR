@@ -4,12 +4,19 @@
 #
 # License: BSD 3-Clause License
 
+import warnings
+from unittest.mock import patch
+
+import pytest
 import torch
 
+import torchdr.distributed as torchdr_distributed
 from torchdr.distributed import (
     is_distributed,
     get_rank,
     get_world_size,
+    init_distributed,
+    shutdown_distributed,
     DistributedContext,
 )
 
@@ -29,6 +36,118 @@ class TestDistributedUtilities:
     def test_get_world_size_non_distributed(self):
         """Test get_world_size returns 1 when not distributed."""
         assert get_world_size() == 1
+
+
+class TestInitDistributed:
+    """Tests for the authoritative process group entry point."""
+
+    def test_no_launcher_is_noop(self, monkeypatch):
+        """Without LOCAL_RANK there is no rendezvous, so nothing is created."""
+        monkeypatch.delenv("LOCAL_RANK", raising=False)
+
+        with patch("torch.distributed.init_process_group") as mock_init:
+            assert init_distributed() is False
+
+        mock_init.assert_not_called()
+
+    def test_creates_group_when_launched(self, monkeypatch):
+        """A launcher rendezvous triggers exactly one initialization."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+        monkeypatch.setattr(torchdr_distributed, "_cleanup_registered", True)
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", False
+        )
+
+        with patch("torch.distributed.init_process_group") as mock_init:
+            with patch("torch.cuda.is_available", return_value=False):
+                assert init_distributed() is True
+
+        mock_init.assert_called_once_with(backend="gloo")
+        assert torchdr_distributed._distributed_initialized_by_torchdr is True
+
+        # Reset the module flag so later tests see a pristine state.
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", False
+        )
+
+    def test_defaults_to_nccl_with_cuda(self, monkeypatch):
+        """CUDA launches use NCCL and bind the local device."""
+        monkeypatch.setenv("LOCAL_RANK", "1")
+        monkeypatch.setattr(torchdr_distributed, "_cleanup_registered", True)
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", False
+        )
+
+        with patch("torch.distributed.init_process_group") as mock_init:
+            with patch("torch.cuda.is_available", return_value=True):
+                with patch("torch.cuda.set_device") as mock_set_device:
+                    assert init_distributed() is True
+
+        mock_init.assert_called_once_with(backend="nccl")
+        mock_set_device.assert_called_once_with(1)
+
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", False
+        )
+
+    def test_idempotent_when_group_exists(self, monkeypatch):
+        """A second call must not raise 'initialize the default group twice'."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+
+        with patch("torch.distributed.is_initialized", return_value=True):
+            with patch("torch.distributed.get_backend", return_value="nccl"):
+                with patch("torch.distributed.init_process_group") as mock_init:
+                    assert init_distributed() is False
+
+        mock_init.assert_not_called()
+
+    def test_warns_on_backend_mismatch(self, monkeypatch):
+        """An explicit backend that cannot be honoured is reported."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+
+        with patch("torch.distributed.is_initialized", return_value=True):
+            with patch("torch.distributed.get_backend", return_value="nccl"):
+                with pytest.warns(UserWarning, match="already initialized"):
+                    assert init_distributed(backend="gloo") is False
+
+    def test_no_warning_when_backend_matches(self, monkeypatch):
+        """Requesting the backend already in use is silent."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+
+        with patch("torch.distributed.is_initialized", return_value=True):
+            with patch("torch.distributed.get_backend", return_value="gloo"):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    assert init_distributed(backend="gloo") is False
+
+
+class TestShutdownDistributed:
+    """Tests for the matching teardown helper."""
+
+    def test_noop_for_foreign_group(self, monkeypatch):
+        """A group TorchDR did not create is left alone."""
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", False
+        )
+
+        with patch("torch.distributed.is_initialized", return_value=True):
+            with patch("torch.distributed.destroy_process_group") as mock_destroy:
+                assert shutdown_distributed() is False
+
+        mock_destroy.assert_not_called()
+
+    def test_destroys_own_group_once(self, monkeypatch):
+        """A group TorchDR created is destroyed exactly once."""
+        monkeypatch.setattr(
+            torchdr_distributed, "_distributed_initialized_by_torchdr", True
+        )
+
+        with patch("torch.distributed.is_initialized", return_value=True):
+            with patch("torch.distributed.destroy_process_group") as mock_destroy:
+                assert shutdown_distributed() is True
+                assert shutdown_distributed() is False
+
+        mock_destroy.assert_called_once()
 
 
 class TestDistributedContext:

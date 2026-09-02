@@ -109,7 +109,7 @@ def pairwise_distances(
     ...     dataloader, k=15, return_indices=True
     ... )
 
-    >>> # DataLoader with multi-GPU (after torch.distributed.init_process_group)
+    >>> # DataLoader with multi-GPU (launched with torchrun or the torchdr CLI)
     >>> from torchdr.distributed import DistributedContext
     >>> dist_ctx = DistributedContext()
     >>> distances, indices = pairwise_distances(
