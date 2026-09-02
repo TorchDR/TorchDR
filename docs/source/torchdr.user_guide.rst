@@ -408,6 +408,18 @@ Currently, the following methods support multi-GPU:
 - :class:`SNE <SNE>`
 - :class:`COSNE <COSNE>`
 
+.. note::
+
+   Multi-GPU support does not imply that every objective term is sharded.
+   :class:`UMAP <UMAP>`, :class:`InfoTSNE <InfoTSNE>`, and
+   :class:`LargeVis <LargeVis>` use sampled repulsion. In contrast,
+   :class:`TSNE <TSNE>`, :class:`SNE <SNE>`, and :class:`COSNE <COSNE>`
+   compute their exact dense repulsive term from the full embedding on every
+   rank. Their input-affinity rows and attractive work are distributed, but
+   the repulsive calculation remains quadratic per rank. Prefer a
+   negative-sampling method when scaling this part of the objective is
+   important.
+
 
 DataLoader for Streaming Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
