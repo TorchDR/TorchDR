@@ -35,6 +35,33 @@ def flatten_sparse(
     return i, j, v
 
 
+def _merge_sparse_keys(
+    keys_P: torch.LongTensor,
+    values_P: torch.Tensor,
+    keys_PT: torch.LongTensor,
+    values_PT: torch.Tensor,
+    n: int,
+) -> Tuple[torch.LongTensor, torch.LongTensor, torch.Tensor, torch.Tensor]:
+    """Merge separate P and Pᵀ entries by encoded matrix coordinates."""
+    n_P = keys_P.numel()
+    keys_all = torch.cat((keys_P, keys_PT))
+    del keys_P, keys_PT
+
+    unique_keys, inverse = torch.unique(keys_all, sorted=True, return_inverse=True)
+    del keys_all
+
+    n_unique = unique_keys.numel()
+    values_P_out = torch.zeros(n_unique, dtype=values_P.dtype, device=values_P.device)
+    values_PT_out = torch.zeros_like(values_P_out)
+    values_P_out.scatter_add_(0, inverse[:n_P], values_P)
+    values_PT_out.scatter_add_(0, inverse[n_P:], values_PT)
+    del inverse
+
+    i_out = torch.div(unique_keys, n, rounding_mode="floor")
+    j_out = unique_keys.remainder(n)
+    return i_out, j_out, values_P_out, values_PT_out
+
+
 def merge_symmetry(
     i: torch.LongTensor, j: torch.LongTensor, v: torch.Tensor, n: int
 ) -> Tuple[torch.LongTensor, torch.LongTensor, torch.Tensor, torch.Tensor]:
@@ -62,32 +89,7 @@ def merge_symmetry(
     vPT : torch.Tensor
         Sum of Pᵀ entries at each unique position.
     """
-    keys_P = i * n + j
-    keys_PT = j * n + i
-
-    # Combine and find unique positions
-    keys_all = torch.cat([keys_P, keys_PT], dim=0)
-    del keys_P, keys_PT  # Free memory before expensive unique()
-
-    vals_all = torch.cat([v, v], dim=0)
-    num_P = v.numel()
-    mask_P = torch.arange(keys_all.numel(), device=keys_all.device) < num_P
-
-    uniq_keys, inv_idx = torch.unique(keys_all, sorted=True, return_inverse=True)
-    del keys_all  # Free memory after unique()
-    M = uniq_keys.numel()
-
-    # Scatter-add contributions from P vs. Pᵀ
-    dtype, device = v.dtype, v.device
-    vP = torch.zeros(M, dtype=dtype, device=device)
-    vPT = torch.zeros(M, dtype=dtype, device=device)
-    vP.scatter_add_(0, inv_idx, vals_all * mask_P.to(dtype))
-    vPT.scatter_add_(0, inv_idx, vals_all * (~mask_P).to(dtype))
-
-    # Decode back to (i,j)
-    i_out = uniq_keys // n
-    j_out = uniq_keys % n
-    return i_out, j_out, vP, vPT
+    return _merge_sparse_keys(i * n + j, v, j * n + i, v, n)
 
 
 def pack_to_rowwise(
@@ -246,6 +248,12 @@ def distributed_symmetrize_sparse(
         Symmetrized affinity values.
     indices_sym : torch.LongTensor
         Column indices of symmetrized affinities.
+
+    Notes
+    -----
+    Edge exchange is performed on the input device. Coalescing and row-wise
+    packing are then performed on CPU to reduce peak accelerator memory. The
+    returned tensors are moved back to the input device.
     """
     if not dist.is_initialized():
         raise RuntimeError(
@@ -255,103 +263,105 @@ def distributed_symmetrize_sparse(
     world_size = dist.get_world_size()
     device = values.device
 
-    # Step 1: Flatten local edges to (i, j, v) format
+    # Step 1: Flatten and encode local edges.
     i, j, v = flatten_sparse(values, indices)
-    i = i + chunk_start  # Convert to global indices
+    i.add_(chunk_start)
+    keys = i * n_total + j
 
-    # Step 2: Sort edges by target rank for efficient packing
+    # Step 2: Sort encoded edges by the rank that owns their target row.
     target_ranks = DistributedContext.get_rank_for_indices(j, n_total, world_size)
-
-    # Sort by target rank for contiguous memory access
     sorted_idx = torch.argsort(target_ranks)
-    i_sorted = i[sorted_idx]
-    j_sorted = j[sorted_idx]
-    v_sorted = v[sorted_idx]
+    keys_sorted = keys[sorted_idx]
+    values_sorted = v[sorted_idx]
     target_sorted = target_ranks[sorted_idx]
+    del i, j, target_ranks
 
-    # Step 3: Vectorized packing of edges for each rank
-    send_tensors = [
-        torch.empty((3, 0), device=device, dtype=torch.float32)
-        for _ in range(world_size)
+    # Step 3: Build separate index/value buffers. Keeping encoded coordinates
+    # as int64 avoids the precision loss caused by packing indices as float32.
+    send_keys = [
+        torch.empty(0, device=device, dtype=torch.long) for _ in range(world_size)
+    ]
+    send_values = [
+        torch.empty(0, device=device, dtype=v.dtype) for _ in range(world_size)
     ]
 
     if target_sorted.numel() > 0:
-        # Find boundaries for each rank's edges
         unique_targets, counts = torch.unique_consecutive(
             target_sorted, return_counts=True
         )
         offsets = torch.cat([torch.tensor([0], device=device), counts.cumsum(0)])
 
-        # Pack edges for each rank that has data
         for idx, r in enumerate(unique_targets.tolist()):
             start = offsets[idx].item()
             end = offsets[idx + 1].item()
             if end > start and r < world_size:
-                send_tensors[r] = torch.stack(
-                    [
-                        i_sorted[start:end].float(),
-                        j_sorted[start:end].float(),
-                        v_sorted[start:end],
-                    ],
-                    dim=0,
-                ).contiguous()
+                send_keys[r] = keys_sorted[start:end]
+                send_values[r] = values_sorted[start:end]
 
-    # Step 4: Exchange sizes first to allocate correct receive buffers
+    # Step 4: Exchange sizes and allocate exact receive buffers.
     send_sizes = torch.tensor(
-        [s.shape[1] for s in send_tensors], device=device, dtype=torch.long
+        [tensor.numel() for tensor in send_keys], device=device, dtype=torch.long
     )
     recv_sizes = torch.zeros(world_size, device=device, dtype=torch.long)
     dist.all_to_all_single(recv_sizes, send_sizes)
 
-    # Step 5: Allocate receive buffers with correct sizes
-    recv_tensors = []
-    for r in range(world_size):
-        size = recv_sizes[r].item()
-        recv_tensors.append(torch.zeros((3, size), device=device, dtype=torch.float32))
+    recv_keys = [
+        torch.empty(size.item(), device=device, dtype=torch.long) for size in recv_sizes
+    ]
+    recv_values = [
+        torch.empty(size.item(), device=device, dtype=v.dtype) for size in recv_sizes
+    ]
 
-    # Step 6: All-to-all exchange with properly sized buffers
-    dist.all_to_all(recv_tensors, send_tensors)
+    # Step 5: Exchange exact integer coordinates and values without dtype casts.
+    dist.all_to_all(recv_keys, send_keys)
+    dist.all_to_all(recv_values, send_values)
+    del (
+        send_keys,
+        send_values,
+        send_sizes,
+        recv_sizes,
+        keys_sorted,
+        values_sorted,
+        target_sorted,
+        sorted_idx,
+    )
 
-    # Free GPU memory: delete send buffers and intermediate sorted tensors
-    del send_tensors, i_sorted, j_sorted, v_sorted, target_sorted, sorted_idx
+    # Step 6: Offload local and received edges before the memory-heavy unique.
+    local_keys = keys.cpu()
+    local_values = v.cpu()
+    del keys, v
+    for rank in range(world_size):
+        recv_keys[rank] = recv_keys[rank].cpu()
+        recv_values[rank] = recv_values[rank].cpu()
+    transpose_keys = torch.cat(recv_keys)
+    transpose_values = torch.cat(recv_values)
+    del recv_keys, recv_values
 
-    # Step 7: Move to CPU and combine edges
-    # Using CPU for merge_symmetry reduces GPU memory and leverages shared system RAM
-    i_cpu = i.cpu()
-    j_cpu = j.cpu()
-    v_cpu = v.cpu()
-    del i, j, v  # Free GPU tensors
+    # Received keys encode original (i, j) entries. Rewrite them in place as
+    # (j, i), retaining their provenance as Pᵀ rather than treating them as P.
+    received_rows = torch.div(transpose_keys, n_total, rounding_mode="floor")
+    transpose_keys.remainder_(n_total).mul_(n_total).add_(received_rows)
+    del received_rows
 
-    # Process received edges: transpose and move to CPU
-    if any(t.shape[1] > 0 for t in recv_tensors):
-        recv_all = torch.cat([t for t in recv_tensors if t.shape[1] > 0], dim=1)
-        del recv_tensors  # Free GPU receive buffers
+    # Step 7: Coalesce P and Pᵀ separately. This is both correct for reciprocal
+    # edges and avoids duplicating the already combined edge list a second time.
+    i_sym, j_sym, vP, vPT = _merge_sparse_keys(
+        local_keys,
+        local_values,
+        transpose_keys,
+        transpose_values,
+        n_total,
+    )
+    del local_keys, local_values, transpose_keys, transpose_values
 
-        # Received edges need transpose: (recv_i, recv_j) -> store as (recv_j, recv_i)
-        all_i = torch.cat([i_cpu, recv_all[1].long().cpu()])
-        all_j = torch.cat([j_cpu, recv_all[0].long().cpu()])
-        all_v = torch.cat([v_cpu, recv_all[2].cpu()])
-        del recv_all, i_cpu, j_cpu, v_cpu
-    else:
-        del recv_tensors
-        all_i = i_cpu
-        all_j = j_cpu
-        all_v = v_cpu
-
-    # Step 8: Apply merge_symmetry on CPU to handle duplicates
-    i_sym, j_sym, vP, vPT = merge_symmetry(all_i, all_j, all_v, n_total)
-    del all_i, all_j, all_v  # Free after merge
-
-    # Step 9: Combine P and P^T using shared helper (still on CPU)
+    # Step 8: Combine components on CPU and pack the rows owned by this rank.
     v_sym = _combine_P_PT(vP, vPT, mode)
     del vP, vPT
-
-    # Step 10: Filter to keep only edges in our chunk (still on CPU)
-    mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
-    i_local = i_sym[mask] - chunk_start
-    j_local = j_sym[mask]
-    v_local = v_sym[mask]
-
-    # Step 11: Pack to row-wise format and move back to GPU
+    local_mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
+    i_local = i_sym[local_mask].sub_(chunk_start)
+    j_local = j_sym[local_mask]
+    v_local = v_sym[local_mask]
     values_out, indices_out = pack_to_rowwise(i_local, j_local, v_local, chunk_size)
+
+    # Step 9: Restore the caller's device contract.
     return values_out.to(device), indices_out.to(device)
