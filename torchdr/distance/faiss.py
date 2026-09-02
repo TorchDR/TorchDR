@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import warnings
 from weakref import WeakKeyDictionary
-from typing import Union, Optional, Dict, Any, Tuple, List
+from typing import Union, Optional, Any, Tuple, List
 
 from torch.utils.data import (
     DataLoader,
@@ -18,6 +18,11 @@ from torch.utils.data import (
 )
 
 from torchdr.utils.faiss import faiss, faiss_torch_interop
+from torchdr.utils.faiss_runtime import (
+    faiss_device_scope,
+    faiss_gpu_available,
+    get_gpu_resources,
+)
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
 
@@ -121,7 +126,10 @@ class FaissConfig:
         - 'auto': Use FAISS default temporary memory pool (typically a fixed size)
         - float/int: Explicit size in GB (e.g., 2.0 for 2GB)
         - 0: Disable pre-allocation (use cudaMalloc on demand)
-        Only applies to GPU mode.
+        Only applies to GPU mode. The pool belongs to the process rather than to
+        this config: the first search on a device sizes it and it stays resident
+        until the process exits, so a later config asking for a different
+        explicit size resizes the shared pool for every subsequent search.
     device : int, default=0
         GPU device ID to use.
         Only applies when input is on CUDA.
@@ -151,11 +159,6 @@ class FaissConfig:
         index config objects (e.g., for advanced memory management).
         Use at your own risk - some options may degrade result quality.
 
-    Attributes
-    ----------
-    gpu_resources : Dict[int, Any]
-        Dictionary mapping device IDs to their GPU resources (created on demand).
-
     Examples
     --------
     >>> # Basic configuration
@@ -179,11 +182,16 @@ class FaissConfig:
     Notes
     -----
     - Increasing temp_memory helps with large batch operations but reduces memory
-      available for data storage
+      available for data storage. FAISS defaults to a pool of roughly 1.5GB per
+      device, which the first GPU search allocates and the process then keeps.
+      Set temp_memory explicitly to bound it on a shared device.
     - IVF indexes trade accuracy for speed and are recommended for datasets > 10M vectors
     - IVFPQ provides significant memory savings (e.g., 128D float32 vectors: 512 bytes
       -> ~32 bytes with M=16, nbits=8) at the cost of some accuracy
     - For IVFPQ, ensure the vector dimension is divisible by M
+    - The configuration is plain data. FAISS GPU resources are owned by the
+      process, not by the configuration, so a config stays copyable and
+      picklable after it has been used on a GPU.
     """
 
     def __init__(
@@ -205,7 +213,6 @@ class FaissConfig:
         self.M = M
         self.nbits = nbits
         self.faiss_kwargs = kwargs
-        self.gpu_resources: Dict[int, Any] = {}
 
     def __repr__(self):
         parts = [
@@ -220,6 +227,12 @@ class FaissConfig:
         if self.faiss_kwargs:
             parts.append(f"**{self.faiss_kwargs}")
         return f"FaissConfig({', '.join(parts)})"
+
+
+def _index_device_id(config: FaissConfig) -> int:
+    """CUDA ordinal the FAISS index runs on. A sequence selects its first device."""
+    device = config.device
+    return int(device) if isinstance(device, int) else int(device[0])
 
 
 def remove_self_neighbors(
@@ -448,23 +461,21 @@ def pairwise_distances_faiss(
     else:
         compute_device = torch.device(device)
 
-    use_gpu_index = compute_device.type == "cuda" and hasattr(
-        faiss, "StandardGpuResources"
-    )
+    use_gpu_index = compute_device.type == "cuda" and faiss_gpu_available()
+    # Device the index lives on, or None when FAISS stays on the host.
+    faiss_device = None
     if compute_device.type == "cuda":
         if use_gpu_index:
             index = _setup_gpu_index(index, config, d)
+            faiss_device = torch.device("cuda", _index_device_id(config))
         else:
             warnings.warn(
                 "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
                 "This may be slow. For faster performance, install `faiss-gpu`."
             )
 
-    if use_gpu_index and faiss_torch_interop:
-        device_id = (
-            config.device if isinstance(config.device, int) else config.device[0]
-        )
-        index_device = torch.device("cuda", device_id)
+    if faiss_device is not None and faiss_torch_interop:
+        index_device = faiss_device
     else:
         index_device = torch.device("cpu")
 
@@ -475,26 +486,31 @@ def pairwise_distances_faiss(
         X_faiss = X_faiss.cpu().numpy()
         Y_faiss = Y_faiss.cpu().numpy()
 
-    if needs_training and not index.is_trained:
-        train_data = Y_faiss
-        max_train_points = 256 * config.nlist
-        if len(Y_faiss) > max_train_points:
-            sample_indices = np.random.choice(
-                len(Y_faiss), max_train_points, replace=False
-            )
-            if isinstance(Y_faiss, torch.Tensor):
-                sample_indices = torch.as_tensor(sample_indices, device=Y_faiss.device)
-            train_data = Y_faiss[sample_indices]
-        index.train(train_data)
-
-    index.add(Y_faiss)
-
     if do_exclude:
         k_search = k + 1
     else:
         k_search = k
 
-    D, Ind = index.search(X_faiss, k_search)
+    # Every FAISS call runs with the index device current, which is what makes
+    # FAISS adopt the PyTorch stream holding the writes to X_faiss and Y_faiss.
+    with faiss_device_scope(faiss_device):
+        if needs_training and not index.is_trained:
+            train_data = Y_faiss
+            max_train_points = 256 * config.nlist
+            if len(Y_faiss) > max_train_points:
+                sample_indices = np.random.choice(
+                    len(Y_faiss), max_train_points, replace=False
+                )
+                if isinstance(Y_faiss, torch.Tensor):
+                    sample_indices = torch.as_tensor(
+                        sample_indices, device=Y_faiss.device
+                    )
+                train_data = Y_faiss[sample_indices]
+            index.train(train_data)
+
+        index.add(Y_faiss)
+
+        D, Ind = index.search(X_faiss, k_search)
 
     if metric == "euclidean":
         if isinstance(D, torch.Tensor):
@@ -537,19 +553,15 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
     -------
     gpu_index : faiss.GpuIndex
         Configured GPU index.
+
+    Notes
+    -----
+    The resource is owned by the process rather than by ``config``, so repeated
+    calls on the same device reuse one temporary memory pool and a config stays
+    free of live FAISS objects.
     """
-    device_id = config.device if isinstance(config.device, int) else config.device[0]
-
-    if device_id not in config.gpu_resources:
-        res = faiss.StandardGpuResources()
-
-        if config.temp_memory != "auto":
-            temp_memory_bytes = int(config.temp_memory * 1024**3)
-            res.setTempMemory(temp_memory_bytes)
-
-        config.gpu_resources[device_id] = res
-    else:
-        res = config.gpu_resources[device_id]
+    device_id = _index_device_id(config)
+    res = get_gpu_resources(device_id, config.temp_memory)
 
     if isinstance(index, faiss.IndexFlatL2) or isinstance(index, faiss.IndexFlatIP):
         flat_config = faiss.GpuIndexFlatConfig()
@@ -794,7 +806,7 @@ def _build_index_from_dataloader(
 
                 # Move to GPU if needed
                 if compute_device.type == "cuda":
-                    if hasattr(faiss, "StandardGpuResources"):
+                    if faiss_gpu_available():
                         index = _setup_gpu_index(index, config, d)
                     else:
                         warnings.warn(
@@ -840,7 +852,7 @@ def _build_index_from_dataloader(
 
             # Move to GPU if needed
             if compute_device.type == "cuda":
-                if hasattr(faiss, "StandardGpuResources"):
+                if faiss_gpu_available():
                     index = _setup_gpu_index(index, config, d)
                 else:
                     warnings.warn(
