@@ -1,4 +1,5 @@
 # Benchmark outputs
 *.csv
+*.json
 *.png
 *.pdf
