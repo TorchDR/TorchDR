@@ -163,9 +163,11 @@ jobs:
       - name: Upgrade pip
         run: pip install --upgrade pip
       - name: Install FAISS
-        run: conda install -c conda-forge -c pytorch faiss-cpu=1.10.0 --yes
+        run: conda install -c pytorch -c conda-forge faiss-cpu=1.11.0 "numpy<2" --yes
       - name: Install 'torchdr' package
         run: pip install -e ".[test]"
+      - name: Verify FAISS installation
+        run: python -c "from torchdr.utils.faiss import faiss; assert faiss, 'FAISS failed to import'"
       - name: Run Tests
         run: pytest torchdr/tests/test_utils.py torchdr/tests/test_dataloader.py torchdr/tests/test_eval.py --verbose --cov=torchdr --cov-report term --cov-report xml
       - name: Upload coverage reports to Codecov
