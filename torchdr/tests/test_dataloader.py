@@ -7,6 +7,7 @@
 import gc
 import weakref
 
+import numpy as np
 import pytest
 import torch
 from torch.testing import assert_close
@@ -19,7 +20,10 @@ from torchdr.distance import (
 )
 from torchdr.distance.faiss import (
     _DATALOADER_METADATA_CACHE,
+    _BatchStager,
     _cache_dataloader_metadata,
+    _reserve_index_capacity,
+    _stream,
     get_dataloader_metadata,
 )
 from torchdr.utils import faiss
@@ -29,6 +33,12 @@ from torchdr.utils import faiss
 pytestmark = pytest.mark.skipif(
     faiss is None or faiss is False, reason="faiss not installed"
 )
+
+# A DataLoader is streamed into a GPU index where one is available, so its
+# distances are compared against a CPU index. Both compute exact L2 from
+# ``|x|^2 + |y|^2 - 2<x, y>``, and the cancellation leaves about 1e-5 on a
+# squared self-distance; the square root of that residual is a few 1e-3.
+EUCLIDEAN_ATOL = 1e-2
 
 
 class TestDataLoaderDistances:
@@ -62,7 +72,7 @@ class TestDataLoaderDistances:
         dist_dl, idx_dl = pairwise_distances(dataloader, k=k, return_indices=True)
 
         # Results should match
-        assert_close(dist_tensor, dist_dl, rtol=1e-4, atol=1e-4)
+        assert_close(dist_tensor, dist_dl, rtol=1e-4, atol=EUCLIDEAN_ATOL)
         assert torch.equal(idx_tensor, idx_dl)
 
     def test_dataloader_exclude_diag(self, sample_data, dataloader):
@@ -99,7 +109,8 @@ class TestDataLoaderDistances:
         )
 
         # Results should match
-        assert_close(dist_tensor, dist_dl, rtol=1e-4, atol=1e-4)
+        atol = EUCLIDEAN_ATOL if metric == "euclidean" else 1e-4
+        assert_close(dist_tensor, dist_dl, rtol=1e-4, atol=atol)
 
     def test_dataloader_with_config(self, sample_data, dataloader):
         """Test DataLoader with FaissConfig."""
@@ -130,6 +141,31 @@ class TestDataLoaderDistances:
         """Test that DataLoader raises error for non-FAISS backends."""
         with pytest.raises(ValueError, match="only supports FAISS backend"):
             pairwise_distances(dataloader, k=10, backend="keops")
+
+    def test_dataloader_results_follow_batch_device(self, sample_data, dataloader):
+        """Results come back on the device the batches live on."""
+        dist, idx = pairwise_distances(dataloader, k=10, return_indices=True)
+
+        assert dist.device == sample_data.device
+        assert idx.device == sample_data.device
+
+    @pytest.mark.parametrize(
+        "n_samples,batch_size", [(1000, 300), (997, 256), (513, 512)]
+    )
+    def test_dataloader_non_divisible_final_batch(self, n_samples, batch_size):
+        """A short final batch is handled like any other, down to a single row."""
+        torch.manual_seed(42)
+        X = torch.randn(n_samples, 32)
+        dl = DataLoader(TensorDataset(X), batch_size=batch_size, shuffle=False)
+
+        dist_ref, idx_ref = pairwise_distances(
+            X, k=10, backend="faiss", return_indices=True
+        )
+        dist_dl, idx_dl = pairwise_distances(dl, k=10, return_indices=True)
+
+        assert dist_dl.shape == (n_samples, 10)
+        assert_close(dist_ref, dist_dl, rtol=1e-3, atol=EUCLIDEAN_ATOL)
+        assert torch.equal(idx_ref, idx_dl)
 
     def test_dataloader_different_batch_sizes(self, sample_data):
         """Test DataLoader with different batch sizes produces same results."""
@@ -228,8 +264,159 @@ class TestDataLoaderGPU:
         dist_gpu = dist_gpu.cpu()
         idx_gpu = idx_gpu.cpu()
 
-        assert_close(dist_cpu, dist_gpu, rtol=1e-4, atol=1e-4)
+        assert_close(dist_cpu, dist_gpu, rtol=1e-4, atol=EUCLIDEAN_ATOL)
         assert torch.equal(idx_cpu, idx_gpu)
+
+    def test_dataloader_cuda_batches(self, sample_data):
+        """Batches already on the GPU are searched and answered in place."""
+        k = 10
+        X_gpu = sample_data.cuda()
+        dl = DataLoader(TensorDataset(X_gpu), batch_size=100, shuffle=False)
+
+        dist_cpu, idx_cpu = pairwise_distances(
+            sample_data, k=k, backend="faiss", device="cpu", return_indices=True
+        )
+        dist_gpu, idx_gpu = pairwise_distances(dl, k=k, return_indices=True)
+
+        assert dist_gpu.device.type == "cuda"
+        assert idx_gpu.device.type == "cuda"
+        assert_close(dist_cpu, dist_gpu.cpu(), rtol=1e-4, atol=EUCLIDEAN_ATOL)
+        assert torch.equal(idx_cpu, idx_gpu.cpu())
+
+    def test_dataloader_gpu_avoids_numpy(self, dataloader, monkeypatch):
+        """Host batches reach a GPU index without a NumPy round trip."""
+
+        def forbidden(self, *args, **kwargs):
+            raise AssertionError("batch was converted to NumPy")
+
+        monkeypatch.setattr(torch.Tensor, "numpy", forbidden)
+        dist, idx = pairwise_distances(
+            dataloader, k=10, device="cuda", return_indices=True
+        )
+
+        assert dist.device.type == "cuda"
+        assert idx.device.type == "cuda"
+
+
+class TestBatchStaging:
+    """Test how DataLoader batches are handed to FAISS."""
+
+    def test_stager_makes_batches_contiguous_float32(self):
+        """A non-contiguous float64 batch reaches FAISS as contiguous float32."""
+        batch = torch.randn(8, 6, dtype=torch.float64).T.contiguous().T[:, :4]
+        assert not batch.is_contiguous()
+
+        staged = _BatchStager(torch.device("cpu"))(batch)
+
+        assert isinstance(staged, torch.Tensor)
+        assert staged.dtype == torch.float32
+        assert staged.is_contiguous()
+        assert_close(staged, batch.float())
+
+    def test_stager_numpy_fallback(self):
+        """Builds without the torch wrappers still get float32 arrays."""
+        batch = torch.randn(8, 4, dtype=torch.float64)
+
+        staged = _BatchStager(torch.device("cpu"), to_numpy=True)(batch)
+
+        assert isinstance(staged, np.ndarray)
+        assert staged.dtype == np.float32
+
+    def test_stream_regroups_batches(self):
+        """Small batches are merged and large ones split, in order."""
+        stage = _BatchStager(torch.device("cpu"))
+        batches = [torch.full((3, 2), float(i)) for i in range(4)]
+
+        groups = list(_stream(batches, stage, group_rows=6))
+
+        assert [len(g) for g in groups] == [6, 6]
+        assert_close(torch.cat(groups, dim=0), torch.cat(batches, dim=0))
+
+        groups = list(_stream([torch.arange(20.0).reshape(10, 2)], stage, group_rows=4))
+        assert [len(g) for g in groups] == [4, 4, 2]
+
+    def test_stream_can_pass_batches_through(self):
+        """A None target hands every batch over as it arrives."""
+        stage = _BatchStager(torch.device("cpu"))
+        batches = [torch.zeros(3, 2), torch.zeros(3, 2)]
+
+        groups = list(_stream(batches, stage, group_rows=None))
+
+        assert [len(g) for g in groups] == [3, 3]
+
+    def test_stream_batch_size_must_be_positive(self):
+        """A nonsense call size is rejected before any work is done."""
+        X = torch.randn(64, 8)
+        dl = DataLoader(TensorDataset(X), batch_size=16, shuffle=False)
+
+        with pytest.raises(ValueError, match="stream_batch_size"):
+            pairwise_distances(
+                dl, k=5, backend=FaissConfig(stream_batch_size=0), return_indices=True
+            )
+
+    @pytest.mark.parametrize("stream_batch_size", [7, 64, 4096])
+    def test_stream_batch_size_does_not_change_neighbors(self, stream_batch_size):
+        """Regrouping is invisible in the neighbors it produces.
+
+        FAISS picks its exact-search kernel from the number of queries in a
+        call, so the distances move by the usual cancellation residual, but the
+        neighbors they rank do not.
+        """
+        torch.manual_seed(42)
+        X = torch.randn(300, 16)
+        dl = DataLoader(TensorDataset(X), batch_size=64, shuffle=False)
+
+        dist_ref, idx_ref = pairwise_distances(dl, k=5, return_indices=True)
+        dist, idx = pairwise_distances(
+            dl,
+            k=5,
+            backend=FaissConfig(stream_batch_size=stream_batch_size),
+            return_indices=True,
+        )
+
+        assert torch.equal(idx_ref, idx)
+        assert_close(dist_ref, dist, rtol=1e-4, atol=EUCLIDEAN_ATOL)
+
+    def test_reserve_capacity_ignores_unsupported_index(self):
+        """An index without a reservation call is left untouched."""
+
+        class NoReserve:
+            pass
+
+        _reserve_index_capacity(NoReserve(), 1000)
+
+    def test_reserve_capacity_uses_available_call(self):
+        """Whichever reservation call the build exposes is the one used."""
+
+        class ReserveVecs:
+            def __init__(self):
+                self.reserved = None
+
+            def reserveVecs(self, n):  # FAISS spelling
+                self.reserved = n
+
+        class ReserveMemory:
+            def __init__(self):
+                self.reserved = None
+
+            def reserveMemory(self, n):  # FAISS spelling
+                self.reserved = n
+
+        flat, ivf = ReserveVecs(), ReserveMemory()
+        _reserve_index_capacity(flat, 1000)
+        _reserve_index_capacity(ivf, 1000)
+
+        assert flat.reserved == 1000
+        assert ivf.reserved == 1000
+
+    def test_reserve_capacity_tolerates_rejected_request(self):
+        """A build that refuses the reservation just grows on demand."""
+
+        class Refuses:
+            def reserveVecs(self, n):  # FAISS spelling
+                raise RuntimeError("not supported for this index")
+
+        _reserve_index_capacity(Refuses(), 1000)
 
 
 class TestDataLoaderOptimizations:

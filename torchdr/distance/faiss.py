@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import warnings
 from weakref import WeakKeyDictionary
-from typing import Union, Optional, Dict, Any, Tuple, List
+from typing import Union, Optional, Dict, Any, Iterable, Tuple, List
 
 from torch.utils.data import (
     DataLoader,
@@ -20,6 +20,9 @@ from torch.utils.data import (
 from torchdr.utils.faiss import faiss, faiss_torch_interop
 
 LIST_METRICS_FAISS = ["euclidean", "sqeuclidean", "angular"]
+
+# Rows per FAISS add/search call when a DataLoader does not dictate one.
+_AUTO_STREAM_ROWS = 65536
 
 # Cache for DataLoader metadata to avoid redundant iterations
 _DATALOADER_METADATA_CACHE = WeakKeyDictionary()
@@ -146,6 +149,15 @@ class FaissConfig:
         Number of bits per sub-quantizer code. Determines the number of centroids
         per subspace (2^nbits). Standard value is 8 (256 centroids per subspace).
         Only used with index_type='IVFPQ'.
+    stream_batch_size : Union[str, int], default='auto'
+        Rows handed to FAISS per add or search call when streaming from a
+        DataLoader. 'auto' regroups batches for a GPU index, merging small ones
+        and splitting large ones, so the batch size chosen for the training loop
+        does not also decide the size of a FAISS call, and leaves a CPU index to
+        consume batches as they arrive. An integer overrides the target. FAISS
+        picks its exact-search kernel from the number of queries in a call, so
+        a different value can move a distance by the float32 cancellation
+        residual without changing the neighbors it ranks.
     **kwargs
         Additional FAISS configuration options to pass to the underlying FAISS
         index config objects (e.g., for advanced memory management).
@@ -195,6 +207,7 @@ class FaissConfig:
         nlist: int = 100,
         M: int = 16,
         nbits: int = 8,
+        stream_batch_size: Union[str, int] = "auto",
         **kwargs,
     ):
         self.temp_memory = temp_memory
@@ -204,6 +217,7 @@ class FaissConfig:
         self.nlist = nlist
         self.M = M
         self.nbits = nbits
+        self.stream_batch_size = stream_batch_size
         self.faiss_kwargs = kwargs
         self.gpu_resources: Dict[int, Any] = {}
 
@@ -217,6 +231,8 @@ class FaissConfig:
         ]
         if self.index_type == "IVFPQ":
             parts.extend([f"M={self.M}", f"nbits={self.nbits}"])
+        if self.stream_batch_size != "auto":
+            parts.append(f"stream_batch_size={self.stream_batch_size}")
         if self.faiss_kwargs:
             parts.append(f"**{self.faiss_kwargs}")
         return f"FaissConfig({', '.join(parts)})"
@@ -625,7 +641,10 @@ def pairwise_distances_faiss_from_dataloader(
     config : FaissConfig, optional
         Configuration object for FAISS. If None, uses default settings.
     device : str, default "auto"
-        Device for computation. If "auto", uses CUDA if available.
+        Device the index is built on. "auto" uses CUDA when available, so host
+        batches are streamed to a GPU index, and returns the results on the
+        device the batches came from, which is what the tensor path does. An
+        explicit device sets both the index and the output device.
     distributed_ctx : DistributedContext, optional
         Distributed context for multi-GPU computation. When provided,
         each GPU computes k-NN for its assigned chunk of samples.
@@ -653,6 +672,10 @@ def pairwise_distances_faiss_from_dataloader(
     - In distributed mode, all ranks build the same full index
     - Memory efficient: only one batch in CPU RAM at a time
     - GPU memory still required for the full FAISS index
+    - Batches reach FAISS as tensors where the build ships the PyTorch
+      wrappers. A host batch is uploaded through a reusable pinned buffer
+      rather than copied through NumPy, and consecutive batches are regrouped
+      into FAISS calls of ``config.stream_batch_size`` rows.
     """
     if metric not in LIST_METRICS_FAISS:
         raise ValueError(
@@ -666,7 +689,8 @@ def pairwise_distances_faiss_from_dataloader(
         config = FaissConfig()
 
     # Determine compute device
-    if distributed_ctx is not None and distributed_ctx.is_initialized:
+    distributed = distributed_ctx is not None and distributed_ctx.is_initialized
+    if distributed:
         config = distributed_ctx.get_faiss_config(config)
         compute_device = torch.device(f"cuda:{distributed_ctx.local_rank}")
     elif device == "auto":
@@ -677,28 +701,47 @@ def pairwise_distances_faiss_from_dataloader(
     if not hasattr(dataloader.dataset, "__len__"):
         raise ValueError("[TorchDR] DataLoader dataset must have __len__ method.")
 
+    index_device, use_gpu_index = _index_input_device(config, compute_device)
+    if compute_device.type == "cuda" and not use_gpu_index:
+        warnings.warn(
+            "[TorchDR] faiss-gpu not installed, using CPU. "
+            "Install faiss-gpu for faster computation."
+        )
+
+    # One stager for the whole call, so a single pinned buffer serves the
+    # training, add and search passes.
+    stage = _BatchStager(index_device, to_numpy=not faiss_torch_interop)
+    group_rows = _resolve_stream_rows(config, use_gpu_index)
+
     # Build FAISS index and extract metadata in one pass
     index, metadata = _build_index_from_dataloader(
-        dataloader, metric, config, compute_device
+        dataloader, metric, config, stage, group_rows, use_gpu_index
     )
     n_samples = metadata["n_samples"]
     dtype = metadata["dtype"]
 
+    # Results follow the batches, the way the tensor path follows ``X.device``.
+    # An explicit device, and distributed mode, pin the output instead.
+    if device == "auto" and not distributed:
+        output_device = metadata["device"]
+    else:
+        output_device = compute_device
+
     # Search for k-NN
     k_search = k + 1 if exclude_diag else k
 
-    if distributed_ctx is not None and distributed_ctx.is_initialized:
+    if distributed:
         # Multi-GPU: each rank searches its chunk
         chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
-        distances, indices = _search_chunk_from_dataloader(
-            dataloader, index, k_search, distributed_ctx, n_samples, compute_device
-        )
+        queries = _chunk_batches(dataloader, chunk_start, chunk_end)
     else:
         # Single GPU: search all queries
         chunk_start, chunk_end = 0, n_samples
-        distances, indices = _search_all_from_dataloader(
-            dataloader, index, k_search, compute_device
-        )
+        queries = _batches(dataloader)
+
+    distances, indices = _search_from_dataloader(
+        queries, index, k_search, stage, group_rows, output_device
+    )
 
     # Post-process results
     if metric == "euclidean":
@@ -715,17 +758,247 @@ def pairwise_distances_faiss_from_dataloader(
     return distances.to(dtype), indices
 
 
+def _batch_tensor(batch) -> torch.Tensor:
+    """Data tensor of a DataLoader batch, which datasets often wrap in a tuple."""
+    if isinstance(batch, (list, tuple)):
+        batch = batch[0]
+    return batch
+
+
+def _batch_metadata(n_samples: int, batch: torch.Tensor) -> Dict[str, Any]:
+    """Describe a DataLoader from its first batch."""
+    return {
+        "n_samples": n_samples,
+        "n_features": batch.shape[1],
+        "dtype": batch.dtype,
+        "device": batch.device,
+    }
+
+
+class _BatchStager:
+    """Present DataLoader batches to FAISS without a NumPy round trip.
+
+    Batches are made contiguous float32 and moved to the device the index reads
+    from. A host batch that is not already pinned is copied into a reusable
+    pinned buffer first, so the transfer is asynchronous and overlaps the FAISS
+    work already queued for earlier batches. The buffer is rewritten in place,
+    so the previous transfer must have finished before the next copy starts;
+    that is what the recorded event enforces.
+
+    Parameters
+    ----------
+    device : torch.device
+        Device FAISS reads its inputs from. CPU for a CPU index.
+    to_numpy : bool, default=False
+        Stage through NumPy instead, for FAISS builds that ship without the
+        PyTorch wrappers.
+    """
+
+    def __init__(self, device: torch.device, to_numpy: bool = False):
+        self.device = device
+        self.to_numpy = to_numpy
+        self._buffer: Optional[torch.Tensor] = None
+        self._event: Optional[torch.cuda.Event] = None
+
+    def __call__(self, batch: torch.Tensor):
+        batch = batch.detach()
+        if batch.dtype != torch.float32:
+            batch = batch.to(torch.float32)
+        batch = batch.contiguous()
+
+        if self.to_numpy:
+            return batch.cpu().numpy()
+        if self.device.type != "cuda":
+            return batch.cpu()
+        if batch.device.type == "cuda":
+            return batch.to(self.device)
+        if self.device.index != torch.cuda.current_device():
+            # An asynchronous upload is only ordered against the FAISS work
+            # when both run on the current device's stream, which is the stream
+            # the FAISS wrappers bind to. Copy synchronously otherwise.
+            return batch.to(self.device)
+        if batch.is_pinned():
+            return batch.to(self.device, non_blocking=True)
+        return self._upload_pinned(batch)
+
+    def _upload_pinned(self, batch: torch.Tensor) -> torch.Tensor:
+        n, d = batch.shape
+        if self._event is None:
+            self._event = torch.cuda.Event()
+        else:
+            self._event.synchronize()
+
+        # Batches shrink only at the end of a pass, so the buffer is normally
+        # allocated once and a shorter view of it serves the final batch.
+        reusable = self._buffer is not None and self._buffer.shape[1] == d
+        if not reusable or self._buffer.shape[0] < n:
+            self._buffer = torch.empty((n, d), dtype=torch.float32, pin_memory=True)
+        staged = self._buffer[:n]
+
+        staged.copy_(batch)
+        uploaded = staged.to(self.device, non_blocking=True)
+        self._event.record()
+        return uploaded
+
+
+def _concatenate(chunks: List[Any]):
+    """Join staged chunks, whichever staging format they use."""
+    if len(chunks) == 1:
+        return chunks[0]
+    if isinstance(chunks[0], torch.Tensor):
+        return torch.cat(chunks, dim=0)
+    return np.vstack(chunks)
+
+
+def _batches(dataloader: DataLoader):
+    """Yield the data tensor of every batch of a DataLoader."""
+    for batch in dataloader:
+        yield _batch_tensor(batch)
+
+
+def _stream(
+    batches: Iterable[torch.Tensor],
+    stage: "_BatchStager",
+    group_rows: Optional[int],
+):
+    """Stage batches for FAISS, in groups of about ``group_rows`` rows.
+
+    The DataLoader's batch size is usually chosen for the training loop, not
+    for FAISS. Grouping decouples the two: small batches are merged so each
+    call has enough work to amortize its overhead, and large ones are split so
+    a single call cannot blow up FAISS's temporary memory. Only whole batches
+    are ever held at once, so the dataset still never has to fit in memory.
+    ``None`` hands every batch over as it arrives.
+    """
+    if group_rows is None:
+        for batch in batches:
+            yield stage(batch)
+        return
+
+    pending: List[Any] = []
+    rows = 0
+
+    for batch in batches:
+        staged = stage(batch)
+
+        if len(staged) >= group_rows:
+            if pending:
+                yield _concatenate(pending)
+                pending, rows = [], 0
+            for start in range(0, len(staged), group_rows):
+                yield staged[start : start + group_rows]
+            continue
+
+        pending.append(staged)
+        rows += len(staged)
+        if rows >= group_rows:
+            yield _concatenate(pending)
+            pending, rows = [], 0
+
+    if pending:
+        yield _concatenate(pending)
+
+
+def _as_tensor(result) -> torch.Tensor:
+    """FAISS returns tensors with the PyTorch wrappers and arrays without."""
+    return result if isinstance(result, torch.Tensor) else torch.from_numpy(result)
+
+
+def _resolve_stream_rows(config: FaissConfig, use_gpu_index: bool) -> Optional[int]:
+    """Rows per FAISS call when streaming a DataLoader, or None to pass through."""
+    if config.stream_batch_size != "auto":
+        rows = int(config.stream_batch_size)
+        if rows < 1:
+            raise ValueError(
+                "[TorchDR] ERROR : stream_batch_size must be a positive number "
+                f"of rows or 'auto', got {config.stream_batch_size!r}."
+            )
+        return rows
+    # A CPU index gains nothing from regrouping and would pay for the copy, so
+    # only a GPU index, whose calls carry a transfer and a launch, gets one.
+    return _AUTO_STREAM_ROWS if use_gpu_index else None
+
+
+def _index_input_device(config: FaissConfig, compute_device: torch.device):
+    """Device FAISS reads from, and whether the index itself lives on the GPU."""
+    use_gpu_index = compute_device.type == "cuda" and hasattr(
+        faiss, "StandardGpuResources"
+    )
+    if use_gpu_index and faiss_torch_interop:
+        device_id = (
+            config.device if isinstance(config.device, int) else config.device[0]
+        )
+        return torch.device("cuda", device_id), use_gpu_index
+    return torch.device("cpu"), use_gpu_index
+
+
+def _create_index(
+    metric: str, config: FaissConfig, d: int, n_samples: int, use_gpu_index: bool
+):
+    """Create the empty index that the streaming passes will train and fill."""
+    if metric == "angular":
+        flat_index = faiss.IndexFlatIP(d)
+        metric_type = faiss.METRIC_INNER_PRODUCT
+    else:
+        flat_index = faiss.IndexFlatL2(d)
+        metric_type = faiss.METRIC_L2
+
+    if config.index_type in ("IVF", "IVFPQ"):
+        nlist = config.nlist
+        if nlist == 100 and n_samples > 10000:
+            nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
+
+        if config.index_type == "IVFPQ":
+            if d % config.M != 0:
+                raise ValueError(
+                    f"[TorchDR] ERROR : Vector dimension {d} must be divisible "
+                    f"by M={config.M} for IVFPQ. Choose M from divisors of {d}."
+                )
+            index = faiss.IndexIVFPQ(flat_index, d, nlist, config.M, config.nbits)
+        else:
+            index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
+        index.nprobe = config.nprobe
+    else:
+        index = flat_index
+
+    if use_gpu_index:
+        index = _setup_gpu_index(index, config, d)
+    return index
+
+
+def _reserve_index_capacity(index, n_vectors: int) -> None:
+    """Pre-allocate storage for the incremental additions that follow.
+
+    A GPU index grows by reallocating and copying its whole database, so a
+    stream of small additions moves the same vectors again and again. Only some
+    index types expose a reservation call, hence the feature detection; when it
+    is missing or the build rejects the request, the additions simply grow the
+    index as before.
+    """
+    reserve = getattr(index, "reserveVecs", None) or getattr(
+        index, "reserveMemory", None
+    )
+    if reserve is None:
+        return
+    try:
+        reserve(n_vectors)
+    except (RuntimeError, TypeError):  # pragma: no cover - build specific
+        pass
+
+
 def _build_index_from_dataloader(
     dataloader: DataLoader,
     metric: str,
     config: FaissConfig,
-    compute_device: torch.device,
+    stage: "_BatchStager",
+    group_rows: Optional[int],
+    use_gpu_index: bool,
 ):
     """Build FAISS index by streaming data from dataloader.
 
-    Extracts metadata (n_samples, n_features, dtype) during the first pass,
-    then builds the index. For Flat indices, only one pass through data is needed.
-    For IVF indices, two passes are required (training + adding).
+    Extracts metadata (n_samples, n_features, dtype, device) from the first
+    batch, then builds the index. For Flat indices, only one pass through data
+    is needed. For IVF indices, two passes are required (training + adding).
 
     Parameters
     ----------
@@ -735,126 +1008,58 @@ def _build_index_from_dataloader(
         Distance metric.
     config : FaissConfig
         FAISS configuration.
-    compute_device : torch.device
-        Device for computation.
+    stage : _BatchStager
+        Converts a batch into something FAISS can consume directly.
+    group_rows : int or None
+        Rows per add call, or None to add each batch as it arrives.
+    use_gpu_index : bool
+        Whether the index is moved to the GPU.
 
     Returns
     -------
     index : faiss.Index
         Built FAISS index containing all data.
     metadata : dict
-        Dictionary with keys: 'n_samples', 'n_features', 'dtype'.
+        Dictionary with keys: 'n_samples', 'n_features', 'dtype', 'device'.
     """
     metadata = None
     index = None
     n_samples = len(dataloader.dataset)
 
-    # For IVF/IVFPQ indices: first pass extracts metadata and trains
-    if config.index_type in ("IVF", "IVFPQ"):
-        collected = []
-        total = 0
+    # First pass: describe the stream from its first batch, then collect
+    # training rows if the index needs them. A Flat index stops right away.
+    collected: List[Any] = []
+    total = 0
 
-        for batch in dataloader:
-            if isinstance(batch, (list, tuple)):
-                batch = batch[0]
+    for batch in dataloader:
+        batch = _batch_tensor(batch)
 
-            # Extract metadata from first batch
-            if metadata is None:
-                metadata = {
-                    "n_samples": n_samples,
-                    "n_features": batch.shape[1],
-                    "dtype": batch.dtype,
-                }
-
-                # Create index now that we know dimensions
-                d = metadata["n_features"]
-                if metric == "angular":
-                    flat_index = faiss.IndexFlatIP(d)
-                    metric_type = faiss.METRIC_INNER_PRODUCT
-                else:
-                    flat_index = faiss.IndexFlatL2(d)
-                    metric_type = faiss.METRIC_L2
-
-                nlist = config.nlist
-                if nlist == 100 and n_samples > 10000:
-                    nlist = min(int(4 * np.sqrt(n_samples)), n_samples // 40, 8192)
-
-                if config.index_type == "IVFPQ":
-                    if d % config.M != 0:
-                        raise ValueError(
-                            f"[TorchDR] ERROR : Vector dimension {d} must be divisible "
-                            f"by M={config.M} for IVFPQ. Choose M from divisors of {d}."
-                        )
-                    index = faiss.IndexIVFPQ(
-                        flat_index, d, nlist, config.M, config.nbits
-                    )
-                else:
-                    index = faiss.IndexIVFFlat(flat_index, d, nlist, metric_type)
-                index.nprobe = config.nprobe
-
-                # Move to GPU if needed
-                if compute_device.type == "cuda":
-                    if hasattr(faiss, "StandardGpuResources"):
-                        index = _setup_gpu_index(index, config, d)
-                    else:
-                        warnings.warn(
-                            "[TorchDR] faiss-gpu not installed, using CPU. "
-                            "Install faiss-gpu for faster computation."
-                        )
-
-            # Collect training data
-            batch_np = batch.detach().cpu().numpy().astype(np.float32)
-            # IVFPQ benefits from more training data for better codebooks
-            if config.index_type == "IVFPQ":
-                max_train = max(256 * index.nlist, 256 * config.M)
-            else:
-                max_train = 256 * index.nlist
-            if total + len(batch_np) >= max_train:
-                collected.append(batch_np[: max_train - total])
+        if metadata is None:
+            metadata = _batch_metadata(n_samples, batch)
+            index = _create_index(
+                metric, config, metadata["n_features"], n_samples, use_gpu_index
+            )
+            if index.is_trained:
                 break
-            collected.append(batch_np)
-            total += len(batch_np)
+            # IVFPQ benefits from more training data for better codebooks
+            max_train = 256 * index.nlist
+            if config.index_type == "IVFPQ":
+                max_train = max(max_train, 256 * config.M)
 
-        # Train index
-        train_data = np.vstack(collected)
-        index.train(train_data)
-
-    # For Flat indices: extract metadata from first batch only
-    else:
-        for batch in dataloader:
-            if isinstance(batch, (list, tuple)):
-                batch = batch[0]
-
-            metadata = {
-                "n_samples": n_samples,
-                "n_features": batch.shape[1],
-                "dtype": batch.dtype,
-            }
-
-            # Create index
-            d = metadata["n_features"]
-            if metric == "angular":
-                index = faiss.IndexFlatIP(d)
-            else:
-                index = faiss.IndexFlatL2(d)
-
-            # Move to GPU if needed
-            if compute_device.type == "cuda":
-                if hasattr(faiss, "StandardGpuResources"):
-                    index = _setup_gpu_index(index, config, d)
-                else:
-                    warnings.warn(
-                        "[TorchDR] faiss-gpu not installed, using CPU. "
-                        "Install faiss-gpu for faster computation."
-                    )
+        staged = stage(batch)
+        if total + len(staged) >= max_train:
+            collected.append(staged[: max_train - total])
             break
+        collected.append(staged)
+        total += len(staged)
+
+    if not index.is_trained:
+        index.train(_concatenate(collected))
 
     # Second pass: add all data to index
-    for batch in dataloader:
-        if isinstance(batch, (list, tuple)):
-            batch = batch[0]
-        batch_np = batch.detach().cpu().numpy().astype(np.float32)
-        index.add(batch_np)
+    _reserve_index_capacity(index, n_samples)
+    for group in _stream(_batches(dataloader), stage, group_rows):
+        index.add(group)
 
     # Cache metadata for later reuse
     _cache_dataloader_metadata(dataloader, metadata)
@@ -862,130 +1067,75 @@ def _build_index_from_dataloader(
     return index, metadata
 
 
-def _search_all_from_dataloader(
-    dataloader: DataLoader,
+def _search_from_dataloader(
+    batches: Iterable[torch.Tensor],
     index,
     k: int,
-    compute_device: torch.device,
+    stage: "_BatchStager",
+    group_rows: Optional[int],
+    output_device: torch.device,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Search k-NN for all samples in dataloader (single-GPU mode).
+    """Search k-NN for a stream of query batches.
 
     Parameters
     ----------
-    dataloader : DataLoader
-        DataLoader with query samples.
+    batches : iterable of torch.Tensor
+        Query batches, in dataset order. Either every batch of the DataLoader
+        or, in distributed mode, this rank's slice of them.
     index : faiss.Index
         FAISS index to search.
     k : int
         Number of neighbors to find.
-    compute_device : torch.device
-        Device for output tensors.
+    stage : _BatchStager
+        Converts a batch into something FAISS can consume directly.
+    group_rows : int or None
+        Rows per search call, or None to search each batch as it arrives.
+    output_device : torch.device
+        Device for output tensors. Results are moved group by group, so a host
+        output never accumulates on the device.
 
     Returns
     -------
-    distances : torch.Tensor of shape (n_samples, k)
+    distances : torch.Tensor of shape (n_queries, k)
         k-NN distances.
-    indices : torch.Tensor of shape (n_samples, k)
+    indices : torch.Tensor of shape (n_queries, k)
         k-NN indices.
     """
     distances_list: List[torch.Tensor] = []
     indices_list: List[torch.Tensor] = []
 
-    for batch in dataloader:
-        if isinstance(batch, (list, tuple)):
-            batch = batch[0]
-        batch_np = batch.detach().cpu().numpy().astype(np.float32)
+    for group in _stream(batches, stage, group_rows):
+        D, Ind = index.search(group, k)
 
-        D, Ind = index.search(batch_np, k)
+        distances_list.append(_as_tensor(D).to(output_device))
+        indices_list.append(_as_tensor(Ind).to(output_device))
 
-        distances_list.append(torch.from_numpy(D))
-        indices_list.append(torch.from_numpy(Ind))
-
-    distances = torch.cat(distances_list, dim=0).to(compute_device)
-    indices = torch.cat(indices_list, dim=0).to(compute_device).long()
-
-    return distances, indices
-
-
-def _search_chunk_from_dataloader(
-    dataloader: DataLoader,
-    index,
-    k: int,
-    distributed_ctx,
-    n_samples: int,
-    compute_device: torch.device,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Search k-NN for this rank's chunk of samples (distributed mode).
-
-    Each rank iterates through the dataloader but only processes
-    the samples assigned to its chunk.
-
-    Parameters
-    ----------
-    dataloader : DataLoader
-        DataLoader with all samples.
-    index : faiss.Index
-        FAISS index to search (contains full dataset).
-    k : int
-        Number of neighbors to find.
-    distributed_ctx : DistributedContext
-        Distributed context with rank info.
-    n_samples : int
-        Total number of samples in dataset.
-    compute_device : torch.device
-        Device for output tensors.
-
-    Returns
-    -------
-    distances : torch.Tensor of shape (chunk_size, k)
-        k-NN distances for this rank's chunk.
-    indices : torch.Tensor of shape (chunk_size, k)
-        k-NN indices for this rank's chunk.
-    """
-    chunk_start, chunk_end = distributed_ctx.compute_chunk_bounds(n_samples)
-
-    distances_list: List[torch.Tensor] = []
-    indices_list: List[torch.Tensor] = []
-
-    current_idx = 0
-
-    for batch in dataloader:
-        if isinstance(batch, (list, tuple)):
-            batch = batch[0]
-
-        batch_size = len(batch)
-        batch_end = current_idx + batch_size
-
-        # Check if this batch overlaps with our chunk
-        if batch_end > chunk_start and current_idx < chunk_end:
-            # Compute overlap indices within this batch
-            start_in_batch = max(0, chunk_start - current_idx)
-            end_in_batch = min(batch_size, chunk_end - current_idx)
-
-            # Extract our portion of this batch
-            my_batch = batch[start_in_batch:end_in_batch]
-            batch_np = my_batch.detach().cpu().numpy().astype(np.float32)
-
-            # Search
-            D, Ind = index.search(batch_np, k)
-
-            distances_list.append(torch.from_numpy(D))
-            indices_list.append(torch.from_numpy(Ind))
-
-        current_idx = batch_end
-
-        # Early exit if we've processed our entire chunk
-        if current_idx >= chunk_end:
-            break
-
-    # Handle empty chunk case (when n_samples < world_size)
-    if len(distances_list) == 0:
+    # Empty chunk case, when n_samples < world_size.
+    if not distances_list:
         return (
-            torch.empty(0, k, device=compute_device),
-            torch.empty(0, k, dtype=torch.long, device=compute_device),
+            torch.empty(0, k, device=output_device),
+            torch.empty(0, k, dtype=torch.long, device=output_device),
         )
 
-    distances = torch.cat(distances_list, dim=0).to(compute_device)
-    indices = torch.cat(indices_list, dim=0).to(compute_device).long()
+    distances = torch.cat(distances_list, dim=0)
+    indices = torch.cat(indices_list, dim=0).long()
 
     return distances, indices
+
+
+def _chunk_batches(dataloader: DataLoader, start: int, end: int):
+    """Yield the rows of each batch that fall in ``[start, end)``.
+
+    Every rank walks the same DataLoader, so a rank's chunk is the slice of the
+    stream it is responsible for querying. Iteration stops once the chunk is
+    exhausted.
+    """
+    offset = 0
+    for batch in dataloader:
+        batch = _batch_tensor(batch)
+        lo, hi = max(offset, start), min(offset + len(batch), end)
+        if lo < hi:
+            yield batch[lo - offset : hi - offset]
+        offset += len(batch)
+        if offset >= end:
+            break

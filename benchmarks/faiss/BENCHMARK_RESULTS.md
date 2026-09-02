@@ -72,3 +72,36 @@ Benchmarks run on NVIDIA B200 GPU with 128-dimensional vectors, k=15 neighbors.
 3. **IVFPQ**: Best for memory-constrained scenarios. Recall is limited by PQ compression (~20-30% on clustered data).
 
 4. **nlist selection**: Follow FAISS guidelines: `4*sqrt(n)` to `16*sqrt(n)` where n is dataset size.
+
+# DataLoader Streaming
+
+`dataloader_streaming.py` measures the whole DataLoader path, from staging a
+host batch to the final neighbors: the build pass that trains and adds every
+batch, the query pass that searches them back, peak process RSS, and peak
+device occupancy. Run it on two revisions to compare them.
+
+n=300000, k=15, B200, median of 3 runs. "per batch" hands each loader batch
+to FAISS unchanged; "auto" regroups batches into calls of 65536 rows.
+
+| Index | d | Loader batch | NumPy staging (s) | Tensor, per batch (s) | Tensor, auto (s) |
+|-------|-----|--------------|-------------------|-----------------------|------------------|
+| Flat | 64 | 1024 | 2.314 | 2.351 | 2.110 |
+| Flat | 64 | 16384 | 3.110 | 2.988 | 3.059 |
+| Flat | 128 | 1024 | 2.526 | 2.602 | 2.315 |
+| Flat | 128 | 16384 | 3.145 | 3.061 | 3.068 |
+| IVF | 64 | 1024 | 2.844 | 2.617 | 2.469 |
+| IVF | 64 | 16384 | 3.742 | 3.499 | 3.348 |
+| IVF | 128 | 1024 | 3.087 | 2.913 | 2.702 |
+| IVF | 128 | 16384 | 3.834 | 3.784 | 3.615 |
+
+Repeating a NumPy-staging arm at the end of the same allocation reproduced the
+1024-row cases to within 0.7% and the 16384-row cases to within 6.6%, so only
+the 1024-row column separates the arms with confidence. Neighbors agreed
+exactly in every case. Peak RSS was unchanged; peak device memory was unchanged
+for Flat and grew by about 270 MB for IVF at d=128, which is the training
+sample now being staged on the device rather than on the host.
+
+**Key insight**: tensor staging pays off most on the IVF build, where the
+training and add passes dominate, and regrouping pays off most when the loader
+batch is small. Setting `pin_memory=True` on the DataLoader did not help, since
+the streaming path already uploads through a pinned buffer of its own.
