@@ -1,0 +1,13 @@
+TikZ figure sources
+===================
+
+This directory contains the editable sources for generated documentation
+figures. Build artifacts remain ignored; generated images consumed by Sphinx
+live in the parent ``figures`` directory.
+
+To regenerate ``multi_gpu_dr_extended.png``, run the following commands from
+this directory with Tectonic and Poppler installed::
+
+    tectonic multi_gpu_dr_extended.tex
+    pdftoppm -png -singlefile -scale-to-x 1692 -scale-to-y -1 \
+      multi_gpu_dr_extended.pdf ../multi_gpu_dr_extended

@@ -266,9 +266,11 @@ def distributed_symmetrize_sparse(
     target_sorted = target_ranks[sorted_idx]
 
     # Step 3: Vectorized packing of edges for each rank
-    send_tensors = [
-        torch.empty((3, 0), device=device, dtype=torch.float32)
-        for _ in range(world_size)
+    send_indices = [
+        torch.empty((2, 0), device=device, dtype=torch.long) for _ in range(world_size)
+    ]
+    send_values = [
+        torch.empty(0, device=device, dtype=v.dtype) for _ in range(world_size)
     ]
 
     if target_sorted.numel() > 0:
@@ -283,44 +285,43 @@ def distributed_symmetrize_sparse(
             start = offsets[idx].item()
             end = offsets[idx + 1].item()
             if end > start and r < world_size:
-                send_tensors[r] = torch.stack(
-                    [
-                        i_sorted[start:end].float(),
-                        j_sorted[start:end].float(),
-                        v_sorted[start:end],
-                    ],
-                    dim=0,
+                send_indices[r] = torch.stack(
+                    [i_sorted[start:end], j_sorted[start:end]], dim=0
                 ).contiguous()
+                send_values[r] = v_sorted[start:end].contiguous()
 
     # Step 4: Exchange sizes first to allocate correct receive buffers
     send_sizes = torch.tensor(
-        [s.shape[1] for s in send_tensors], device=device, dtype=torch.long
+        [s.shape[1] for s in send_indices], device=device, dtype=torch.long
     )
     recv_sizes = torch.zeros(world_size, device=device, dtype=torch.long)
     dist.all_to_all_single(recv_sizes, send_sizes)
 
     # Step 5: Allocate receive buffers with correct sizes
-    recv_tensors = []
+    recv_indices = []
+    recv_values = []
     for r in range(world_size):
         size = recv_sizes[r].item()
-        recv_tensors.append(torch.zeros((3, size), device=device, dtype=torch.float32))
+        recv_indices.append(torch.empty((2, size), device=device, dtype=torch.long))
+        recv_values.append(torch.empty(size, device=device, dtype=v.dtype))
 
-    # Step 6: All-to-all exchange with properly sized buffers
-    dist.all_to_all(recv_tensors, send_tensors)
+    # Step 6: Exchange indices and values without casting either dtype
+    dist.all_to_all(recv_indices, send_indices)
+    dist.all_to_all(recv_values, send_values)
 
     # Step 7: Unpack received edges (these are edges where we own the transpose)
-    if any(t.shape[1] > 0 for t in recv_tensors):
-        recv_all = torch.cat([t for t in recv_tensors if t.shape[1] > 0], dim=1)
-        recv_i = recv_all[0].long()
-        recv_j = recv_all[1].long()
-        recv_v = recv_all[2]
+    if any(t.shape[1] > 0 for t in recv_indices):
+        recv_indices_all = torch.cat([t for t in recv_indices if t.shape[1] > 0], dim=1)
+        recv_values_all = torch.cat([t for t in recv_values if t.numel() > 0], dim=0)
+        recv_i = recv_indices_all[0]
+        recv_j = recv_indices_all[1]
 
         # Combine with local edges for symmetrization
         # Local edges: (i, j) with values v
         # Received edges need to be transposed: (j, i) becomes part of our P^T
         all_i = torch.cat([i, recv_j])
         all_j = torch.cat([j, recv_i])
-        all_v = torch.cat([v, recv_v])
+        all_v = torch.cat([v, recv_values_all])
     else:
         all_i = i
         all_j = j

@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from torchdr.utils.sparse import (
+    distributed_symmetrize_sparse,
     flatten_sparse,
     merge_symmetry,
     pack_to_rowwise,
@@ -168,3 +169,43 @@ class TestSymmetrizeSparse:
         # With inputs in [0,1], sum_minus_prod should be in [0,1]
         assert values_out.min() >= -1e-6
         assert values_out.max() <= 2.0 + 1e-6
+
+
+def test_distributed_symmetrize_preserves_index_and_value_dtypes(monkeypatch):
+    """Collectives must not cast large indices or float64 affinity values."""
+    collective_dtypes = []
+
+    def fake_all_to_all_single(output, input):
+        output.copy_(input)
+
+    def fake_all_to_all(outputs, inputs):
+        collective_dtypes.append((outputs[0].dtype, inputs[0].dtype))
+        for output, input in zip(outputs, inputs):
+            output.copy_(input)
+
+    monkeypatch.setattr("torchdr.utils.sparse.dist.is_initialized", lambda: True)
+    monkeypatch.setattr("torchdr.utils.sparse.dist.get_world_size", lambda: 1)
+    monkeypatch.setattr(
+        "torchdr.utils.sparse.dist.all_to_all_single", fake_all_to_all_single
+    )
+    monkeypatch.setattr("torchdr.utils.sparse.dist.all_to_all", fake_all_to_all)
+
+    large_index = 2**24 + 1
+    values = torch.tensor([[0.125]], dtype=torch.float64)
+    indices = torch.tensor([[large_index]], dtype=torch.long)
+
+    values_out, indices_out = distributed_symmetrize_sparse(
+        values,
+        indices,
+        chunk_start=0,
+        chunk_size=1,
+        n_total=large_index + 1,
+        mode="sum",
+    )
+
+    assert collective_dtypes == [
+        (torch.int64, torch.int64),
+        (torch.float64, torch.float64),
+    ]
+    assert values_out.dtype == torch.float64
+    assert indices_out[0, 0].item() == large_index

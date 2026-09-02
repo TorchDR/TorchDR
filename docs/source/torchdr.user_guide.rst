@@ -349,9 +349,9 @@ For very large datasets, TorchDR supports **multi-GPU distributed training** to 
 
 1. **Data partitioning**: The full dataset :math:`\mathbf{X} \in \mathbb{R}^{N \times d}` is split into chunks across GPUs. Each GPU handles a subset of :math:`n_i` samples.
 
-2. **Shared neighbor index**: A FAISS index is built on the full dataset and shared across all GPUs, enabling efficient k-nearest neighbor queries.
+2. **Replicated neighbor indexes**: Every rank independently builds a complete FAISS index over the full dataset on its assigned GPU. The indexes contain the same data, but their memory is not shared between GPUs.
 
-3. **Parallel affinity computation**: Each GPU computes the affinity rows for its chunk by querying the shared index. GPU :math:`i` computes rows :math:`[\text{start}_i, \text{end}_i)` of the affinity matrix.
+3. **Parallel affinity computation**: Each GPU computes the affinity rows for its chunk by querying its local index. GPU :math:`i` computes rows :math:`[\text{start}_i, \text{end}_i)` of the affinity matrix.
 
 4. **Distributed gradient computation**: During optimization, each GPU:
 
@@ -365,7 +365,7 @@ For very large datasets, TorchDR supports **multi-GPU distributed training** to 
    :width: 800
    :align: center
 
-*Multi-GPU dimensionality reduction pipeline. The dataset is split into chunks across GPUs. Each GPU performs neighbor search using a shared index, computes its affinity chunk, and generates local gradients. Gradients are synchronized via all-reduce and used to update the embedding copies maintained on each device.*
+*Multi-GPU dimensionality reduction pipeline. The dataset is split into query chunks across GPUs. Each GPU builds a complete local FAISS index, computes its affinity chunk, and generates local gradients. Gradients are synchronized via all-reduce and used to update the embedding copies maintained on each device. Both the FAISS index and embedding are replicated on every GPU.*
 
 **Usage:**
 
