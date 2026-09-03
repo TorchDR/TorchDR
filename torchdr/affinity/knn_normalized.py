@@ -523,12 +523,10 @@ class PACMAPAffinity(SparseAffinity):
         Verbosity. Default is False.
     compile : bool, optional
         Whether to compile the computation. Default is False.
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
-        Default is "auto".
+    distributed : bool, optional
+        PACMAPAffinity does not currently support distributed (multi-GPU)
+        execution; any truthy value (including "auto") raises a ``ValueError``.
+        Default is False.
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
