@@ -15,12 +15,13 @@ import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
 from torchdr.distance.faiss import (
     _build_index_from_dataloader,
     _create_index,
     _train_index,
 )
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
 from torchdr.distributed import DistributedContext
 from torchdr.utils import faiss
 
@@ -128,6 +129,26 @@ class TestSharedTraining:
 
         start, end = context.compute_chunk_bounds(N_SAMPLES)
         assert torch.equal(chunk, exact[start:end])
+
+    def test_an_exact_plan_resolves_to_flat_per_chunk(self, data, context):
+        # The high-level FaissPlanConfig(mode="exact") must resolve to the same
+        # Flat backend inside the distributed path, so every rank still answers
+        # its own chunk exactly, identical to passing a plain FaissConfig().
+        _, exact = pairwise_distances(
+            data, k=5, backend=FaissConfig(), return_indices=True
+        )
+        _, chunk = pairwise_distances(
+            data,
+            k=5,
+            backend=FaissPlanConfig(mode="exact"),
+            return_indices=True,
+            distributed_ctx=context,
+        )
+
+        start, end = context.compute_chunk_bounds(N_SAMPLES)
+        assert torch.equal(chunk, exact[start:end])
+        plan, _ = _resolve_faiss_plan(FaissPlanConfig(), distributed_ctx=context)
+        assert plan.distribution == "replicate"
 
     # Probing every list makes IVF exact, so only ties keep it below one. IVFPQ
     # answers from its codes, and the loose bound is there to catch an index
