@@ -185,14 +185,11 @@ def pairwise_distances(
 
         # Force FAISS backend for distributed mode
         if isinstance(backend, FaissConfig):
-            config = distributed_ctx.get_faiss_config(backend)
-        elif backend == "faiss":
-            config = distributed_ctx.get_faiss_config()
-        elif backend is None:
-            config = distributed_ctx.get_faiss_config()
+            config = backend
         else:
-            # User specified keops or other backend - override with FAISS
-            config = distributed_ctx.get_faiss_config()
+            # Distributed search always uses FAISS. The lower-level function
+            # maps this base configuration to the rank-local GPU.
+            config = FaissConfig()
 
         # Compute chunk bounds for this rank
         n_samples = X.shape[0]

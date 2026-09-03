@@ -83,27 +83,21 @@ class TestSharedTraining:
     def test_every_rank_ends_with_the_same_trained_index(self, data, context):
         # Each rank draws different training rows, so agreeing afterwards can
         # only come from the broadcast and not from a coincidence.
-        generator = torch.Generator().manual_seed(context.rank)
-        drawn = torch.randperm(N_SAMPLES, generator=generator)[: N_SAMPLES // 2]
-        rows = data[drawn].numpy()
-        index, config = _untrained()
-
-        index = _train_index(index, lambda: rows, config, N_FEATURES, False, context)
-
-        assert index.is_trained
-        payloads = _gather(bytes(faiss.serialize_index(index)))
-        assert len(set(payloads)) == 1
-
-    def test_only_the_first_rank_reads_training_rows(self, data, context):
         calls = []
 
         def rows():
             calls.append(1)
-            return data.numpy()
+            generator = torch.Generator().manual_seed(context.rank)
+            drawn = torch.randperm(N_SAMPLES, generator=generator)[: N_SAMPLES // 2]
+            return data[drawn].numpy()
 
         index, config = _untrained()
-        _train_index(index, rows, config, N_FEATURES, False, context)
 
+        index = _train_index(index, rows, config, N_FEATURES, False, context)
+
+        assert index.is_trained
+        payloads = _gather(bytes(faiss.serialize_index(index)))
+        assert len(set(payloads)) == 1
         assert len(calls) == (1 if context.rank == 0 else 0)
         assert _gather(len(calls)).count(1) == 1
 
@@ -143,6 +137,7 @@ class TestSharedTraining:
         self, data, context, index_type, min_recall
     ):
         config = FaissConfig(index_type=index_type, nlist=NLIST, nprobe=NLIST, M=2)
+        original_config = vars(config).copy()
         _, exact = pairwise_distances(
             data, k=5, backend=FaissConfig(), return_indices=True
         )
@@ -155,6 +150,7 @@ class TestSharedTraining:
         mine = exact[start:end]
         hits = (mine.unsqueeze(2) == approximate.unsqueeze(1)).any(dim=2).sum()
         assert hits / mine.numel() > min_recall
+        assert vars(config) == original_config
 
 
 class TestSharedTrainingFromDataLoader:

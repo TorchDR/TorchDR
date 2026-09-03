@@ -372,7 +372,8 @@ def pairwise_distances_faiss(
     distributed_ctx : DistributedContext, optional
         Context of the ranks that share this search. Every rank indexes the
         same database, so an approximate index is trained once on rank 0 and
-        broadcast rather than trained again on each of them.
+        broadcast rather than trained again on each of them. The index device
+        is mapped to the context's local rank.
 
     Returns
     -------
@@ -419,6 +420,10 @@ def pairwise_distances_faiss(
 
     if config is None:
         config = FaissConfig()
+    if distributed_ctx is not None and distributed_ctx.is_initialized:
+        # Keep the exported low-level API safe when it is called directly: a
+        # default config names GPU 0, while each rank must build on local_rank.
+        config = distributed_ctx.get_faiss_config(config)
 
     if isinstance(k, torch.Tensor):
         k = int(k.item())
