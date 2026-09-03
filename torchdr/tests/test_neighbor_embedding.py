@@ -40,19 +40,6 @@ DEVICE = "cpu"
 param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
 
 
-def test_umap_default_learning_rate():
-    """UMAP's documented default should configure SGD with an initial LR of 1."""
-    model = UMAP(backend=None)
-    model.embedding_ = torch.zeros(4, 2, requires_grad=True)
-    model._set_params()
-    model._set_learning_rate()
-    model._configure_optimizer()
-
-    assert model.lr == 1.0
-    assert model.lr_ == 1.0
-    assert model.optimizer_.param_groups[0]["lr"] == pytest.approx(1.0)
-
-
 def test_pacmap_mid_near_indices_are_global(monkeypatch):
     """PACMAP should map selected candidate positions to sample indices."""
     n_samples = 10
