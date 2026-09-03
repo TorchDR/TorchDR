@@ -2,7 +2,7 @@
 
 UMAP flattens the max-degree-padded ``(chunk, max_degree)`` neighbor grid into
 flat per-edge ``source``/``target`` buffers and computes the closed-form
-attractive gradient with a segment reduction (``index_add_``) instead of a
+attractive gradient with a deterministic segment reduction instead of a
 padded ``einsum``. These tests pin that flattening and verify the segment
 reduction against an independent brute-force reference, on CPU (run in CI) and,
 when available, on CUDA (opt-in device coverage; the campaign's target setting).
@@ -58,7 +58,7 @@ def _reference_attractive_grad(emb, chunk_indices, source, target, a, b, sampled
     """Brute-force per-edge accumulation of the UMAP attractive gradient.
 
     Mirrors the closed-form coefficient in ``_compute_attractive_gradients`` but
-    accumulates edge by edge in Python, independent of ``index_add_``.
+    accumulates edge by edge in Python, independent of ``segment_reduce``.
     """
     n_rows = chunk_indices.shape[0]
     grad = torch.zeros((n_rows, emb.shape[1]), dtype=emb.dtype, device=emb.device)
@@ -109,6 +109,7 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     model.chunk_indices_ = torch.arange(n, device=device)
     model.attractive_source_ = source.to(device)
     model.attractive_target_ = target.to(device)
+    model.attractive_counts_ = torch.bincount(source, minlength=n).to(device)
     # epoch_of_next_sample <= n_iter_ + 1 selects an edge this step; push the
     # unsampled edges just past the threshold.
     epoch_next = torch.where(
@@ -131,17 +132,14 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
 
-def test_umap_fit_cpu_is_reproducible():
-    """The CSR path stays reproducible on CPU (index_add_ is deterministic there).
-
-    GPU atomics make the segment reduction order-dependent, but the CPU
-    reduction is deterministic, so a fixed seed reproduces the embedding.
-    """
+@pytest.mark.parametrize("device", DEVICES)
+def test_umap_fit_is_reproducible(device):
+    """The CSR path remains reproducible with a fixed seed."""
     X, _ = toy_dataset(80, "float32")
     kw = dict(
         n_components=2,
         backend=None,
-        device="cpu",
+        device=device,
         init="normal",
         max_iter=40,
         random_state=0,
@@ -150,7 +148,7 @@ def test_umap_fit_cpu_is_reproducible():
     )
     a = torch.as_tensor(UMAP(**kw).fit_transform(X))
     b = torch.as_tensor(UMAP(**kw).fit_transform(X))
-    torch.testing.assert_close(a, b, rtol=1e-5, atol=1e-5)
+    assert torch.equal(a, b)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")

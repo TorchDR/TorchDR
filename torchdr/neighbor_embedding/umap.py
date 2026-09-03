@@ -265,6 +265,9 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
         self.register_buffer("attractive_source_", source, persistent=False)
         self.register_buffer("attractive_target_", target, persistent=False)
+        self.register_buffer(
+            "attractive_counts_", edge_mask.sum(dim=1), persistent=False
+        )
         self.register_buffer("epochs_per_sample", epochs_per_sample, persistent=False)
         self.register_buffer(
             "epoch_of_next_sample", epochs_per_sample.clone(), persistent=False
@@ -298,13 +301,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
-        # Segment-reduce the per-edge contributions back to their source rows.
-        grad = torch.zeros(
-            (self.chunk_indices_.shape[0], self.embedding_.shape[1]),
-            dtype=self.embedding_.dtype,
-            device=self.embedding_.device,
+        # The edges are ordered by source row, so a segmented reduction avoids
+        # CUDA atomics and remains deterministic without giving up the flat
+        # representation's performance and memory savings.
+        grad = torch.segment_reduce(
+            diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
         )
-        grad.index_add_(0, source, diff.mul_(D.unsqueeze(1)))
         grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad
 
@@ -323,15 +325,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         # Filter to keep 'negative_sample_rate' negative edges per positive edge.
         # mask_affinity_in_ is a flat per-edge mask, so the per-row count of
         # active positive edges is a segment sum over their source rows.
-        active_positive = torch.zeros(
-            self.chunk_indices_.shape[0],
-            dtype=torch.long,
-            device=self.embedding_.device,
+        active_positive = torch.segment_reduce(
+            self.mask_affinity_in_.to(self.embedding_.dtype),
+            "sum",
+            lengths=self.attractive_counts_,
         )
-        active_positive.index_add_(
-            0, self.attractive_source_, self.mask_affinity_in_.to(torch.long)
-        )
-        neg_counts = (active_positive * self.negative_sample_rate).to(torch.long)
+        neg_counts = (active_positive * self.negative_sample_rate).long()
         col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)
         filtered_edges = col_idx[None, :].ge(neg_counts[:, None])
         D.masked_fill_(filtered_edges, 0)
@@ -451,6 +450,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             "mask_affinity_in_",
             "attractive_source_",
             "attractive_target_",
+            "attractive_counts_",
         ):
             saved[attr] = (hasattr(self, attr), getattr(self, attr, None))
 
@@ -461,6 +461,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         source, target, edge_mask = self._flatten_padded_edges(self.NN_indices_)
         self.attractive_source_ = source
         self.attractive_target_ = target
+        self.attractive_counts_ = edge_mask.sum(dim=1)
         self.epochs_per_sample = epochs_per_sample[edge_mask]
         self.epoch_of_next_sample = self.epochs_per_sample.clone()
 
