@@ -11,8 +11,10 @@ on:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
       - "torchdr/distributed/**"
+      - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_integration.py"
+      - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_sparse.py"
       - "torchdr/utils/sparse.py"
   push:
@@ -22,8 +24,10 @@ on:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
       - "torchdr/distributed/**"
+      - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_integration.py"
+      - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_sparse.py"
       - "torchdr/utils/sparse.py"
 
@@ -54,3 +58,10 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_sparse.py -q
+      - name: Run two-process neighbor-embedding training-step test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_neighbor_embedding.py -q
