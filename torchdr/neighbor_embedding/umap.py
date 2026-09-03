@@ -220,34 +220,72 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             **kwargs,
         )
 
+    @staticmethod
+    def _flatten_padded_edges(nn_indices):
+        """Flatten a max-degree-padded neighbor grid to flat per-edge arrays.
+
+        The symmetrized UMAP affinity is delivered as a ``(chunk, max_degree)``
+        grid padded with ``-1`` column indices, where ``max_degree`` can be far
+        larger than the mean degree. This returns, in row-major order over the
+        real (non-padded) edges, the local ``source`` row and the global
+        ``target`` column of every edge, together with the boolean ``mask`` so
+        that aligned per-edge tensors (e.g. the affinity values) can be
+        flattened the same way.
+        """
+        mask = nn_indices >= 0
+        counts = mask.sum(dim=1)
+        source = torch.repeat_interleave(
+            torch.arange(nn_indices.shape[0], device=nn_indices.device), counts
+        )
+        target = nn_indices[mask].contiguous()
+        return source, target, mask
+
     def on_affinity_computation_end(self):
         super().on_affinity_computation_end()
 
-        # Remove small affinity edges
-        A_max = self.affinity_in_.max()
+        # Flatten the max-degree-padded affinity grid to its real edges only
+        # (a CSR-style layout), so the closed-form attractive gradient runs over
+        # ``nnz`` edges instead of ``chunk * max_degree`` mostly-padded slots.
+        source, target, edge_mask = self._flatten_padded_edges(self.NN_indices_)
+        edge_affinity = self.affinity_in_[edge_mask]
+
+        # Remove small affinity edges (padded slots are already excluded).
+        A_max = edge_affinity.max()
         threshold = A_max / self.max_iter
-        small_affinity_edges = self.affinity_in_ <= threshold
+        small_affinity_edges = edge_affinity <= threshold
 
         if self.verbose:
             kept_pct = (~small_affinity_edges).float().mean().item() * 100
             self.logger.info(f"Keeping {kept_pct:.1f}% of affinity edges.")
 
-        self.affinity_in_.add_(1e-3).reciprocal_().mul_(A_max)
-        self.affinity_in_.masked_fill_(
+        epochs_per_sample = edge_affinity.add(1e-3).reciprocal_().mul_(A_max)
+        epochs_per_sample.masked_fill_(
             small_affinity_edges, float("inf")
         )  # avoid updating these edges
-        self.register_buffer("epochs_per_sample", self.affinity_in_, persistent=False)
+
+        self.register_buffer("attractive_source_", source, persistent=False)
+        self.register_buffer("attractive_target_", target, persistent=False)
         self.register_buffer(
-            "epoch_of_next_sample", self.epochs_per_sample.clone(), persistent=False
+            "attractive_counts_", edge_mask.sum(dim=1), persistent=False
+        )
+        self.register_buffer("epochs_per_sample", epochs_per_sample, persistent=False)
+        self.register_buffer(
+            "epoch_of_next_sample", epochs_per_sample.clone(), persistent=False
         )
 
+        # The padded grid is no longer needed: UMAP uses closed-form gradients
+        # (no loss reads ``affinity_in_``) and both gradient terms now index the
+        # flat edge buffers. Free it to reclaim the max-degree padding overhead.
+        del self.affinity_in_
+        del self.NN_indices_
+
     def _compute_attractive_gradients(self):
-        D = pairwise_distances_indexed(
-            self.embedding_,
-            query_indices=self.chunk_indices_,
-            key_indices=self.NN_indices_,
-            metric="sqeuclidean",
+        source = self.attractive_source_
+        diff = (
+            self.embedding_[self.chunk_indices_[source]]
+            - self.embedding_[self.attractive_target_]
         )
+        D = diff.pow(2).sum(dim=1)
         positive_edges = D > 0
         D_ = 1 + self._a * D**self._b
         D.pow_(self._b - 1)
@@ -263,11 +301,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
-        diff = (
-            self.embedding_[self.chunk_indices_].unsqueeze(1)
-            - self.embedding_[self.NN_indices_]
+        # The edges are ordered by source row, so a segmented reduction avoids
+        # CUDA atomics and remains deterministic without giving up the flat
+        # representation's performance and memory savings.
+        grad = torch.segment_reduce(
+            diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
         )
-        grad = torch.einsum("ijk,ij->ik", diff, D)
         grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad
 
@@ -284,9 +323,14 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         D.reciprocal_().mul_(-2 * self._b)
 
         # Filter to keep 'negative_sample_rate' negative edges per positive edge.
-        neg_counts = (self.mask_affinity_in_.sum(dim=1) * self.negative_sample_rate).to(
-            torch.long
+        # mask_affinity_in_ is a flat per-edge mask, so the per-row count of
+        # active positive edges is a segment sum over their source rows.
+        active_positive = torch.segment_reduce(
+            self.mask_affinity_in_.to(self.embedding_.dtype),
+            "sum",
+            lengths=self.attractive_counts_,
         )
+        neg_counts = (active_positive * self.negative_sample_rate).long()
         col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)
         filtered_edges = col_idx[None, :].ge(neg_counts[:, None])
         D.masked_fill_(filtered_edges, 0)
@@ -400,10 +444,25 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
 
         # Save UMAP-specific state
-        for attr in ("epochs_per_sample", "epoch_of_next_sample", "mask_affinity_in_"):
+        for attr in (
+            "epochs_per_sample",
+            "epoch_of_next_sample",
+            "mask_affinity_in_",
+            "attractive_source_",
+            "attractive_target_",
+            "attractive_counts_",
+        ):
             saved[attr] = (hasattr(self, attr), getattr(self, attr, None))
 
-        self.epochs_per_sample = epochs_per_sample
-        self.epoch_of_next_sample = epochs_per_sample.clone()
+        # Flatten the (offset) transform neighbor grid to the same flat edge
+        # layout used at fit time so the shared closed-form gradient runs over
+        # real edges. super()._enter_transform set NN_indices_ to the global
+        # transform neighbor indices.
+        source, target, edge_mask = self._flatten_padded_edges(self.NN_indices_)
+        self.attractive_source_ = source
+        self.attractive_target_ = target
+        self.attractive_counts_ = edge_mask.sum(dim=1)
+        self.epochs_per_sample = epochs_per_sample[edge_mask]
+        self.epoch_of_next_sample = self.epochs_per_sample.clone()
 
         return saved
