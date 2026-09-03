@@ -211,6 +211,7 @@ def pairwise_distances(
             config=config,
             device=device,
             query_ids=torch.arange(chunk_start, chunk_end, device=X.device),
+            distributed_ctx=distributed_ctx,
         )
 
         if return_indices:

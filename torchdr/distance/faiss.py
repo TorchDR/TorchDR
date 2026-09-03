@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import torch
+import torch.distributed as dist
 import numpy as np
 import warnings
 from weakref import WeakKeyDictionary
@@ -17,6 +18,7 @@ from torch.utils.data import (
     BatchSampler,
 )
 
+from torchdr.distributed.input_contract import collective_device
 from torchdr.utils.faiss import faiss, faiss_torch_interop
 from torchdr.utils.faiss_runtime import (
     faiss_device_scope,
@@ -325,6 +327,7 @@ def pairwise_distances_faiss(
     config: Optional[FaissConfig] = None,
     device: str = "auto",
     query_ids: Optional[torch.Tensor] = None,
+    distributed_ctx: Optional[Any] = None,
 ):
     r"""Compute the k nearest neighbors using FAISS.
 
@@ -366,6 +369,10 @@ def pairwise_distances_faiss(
         Row of Y that each query of X corresponds to. Only used when
         `exclude_diag` is True, and only needed when X is a chunk of Y rather
         than Y itself, as in distributed search. Defaults to `arange(n)`.
+    distributed_ctx : DistributedContext, optional
+        Context of the ranks that share this search. Every rank indexes the
+        same database, so an approximate index is trained once on rank 0 and
+        broadcast rather than trained again on each of them.
 
     Returns
     -------
@@ -437,64 +444,24 @@ def pairwise_distances_faiss(
             stacklevel=2,
         )
 
-    if metric == "angular":
-        flat_index = faiss.IndexFlatIP(d)
-        metric_type = faiss.METRIC_INNER_PRODUCT
-    elif metric in {"euclidean", "sqeuclidean"}:
-        flat_index = faiss.IndexFlatL2(d)
-        metric_type = faiss.METRIC_L2
-    else:
-        raise ValueError(f"[TorchDR] ERROR : Metric '{metric}' is not supported.")
-
-    if config.index_type == "Flat":
-        index = flat_index
-    elif config.index_type == "IVF":
-        n_vectors = len(Y)
-        if config.nlist == 100 and n_vectors > 10000:
-            config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
-        index = faiss.IndexIVFFlat(flat_index, d, config.nlist, metric_type)
-        index.nprobe = config.nprobe
-    elif config.index_type == "IVFPQ":
-        n_vectors = len(Y)
-        if config.nlist == 100 and n_vectors > 10000:
-            config.nlist = min(int(4 * np.sqrt(n_vectors)), n_vectors // 40, 8192)
-        if d % config.M != 0:
-            raise ValueError(
-                f"[TorchDR] ERROR : Vector dimension {d} must be divisible by M={config.M} "
-                f"for IVFPQ. Choose M from divisors of {d}."
-            )
-        index = faiss.IndexIVFPQ(flat_index, d, config.nlist, config.M, config.nbits)
-        index.nprobe = config.nprobe
-    else:
-        raise ValueError(
-            f"[TorchDR] ERROR : Index type '{config.index_type}' is not supported. "
-            "Supported types are 'Flat', 'IVF', and 'IVFPQ'."
-        )
-
-    needs_training = config.index_type in ("IVF", "IVFPQ")
-
     if device == "auto":
         compute_device = X.device
     else:
         compute_device = torch.device(device)
 
-    use_gpu_index = compute_device.type == "cuda" and faiss_gpu_available()
-    # Device the index lives on, or None when FAISS stays on the host.
-    faiss_device = None
-    if compute_device.type == "cuda":
-        if use_gpu_index:
-            index = _setup_gpu_index(index, config, d)
-            faiss_device = torch.device("cuda", _index_device_id(config))
-        else:
-            warnings.warn(
-                "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
-                "This may be slow. For faster performance, install `faiss-gpu`."
-            )
+    index_device, use_gpu_index = _index_input_device(config, compute_device)
+    if compute_device.type == "cuda" and not use_gpu_index:
+        warnings.warn(
+            "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
+            "This may be slow. For faster performance, install `faiss-gpu`."
+        )
 
-    if faiss_device is not None and faiss_torch_interop:
-        index_device = faiss_device
-    else:
-        index_device = torch.device("cpu")
+    # Device the index lives on, or None when FAISS stays on the host.
+    faiss_device = (
+        torch.device("cuda", _index_device_id(config)) if use_gpu_index else None
+    )
+
+    index = _create_index(metric, config, d, len(Y), use_gpu_index)
 
     X_faiss = X.detach().to(device=index_device, dtype=torch.float32).contiguous()
     Y_faiss = Y.detach().to(device=index_device, dtype=torch.float32).contiguous()
@@ -511,19 +478,15 @@ def pairwise_distances_faiss(
     # Every FAISS call runs with the index device current, which is what makes
     # FAISS adopt the PyTorch stream holding the writes to X_faiss and Y_faiss.
     with faiss_device_scope(faiss_device):
-        if needs_training and not index.is_trained:
-            train_data = Y_faiss
-            max_train_points = 256 * config.nlist
-            if len(Y_faiss) > max_train_points:
-                sample_indices = np.random.choice(
-                    len(Y_faiss), max_train_points, replace=False
-                )
-                if isinstance(Y_faiss, torch.Tensor):
-                    sample_indices = torch.as_tensor(
-                        sample_indices, device=Y_faiss.device
-                    )
-                train_data = Y_faiss[sample_indices]
-            index.train(train_data)
+        if not index.is_trained:
+            index = _train_index(
+                index,
+                lambda: _training_sample(Y_faiss, 256 * index.nlist),
+                config,
+                d,
+                use_gpu_index,
+                distributed_ctx,
+            )
 
         index.add(Y_faiss)
 
@@ -731,7 +694,13 @@ def pairwise_distances_faiss_from_dataloader(
     # Build FAISS index and extract metadata in one pass
     with faiss_device_scope(faiss_device):
         index, metadata = _build_index_from_dataloader(
-            dataloader, metric, config, stage, group_rows, use_gpu_index
+            dataloader,
+            metric,
+            config,
+            stage,
+            group_rows,
+            use_gpu_index,
+            distributed_ctx if distributed else None,
         )
     n_samples = metadata["n_samples"]
     dtype = metadata["dtype"]
@@ -906,7 +875,18 @@ def _index_input_device(config: FaissConfig, compute_device: torch.device):
 def _create_index(
     metric: str, config: FaissConfig, d: int, n_samples: int, use_gpu_index: bool
 ):
-    """Create the empty index that the streaming passes will train and fill."""
+    """Create the empty index that the training and adding passes will fill.
+
+    An automatic ``nlist`` is resolved here rather than written back into
+    ``config``, so the configuration the caller passed in keeps its own values
+    and describes the same search whichever dataset it is used on.
+    """
+    if config.index_type not in ("Flat", "IVF", "IVFPQ"):
+        raise ValueError(
+            f"[TorchDR] ERROR : Index type '{config.index_type}' is not supported. "
+            "Supported types are 'Flat', 'IVF', and 'IVFPQ'."
+        )
+
     if metric == "angular":
         flat_index = faiss.IndexFlatIP(d)
         metric_type = faiss.METRIC_INNER_PRODUCT
@@ -937,6 +917,115 @@ def _create_index(
     return index
 
 
+def _training_sample(data, max_train_points: int):
+    """Rows an IVF/PQ index trains on: at most ``max_train_points`` of ``data``.
+
+    The draw comes from the global NumPy generator, which ``random_state``
+    seeds, so a seeded estimator trains on the same rows from one run to the
+    next.
+    """
+    if len(data) <= max_train_points:
+        return data
+
+    sample_indices = np.random.choice(len(data), max_train_points, replace=False)
+    if isinstance(data, torch.Tensor):
+        sample_indices = torch.as_tensor(sample_indices, device=data.device)
+    return data[sample_indices]
+
+
+def _shares_training(distributed_ctx) -> bool:
+    """Whether one rank trains for the group instead of each rank training."""
+    return (
+        distributed_ctx is not None
+        and distributed_ctx.is_initialized
+        and distributed_ctx.world_size > 1
+        and dist.is_initialized()
+    )
+
+
+def _train_index(
+    index,
+    training_rows: Callable[[], Any],
+    config: FaissConfig,
+    d: int,
+    use_gpu_index: bool,
+    distributed_ctx,
+):
+    """Train an IVF/PQ index once for the group rather than once per rank.
+
+    Every rank indexes the same database, so training on all of them repeats
+    identical work, and because each draws its own training sample the ranks
+    end up with different quantizers and disagree on the neighbors of a query.
+    Rank 0 trains and broadcasts the trained, still empty, index; the others
+    receive it and go straight to adding their vectors.
+
+    Parameters
+    ----------
+    index : faiss.Index
+        Untrained index, already on its final device.
+    training_rows : callable
+        Produces the rows to train on. It is only called on the rank that
+        trains, so the others never materialize a training sample.
+    config : FaissConfig
+        Configuration used to move a received index back onto the GPU.
+    d : int
+        Dimension of the vectors.
+    use_gpu_index : bool
+        Whether the index lives on the GPU.
+    distributed_ctx : DistributedContext or None
+        Context of the ranks sharing the index. None trains locally.
+
+    Returns
+    -------
+    index : faiss.Index
+        The trained index, which on a receiving rank is a new object.
+    """
+    if not _shares_training(distributed_ctx):
+        index.train(training_rows())
+        return index
+
+    trainer = 0
+    payload = None
+    trained = True
+    if distributed_ctx.rank == trainer:
+        try:
+            index.train(training_rows())
+            template = faiss.index_gpu_to_cpu(index) if use_gpu_index else index
+            payload = faiss.serialize_index(template)
+        except Exception as error:  # reported on every rank, not just this one
+            trained = False
+            reason = f"{type(error).__name__}: {error}"
+            payload = np.frombuffer(reason.encode(), dtype=np.uint8).copy()
+
+    # The header travels first: the receivers need the length to size their
+    # buffer, and it carries a failure on the same two collectives, so a rank
+    # that could not train never leaves the others waiting on a third.
+    device = collective_device(distributed_ctx)
+    header = torch.zeros(2, dtype=torch.int64, device=device)
+    if payload is not None:
+        header[0] = trained
+        header[1] = payload.size
+    dist.broadcast(header, src=trainer)
+
+    buffer = torch.empty(int(header[1]), dtype=torch.uint8, device=device)
+    if payload is not None:
+        buffer.copy_(torch.from_numpy(payload))
+    dist.broadcast(buffer, src=trainer)
+
+    if not int(header[0]):
+        raise RuntimeError(
+            f"[TorchDR] ERROR : rank {trainer} failed to train the "
+            f"'{config.index_type}' index that every rank shares: "
+            + bytes(buffer.cpu().numpy()).decode("utf-8", "replace")
+        )
+
+    if distributed_ctx.rank == trainer:
+        return index
+
+    index = faiss.deserialize_index(buffer.cpu().numpy())
+    return _setup_gpu_index(index, config, d) if use_gpu_index else index
+
+
 def _reserve_index_capacity(index, n_vectors: int) -> None:
     """Pre-allocate storage for the incremental additions that follow.
 
@@ -964,6 +1053,7 @@ def _build_index_from_dataloader(
     stage: Callable[[torch.Tensor], Any],
     group_rows: Optional[int],
     use_gpu_index: bool,
+    distributed_ctx=None,
 ):
     """Build FAISS index by streaming data from dataloader.
 
@@ -985,6 +1075,9 @@ def _build_index_from_dataloader(
         Rows per add call, or None to add each batch as it arrives.
     use_gpu_index : bool
         Whether the index is moved to the GPU.
+    distributed_ctx : DistributedContext, optional
+        Context of the ranks sharing the index. Only rank 0 reads training
+        rows; the others receive the trained index from it.
 
     Returns
     -------
@@ -998,7 +1091,8 @@ def _build_index_from_dataloader(
     n_samples = len(dataloader.dataset)
 
     # First pass: describe the stream from its first batch, then collect
-    # training rows if the index needs them. A Flat index stops right away.
+    # training rows if the index needs them. A Flat index stops right away, and
+    # so does a rank that will be given its trained index by rank 0.
     collected: List[Any] = []
     total = 0
 
@@ -1011,6 +1105,8 @@ def _build_index_from_dataloader(
                 metric, config, metadata["n_features"], n_samples, use_gpu_index
             )
             if index.is_trained:
+                break
+            if _shares_training(distributed_ctx) and distributed_ctx.rank != 0:
                 break
             # IVFPQ benefits from more training data for better codebooks
             max_train = 256 * index.nlist
@@ -1025,7 +1121,14 @@ def _build_index_from_dataloader(
         total += len(staged)
 
     if not index.is_trained:
-        index.train(_concatenate(collected))
+        index = _train_index(
+            index,
+            lambda: _concatenate(collected),
+            config,
+            metadata["n_features"],
+            use_gpu_index,
+            distributed_ctx,
+        )
 
     # Second pass: add all data to index
     _reserve_index_capacity(index, n_samples)

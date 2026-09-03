@@ -10,9 +10,12 @@ on:
     paths:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
+      - "torchdr/distance/base.py"
+      - "torchdr/distance/faiss.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_sparse.py"
@@ -23,9 +26,12 @@ on:
     paths:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
+      - "torchdr/distance/base.py"
+      - "torchdr/distance/faiss.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_sparse.py"
@@ -65,3 +71,32 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_neighbor_embedding.py -q
+
+  test-distributed-faiss-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.10"
+          activate-environment: test-distributed-faiss-env
+      - name: Install FAISS
+        run: conda install -c pytorch -c conda-forge faiss-cpu=1.11.0 "numpy<2" --yes
+      - name: Install TorchDR
+        run: python -m pip install --upgrade pip && pip install -e ".[test]"
+      - name: Verify FAISS installation
+        run: python -c "from torchdr.utils.faiss import faiss; assert faiss"
+      - name: Run two-process index training test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_faiss_training.py -q
