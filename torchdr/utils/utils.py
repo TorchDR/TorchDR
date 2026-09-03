@@ -17,6 +17,24 @@ from .keops import is_lazy_tensor, LazyTensor, LazyTensorType
 from .wrappers import wrap_vectors
 
 
+def _info_logging_is_silenced() -> bool:
+    """Whether ``INFO`` logging should be suppressed on this process.
+
+    In a distributed run every rank runs the same code and would otherwise emit
+    identical progress logs, so the output is duplicated ``world_size`` times. By
+    default only rank 0 keeps ``INFO`` logging; the other ranks are silenced down
+    to ``WARNING`` so warnings and errors are never hidden. Set the environment
+    variable ``TORCHDR_LOG_ALL_RANKS=1`` to keep ``INFO`` logging on every rank.
+    """
+    if os.environ.get("TORCHDR_LOG_ALL_RANKS", "0") == "1":
+        return False
+    return (
+        torch.distributed.is_available()
+        and torch.distributed.is_initialized()
+        and torch.distributed.get_rank() != 0
+    )
+
+
 def set_logger(name: str, verbose: bool = False) -> logging.Logger:
     """Set up a logger for a given name.
 
@@ -32,6 +50,13 @@ def set_logger(name: str, verbose: bool = False) -> logging.Logger:
     -------
     logging.Logger
         The configured logger instance.
+
+    Notes
+    -----
+    In a distributed run only rank 0 emits ``INFO`` messages by default so the
+    per-iteration progress logs are printed once instead of once per rank;
+    warnings and errors are still emitted on every rank. Set
+    ``TORCHDR_LOG_ALL_RANKS=1`` to restore ``INFO`` logging on all ranks.
     """
     logger = logging.getLogger(name)
     if not logger.handlers:
@@ -40,7 +65,7 @@ def set_logger(name: str, verbose: bool = False) -> logging.Logger:
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    if verbose:
+    if verbose and not _info_logging_is_silenced():
         logger.setLevel(logging.INFO)
     else:
         logger.setLevel(logging.WARNING)
