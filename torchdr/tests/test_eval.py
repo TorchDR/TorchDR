@@ -11,7 +11,10 @@ import warnings
 import numpy as np
 import pytest
 import torch
-from sklearn.metrics import silhouette_score as sk_silhouette_score
+from sklearn.metrics import (
+    adjusted_rand_score as sk_adjusted_rand_score,
+    silhouette_score as sk_silhouette_score,
+)
 from torch.testing import assert_close
 
 from torchdr.eval import (
@@ -189,11 +192,6 @@ def test_silhouette_with_faiss_config(backend):
 @pytest.mark.parametrize("dtype", lst_types)
 def test_kmeans_ari_basic(dtype):
     """Test basic kmeans_ari functionality."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X, y = toy_dataset(100, dtype)
 
     # Test with numpy arrays
@@ -214,13 +212,38 @@ def test_kmeans_ari_basic(dtype):
 
 
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
+def test_kmeans_ari_large_sample_matches_sklearn():
+    """ARI stays accurate when products of pair counts exceed int64."""
+    contingency = np.array([[56_000, 1_000], [1_000, 12_000]])
+    predicted = np.concatenate(
+        [
+            np.zeros(contingency[:, 0].sum(), dtype=np.int64),
+            np.ones(contingency[:, 1].sum(), dtype=np.int64),
+        ]
+    )
+    labels = np.concatenate(
+        [
+            np.zeros(contingency[0, 0], dtype=np.int64),
+            np.ones(contingency[1, 0], dtype=np.int64),
+            np.zeros(contingency[0, 1], dtype=np.int64),
+            np.ones(contingency[1, 1], dtype=np.int64),
+        ]
+    )
+    X = predicted[:, None].astype(np.float32)
+
+    ari_score, assignments = kmeans_ari(
+        X, labels, n_clusters=2, niter=2, random_state=0
+    )
+
+    assert -1 <= ari_score <= 1
+    assert ari_score == pytest.approx(
+        sk_adjusted_rand_score(labels, assignments), abs=1e-7
+    )
+
+
+@pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_n_clusters():
     """Test kmeans_ari with different n_clusters settings."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X, y = iris_dataset("float32")
 
     # Test with automatic n_clusters (should use number of unique labels)
@@ -244,11 +267,6 @@ def test_kmeans_ari_n_clusters():
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_reproducibility():
     """Test kmeans_ari reproducibility with random_state."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X, y = toy_dataset(100, "float32")
 
     # Test reproducibility
@@ -268,11 +286,6 @@ def test_kmeans_ari_reproducibility():
 @pytest.mark.parametrize("random_state", [None, 42])
 def test_kmeans_ari_preserves_numpy_random_state(random_state):
     """Test kmeans_ari does not mutate NumPy's global random state."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X, y = toy_dataset(100, "float32")
     np.random.seed(1234)
     state_before = np.random.get_state()
@@ -287,11 +300,6 @@ def test_kmeans_ari_preserves_numpy_random_state(random_state):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_kmeans_ari_gpu():
     """Test kmeans_ari with GPU device."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X, y = toy_dataset(100, "float32")
     X_cuda = torch.from_numpy(X).cuda()
     y_cuda = torch.from_numpy(y).cuda()
@@ -308,7 +316,6 @@ def test_kmeans_ari_gpu():
 def test_kmeans_ari_tensor_input_avoids_full_numpy_round_trip(monkeypatch):
     """Test that tensor K-means does not convert the full input to NumPy."""
     try:
-        import torchmetrics  # noqa: F401
         import faiss.contrib.torch.clustering  # noqa: F401
     except ImportError:
         pytest.skip("FAISS tensor clustering dependencies are not installed")
@@ -333,11 +340,6 @@ def test_kmeans_ari_tensor_input_avoids_full_numpy_round_trip(monkeypatch):
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_warns_on_float64():
     """Test that FAISS K-means' float32 precision boundary is explicit."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     X = torch.randn(40, 6, dtype=torch.float64)
     y = torch.arange(40) % 4
 
@@ -350,11 +352,6 @@ def test_kmeans_ari_warns_on_float64():
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_perfect_clustering():
     """Test kmeans_ari with perfect clustering."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     # Create well-separated clusters
     np.random.seed(42)
     X1 = np.random.randn(50, 2) + np.array([0, 0])
@@ -372,11 +369,6 @@ def test_kmeans_ari_perfect_clustering():
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_niter_nredo():
     """Test kmeans_ari with different niter and nredo values."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     np.random.seed(42)
     X = np.random.randn(100, 5).astype("float32")
     y = np.array([0] * 50 + [1] * 50)
@@ -400,11 +392,6 @@ def test_kmeans_ari_niter_nredo():
 @pytest.mark.skipif(not faiss, reason="FAISS not installed")
 def test_kmeans_ari_edge_cases():
     """Test kmeans_ari edge cases."""
-    try:
-        import torchmetrics  # noqa: F401
-    except ImportError:
-        pytest.skip("torchmetrics not installed")
-
     # Edge case: n_clusters equals n_samples
     X = np.random.randn(5, 3).astype("float32")
     y = np.arange(5)
@@ -700,13 +687,8 @@ def test_eval_functions_consistency(backend):
     assert -1 <= sil_score <= 1
 
     if faiss:
-        try:
-            import torchmetrics  # noqa: F401
-
-            ari_score, _ = kmeans_ari(X, y)
-            assert -1 <= ari_score <= 1
-        except ImportError:
-            pass
+        ari_score, _ = kmeans_ari(X, y)
+        assert -1 <= ari_score <= 1
 
     # Create a simple embedding for neighborhood preservation
     Z = X[:, :2]  # Use first 2 dimensions as embedding

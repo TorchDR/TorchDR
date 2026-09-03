@@ -9,16 +9,12 @@ import numpy as np
 import torch
 from contextlib import ExitStack, redirect_stdout
 from io import StringIO
+from sklearn.metrics import adjusted_rand_score
 from typing import Union, Optional
 
 from torchdr.utils import to_torch
 from torchdr.utils.faiss import faiss
 from torchdr.utils.faiss_runtime import faiss_gpu_available, get_gpu_resources
-
-try:
-    from torchmetrics.clustering import AdjustedRandScore
-except ImportError:
-    AdjustedRandScore = None
 
 
 def _fit_faiss_kmeans_tensor(
@@ -108,7 +104,8 @@ def kmeans_ari(
         Number of times to run K-means with different initializations,
         keeping the best result (lowest objective).
     device : str, optional
-        Device to use for ARI computation. If None, uses the input device.
+        Device to use for K-means and tensor outputs. If None, uses the input
+        device. ARI is evaluated on CPU with scikit-learn.
     random_state : int, optional
         Random seed for reproducibility.
     verbose : bool, default=False
@@ -128,7 +125,7 @@ def kmeans_ari(
     Raises
     ------
     ImportError
-        If FAISS or torchmetrics is not installed.
+        If FAISS is not installed.
     ValueError
         If n_clusters is less than 1 or greater than n_samples.
 
@@ -157,17 +154,13 @@ def kmeans_ari(
     GPU acceleration is automatically used if FAISS-GPU is installed and X is on GPU.
     FAISS K-means computes in float32. Tensor inputs stay as tensors on the selected
     CPU or GPU when the installed FAISS build provides tensor-native clustering.
+    ARI is evaluated with scikit-learn, whose integer-safe implementation avoids
+    overflow for large sample counts.
     """
     if faiss is False:
         raise ImportError(
             "[TorchDR] FAISS is required for kmeans_ari but not installed. "
             "Install it with: conda install -c pytorch -c nvidia faiss-gpu"
-        )
-
-    if AdjustedRandScore is None:
-        raise ImportError(
-            "[TorchDR] torchmetrics is required for kmeans_ari but not installed. "
-            "Install it with: pip install torchmetrics"
         )
 
     input_is_numpy = not isinstance(X, torch.Tensor) or not isinstance(
@@ -248,8 +241,11 @@ def kmeans_ari(
     predicted_labels_torch = predicted_labels_torch.long().to(device)
     labels_torch = labels.long().to(device)
 
-    ari_metric = AdjustedRandScore().to(device)
-    ari_score = ari_metric(predicted_labels_torch, labels_torch)
+    ari_value = adjusted_rand_score(
+        labels_torch.detach().cpu().numpy(),
+        predicted_labels_torch.detach().cpu().numpy(),
+    )
+    ari_score = torch.tensor(ari_value, dtype=torch.float32, device=device)
 
     if input_is_numpy:
         ari_score = ari_score.detach().cpu().numpy().item()
