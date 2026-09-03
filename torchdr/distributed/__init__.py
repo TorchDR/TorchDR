@@ -340,6 +340,12 @@ class DistributedContext:
         >>> # Returns: tensor([0, 1, 2, 3, 3])
         """
         chunk_size = n_samples // world_size
+        if chunk_size == 0:
+            raise ValueError(
+                f"[TorchDR] cannot distribute {n_samples} samples across "
+                f"{world_size} ranks: some ranks would own zero rows. Launch "
+                f"with at most n_samples ranks."
+            )
         remainder = n_samples % world_size
 
         # Threshold where chunking strategy changes

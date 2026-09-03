@@ -151,3 +151,17 @@ def validate_distributed_input(X, dist_ctx) -> None:
             f"{_describe(field, reference)}, while rank {mismatch} reports "
             f"{_describe(field, int(column[mismatch]))}. {_CONTRACT}"
         )
+
+    # Reject more ranks than samples. Only the query rows are partitioned, so
+    # with world_size > n_samples some ranks own zero rows and the index->owner
+    # lookup divides by a zero-sized block (ZeroDivisionError deep in sparse
+    # symmetrization). Catch it here with an actionable message.
+    n_samples_column = gathered[:, _FIELDS.index("n_samples")]
+    known = n_samples_column[n_samples_column != _UNKNOWN]
+    if known.numel() and int(known.min()) < dist_ctx.world_size:
+        raise ValueError(
+            f"[TorchDR] distributed neighbor embedding needs at least one "
+            f"sample per rank, but n_samples={int(known.min())} with "
+            f"world_size={dist_ctx.world_size}. Launch with at most n_samples "
+            f"ranks. {_CONTRACT}"
+        )
