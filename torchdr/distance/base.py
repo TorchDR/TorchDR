@@ -16,6 +16,7 @@ from .faiss import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
+from .faiss_plan import FaissPlanConfig, resolve_faiss_plan
 from torchdr.distributed import DistributedContext
 from torchdr.distributed.input_contract import validate_distributed_input
 
@@ -24,7 +25,7 @@ def pairwise_distances(
     X: Union[torch.Tensor, DataLoader],
     Y: Optional[torch.Tensor] = None,
     metric: str = "euclidean",
-    backend: Optional[Union[str, FaissConfig]] = None,
+    backend: Optional[Union[str, FaissConfig, FaissPlanConfig]] = None,
     exclude_diag: bool = False,
     k: Optional[int] = None,
     return_indices: bool = False,
@@ -58,12 +59,14 @@ def pairwise_distances(
         Input data. If None, Y is set to X. Not supported with DataLoader input.
     metric : str, optional
         Metric to use. Default is "euclidean".
-    backend : {'keops', 'faiss', None} or FaissConfig, optional
+    backend : {'keops', 'faiss', None}, FaissConfig, or FaissPlanConfig, optional
         Backend to use for computation. Can be:
         - "keops": Use KeOps for memory-efficient symbolic computations
         - "faiss": Use FAISS for fast k-NN computations with default settings
         - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
+        - FaissConfig object: Use FAISS with a low-level expert configuration
+        - FaissPlanConfig object: Use FAISS from a high-level execution intent
+          (e.g. ``mode="exact"``), resolved into a low-level configuration here
         If None, use standard torch operations. DataLoader input forces FAISS backend.
     exclude_diag : bool, optional
         Whether to exclude the diagonal from the distance matrix.
@@ -126,6 +129,21 @@ def pairwise_distances(
     ... )
     >>> # Each GPU gets its chunk of results
     """
+    # A FaissPlanConfig passed directly (rather than resolved by an affinity) is
+    # resolved here into its low-level FaissConfig so the dispatch below can treat
+    # it like any other FAISS backend. Estimators resolve the plan at the affinity
+    # layer and expose it as ``faiss_plan_``; direct callers just get the result.
+    if isinstance(backend, FaissPlanConfig):
+        _n = None if isinstance(X, DataLoader) else X.shape[0]
+        _dim = None if isinstance(X, DataLoader) else X.shape[1]
+        _, backend = resolve_faiss_plan(
+            backend,
+            n_samples=_n,
+            dim=_dim,
+            dist_ctx=distributed_ctx,
+            device=device,
+        )
+
     # Every rank must hold the same full dataset: each builds a complete index
     # and returns global sample ids. Check before any index is built.
     if distributed_ctx is not None and distributed_ctx.is_initialized:

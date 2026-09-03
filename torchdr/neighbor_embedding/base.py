@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from torchdr.affinity import Affinity
 from torchdr.affinity.entropic import _log_Pe
-from torchdr.distance import FaissConfig, pairwise_distances
+from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.utils import (
     binary_search,
@@ -105,13 +105,15 @@ class NeighborEmbedding(AffinityMatcher):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
         - "keops": Use KeOps for memory-efficient symbolic computations
         - "faiss": Use FAISS for fast k-NN computations with default settings
         - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
+        - FaissConfig object: Use FAISS with a low-level expert configuration
+        - FaissPlanConfig object: Use FAISS from a high-level execution intent
+          (e.g. ``mode="exact"``); the resolved plan is exposed as ``faiss_plan_``
         Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
@@ -154,7 +156,7 @@ class NeighborEmbedding(AffinityMatcher):
         init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         early_exaggeration_coeff: Optional[float] = None,
@@ -516,13 +518,15 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device to use for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
         Which backend to use for handling sparsity and memory efficiency.
         Can be:
         - "keops": Use KeOps for memory-efficient symbolic computations
         - "faiss": Use FAISS for fast k-NN computations with default settings
         - None: Use standard PyTorch operations
-        - FaissConfig object: Use FAISS with custom configuration
+        - FaissConfig object: Use FAISS with a low-level expert configuration
+        - FaissPlanConfig object: Use FAISS from a high-level execution intent
+          (e.g. ``mode="exact"``); the resolved plan is exposed as ``faiss_plan_``
         Default is None.
     verbose : bool, optional
         Verbosity of the optimization process. Default is False.
@@ -569,7 +573,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         init: str = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         early_exaggeration_coeff: float = 1.0,

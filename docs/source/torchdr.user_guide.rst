@@ -327,6 +327,15 @@ For large datasets (typically when :math:`n > 10^4`) where the full pairwise-dis
 TorchDR can offload these computations to the GPU-compatible kNN library `Faiss <https://github.com/facebookresearch/faiss>`_.
 Simply set :attr:`backend` to ``faiss`` to leverage Faiss's efficient implementations.
 
+For finer control, pass a :class:`~torchdr.distance.FaissPlanConfig` as the
+``backend`` to express accuracy and resource *intent* rather than low-level FAISS
+parameters. Exact search is the default (``FaissPlanConfig(mode="exact")``) and
+never silently approximates; the resolved execution plan (index, precision,
+distribution, memory estimate) is available after fitting through the affinity's
+``faiss_plan_`` attribute. Experts can still supply low-level options through
+``FaissPlanConfig(expert=FaissConfig(...))`` or by passing a
+:class:`~torchdr.distance.FaissConfig` directly.
+
 Alternatively, for exact computations or affinities that can't be limited to kNNs, you can use symbolic (lazy) tensors to avoid memory overflows.
 TorchDR integrates with ``pykeops``:cite:`charlier2021kernel`, representing tensors as mathematical expressions evaluated directly on your data samples.
 By computing on-the-fly formulas instead of storing full matrices, this approach removes memory constraints entirely.

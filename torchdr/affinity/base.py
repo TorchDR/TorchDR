@@ -22,6 +22,8 @@ from torchdr.utils import (
 from torchdr.distance import (
     pairwise_distances,
     FaissConfig,
+    FaissPlanConfig,
+    resolve_faiss_plan,
 )
 
 import torch.distributed as dist
@@ -39,8 +41,10 @@ class Affinity(nn.Module, ABC):
     device : str, optional
         Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Backend for handling sparsity and memory efficiency.
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
+        Backend for handling sparsity and memory efficiency. A ``FaissPlanConfig``
+        expresses high-level intent (e.g. ``mode="exact"``); the resolved plan is
+        stored as ``faiss_plan_`` after computation.
         Default is None (standard PyTorch).
     verbose : bool, optional
         Verbosity. Default is False.
@@ -56,7 +60,7 @@ class Affinity(nn.Module, ABC):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Union[str, FaissConfig] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
@@ -105,6 +109,34 @@ class Affinity(nn.Module, ABC):
 
     # --- Distance computation ---
 
+    def _resolve_plan_backend(self, X):
+        r"""Resolve a ``FaissPlanConfig`` backend into a low-level ``FaissConfig``.
+
+        If ``self.backend`` is a :class:`~torchdr.distance.FaissPlanConfig`,
+        resolve it into an immutable execution plan (stored as
+        ``self.faiss_plan_`` and printed on rank 0 when ``verbose=True``) and
+        return the corresponding low-level
+        :class:`~torchdr.distance.FaissConfig` to hand to ``pairwise_distances``.
+        Otherwise return ``self.backend`` unchanged. This keeps user-intent
+        configuration at the estimator boundary while the expert configuration
+        flows internally.
+        """
+        backend = self.backend
+        if not isinstance(backend, FaissPlanConfig):
+            return backend
+
+        plan, config = resolve_faiss_plan(
+            backend,
+            n_samples=self._get_n_samples(X),
+            dim=self._get_n_features(X),
+            dist_ctx=getattr(self, "dist_ctx", None),
+            device=self.device,
+        )
+        self.faiss_plan_ = plan
+        if self.verbose and getattr(self, "rank", 0) == 0:
+            self.logger.info(f"Resolved FAISS execution plan: {plan}")
+        return config
+
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
     ):
@@ -127,7 +159,7 @@ class Affinity(nn.Module, ABC):
         return pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=self.backend,
+            backend=self._resolve_plan_backend(X),
             exclude_diag=self.zero_diag,
             k=k,
             return_indices=return_indices,
@@ -160,6 +192,17 @@ class Affinity(nn.Module, ABC):
         if isinstance(X, DataLoader):
             return len(X.dataset)
         return X.shape[0]
+
+    def _get_n_features(self, X):
+        """Return the feature dimension, or None if unknown (e.g. DataLoader)."""
+        if isinstance(X, DataLoader):
+            from torchdr.distance.faiss import get_dataloader_metadata
+
+            metadata = get_dataloader_metadata(X)
+            if metadata is not None and "n_features" in metadata:
+                return metadata["n_features"]
+            return None
+        return X.shape[1]
 
     def _get_dtype(self, X):
         """Return the dtype of the input."""
@@ -201,8 +244,10 @@ class LogAffinity(Affinity):
     device : str, optional
         Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Backend for handling sparsity and memory efficiency.
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
+        Backend for handling sparsity and memory efficiency. A ``FaissPlanConfig``
+        expresses high-level intent (e.g. ``mode="exact"``); the resolved plan is
+        stored as ``faiss_plan_`` after computation.
         Default is None (standard PyTorch).
     verbose : bool, optional
         Verbosity. Default is False.
@@ -217,7 +262,7 @@ class LogAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Union[str, FaissConfig] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         random_state: float = None,
         compile: bool = False,
@@ -291,8 +336,10 @@ class SparseAffinity(Affinity):
     device : str, optional
         Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Backend for handling sparsity and memory efficiency.
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
+        Backend for handling sparsity and memory efficiency. A ``FaissPlanConfig``
+        expresses high-level intent (e.g. ``mode="exact"``); the resolved plan is
+        stored as ``faiss_plan_`` after computation.
         Default is None (standard PyTorch).
     verbose : bool, optional
         Verbosity. Default is False.
@@ -312,7 +359,7 @@ class SparseAffinity(Affinity):
         metric: str = "sqeuclidean",
         zero_diag: bool = True,
         device: str = "auto",
-        backend: Union[str, FaissConfig] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         compile: bool = False,
         sparsity: bool = True,
@@ -353,7 +400,7 @@ class SparseAffinity(Affinity):
             self._backend_forced = backend not in [
                 "faiss",
                 None,
-            ] and not isinstance(backend, FaissConfig)
+            ] and not isinstance(backend, (FaissConfig, FaissPlanConfig))
             if self._backend_forced:
                 self._original_backend = backend
                 backend = "faiss"
@@ -466,7 +513,7 @@ class SparseAffinity(Affinity):
         result = pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=self.backend,
+            backend=self._resolve_plan_backend(X),
             exclude_diag=self.zero_diag,
             k=k,
             return_indices=return_indices,
@@ -503,8 +550,10 @@ class SparseLogAffinity(SparseAffinity, LogAffinity):
     device : str, optional
         Device for computation. ``"auto"`` uses the input data's device.
         Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
-        Backend for handling sparsity and memory efficiency.
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
+        Backend for handling sparsity and memory efficiency. A ``FaissPlanConfig``
+        expresses high-level intent (e.g. ``mode="exact"``); the resolved plan is
+        stored as ``faiss_plan_`` after computation.
         Default is None (standard PyTorch).
     verbose : bool, optional
         Verbosity. Default is False.
