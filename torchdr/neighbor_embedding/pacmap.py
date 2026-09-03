@@ -88,8 +88,7 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
     distributed : bool, optional
-        PACMAP does not currently support distributed (multi-GPU) execution:
-        its mid-near sampling needs per-iteration access to the full input, so
+        PACMAP does not currently support distributed (multi-GPU) execution;
         any truthy value (including "auto") raises a ``ValueError``. Default is
         False.
     """  # noqa: E501
