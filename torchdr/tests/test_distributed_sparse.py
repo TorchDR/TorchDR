@@ -64,7 +64,7 @@ def _rowwise_to_dense(values, indices, n_columns):
     return dense
 
 
-def _symmetrize_local_chunk(values, indices, n_samples, mode):
+def _symmetrize_local_chunk(values, indices, n_samples, mode, coalesce_device="auto"):
     """Run the distributed path on this rank's row chunk."""
     context = DistributedContext()
     chunk_start, chunk_end = context.compute_chunk_bounds(n_samples)
@@ -78,6 +78,7 @@ def _symmetrize_local_chunk(values, indices, n_samples, mode):
         chunk_size=chunk_size,
         n_total=n_samples,
         mode=mode,
+        coalesce_device=coalesce_device,
     )
     return chunk_start, chunk_end, out_values, out_indices
 
@@ -98,6 +99,40 @@ def test_chunk_matches_single_process_reference(n_samples, n_neighbors, dtype, m
     assert out_values.dtype == dtype
     assert out_indices.dtype == torch.int64
     assert out_values.shape[0] == chunk_end - chunk_start
+
+    reference_values, reference_indices = symmetrize_sparse(values, indices, mode=mode)
+    torch.testing.assert_close(
+        _rowwise_to_dense(out_values, out_indices, n_samples),
+        _rowwise_to_dense(reference_values, reference_indices, n_samples)[
+            chunk_start:chunk_end
+        ],
+    )
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("mode", ["sum", "sum_minus_prod"])
+def test_single_row_chunk_matches_reference(dtype, mode):
+    """A rank owning a single row must not crash the exchange.
+
+    With ``n_samples == world_size + 1`` exactly one rank owns two rows and
+    every other rank owns a single row. ``flatten_sparse`` used to build the row
+    indices with ``arange(n).unsqueeze(1).expand(n, k).reshape(-1)``, which
+    returns a stride-0 view for a one-row chunk (all ``k`` elements alias one
+    memory location). The in-place ``i.add_(chunk_start)`` inside
+    ``distributed_symmetrize_sparse`` then raised "more than one element of the
+    written-to tensor refers to a single memory location". This exercises that
+    partition on the real Gloo backend.
+    """
+    world_size = dist.get_world_size()
+    n_samples = world_size + 1
+    n_neighbors = 2
+    values, indices = _build_graph(n_samples, n_neighbors, seed=n_samples, dtype=dtype)
+
+    chunk_start, chunk_end, out_values, out_indices = _symmetrize_local_chunk(
+        values, indices, n_samples, mode
+    )
+    # This partition gives every rank one or two rows; at least one has a single.
+    assert chunk_end - chunk_start in (1, 2)
 
     reference_values, reference_indices = symmetrize_sparse(values, indices, mode=mode)
     torch.testing.assert_close(
@@ -168,3 +203,48 @@ def test_skewed_payload_matches_reference():
             chunk_start:chunk_end
         ],
     )
+
+
+@pytest.mark.parametrize("coalesce_device", ["auto", "cpu", "gpu"])
+def test_coalesce_device_matches_reference(coalesce_device):
+    """Every ``coalesce_device`` setting reproduces the reference on CPU.
+
+    On the Gloo CPU backend all three settings coalesce on the host, so this
+    only locks in that the dispatch accepts each value and leaves the result
+    unchanged. GPU-vs-CPU bitwise equivalence is covered by the opt-in GPU
+    module (``test_distributed_sparse_gpu.py``).
+    """
+    n_samples, n_neighbors = 101, 7
+    values, indices = _build_graph(n_samples, n_neighbors, seed=13, dtype=torch.float32)
+
+    chunk_start, chunk_end, out_values, out_indices = _symmetrize_local_chunk(
+        values, indices, n_samples, "sum_minus_prod", coalesce_device=coalesce_device
+    )
+
+    reference_values, reference_indices = symmetrize_sparse(
+        values, indices, mode="sum_minus_prod"
+    )
+    torch.testing.assert_close(
+        _rowwise_to_dense(out_values, out_indices, n_samples),
+        _rowwise_to_dense(reference_values, reference_indices, n_samples)[
+            chunk_start:chunk_end
+        ],
+    )
+
+
+def test_invalid_coalesce_device_raises():
+    """An unknown ``coalesce_device`` is rejected before any collective runs."""
+    n_samples, n_neighbors = 64, 4
+    values, indices = _build_graph(n_samples, n_neighbors, seed=5, dtype=torch.float32)
+
+    context = DistributedContext()
+    chunk_start, chunk_end = context.compute_chunk_bounds(n_samples)
+    with pytest.raises(ValueError, match="coalesce_device"):
+        distributed_symmetrize_sparse(
+            values[chunk_start:chunk_end].contiguous(),
+            indices[chunk_start:chunk_end].contiguous(),
+            chunk_start=chunk_start,
+            chunk_size=chunk_end - chunk_start,
+            n_total=n_samples,
+            coalesce_device="bogus",
+        )
