@@ -4,6 +4,8 @@
 #
 # License: BSD 3-Clause License
 
+import logging
+
 import numpy as np
 import pytest
 import torch
@@ -1668,3 +1670,69 @@ def test_faiss_check_installation_mock_incomplete():
         assert faiss_module is None
         assert error_msg is not None
         assert "incomplete" in error_msg.lower() or "missing" in error_msg.lower()
+
+
+class TestRankAwareLogging:
+    """`set_logger` keeps INFO on rank 0 and silences other ranks.
+
+    In a distributed run every rank executes the same code, so INFO progress
+    logs would otherwise be printed once per rank. These tests exercise the
+    rank-aware gating without spawning real processes by monkeypatching the
+    ``torch.distributed`` primitives that :func:`_info_logging_is_silenced`
+    inspects. Each case uses a unique logger name because ``logging.getLogger``
+    returns process-wide singletons that would otherwise leak state.
+    """
+
+    @staticmethod
+    def _fake_dist(monkeypatch, *, available, initialized, rank):
+        monkeypatch.setattr(torch.distributed, "is_available", lambda: available)
+        monkeypatch.setattr(torch.distributed, "is_initialized", lambda: initialized)
+        monkeypatch.setattr(torch.distributed, "get_rank", lambda: rank)
+
+    def test_non_distributed_verbose_is_info(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.delenv("TORCHDR_LOG_ALL_RANKS", raising=False)
+        self._fake_dist(monkeypatch, available=True, initialized=False, rank=0)
+        logger = set_logger("torchdr_test_nd_verbose", verbose=True)
+        assert logger.level == logging.INFO
+
+    def test_non_distributed_quiet_is_warning(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.delenv("TORCHDR_LOG_ALL_RANKS", raising=False)
+        self._fake_dist(monkeypatch, available=True, initialized=False, rank=0)
+        logger = set_logger("torchdr_test_nd_quiet", verbose=False)
+        assert logger.level == logging.WARNING
+
+    def test_rank0_keeps_info(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.delenv("TORCHDR_LOG_ALL_RANKS", raising=False)
+        self._fake_dist(monkeypatch, available=True, initialized=True, rank=0)
+        logger = set_logger("torchdr_test_rank0", verbose=True)
+        assert logger.level == logging.INFO
+
+    def test_nonzero_rank_is_silenced(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.delenv("TORCHDR_LOG_ALL_RANKS", raising=False)
+        self._fake_dist(monkeypatch, available=True, initialized=True, rank=2)
+        logger = set_logger("torchdr_test_rank2", verbose=True)
+        assert logger.level == logging.WARNING
+
+    def test_nonzero_rank_opt_in_restores_info(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.setenv("TORCHDR_LOG_ALL_RANKS", "1")
+        self._fake_dist(monkeypatch, available=True, initialized=True, rank=2)
+        logger = set_logger("torchdr_test_rank2_optin", verbose=True)
+        assert logger.level == logging.INFO
+
+    def test_nonzero_rank_quiet_unchanged(self, monkeypatch):
+        from torchdr.utils import set_logger
+
+        monkeypatch.delenv("TORCHDR_LOG_ALL_RANKS", raising=False)
+        self._fake_dist(monkeypatch, available=True, initialized=True, rank=2)
+        logger = set_logger("torchdr_test_rank2_quiet", verbose=False)
+        assert logger.level == logging.WARNING
