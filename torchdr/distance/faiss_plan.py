@@ -29,9 +29,11 @@ class FaissPlanConfig:
         Accuracy/speed intent. Only ``"exact"`` is currently implemented;
         ``"balanced"`` and ``"fast"`` raise :class:`NotImplementedError`.
     distribution : {"auto", "replicate", "shard"}, default="auto"
-        Multi-GPU topology. ``"auto"`` currently resolves to the existing
-        replicated-index strategy in distributed runs. ``"shard"`` is not yet
-        implemented and raises :class:`NotImplementedError`.
+        Multi-GPU topology. ``"replicate"`` builds the full index on every rank.
+        ``"shard"`` splits the database across ranks so its aggregate size can
+        exceed one rank's memory (exact ``Flat`` search). ``"auto"`` replicates
+        when the full index fits per rank and shards otherwise, falling back to
+        replication when no per-rank memory budget is available.
     expert : FaissConfig, optional
         Explicit low-level override for advanced users. It cannot be combined
         with a non-default mode. The object is copied during resolution.
@@ -97,6 +99,51 @@ class _FaissPlan:
         )
 
 
+def _choose_distribution(
+    *,
+    index_memory_bytes: Optional[int],
+    available_memory_bytes: Optional[int],
+    world_size: int,
+    query_bytes: int = 0,
+    output_bytes: int = 0,
+    safety_fraction: float = 0.2,
+) -> str:
+    """Pick ``"replicate"`` or ``"shard"`` for an ``"auto"`` distributed plan.
+
+    Replication keeps the full index on every rank, so it is chosen only when
+    that index, the query and output buffers, and a safety margin for scratch
+    all fit within the per-rank memory budget. Otherwise the database is sharded
+    so its aggregate size can exceed a single rank. With no budget information,
+    or a single rank, replication is the safe default and never hides an index
+    that would not fit.
+
+    Parameters
+    ----------
+    index_memory_bytes : int, optional
+        Bytes the full replicated index would occupy on one rank.
+    available_memory_bytes : int, optional
+        Per-rank memory budget. ``None`` means unknown.
+    world_size : int
+        Number of ranks in the group.
+    query_bytes, output_bytes : int, default 0
+        Bytes for the query batch and the neighbor output on one rank.
+    safety_fraction : float, default 0.2
+        Fraction of the estimate reserved for scratch and fragmentation.
+
+    Returns
+    -------
+    str
+        ``"replicate"`` or ``"shard"``.
+    """
+    if world_size <= 1:
+        return "replicate"
+    if index_memory_bytes is None or available_memory_bytes is None:
+        return "replicate"
+    needed = index_memory_bytes + query_bytes + output_bytes
+    needed += int(needed * safety_fraction)
+    return "replicate" if needed <= available_memory_bytes else "shard"
+
+
 def _copy_config(config: FaissConfig) -> FaissConfig:
     """Copy a low-level config without retaining its mutable kwargs mapping."""
     return FaissConfig(
@@ -118,13 +165,9 @@ def _resolve_faiss_plan(
     n_samples: Optional[int] = None,
     n_features: Optional[int] = None,
     distributed_ctx=None,
+    available_memory_bytes: Optional[int] = None,
 ) -> Tuple[_FaissPlan, FaissConfig]:
     """Resolve user intent into diagnostics and a fresh low-level config."""
-    if config.distribution == "shard":
-        raise NotImplementedError(
-            "[TorchDR] distribution='shard' is not yet supported; see issue #301."
-        )
-
     if config.expert is not None:
         resolved = _copy_config(config.expert)
         mode = "expert"
@@ -139,11 +182,30 @@ def _resolve_faiss_plan(
     is_distributed = bool(
         distributed_ctx is not None and distributed_ctx.is_initialized
     )
-    distribution = "replicate" if is_distributed else "single"
+    world_size = int(getattr(distributed_ctx, "world_size", 1)) if is_distributed else 1
     training_size = 0 if resolved.index_type == "Flat" else None
     index_memory_bytes = None
     if training_size == 0 and n_samples is not None and n_features is not None:
         index_memory_bytes = int(n_samples) * int(n_features) * 4
+
+    # A single rank never shards, so distribution is only meaningful across a
+    # group. Sharding is currently exact-Flat only; an approximate expert index
+    # still resolves to replication until the shared-quantizer path lands.
+    can_shard = world_size > 1 and resolved.index_type == "Flat"
+    if not is_distributed or world_size <= 1:
+        distribution = "single"
+    elif config.distribution == "replicate":
+        distribution = "replicate"
+    elif config.distribution == "shard":
+        distribution = "shard" if can_shard else "replicate"
+    else:  # auto
+        distribution = _choose_distribution(
+            index_memory_bytes=index_memory_bytes,
+            available_memory_bytes=available_memory_bytes,
+            world_size=world_size,
+        )
+        if distribution == "shard" and not can_shard:
+            distribution = "replicate"
 
     return (
         _FaissPlan(

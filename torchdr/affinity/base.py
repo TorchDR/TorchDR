@@ -509,15 +509,24 @@ class SparseAffinity(Affinity):
         indices : torch.Tensor, optional
             Indices if ``return_indices=True``.
         """
+        resolved_backend = self._resolve_plan_backend(X)
+        # A resolved plan also decides the multi-GPU topology; forward it so the
+        # distributed search shards or replicates as the plan determined.
+        distribution = (
+            self.faiss_plan_.distribution
+            if isinstance(self.backend, FaissPlanConfig)
+            else None
+        )
         result = pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=self._resolve_plan_backend(X),
+            backend=resolved_backend,
             exclude_diag=self.zero_diag,
             k=k,
             return_indices=return_indices,
             device=self.device,
             distributed_ctx=self.dist_ctx if self.distributed else None,
+            distribution=distribution,
         )
 
         # Store chunk bounds for downstream use (e.g. distributed symmetrization)
