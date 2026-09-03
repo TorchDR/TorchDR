@@ -345,8 +345,13 @@ def test_umap_transform_uses_epoch_schedule():
         assert not torch.equal(
             model.epochs_per_sample, torch.zeros_like(model.epochs_per_sample)
         )
-        assert torch.isfinite(model.epochs_per_sample[0, 0])
-        assert torch.isinf(model.epochs_per_sample[1, 1])
+        # epochs_per_sample is a flat per-edge buffer (one entry per real
+        # neighbor edge, row-major), not a padded (n, k) grid: the strongest
+        # edge (affinity 1.0) keeps a finite schedule and the weakest edge
+        # (affinity 0.01, below the drop threshold) is set to inf.
+        assert model.epochs_per_sample.ndim == 1
+        assert torch.isfinite(model.epochs_per_sample[0])
+        assert torch.isinf(model.epochs_per_sample[-1])
     finally:
         model._exit_transform(saved)
 
