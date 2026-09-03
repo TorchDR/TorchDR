@@ -109,6 +109,40 @@ def test_chunk_matches_single_process_reference(n_samples, n_neighbors, dtype, m
     )
 
 
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("mode", ["sum", "sum_minus_prod"])
+def test_single_row_chunk_matches_reference(dtype, mode):
+    """A rank owning a single row must not crash the exchange.
+
+    With ``n_samples == world_size + 1`` exactly one rank owns two rows and
+    every other rank owns a single row. ``flatten_sparse`` used to build the row
+    indices with ``arange(n).unsqueeze(1).expand(n, k).reshape(-1)``, which
+    returns a stride-0 view for a one-row chunk (all ``k`` elements alias one
+    memory location). The in-place ``i.add_(chunk_start)`` inside
+    ``distributed_symmetrize_sparse`` then raised "more than one element of the
+    written-to tensor refers to a single memory location". This exercises that
+    partition on the real Gloo backend.
+    """
+    world_size = dist.get_world_size()
+    n_samples = world_size + 1
+    n_neighbors = 2
+    values, indices = _build_graph(n_samples, n_neighbors, seed=n_samples, dtype=dtype)
+
+    chunk_start, chunk_end, out_values, out_indices = _symmetrize_local_chunk(
+        values, indices, n_samples, mode
+    )
+    # This partition gives every rank one or two rows; at least one has a single.
+    assert chunk_end - chunk_start in (1, 2)
+
+    reference_values, reference_indices = symmetrize_sparse(values, indices, mode=mode)
+    torch.testing.assert_close(
+        _rowwise_to_dense(out_values, out_indices, n_samples),
+        _rowwise_to_dense(reference_values, reference_indices, n_samples)[
+            chunk_start:chunk_end
+        ],
+    )
+
+
 def test_gathered_ranks_reconstruct_the_full_matrix():
     """Concatenating every rank's rows must rebuild the reference matrix."""
     n_samples, n_neighbors = 101, 7
