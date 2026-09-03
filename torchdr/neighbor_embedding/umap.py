@@ -74,13 +74,13 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     b : float, optional
         Parameter for the Student t-distribution.
     lr : float, optional
-        Learning rate for the algorithm, by default 1e-1.
+        Initial learning rate for the embedding optimization, by default 1.0.
+        This matches the numerical default in ``umap-learn``.
     optimizer : str or torch.optim.Optimizer, optional
         Name of an optimizer from torch.optim or an optimizer class.
         Default is "SGD".
-    optimizer_kwargs : dict or 'auto', optional
-        Additional keyword arguments for the optimizer. Default is 'auto'.
-        which sets appropriate momentum values for SGD based on early exaggeration phase.
+    optimizer_kwargs : dict, optional
+        Additional keyword arguments for the optimizer. Default is None.
     scheduler : str or torch.optim.lr_scheduler.LRScheduler, optional
         Name of a scheduler from torch.optim.lr_scheduler or a scheduler class.
         Default is "LinearLR".
@@ -130,6 +130,14 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+
+    Notes
+    -----
+    The default learning rate and its linear decay match ``umap-learn``'s
+    ``learning_rate`` and ``initial_alpha`` schedule, but the resulting updates
+    are not step-for-step equivalent. ``umap-learn`` applies sampled-edge
+    updates sequentially with its own optimizer, whereas TorchDR accumulates
+    vectorized gradients and applies them simultaneously with PyTorch SGD.
     """  # noqa: E501
 
     def __init__(
