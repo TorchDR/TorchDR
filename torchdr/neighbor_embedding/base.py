@@ -411,10 +411,7 @@ class NeighborEmbedding(AffinityMatcher):
             chunk_start = 0
             chunk_size = self.n_samples_in_
 
-        # Keep the offset as a Python int as well. It is constant for the whole
-        # fit, and the distributed training step needs it on every iteration:
-        # recovering it from chunk_indices_ there would cost a device-to-host
-        # sync per iteration.
+        # Keep the host offset to avoid synchronizing chunk_indices_ each step.
         self.chunk_start_ = int(chunk_start)
         self.chunk_indices_ = torch.arange(
             chunk_start, chunk_start + chunk_size, device=self.device_

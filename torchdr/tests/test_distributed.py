@@ -352,22 +352,11 @@ class TestGetFaissConfig:
 
 
 class TestChunkStartOffset:
-    """``chunk_start_`` must mirror ``chunk_indices_[0]`` as a Python int.
-
-    The distributed closed-form training step needs this rank's chunk offset on
-    every iteration. Recovering it from ``chunk_indices_`` there would cost a
-    device-to-host synchronization per iteration, right before the gradient
-    all-reduce, so the offset is recorded as a plain int when the chunk is set
-    up. These tests pin the two representations together.
-    """
+    """Keep the chunk offset on the host for distributed training steps."""
 
     @staticmethod
     def _model_with_chunk(chunk_start, chunk_size, world_size):
-        """An SNE positioned on a chunk, without running a fit.
-
-        SNE does not override ``on_affinity_computation_end``, so this exercises
-        the ``NeighborEmbedding`` implementation directly.
-        """
+        """Position an SNE on a chunk without running a fit."""
         model = SNE(n_components=2)
         model.rank = 0
         model.world_size = world_size
@@ -380,24 +369,9 @@ class TestChunkStartOffset:
         model.on_affinity_computation_end()
         return model
 
-    def test_single_process_covers_everything(self):
-        """Without chunk bounds the chunk is the whole dataset, based at 0."""
-        model = self._model_with_chunk(0, 10, world_size=1)
-
-        assert model.chunk_start_ == 0
-        assert len(model.chunk_indices_) == 10
-
-    def test_offset_is_a_python_int(self):
-        """A tensor here would silently reintroduce the per-iteration sync."""
-        model = self._model_with_chunk(25, 25, world_size=4)
-
-        assert isinstance(model.chunk_start_, int)
-        assert not torch.is_tensor(model.chunk_start_)
-
-    @pytest.mark.parametrize("n_samples", [100, 97])
-    def test_matches_chunk_indices_on_every_rank(self, n_samples):
-        """Even (100/4) and uneven (97/4) splits agree with the tensor."""
-        world_size = 4
+    @pytest.mark.parametrize("n_samples,world_size", [(10, 1), (97, 4)])
+    def test_matches_chunk_indices_on_every_rank(self, n_samples, world_size):
+        """Single-process and uneven distributed chunks retain a host offset."""
         covered = 0
         for rank in range(world_size):
             ctx = DistributedContext()
@@ -407,6 +381,7 @@ class TestChunkStartOffset:
 
             model = self._model_with_chunk(start, end - start, world_size)
 
+            assert isinstance(model.chunk_start_, int)
             assert model.chunk_start_ == model.chunk_indices_[0].item()
             assert model.chunk_start_ == start
             covered += len(model.chunk_indices_)
