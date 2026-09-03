@@ -219,6 +219,7 @@ def distributed_symmetrize_sparse(
     chunk_size: int,
     n_total: int,
     mode: Literal["sum", "sum_minus_prod"] = "sum_minus_prod",
+    coalesce_device: Literal["auto", "cpu", "gpu"] = "auto",
 ) -> Tuple[torch.Tensor, torch.LongTensor]:
     """Symmetrize sparse affinity matrix in distributed multi-GPU setting.
 
@@ -241,6 +242,15 @@ def distributed_symmetrize_sparse(
         How to combine P and P^T:
         - "sum": compute Q = P + P^T
         - "sum_minus_prod": compute Q = P + P^T - P∘P^T (default)
+    coalesce_device : {"auto", "cpu", "gpu"}
+        Device on which to coalesce and pack the exchanged edges:
+        - "auto" (default): coalesce on the input device, falling back to CPU on
+          an accelerator out-of-memory error. Fastest, and correct whenever
+          symmetrization is not the memory high-water mark (always true in an
+          end-to-end fit).
+        - "cpu": always coalesce on CPU, minimizing accelerator memory for a
+          standalone affinity build on a constrained device at a wall-time cost.
+        - "gpu": always coalesce on the input device with no CPU fallback.
 
     Returns
     -------
@@ -252,13 +262,21 @@ def distributed_symmetrize_sparse(
     Notes
     -----
     Edge exchange is performed on the input device with ``all_to_all_single``
-    over flat buffers, which both NCCL and the Gloo CPU backend support.
-    Coalescing and row-wise packing are then performed on CPU to reduce peak
-    accelerator memory. The returned tensors are moved back to the input device.
+    over flat buffers, which both NCCL and the Gloo CPU backend support. The
+    subsequent coalescing (a ``torch.unique`` over the encoded edge keys) and
+    row-wise packing run on the device chosen by ``coalesce_device``. Coalescing
+    on the accelerator is markedly faster but transiently raises accelerator
+    memory; the ``"cpu"`` option, and the ``"auto"`` out-of-memory fallback, cap
+    that memory for a standalone build on a constrained device. The returned
+    tensors are always on the input device.
     """
     if not dist.is_initialized():
         raise RuntimeError(
             "distributed_symmetrize requires torch.distributed to be initialized"
+        )
+    if coalesce_device not in ("auto", "cpu", "gpu"):
+        raise ValueError(
+            f"coalesce_device must be 'auto', 'cpu', or 'gpu', got {coalesce_device!r}"
         )
 
     world_size = dist.get_world_size()
@@ -301,38 +319,58 @@ def distributed_symmetrize_sparse(
     dist.all_to_all_single(transpose_values, values_sorted, recv_splits, send_splits)
     del keys_sorted, values_sorted, send_splits, recv_splits
 
-    # Step 5: Offload local and received edges before the memory-heavy unique.
-    local_keys = keys.cpu()
-    local_values = v.cpu()
-    del keys, v
-    transpose_keys = transpose_keys.cpu()
-    transpose_values = transpose_values.cpu()
+    # Step 5: Coalesce and pack the exchanged edges on the selected device. The
+    # ``torch.unique`` over the int64 keys is the memory-heavy step; running it on
+    # the accelerator is far faster but transiently costs memory. ``_coalesce``
+    # rebinds only its own parameters, so the post-exchange buffers survive intact
+    # and the "auto" path can retry on CPU after an accelerator OOM.
+    def _coalesce(local_keys, local_values, recv_keys, recv_values):
+        # Received keys encode original (i, j) entries. Rewrite them out-of-place
+        # as (j, i) to retain their provenance as Pᵀ rather than treating them as
+        # P, leaving ``recv_keys`` intact for a possible CPU retry.
+        received_rows = torch.div(recv_keys, n_total, rounding_mode="floor")
+        recv_keys = recv_keys.remainder(n_total)
+        recv_keys.mul_(n_total).add_(received_rows)
+        del received_rows
 
-    # Received keys encode original (i, j) entries. Rewrite them in place as
-    # (j, i), retaining their provenance as Pᵀ rather than treating them as P.
-    received_rows = torch.div(transpose_keys, n_total, rounding_mode="floor")
-    transpose_keys.remainder_(n_total).mul_(n_total).add_(received_rows)
-    del received_rows
+        # Coalesce P and Pᵀ separately. This is both correct for reciprocal edges
+        # and avoids duplicating the already combined edge list a second time.
+        i_sym, j_sym, vP, vPT = _merge_sparse_keys(
+            local_keys, local_values, recv_keys, recv_values, n_total
+        )
+        v_sym = _combine_P_PT(vP, vPT, mode)
+        del vP, vPT
 
-    # Step 6: Coalesce P and Pᵀ separately. This is both correct for reciprocal
-    # edges and avoids duplicating the already combined edge list a second time.
-    i_sym, j_sym, vP, vPT = _merge_sparse_keys(
-        local_keys,
-        local_values,
-        transpose_keys,
-        transpose_values,
-        n_total,
-    )
-    del local_keys, local_values, transpose_keys, transpose_values
+        # Keep only the rows this rank owns and pack them row-wise.
+        local_mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
+        i_local = i_sym[local_mask].sub_(chunk_start)
+        return pack_to_rowwise(
+            i_local, j_sym[local_mask], v_sym[local_mask], chunk_size
+        )
 
-    # Step 7: Combine components on CPU and pack the rows owned by this rank.
-    v_sym = _combine_P_PT(vP, vPT, mode)
-    del vP, vPT
-    local_mask = (i_sym >= chunk_start) & (i_sym < chunk_start + chunk_size)
-    i_local = i_sym[local_mask].sub_(chunk_start)
-    j_local = j_sym[local_mask]
-    v_local = v_sym[local_mask]
-    values_out, indices_out = pack_to_rowwise(i_local, j_local, v_local, chunk_size)
+    force_cpu = coalesce_device == "cpu" or device.type != "cuda"
+    if not force_cpu:
+        try:
+            values_out, indices_out = _coalesce(
+                keys, v, transpose_keys, transpose_values
+            )
+        except torch.cuda.OutOfMemoryError:
+            if coalesce_device == "gpu":
+                raise
+            # Never regress to an OOM: retry the coalesce on CPU.
+            torch.cuda.empty_cache()
+            force_cpu = True
 
-    # Step 8: Restore the caller's device contract.
+    if force_cpu:
+        # Move the exchanged buffers to host and free the accelerator originals so
+        # a standalone build on a constrained device keeps a minimal accelerator
+        # footprint (the memory behavior introduced in #254).
+        local_keys, local_values = keys.cpu(), v.cpu()
+        recv_keys, recv_values = transpose_keys.cpu(), transpose_values.cpu()
+        del keys, v, transpose_keys, transpose_values
+        values_out, indices_out = _coalesce(
+            local_keys, local_values, recv_keys, recv_values
+        )
+
+    # Step 6: Restore the caller's device contract.
     return values_out.to(device), indices_out.to(device)
