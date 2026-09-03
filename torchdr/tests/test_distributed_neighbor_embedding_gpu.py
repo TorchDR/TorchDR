@@ -31,6 +31,7 @@ import torch.distributed as dist
 
 from torchdr import InfoTSNE, UMAP
 from torchdr.affinity import UMAPAffinity
+from torchdr.distance import FaissPlanConfig
 from torchdr.distributed import init_distributed, shutdown_distributed
 
 
@@ -106,14 +107,18 @@ def test_distributed_umap_affinity_matches_single_process(dtype):
     n_samples, n_features = 128, 16
     X = _identical_data(n_samples, n_features, dtype)
 
-    distributed = UMAPAffinity(n_neighbors=15, distributed=True, backend="faiss")
+    distributed = UMAPAffinity(
+        n_neighbors=15, distributed=True, backend=FaissPlanConfig()
+    )
     local_values, local_indices = distributed(X.cuda())
+    assert distributed.faiss_plan_.distribution == "replicate"
     local_dense = _rowwise_to_dense(local_values.cpu(), local_indices.cpu(), n_samples)
     assert local_dense.shape[0] == distributed.chunk_size_
     full = _gather_full_matrix(local_dense)
 
-    single = UMAPAffinity(n_neighbors=15, distributed=False, backend="faiss")
+    single = UMAPAffinity(n_neighbors=15, distributed=False, backend=FaissPlanConfig())
     ref_values, ref_indices = single(X.cuda())
+    assert single.faiss_plan_.distribution == "single"
     reference = _rowwise_to_dense(ref_values.cpu(), ref_indices.cpu(), n_samples)
 
     assert full.shape == (n_samples, n_samples)

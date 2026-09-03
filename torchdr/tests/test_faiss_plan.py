@@ -1,0 +1,140 @@
+"""Tests for the high-level FAISS execution-plan API."""
+
+# Author: Hugues Van Assel <vanasselhugues@gmail.com>
+#
+# License: BSD 3-Clause License
+
+import pickle
+from dataclasses import FrozenInstanceError
+
+import pytest
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchdr import EntropicAffinity, TSNE
+from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
+from torchdr.utils import faiss
+
+
+requires_faiss = pytest.mark.skipif(
+    faiss is None or faiss is False, reason="faiss not installed"
+)
+
+
+@pytest.fixture(scope="module")
+def data():
+    return torch.randn(200, 8, generator=torch.Generator().manual_seed(0))
+
+
+def test_config_defaults_are_exact_and_immutable():
+    config = FaissPlanConfig()
+    assert (config.mode, config.distribution, config.expert) == (
+        "exact",
+        "auto",
+        None,
+    )
+    with pytest.raises(FrozenInstanceError):
+        config.mode = "fast"
+    assert pickle.loads(pickle.dumps(config)) == config
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error"),
+    [
+        ({"mode": "turbo"}, ValueError),
+        ({"distribution": "single"}, ValueError),
+        ({"expert": "not-a-config"}, TypeError),
+        (
+            {"mode": "fast", "expert": FaissConfig(index_type="IVF")},
+            ValueError,
+        ),
+    ],
+)
+def test_config_rejects_invalid_combinations(kwargs, error):
+    with pytest.raises(error):
+        FaissPlanConfig(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        FaissPlanConfig(mode="balanced"),
+        FaissPlanConfig(mode="fast"),
+        FaissPlanConfig(distribution="shard"),
+    ],
+)
+def test_unimplemented_intents_fail_explicitly(config):
+    with pytest.raises(NotImplementedError):
+        _resolve_faiss_plan(config)
+
+
+def test_exact_plan_reports_resolved_execution():
+    plan, resolved = _resolve_faiss_plan(
+        FaissPlanConfig(), n_samples=1_000, n_features=8
+    )
+    assert plan.mode == "exact"
+    assert plan.index_type == resolved.index_type == "Flat"
+    assert plan.precision == "float32"
+    assert plan.distribution == "single"
+    assert plan.training_size == 0
+    assert plan.index_memory_bytes == 1_000 * 8 * 4
+
+    restored = pickle.loads(pickle.dumps(plan))
+    assert restored == plan
+    assert "index_memory_bytes=32000" in repr(restored)
+
+
+def test_expert_resolution_is_non_mutating():
+    expert = FaissConfig(
+        index_type="IVFPQ", nlist=50, M=8, nbits=8, nprobe=4, custom_option=1
+    )
+    config = FaissPlanConfig(expert=expert)
+    before = repr(expert)
+
+    plan, resolved = _resolve_faiss_plan(config)
+
+    assert repr(expert) == before
+    assert resolved is not expert
+    assert resolved.faiss_kwargs is not expert.faiss_kwargs
+    assert resolved.faiss_kwargs == expert.faiss_kwargs
+    assert plan.mode == "expert"
+    assert plan.index_type == "IVFPQ"
+    assert plan.precision == "reduced"
+    assert plan.training_size is None
+
+
+@requires_faiss
+def test_exact_plan_matches_existing_faiss_backend(data):
+    distances, indices = pairwise_distances(
+        data, k=5, backend=FaissPlanConfig(), return_indices=True
+    )
+    reference_distances, reference_indices = pairwise_distances(
+        data, k=5, backend="faiss", return_indices=True
+    )
+    assert torch.equal(indices, reference_indices)
+    assert torch.allclose(distances, reference_distances)
+
+
+@requires_faiss
+def test_plan_accepts_dataloader_input(data):
+    loader = DataLoader(TensorDataset(data), batch_size=32, shuffle=False)
+    distances, indices = pairwise_distances(
+        loader, k=5, backend=FaissPlanConfig(), return_indices=True
+    )
+    assert distances.shape == indices.shape == (len(data), 5)
+
+
+@requires_faiss
+def test_plan_is_exposed_by_affinity_and_estimator(data):
+    affinity = EntropicAffinity(perplexity=15, backend=FaissPlanConfig(), sparsity=True)
+    affinity(data)
+    assert affinity.faiss_plan_.index_type == "Flat"
+
+    estimator = TSNE(
+        perplexity=15,
+        backend=FaissPlanConfig(),
+        max_iter=0,
+        random_state=0,
+    ).fit(data)
+    assert estimator.faiss_plan_ == estimator.affinity_in.faiss_plan_
