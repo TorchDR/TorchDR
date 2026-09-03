@@ -411,6 +411,8 @@ class NeighborEmbedding(AffinityMatcher):
             chunk_start = 0
             chunk_size = self.n_samples_in_
 
+        # Keep the host offset to avoid synchronizing chunk_indices_ each step.
+        self.chunk_start_ = int(chunk_start)
         self.chunk_indices_ = torch.arange(
             chunk_start, chunk_start + chunk_size, device=self.device_
         )
@@ -1048,6 +1050,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
         for attr in (
             "embedding_",
             "chunk_indices_",
+            "chunk_start_",
             "NN_indices_",
             "affinity_in_",
             "n_samples_in_",
@@ -1069,6 +1072,7 @@ class NegativeSamplingNeighborEmbedding(NeighborEmbedding):
                 delattr(self, "embedding_")
 
             self.chunk_indices_ = chunk_indices
+            self.chunk_start_ = 0
             self.NN_indices_ = transform_nn_indices
             self.affinity_in_ = affinity
             # Existing objectives normalize over query rows. The concatenated

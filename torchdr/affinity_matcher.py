@@ -405,7 +405,8 @@ class AffinityMatcher(DRModule):
                             f"{gradients.shape[0]}"
                         )
                     full_gradients = torch.zeros_like(self.embedding_)
-                    chunk_start = self.chunk_indices_[0].item()
+                    # Avoid synchronizing chunk_indices_[0] to the host here.
+                    chunk_start = self.chunk_start_
                     full_gradients[chunk_start : chunk_start + expected_chunk_size] = (
                         gradients
                     )

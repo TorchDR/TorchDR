@@ -11,6 +11,7 @@ import pytest
 import torch
 
 import torchdr.distributed as torchdr_distributed
+from torchdr import SNE, UMAP
 from torchdr.distributed import (
     is_distributed,
     get_rank,
@@ -348,3 +349,92 @@ class TestGetFaissConfig:
         assert config.M == 32
         assert config.nbits == 6
         assert config.faiss_kwargs == {"useFloat16": True}
+
+
+class TestChunkStartOffset:
+    """Keep the chunk offset on the host for distributed training steps."""
+
+    @staticmethod
+    def _model_with_chunk(chunk_start, chunk_size, world_size):
+        """Position an SNE on a chunk without running a fit."""
+        model = SNE(n_components=2)
+        model.rank = 0
+        model.world_size = world_size
+        model.device_ = torch.device("cpu")
+        model.n_samples_in_ = chunk_start + chunk_size
+        if world_size > 1:
+            # Mirror what SparseAffinity records after a distributed call.
+            model.affinity_in.chunk_start_ = chunk_start
+            model.affinity_in.chunk_size_ = chunk_size
+        model.on_affinity_computation_end()
+        return model
+
+    @pytest.mark.parametrize("n_samples,world_size", [(10, 1), (97, 4)])
+    def test_matches_chunk_indices_on_every_rank(self, n_samples, world_size):
+        """Single-process and uneven distributed chunks retain a host offset."""
+        covered = 0
+        for rank in range(world_size):
+            ctx = DistributedContext()
+            ctx.rank = rank
+            ctx.world_size = world_size
+            start, end = ctx.compute_chunk_bounds(n_samples)
+
+            model = self._model_with_chunk(start, end - start, world_size)
+
+            assert isinstance(model.chunk_start_, int)
+            assert model.chunk_start_ == model.chunk_indices_[0].item()
+            assert model.chunk_start_ == start
+            covered += len(model.chunk_indices_)
+
+        assert covered == n_samples
+
+    def test_training_step_scatters_gradients_at_the_offset(self):
+        """The gradient must land on this rank's rows and nowhere else."""
+        n_samples, n_components = 7, 2
+        chunk_start, chunk_size = 3, 4
+
+        model = UMAP(n_components=n_components, optimizer="SGD", lr=0.0)
+        model.rank = 1
+        model.world_size = 2
+        model.encoder = None
+        model.scheduler_ = None
+        model.device_ = torch.device("cpu")
+        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, n_components))
+        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
+        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
+        model.chunk_start_ = chunk_start
+
+        gradients = torch.arange(1.0, chunk_size * n_components + 1).reshape(
+            chunk_size, n_components
+        )
+        model._compute_gradients = lambda: gradients
+
+        with patch("torch.distributed.all_reduce") as mock_all_reduce:
+            model._training_step()
+
+        mock_all_reduce.assert_called_once()
+
+        expected = torch.zeros(n_samples, n_components)
+        expected[chunk_start : chunk_start + chunk_size] = gradients
+        assert torch.equal(model.embedding_.grad, expected)
+
+    def test_transform_resets_then_restores_the_offset(self):
+        """Transform re-bases the embedding at 0 and must put the offset back."""
+        model = UMAP(n_neighbors=2, n_components=2, optimizer="SGD", max_iter=6)
+        model.device_ = torch.device("cpu")
+        model.embedding_ = torch.nn.Parameter(torch.randn(4, 2))
+        model.chunk_indices_ = torch.arange(2, 6)
+        model.chunk_start_ = 2
+
+        embedding_new = torch.zeros(2, 2)
+        train_emb = model.embedding_.detach()
+        affinity = torch.tensor([[1.0, 0.2], [0.8, 0.4]])
+        nn_indices = torch.tensor([[0, 1], [2, 3]])
+
+        saved = model._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+        assert model.chunk_start_ == 0
+        assert model.chunk_start_ == model.chunk_indices_[0].item()
+
+        model._exit_transform(saved)
+        assert model.chunk_start_ == 2
+        assert model.chunk_start_ == model.chunk_indices_[0].item()
