@@ -397,6 +397,13 @@ def test_pacmap_affinity(dtype, metric, backend, compile=False):
     assert torch.all(affinity.rho_ > 0), "rho_ values should be positive"
 
 
+@pytest.mark.parametrize("value", [True, "auto"])
+def test_pacmap_affinity_rejects_distributed(value):
+    """PACMAPAffinity has no distributed implementation and must fail fast."""
+    with pytest.raises(ValueError, match="does not support distributed"):
+        PACMAPAffinity(distributed=value)
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 def test_phate_affinity(dtype, metric):

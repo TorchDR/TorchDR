@@ -92,6 +92,20 @@ def test_pacmap_mid_near_indices_are_global(monkeypatch):
     assert torch.all(expected > 5)
 
 
+@pytest.mark.parametrize("value", [True, "auto"])
+def test_pacmap_rejects_distributed(value):
+    """PACMAP has no distributed implementation and must fail fast."""
+    with pytest.raises(ValueError, match="does not support distributed"):
+        PACMAP(distributed=value)
+
+
+@pytest.mark.parametrize("value", [True, "auto"])
+def test_tsnekhorn_rejects_distributed(value):
+    """TSNEkhorn has no distributed implementation and must fail fast."""
+    with pytest.raises(ValueError, match="does not support distributed"):
+        TSNEkhorn(distributed=value)
+
+
 @pytest.mark.parametrize(
     "DRModel, kwargs",
     [

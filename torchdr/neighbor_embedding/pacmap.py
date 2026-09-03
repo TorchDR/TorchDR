@@ -87,12 +87,11 @@ class PACMAP(NegativeSamplingNeighborEmbedding):
         Deprecated alias for ``exclude_neighbors_from_negative_sampling``.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
-    distributed : bool or 'auto', optional
-        Whether to use distributed computation across multiple GPUs.
-        - "auto": Automatically detect if running with torchrun (default)
-        - True: Force distributed mode (requires torchrun)
-        - False: Disable distributed mode
-        Default is "auto".
+    distributed : bool, optional
+        PACMAP does not currently support distributed (multi-GPU) execution:
+        its mid-near sampling needs per-iteration access to the full input, so
+        any truthy value (including "auto") raises a ``ValueError``. Default is
+        False.
     """  # noqa: E501
 
     def __init__(

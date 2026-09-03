@@ -105,6 +105,10 @@ class TSNEkhorn(NeighborEmbedding):
         Interval for checking the convergence of the algorithm, by default 50.
     compile : bool, optional
         Whether to compile the algorithm using torch.compile. Default is False.
+    distributed : bool, optional
+        TSNEkhorn does not currently support distributed (multi-GPU) execution;
+        any truthy value (including "auto") raises a ``ValueError``. Default is
+        False.
     """  # noqa: E501
 
     def __init__(
