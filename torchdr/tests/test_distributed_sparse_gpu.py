@@ -24,7 +24,11 @@ import torch
 import torch.distributed as dist
 
 import torchdr.utils.sparse as sparse_mod
-from torchdr.distributed import DistributedContext
+from torchdr.distributed import (
+    DistributedContext,
+    init_distributed,
+    shutdown_distributed,
+)
 from torchdr.utils.sparse import distributed_symmetrize_sparse
 
 
@@ -42,15 +46,20 @@ def distributed_process_group():
     Fails loudly on a single process: the exchange is meaningless unless the
     edges cross a rank boundary.
     """
-    dist.init_process_group(backend="nccl")
+    # Importing TorchDR under torchrun may already have initialized the process
+    # group, so use the idempotent lifecycle helper instead of initializing it
+    # a second time.
+    init_distributed(backend="nccl")
+    if not dist.is_initialized():
+        pytest.fail("launch this module with torchrun and at least two processes")
+    torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", 0)))
     world_size = dist.get_world_size()
     if world_size < 2:
-        dist.destroy_process_group()
+        shutdown_distributed()
         pytest.fail(f"launch this module with at least two processes, got {world_size}")
-    torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", 0)))
     yield
     dist.barrier()
-    dist.destroy_process_group()
+    shutdown_distributed()
 
 
 def _local_device():
