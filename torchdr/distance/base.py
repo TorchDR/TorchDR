@@ -16,7 +16,7 @@ from .faiss import (
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
 )
-from .faiss_plan import FaissPlanConfig, resolve_faiss_plan
+from .faiss_plan import FaissPlanConfig, _resolve_faiss_plan
 from torchdr.distributed import DistributedContext
 from torchdr.distributed.input_contract import validate_distributed_input
 
@@ -136,12 +136,11 @@ def pairwise_distances(
     if isinstance(backend, FaissPlanConfig):
         _n = None if isinstance(X, DataLoader) else X.shape[0]
         _dim = None if isinstance(X, DataLoader) else X.shape[1]
-        _, backend = resolve_faiss_plan(
+        _, backend = _resolve_faiss_plan(
             backend,
             n_samples=_n,
-            dim=_dim,
-            dist_ctx=distributed_ctx,
-            device=device,
+            n_features=_dim,
+            distributed_ctx=distributed_ctx,
         )
 
     # Every rank must hold the same full dataset: each builds a complete index

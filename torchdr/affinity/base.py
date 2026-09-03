@@ -23,8 +23,8 @@ from torchdr.distance import (
     pairwise_distances,
     FaissConfig,
     FaissPlanConfig,
-    resolve_faiss_plan,
 )
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
 
 import torch.distributed as dist
 
@@ -125,12 +125,11 @@ class Affinity(nn.Module, ABC):
         if not isinstance(backend, FaissPlanConfig):
             return backend
 
-        plan, config = resolve_faiss_plan(
+        plan, config = _resolve_faiss_plan(
             backend,
             n_samples=self._get_n_samples(X),
-            dim=self._get_n_features(X),
-            dist_ctx=getattr(self, "dist_ctx", None),
-            device=self.device,
+            n_features=self._get_n_features(X),
+            distributed_ctx=getattr(self, "dist_ctx", None),
         )
         self.faiss_plan_ = plan
         if self.verbose and getattr(self, "rank", 0) == 0:

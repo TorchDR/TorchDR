@@ -7,7 +7,7 @@ from .faiss import (
     LIST_METRICS_FAISS,
     FaissConfig,
 )
-from .faiss_plan import FaissPlanConfig, resolve_faiss_plan
+from .faiss_plan import FaissPlanConfig
 
 __all__ = [
     "pairwise_distances",
@@ -18,7 +18,6 @@ __all__ = [
     "pairwise_distances_faiss_from_dataloader",
     "FaissConfig",
     "FaissPlanConfig",
-    "resolve_faiss_plan",
     "LIST_METRICS_TORCH",
     "LIST_METRICS_KEOPS",
     "LIST_METRICS_FAISS",

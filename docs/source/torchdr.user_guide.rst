@@ -331,9 +331,9 @@ For finer control, pass a :class:`~torchdr.distance.FaissPlanConfig` as the
 ``backend`` to express accuracy and resource *intent* rather than low-level FAISS
 parameters. Exact search is the default (``FaissPlanConfig(mode="exact")``) and
 never silently approximates; the resolved execution plan (index, precision,
-distribution, memory estimate) is available after fitting through the affinity's
-``faiss_plan_`` attribute. Experts can still supply low-level options through
-``FaissPlanConfig(expert=FaissConfig(...))`` or by passing a
+distribution, and index-memory estimate) is available after fitting through the
+estimator's ``faiss_plan_`` attribute. Experts can still supply low-level options
+through ``FaissPlanConfig(expert=FaissConfig(...))`` or by passing a
 :class:`~torchdr.distance.FaissConfig` directly.
 
 Alternatively, for exact computations or affinities that can't be limited to kNNs, you can use symbolic (lazy) tensors to avoid memory overflows.

@@ -17,7 +17,7 @@ from torchdr.affinity import (
     SparseAffinity,
 )
 from torchdr.base import DRModule
-from torchdr.distance import FaissConfig
+from torchdr.distance import FaissConfig, FaissPlanConfig
 from torchdr.utils import (
     check_NaNs,
     check_nonnegativity,
@@ -96,7 +96,7 @@ class AffinityMatcher(DRModule):
         Scaling factor for the initial embedding. Default is 1e-4.
     device : str, optional
         Device for computations. Default is "auto".
-    backend : {"keops", "faiss", None} or FaissConfig, optional
+    backend : {"keops", "faiss", None}, FaissConfig, or FaissPlanConfig, optional
         Backend for handling sparsity and memory efficiency.
         Default is None (standard PyTorch).
     verbose : bool, optional
@@ -133,7 +133,7 @@ class AffinityMatcher(DRModule):
         init: Union[str, torch.Tensor, np.ndarray] = "pca",
         init_scaling: float = 1e-4,
         device: str = "auto",
-        backend: Union[str, FaissConfig, None] = None,
+        backend: Union[str, FaissConfig, FaissPlanConfig, None] = None,
         verbose: bool = False,
         random_state: Optional[float] = None,
         check_interval: int = 50,
@@ -479,7 +479,8 @@ class AffinityMatcher(DRModule):
 
     def on_affinity_computation_end(self):
         """Called after computing the input affinity matrix."""
-        pass
+        if hasattr(self.affinity_in, "faiss_plan_"):
+            self.faiss_plan_ = self.affinity_in.faiss_plan_
 
     def on_training_step_start(self):
         """Called at the beginning of each optimization step."""

@@ -21,6 +21,7 @@ from torchdr.distance.faiss import (
     _create_index,
     _train_index,
 )
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
 from torchdr.distributed import DistributedContext
 from torchdr.utils import faiss
 
@@ -146,6 +147,8 @@ class TestSharedTraining:
 
         start, end = context.compute_chunk_bounds(N_SAMPLES)
         assert torch.equal(chunk, exact[start:end])
+        plan, _ = _resolve_faiss_plan(FaissPlanConfig(), distributed_ctx=context)
+        assert plan.distribution == "replicate"
 
     # Probing every list makes IVF exact, so only ties keep it below one. IVFPQ
     # answers from its codes, and the loose bound is there to catch an index

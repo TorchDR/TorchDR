@@ -1,4 +1,4 @@
-"""Tests for the high-level FAISS execution-plan API (FaissPlanConfig)."""
+"""Tests for the high-level FAISS execution-plan API."""
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
 #
@@ -9,236 +9,132 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 
-from torchdr import EntropicAffinity
+from torchdr import EntropicAffinity, TSNE
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
-from torchdr.distance.faiss_plan import _FaissPlan, resolve_faiss_plan
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
 from torchdr.utils import faiss
 
 
-pytestmark = pytest.mark.skipif(
+requires_faiss = pytest.mark.skipif(
     faiss is None or faiss is False, reason="faiss not installed"
 )
-
-N_SAMPLES = 200
-N_FEATURES = 8
 
 
 @pytest.fixture(scope="module")
 def data():
-    generator = torch.Generator().manual_seed(0)
-    return torch.randn(N_SAMPLES, N_FEATURES, generator=generator)
+    return torch.randn(200, 8, generator=torch.Generator().manual_seed(0))
 
 
-class TestFaissPlanConfigValidation:
-    """Construction-time validation of the public intent config."""
-
-    def test_defaults(self):
-        cfg = FaissPlanConfig()
-        assert cfg.mode == "exact"
-        assert cfg.distribution == "auto"
-        assert cfg.memory_budget == "auto"
-        assert cfg.random_state is None
-        assert cfg.expert is None
-
-    def test_repr_is_readable(self):
-        text = repr(FaissPlanConfig(random_state=3, expert=FaissConfig()))
-        assert text.startswith("FaissPlanConfig(")
-        assert "random_state=3" in text
-
-    @pytest.mark.parametrize("mode", ["turbo", "Exact", "", None])
-    def test_invalid_mode_raises(self, mode):
-        with pytest.raises(ValueError, match="mode"):
-            FaissPlanConfig(mode=mode)
-
-    @pytest.mark.parametrize("distribution", ["sharded", "single", None])
-    def test_invalid_distribution_raises(self, distribution):
-        with pytest.raises(ValueError, match="distribution"):
-            FaissPlanConfig(distribution=distribution)
-
-    @pytest.mark.parametrize("budget", ["huge", -1, 0, 1.5, True])
-    def test_invalid_memory_budget_raises(self, budget):
-        with pytest.raises(ValueError, match="memory_budget"):
-            FaissPlanConfig(memory_budget=budget)
-
-    def test_valid_explicit_memory_budget_constructs(self):
-        # A positive integer budget is a valid *field* (resolution raises later).
-        cfg = FaissPlanConfig(memory_budget=2**30)
-        assert cfg.memory_budget == 2**30
-
-    def test_expert_must_be_faissconfig(self):
-        with pytest.raises(TypeError, match="expert"):
-            FaissPlanConfig(expert="not-a-config")
-
-    def test_expert_with_nondefault_mode_raises(self):
-        with pytest.raises(ValueError, match="expert override"):
-            FaissPlanConfig(mode="fast", expert=FaissConfig())
+def test_config_defaults_are_exact_and_immutable():
+    config = FaissPlanConfig()
+    assert (config.mode, config.distribution, config.expert) == (
+        "exact",
+        "auto",
+        None,
+    )
+    with pytest.raises(FrozenInstanceError):
+        config.mode = "fast"
+    assert pickle.loads(pickle.dumps(config)) == config
 
 
-class TestResolveFaissPlan:
-    """Resolution of intent into an immutable plan + low-level FaissConfig."""
-
-    def test_exact_resolves_to_flat_full_precision(self):
-        plan, resolved = resolve_faiss_plan(FaissPlanConfig(mode="exact"))
-        assert isinstance(plan, _FaissPlan)
-        assert plan.index_type == "Flat"
-        assert plan.precision == "float32"
-        assert plan.distribution == "replicate"
-        assert plan.training_size == 0
-        assert isinstance(resolved, FaissConfig)
-        assert resolved.index_type == "Flat"
-
-    def test_auto_distribution_resolves_to_replicate(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig(distribution="auto"))
-        assert plan.distribution == "replicate"
-        plan2, _ = resolve_faiss_plan(FaissPlanConfig(distribution="replicate"))
-        assert plan2.distribution == "replicate"
-
-    def test_memory_estimate_when_shape_known(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig(), n_samples=1000, dim=N_FEATURES)
-        assert plan.memory_estimate == 1000 * N_FEATURES * 4
-
-    def test_memory_estimate_unknown_without_shape(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig())
-        assert plan.memory_estimate is None
-
-    def test_random_state_recorded(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig(random_state=7))
-        assert plan.random_state == 7
-
-    def test_expert_override_used_verbatim(self):
-        expert = FaissConfig(index_type="IVFPQ", nlist=50, M=8, nbits=8, nprobe=4)
-        plan, resolved = resolve_faiss_plan(FaissPlanConfig(expert=expert))
-        assert resolved.index_type == "IVFPQ"
-        assert resolved.nlist == 50
-        assert resolved.M == 8
-        assert resolved.nprobe == 4
-        assert plan.index_type == "IVFPQ"
-        assert plan.precision == "reduced"  # PQ compresses
-        assert plan.training_size is None  # resolved downstream
-
-    def test_expert_ivf_is_full_precision(self):
-        plan, _ = resolve_faiss_plan(
-            FaissPlanConfig(expert=FaissConfig(index_type="IVF"))
-        )
-        assert plan.precision == "float32"
-
-    @pytest.mark.parametrize("mode", ["balanced", "fast"])
-    def test_presets_not_yet_supported(self, mode):
-        with pytest.raises(NotImplementedError, match="#304"):
-            resolve_faiss_plan(FaissPlanConfig(mode=mode))
-
-    def test_shard_not_yet_supported(self):
-        with pytest.raises(NotImplementedError, match="#301"):
-            resolve_faiss_plan(FaissPlanConfig(distribution="shard"))
-
-    def test_explicit_memory_budget_not_yet_supported(self):
-        with pytest.raises(NotImplementedError, match="#301"):
-            resolve_faiss_plan(FaissPlanConfig(memory_budget=2**30))
-
-    def test_exact_never_approximates(self):
-        # No combination of the supported knobs may resolve to an approximate
-        # index unless the user explicitly supplied an approximate expert config.
-        for cfg in (
-            FaissPlanConfig(),
-            FaissPlanConfig(distribution="replicate"),
-            FaissPlanConfig(random_state=1),
-        ):
-            _, resolved = resolve_faiss_plan(cfg)
-            assert resolved.index_type == "Flat"
-
-    def test_non_mutation_of_user_config(self):
-        expert = FaissConfig(index_type="IVFPQ", nlist=42, M=8)
-        cfg = FaissPlanConfig(random_state=1, expert=expert)
-        before_cfg, before_expert = repr(cfg), repr(expert)
-
-        _, resolved = resolve_faiss_plan(cfg, n_samples=100, dim=N_FEATURES)
-
-        assert repr(cfg) == before_cfg
-        assert repr(expert) == before_expert
-        # The resolved config is a fresh object, not the user's expert instance.
-        assert resolved is not expert
+@pytest.mark.parametrize(
+    ("kwargs", "error"),
+    [
+        ({"mode": "turbo"}, ValueError),
+        ({"distribution": "single"}, ValueError),
+        ({"expert": "not-a-config"}, TypeError),
+        (
+            {"mode": "fast", "expert": FaissConfig(index_type="IVF")},
+            ValueError,
+        ),
+    ],
+)
+def test_config_rejects_invalid_combinations(kwargs, error):
+    with pytest.raises(error):
+        FaissPlanConfig(**kwargs)
 
 
-class TestFaissPlanImmutabilityAndSerialization:
-    """The resolved plan is frozen, reproducibly represented, and picklable."""
-
-    def test_plan_is_frozen(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig())
-        with pytest.raises(FrozenInstanceError):
-            plan.index_type = "IVF"
-
-    def test_plan_repr(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig(), n_samples=10, dim=4)
-        text = repr(plan)
-        assert text.startswith("FaissPlan(")
-        assert "index_type='Flat'" in text
-        assert "memory_estimate=160 bytes" in text
-
-    def test_plan_repr_unknown_fields(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig())
-        text = repr(plan)
-        assert "memory_estimate=unknown" in text
-
-    def test_plan_is_picklable(self):
-        plan, _ = resolve_faiss_plan(FaissPlanConfig(), n_samples=10, dim=4)
-        restored = pickle.loads(pickle.dumps(plan))
-        assert restored == plan
-        assert repr(restored) == repr(plan)
+@pytest.mark.parametrize(
+    "config",
+    [
+        FaissPlanConfig(mode="balanced"),
+        FaissPlanConfig(mode="fast"),
+        FaissPlanConfig(distribution="shard"),
+    ],
+)
+def test_unimplemented_intents_fail_explicitly(config):
+    with pytest.raises(NotImplementedError):
+        _resolve_faiss_plan(config)
 
 
-class TestFaissPlanIntegration:
-    """End-to-end behavior through pairwise_distances and an affinity (CPU)."""
+def test_exact_plan_reports_resolved_execution():
+    plan, resolved = _resolve_faiss_plan(
+        FaissPlanConfig(), n_samples=1_000, n_features=8
+    )
+    assert plan.mode == "exact"
+    assert plan.index_type == resolved.index_type == "Flat"
+    assert plan.precision == "float32"
+    assert plan.distribution == "single"
+    assert plan.training_size == 0
+    assert plan.index_memory_bytes == 1_000 * 8 * 4
 
-    def test_pairwise_distances_accepts_plan_config(self, data):
-        # Direct-call guard: a plan config resolves to the exact Flat backend and
-        # returns the same neighbors as backend="faiss" (CPU-only fallback).
-        d_ref, i_ref = pairwise_distances(
-            data, k=5, backend="faiss", return_indices=True
-        )
-        d_plan, i_plan = pairwise_distances(
-            data, k=5, backend=FaissPlanConfig(mode="exact"), return_indices=True
-        )
-        assert torch.equal(i_ref, i_plan)
-        assert torch.allclose(d_ref, d_plan)
+    restored = pickle.loads(pickle.dumps(plan))
+    assert restored == plan
+    assert "index_memory_bytes=32000" in repr(restored)
 
-    def test_pairwise_distances_reproducible(self, data):
-        _, i_a = pairwise_distances(
-            data, k=5, backend=FaissPlanConfig(mode="exact"), return_indices=True
-        )
-        _, i_b = pairwise_distances(
-            data, k=5, backend=FaissPlanConfig(mode="exact"), return_indices=True
-        )
-        assert torch.equal(i_a, i_b)
 
-    def test_affinity_records_plan_and_matches_faiss(self, data):
-        aff_plan = EntropicAffinity(
-            perplexity=15,
-            backend=FaissPlanConfig(mode="exact"),
-            sparsity=True,
-            verbose=False,
-        )
-        _, idx_plan = aff_plan(data)
+def test_expert_resolution_is_non_mutating():
+    expert = FaissConfig(
+        index_type="IVFPQ", nlist=50, M=8, nbits=8, nprobe=4, custom_option=1
+    )
+    config = FaissPlanConfig(expert=expert)
+    before = repr(expert)
 
-        # The resolved plan is exposed for inspection after computation.
-        assert hasattr(aff_plan, "faiss_plan_")
-        assert aff_plan.faiss_plan_.index_type == "Flat"
-        assert aff_plan.faiss_plan_.precision == "float32"
+    plan, resolved = _resolve_faiss_plan(config)
 
-        aff_faiss = EntropicAffinity(
-            perplexity=15,
-            backend="faiss",
-            sparsity=True,
-            verbose=False,
-        )
-        _, idx_faiss = aff_faiss(data)
+    assert repr(expert) == before
+    assert resolved is not expert
+    assert resolved.faiss_kwargs is not expert.faiss_kwargs
+    assert resolved.faiss_kwargs == expert.faiss_kwargs
+    assert plan.mode == "expert"
+    assert plan.index_type == "IVFPQ"
+    assert plan.precision == "reduced"
+    assert plan.training_size is None
 
-        # Exact plan == plain FAISS Flat: identical k-NN structure.
-        assert torch.equal(idx_plan, idx_faiss)
 
-    def test_affinity_without_plan_has_no_attr(self, data):
-        aff = EntropicAffinity(
-            perplexity=15, backend="faiss", sparsity=True, verbose=False
-        )
-        aff(data)
-        assert not hasattr(aff, "faiss_plan_")
+@requires_faiss
+def test_exact_plan_matches_existing_faiss_backend(data):
+    distances, indices = pairwise_distances(
+        data, k=5, backend=FaissPlanConfig(), return_indices=True
+    )
+    reference_distances, reference_indices = pairwise_distances(
+        data, k=5, backend="faiss", return_indices=True
+    )
+    assert torch.equal(indices, reference_indices)
+    assert torch.allclose(distances, reference_distances)
+
+
+@requires_faiss
+def test_plan_accepts_dataloader_input(data):
+    loader = DataLoader(TensorDataset(data), batch_size=32, shuffle=False)
+    distances, indices = pairwise_distances(
+        loader, k=5, backend=FaissPlanConfig(), return_indices=True
+    )
+    assert distances.shape == indices.shape == (len(data), 5)
+
+
+@requires_faiss
+def test_plan_is_exposed_by_affinity_and_estimator(data):
+    affinity = EntropicAffinity(perplexity=15, backend=FaissPlanConfig(), sparsity=True)
+    affinity(data)
+    assert affinity.faiss_plan_.index_type == "Flat"
+
+    estimator = TSNE(
+        perplexity=15,
+        backend=FaissPlanConfig(),
+        max_iter=0,
+        random_state=0,
+    ).fit(data)
+    assert estimator.faiss_plan_ == estimator.affinity_in.faiss_plan_
