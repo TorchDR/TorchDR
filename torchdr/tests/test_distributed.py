@@ -275,6 +275,20 @@ class TestGetRankForIndices:
         expected = torch.tensor([0, 0, 1, 1, 2, 2])
         assert torch.equal(ranks, expected)
 
+    def test_more_ranks_than_samples_raises(self):
+        """Reject world_size > n_samples instead of dividing by a zero chunk."""
+        with pytest.raises(ValueError, match="zero rows"):
+            DistributedContext.get_rank_for_indices(
+                torch.arange(3), n_samples=3, world_size=4
+            )
+
+    def test_one_sample_per_rank_is_allowed(self):
+        """world_size == n_samples is the boundary and must still work."""
+        ranks = DistributedContext.get_rank_for_indices(
+            torch.arange(4), n_samples=4, world_size=4
+        )
+        assert torch.equal(ranks, torch.arange(4))
+
     def test_inverse_of_compute_chunk_bounds(self):
         """Test that get_rank_for_indices is inverse of compute_chunk_bounds."""
         n_samples = 97

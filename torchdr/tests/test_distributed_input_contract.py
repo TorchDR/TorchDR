@@ -67,6 +67,11 @@ class TestAcceptedInputs:
         assert validate_distributed_input(X, None) is None
         assert validate_distributed_input(X, DistributedContext()) is None
 
+    def test_one_sample_per_rank_is_accepted(self, simulate_world):
+        """world_size == n_samples is the boundary and must not be rejected."""
+        X = torch.randn(4, 4)
+        assert simulate_world([X, X.clone(), X.clone(), X.clone()]) is None
+
 
 class TestRejectedInputs:
     def test_distributed_sampler_is_rejected_on_every_rank(self, simulate_world):
@@ -122,6 +127,11 @@ class TestRejectedInputs:
         X = torch.randn(64, 4)
         with pytest.raises(ValueError, match="input_kind"):
             simulate_world([X, _loader(X)])
+
+    def test_more_ranks_than_samples_is_rejected(self, simulate_world):
+        X = torch.randn(3, 4)
+        with pytest.raises(ValueError, match="at least one sample per rank"):
+            simulate_world([X, X.clone(), X.clone(), X.clone()])
 
     def test_loader_dataset_size_mismatch(self, simulate_world):
         X = torch.randn(64, 4)
