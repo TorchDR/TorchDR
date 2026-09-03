@@ -398,6 +398,7 @@ class DistributedContext:
                 nlist=base_config.nlist,
                 M=base_config.M,
                 nbits=base_config.nbits,
+                stream_batch_size=base_config.stream_batch_size,
                 **base_config.faiss_kwargs,
             )
 
