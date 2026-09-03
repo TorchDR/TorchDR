@@ -28,8 +28,13 @@ def flatten_sparse(
     n, k = values.shape
     device = values.device
 
-    rows = torch.arange(n, device=device).unsqueeze(1).expand(n, k)
-    i = rows.reshape(-1)
+    # ``repeat_interleave`` returns a fresh contiguous row-index vector for every
+    # ``n``. Expanding and reshaping instead yields a stride-0 view when ``n == 1``
+    # (a single-row chunk), where all ``k`` elements alias one memory location, so
+    # an in-place mutation such as ``distributed_symmetrize_sparse``'s
+    # ``i.add_(chunk_start)`` raises "more than one element of the written-to
+    # tensor refers to a single memory location".
+    i = torch.arange(n, device=device).repeat_interleave(k)
     j = indices.reshape(-1)
     v = values.reshape(-1)
     return i, j, v
