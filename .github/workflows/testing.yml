@@ -180,7 +180,7 @@ jobs:
       - name: Verify FAISS installation
         run: python -c "from torchdr.utils.faiss import faiss; assert faiss, 'FAISS failed to import'"
       - name: Run Tests
-        run: pytest torchdr/tests/test_utils.py torchdr/tests/test_dataloader.py torchdr/tests/test_eval.py --verbose --cov=torchdr --cov-report term --cov-report xml
+        run: pytest torchdr/tests/test_utils.py torchdr/tests/test_dataloader.py torchdr/tests/test_eval.py torchdr/tests/test_faiss_index_training.py --verbose --cov=torchdr --cov-report term --cov-report xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

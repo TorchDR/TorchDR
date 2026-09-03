@@ -76,7 +76,8 @@ def _local_metadata(X, sharded: bool):
     return [n_samples, n_features, dtype, kind, int(sharded)]
 
 
-def _collective_device(dist_ctx) -> torch.device:
+def collective_device(dist_ctx) -> torch.device:
+    """Device a collective's tensors must live on for the active backend."""
     if dist.get_backend() == "nccl":
         return torch.device("cuda", dist_ctx.local_rank)
     return torch.device("cpu")
@@ -119,7 +120,7 @@ def validate_distributed_input(X, dist_ctx) -> None:
             raise _sharded_loader_error(shard_info, ())
         return
 
-    device = _collective_device(dist_ctx)
+    device = collective_device(dist_ctx)
     local = torch.tensor(
         _local_metadata(X, shard_info is not None), dtype=torch.int64, device=device
     )
