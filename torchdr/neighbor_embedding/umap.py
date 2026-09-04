@@ -281,11 +281,22 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             "epoch_of_next_sample", epochs_per_sample.clone(), persistent=False
         )
 
+        self._set_negative_sampling_capacity()
+
         # The padded grid is no longer needed: UMAP uses closed-form gradients
         # (no loss reads ``affinity_in_``) and both gradient terms now index the
         # flat edge buffers. Free it to reclaim the max-degree padding overhead.
         del self.affinity_in_
         del self.NN_indices_
+
+    def _set_negative_sampling_capacity(self):
+        """Size the rectangular negative-sample buffer for active graph rows."""
+        max_active_edges = (
+            int(self.attractive_counts_.max().item())
+            if self.attractive_counts_.numel()
+            else 0
+        )
+        self.n_negatives = int(self.negative_sample_rate * max_active_edges)
 
     def _compute_attractive_gradients(self):
         source = self.attractive_source_
@@ -462,6 +473,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         ):
             saved[attr] = (hasattr(self, attr), getattr(self, attr, None))
 
+        saved["n_negatives"] = (True, self.n_negatives)
+
         # Flatten the (offset) transform neighbor grid to the same flat edge
         # layout used at fit time so the shared closed-form gradient runs over
         # real edges. super()._enter_transform set NN_indices_ to the global
@@ -470,6 +483,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         self.attractive_source_ = source
         self.attractive_target_ = target
         self.attractive_counts_ = edge_mask.sum(dim=1)
+        self._set_negative_sampling_capacity()
         self.epochs_per_sample = epochs_per_sample[edge_mask]
         self.epoch_of_next_sample = self.epochs_per_sample.clone()
 

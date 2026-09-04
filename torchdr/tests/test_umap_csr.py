@@ -21,6 +21,16 @@ from torchdr.tests.utils import toy_dataset
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 
 
+def test_negative_sampling_capacity_matches_active_graph_degree():
+    """Negative capacity covers every active edge after symmetrization."""
+    model = UMAP(n_neighbors=15, negative_sample_rate=5)
+    model.attractive_counts_ = torch.tensor([12, 18, 7])
+
+    model._set_negative_sampling_capacity()
+
+    assert model.n_negatives == 90
+
+
 def test_flatten_padded_edges_row_major():
     """Padded grid flattens to row-major real edges with a sorted source."""
     # max_degree 4; rows with 2, 4, 0 and 1 real edges (-1 is padding).
