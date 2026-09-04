@@ -19,8 +19,8 @@ _SHARDED_IDX = len(_FIELDS)
 _VECTOR_LEN = _SHARDED_IDX + 1
 
 _CONTRACT = (
-    "TorchDR builds a complete nearest-neighbor index on every rank and "
-    "partitions only the query rows. Pass the same full dataset to every rank."
+    "TorchDR's distributed nearest-neighbor search currently requires the same "
+    "full dataset on every rank."
 )
 
 
