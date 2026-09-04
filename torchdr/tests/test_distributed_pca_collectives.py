@@ -10,7 +10,7 @@ import pytest
 import torch
 import torch.distributed as dist
 
-from torchdr import PCA
+from torchdr import ExactIncrementalPCA, PCA
 from torchdr.distributed import DistributedContext
 
 
@@ -68,6 +68,43 @@ def test_distributed_pca_matches_full_data_reference():
         reference_embedding[start:end],
         rtol=1e-8,
         atol=1e-8,
+    )
+
+    for components in gathered[1:]:
+        torch.testing.assert_close(components, gathered[0], rtol=0, atol=0)
+
+
+def test_distributed_exact_incremental_pca_matches_reference():
+    """Incremental covariance aggregation matches a full-data reference."""
+    generator = torch.Generator().manual_seed(0)
+    X = torch.randn(101, 6, dtype=torch.float64, generator=generator)
+    X.mul_(torch.arange(1, 7, dtype=X.dtype))
+
+    reference = ExactIncrementalPCA(n_components=4, distributed=False).fit(X)
+    context = DistributedContext()
+    start, end = context.compute_chunk_bounds(len(X))
+    model = ExactIncrementalPCA(n_components=4, distributed=True).fit(
+        X[start:end].contiguous()
+    )
+
+    # Finish the test's extra collective before making local assertions, so a
+    # failure cannot strand another rank during teardown.
+    gathered = [torch.empty_like(model.components_) for _ in range(context.world_size)]
+    dist.all_gather(gathered, model.components_)
+
+    assert model.n_samples_seen_ == len(X)
+    torch.testing.assert_close(model.mean_, reference.mean_, rtol=1e-8, atol=1e-8)
+
+    signs = torch.sign((model.components_ * reference.components_).sum(dim=1))
+    signs.masked_fill_(signs == 0, 1)
+    torch.testing.assert_close(
+        model.components_ * signs[:, None],
+        reference.components_,
+        rtol=1e-8,
+        atol=1e-8,
+    )
+    torch.testing.assert_close(
+        model.explained_variance_, reference.explained_variance_, rtol=1e-8, atol=1e-8
     )
 
     for components in gathered[1:]:

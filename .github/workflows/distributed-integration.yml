@@ -16,6 +16,7 @@ on:
       - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
+      - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
@@ -36,6 +37,7 @@ on:
       - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
+      - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
@@ -86,7 +88,6 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_pca_collectives.py -q
-
   test-distributed-faiss-cpu:
     runs-on: ubuntu-latest
     timeout-minutes: 15
