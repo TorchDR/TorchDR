@@ -22,6 +22,21 @@ requires_faiss = pytest.mark.skipif(
 )
 
 
+class _FakeContext:
+    """Minimal stand-in for DistributedContext during plan resolution.
+
+    ``_resolve_faiss_plan`` only reads ``is_initialized`` and ``world_size``, so
+    the topology decision can be exercised on a single process without a real
+    process group.
+    """
+
+    def __init__(self, world_size, is_initialized=True):
+        self.is_initialized = is_initialized
+        self.world_size = world_size
+        self.rank = 0
+        self.local_rank = 0
+
+
 @pytest.fixture(scope="module")
 def data():
     return torch.randn(200, 8, generator=torch.Generator().manual_seed(0))
@@ -61,12 +76,63 @@ def test_config_rejects_invalid_combinations(kwargs, error):
     [
         FaissPlanConfig(mode="balanced"),
         FaissPlanConfig(mode="fast"),
-        FaissPlanConfig(distribution="shard"),
     ],
 )
 def test_unimplemented_intents_fail_explicitly(config):
     with pytest.raises(NotImplementedError):
         _resolve_faiss_plan(config)
+
+
+def test_shard_and_replicate_resolve_across_a_group():
+    ctx = _FakeContext(world_size=4)
+    plan, resolved = _resolve_faiss_plan(
+        FaissPlanConfig(distribution="shard"),
+        n_samples=1_000,
+        n_features=8,
+        distributed_ctx=ctx,
+    )
+    assert plan.distribution == "shard"
+    assert plan.index_type == resolved.index_type == "Flat"
+    assert plan.index_memory_bytes == 250 * 8 * 4
+
+    plan, _ = _resolve_faiss_plan(
+        FaissPlanConfig(distribution="replicate"),
+        n_samples=1_000,
+        n_features=8,
+        distributed_ctx=ctx,
+    )
+    assert plan.distribution == "replicate"
+
+
+def test_shard_without_a_group_resolves_to_single():
+    # Sharding needs more than one rank; a lone process just searches directly.
+    plan, _ = _resolve_faiss_plan(FaissPlanConfig(distribution="shard"))
+    assert plan.distribution == "single"
+
+    plan, _ = _resolve_faiss_plan(
+        FaissPlanConfig(distribution="shard"),
+        distributed_ctx=_FakeContext(world_size=1),
+    )
+    assert plan.distribution == "single"
+
+
+def test_auto_preserves_replication_until_memory_selection_is_implemented():
+    ctx = _FakeContext(world_size=2)
+    plan, _ = _resolve_faiss_plan(
+        FaissPlanConfig(distribution="auto"),
+        n_samples=1_000,
+        n_features=8,
+        distributed_ctx=ctx,
+    )
+    assert plan.distribution == "replicate"
+
+
+def test_explicit_shard_rejects_unsupported_expert_index():
+    with pytest.raises(NotImplementedError, match="supports only exact Flat"):
+        _resolve_faiss_plan(
+            FaissPlanConfig(distribution="shard", expert=FaissConfig(index_type="IVF")),
+            distributed_ctx=_FakeContext(world_size=2),
+        )
 
 
 def test_exact_plan_reports_resolved_execution():
@@ -123,6 +189,17 @@ def test_plan_accepts_dataloader_input(data):
         loader, k=5, backend=FaissPlanConfig(), return_indices=True
     )
     assert distances.shape == indices.shape == (len(data), 5)
+
+
+def test_shard_plan_rejects_dataloader_instead_of_silently_replicating(data):
+    loader = DataLoader(TensorDataset(data), batch_size=32, shuffle=False)
+    with pytest.raises(NotImplementedError, match="does not yet support DataLoader"):
+        pairwise_distances(
+            loader,
+            k=5,
+            backend=FaissPlanConfig(distribution="shard"),
+            distributed_ctx=_FakeContext(world_size=2),
+        )
 
 
 @requires_faiss
