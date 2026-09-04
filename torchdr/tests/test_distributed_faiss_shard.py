@@ -1,9 +1,9 @@
 """Real-process tests for exact k-NN over a database sharded across ranks.
 
-Ordinary CI runs these against Gloo and CPU FAISS. The same module can run with
-NCCL and GPU FAISS, because TorchDR selects the process-group backend from the
-available device. Each rank's result must equal replicated Flat search for its
-query chunk.
+Ordinary CI runs these against Gloo and CPU FAISS. The collective implementation
+also supports NCCL and GPU FAISS when given CUDA-resident inputs; that path is
+validated separately on GPU hardware. Each rank's result must equal replicated
+Flat search for its query chunk.
 """
 
 # Author: Hugues Van Assel <vanasselhugues@gmail.com>
@@ -17,12 +17,16 @@ import torch
 import torch.distributed as dist
 
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
-from torchdr.distance.faiss import sharded_pairwise_distances_faiss
+from torchdr.distance.faiss import (
+    input_sharded_pairwise_distances_faiss,
+    sharded_pairwise_distances_faiss,
+)
 from torchdr.distributed import (
     DistributedContext,
     init_distributed,
     shutdown_distributed,
 )
+from torchdr.distributed.input_contract import gather_shard_layout
 from torchdr.utils import faiss
 
 
@@ -108,6 +112,40 @@ def _assert_matches_chunk(data, context, k, metric, exclude_diag=False):
     assert torch.allclose(sh_D, ref_D[start:end])
 
 
+def _weighted_counts(n_samples, world_size):
+    """Uneven rank-major partition that differs from the balanced partitioner."""
+    weights = [rank + 1 for rank in range(world_size)]
+    total = sum(weights)
+    counts = [n_samples * weight // total for weight in weights]
+    counts[-1] += n_samples - sum(counts)
+    return counts
+
+
+def _local_shard(data, counts, rank):
+    start = sum(counts[:rank])
+    end = start + counts[rank]
+    return data[start:end].contiguous(), start, end
+
+
+def _assert_input_shard_matches(
+    data, counts, context, k, metric, exclude_diag=False, query_batch_size=None
+):
+    """Compare a distinct local input shard with the global Flat oracle."""
+    X_local, start, end = _local_shard(data, counts, context.rank)
+    ref_D, ref_I = _reference(data, k, metric, exclude_diag)
+    sh_D, sh_I = input_sharded_pairwise_distances_faiss(
+        X_local,
+        k=k,
+        metric=metric,
+        exclude_diag=exclude_diag,
+        distributed_ctx=context,
+        query_batch_size=query_batch_size,
+    )
+    assert sh_I.shape == (end - start, k)
+    assert torch.equal(sh_I, ref_I[start:end])
+    assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
+
+
 class TestShardedSearch:
     @pytest.mark.parametrize("metric", ["sqeuclidean", "euclidean", "angular"])
     def test_shard_matches_single_process_flat(self, data, context, metric):
@@ -156,6 +194,62 @@ class TestShardedSearch:
         assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
 
 
+class TestInputShardedSearch:
+    """Exact search when every rank holds only its distinct local rows."""
+
+    @pytest.mark.parametrize("metric", ["sqeuclidean", "angular"])
+    def test_uneven_input_shard_matches_global_flat(self, context, metric):
+        # Uneven offsets prove that global ids come from the declared layout,
+        # rather than the balanced partition used for replicated inputs.
+        data = _dataset(N_SAMPLES, seed=11)
+        counts = _weighted_counts(N_SAMPLES, context.world_size)
+        _assert_input_shard_matches(data, counts, context, K, metric)
+
+    def test_global_self_neighbor_is_excluded(self, context):
+        data = _dataset(N_SAMPLES, seed=12)
+        counts = _weighted_counts(N_SAMPLES, context.world_size)
+        _assert_input_shard_matches(
+            data, counts, context, K, "sqeuclidean", exclude_diag=True
+        )
+
+    def test_empty_rank_participates(self, context):
+        data = _dataset(N_SAMPLES, seed=13)
+        counts = _weighted_counts(N_SAMPLES, context.world_size)
+        counts[-1] += counts[0]
+        counts[0] = 0
+        _assert_input_shard_matches(data, counts, context, K, "angular")
+
+    def test_k_larger_than_local_shard(self, context):
+        data = _dataset(3 * context.world_size + 1, seed=14)
+        counts = _weighted_counts(data.shape[0], context.world_size)
+        _assert_input_shard_matches(data, counts, context, K, "sqeuclidean")
+
+    def test_bounded_query_batch_matches(self, context):
+        data = _dataset(N_SAMPLES, seed=15)
+        counts = _weighted_counts(N_SAMPLES, context.world_size)
+        X_local, start, end = _local_shard(data, counts, context.rank)
+        ref_D, _ = _reference(data, K, "sqeuclidean")
+        sh_D, sh_I = input_sharded_pairwise_distances_faiss(
+            X_local,
+            k=K,
+            metric="sqeuclidean",
+            distributed_ctx=context,
+            query_batch_size=7,
+        )
+        # FAISS's blocked float32 kernel can swap numerically tied neighbors when
+        # the query batch changes, so the meaningful invariant here is the exact
+        # top-k distance profile. Other tests above require exact global ids.
+        assert sh_I.shape == (end - start, K)
+        assert ((sh_I >= 0) & (sh_I < N_SAMPLES)).all()
+        assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
+
+    def test_layout_rejects_feature_mismatch_collectively(self, context):
+        n_features = N_FEATURES + (context.rank == context.world_size - 1)
+        X_local = torch.randn(4, n_features)
+        with pytest.raises(ValueError, match="disagree on n_features"):
+            gather_shard_layout(X_local, context)
+
+
 class TestShardedSearchFailurePropagation:
     """A local search failure stops every rank before result gathering."""
 
@@ -192,4 +286,32 @@ class TestShardedSearchFailurePropagation:
             )
 
         # The process group remains usable after the symmetric failure.
+        dist.barrier()
+
+
+class TestInputShardedFailurePropagation:
+    """A local index-build failure stops every rank before search begins."""
+
+    def test_index_build_failure_raises_everywhere(self, data, context, monkeypatch):
+        import torchdr.distance.faiss as faiss_mod
+
+        failing_rank = context.world_size - 1
+        real_create_index = faiss_mod._create_index
+
+        def faulty_create_index(*args, **kwargs):
+            if context.rank == failing_rank:
+                raise RuntimeError("injected local FAISS index build failure")
+            return real_create_index(*args, **kwargs)
+
+        monkeypatch.setattr(faiss_mod, "_create_index", faulty_create_index)
+        counts = _weighted_counts(data.shape[0], context.world_size)
+        X_local, _, _ = _local_shard(data, counts, context.rank)
+
+        with pytest.raises(
+            RuntimeError, match="a rank failed to build its local FAISS index"
+        ):
+            input_sharded_pairwise_distances_faiss(
+                X_local, k=K, metric="sqeuclidean", distributed_ctx=context
+            )
+
         dist.barrier()

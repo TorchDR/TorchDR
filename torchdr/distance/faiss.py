@@ -987,16 +987,18 @@ def input_sharded_pairwise_distances_faiss(
     # replicated copy -- so a local FAISS row i is global database id
     # ``local_offset + i``.
     db_offset = layout.local_offset
-    shard = X_local.detach().to(device=index_device, dtype=torch.float32).contiguous()
-    shard_faiss = shard if faiss_torch_interop else shard.cpu().numpy()
-
     # Guard the index build under the same symmetric vote as the search: a rank
-    # that fails to create or fill its index still reaches the reduce, so every
-    # rank raises together instead of the survivors hanging in the merge.
+    # that fails to stage the shard, create the index, or fill it still reaches
+    # the reduce, so every rank raises together instead of the survivors hanging
+    # in the merge.
     build_ok = torch.ones(1, dtype=torch.int64, device=comm_device)
     reason = ""
     index = None
     try:
+        shard = (
+            X_local.detach().to(device=index_device, dtype=torch.float32).contiguous()
+        )
+        shard_faiss = shard if faiss_torch_interop else shard.cpu().numpy()
         index = _create_index(metric, config, d, shard.shape[0], use_gpu_index)
         with faiss_device_scope(faiss_device):
             index.add(shard_faiss)
