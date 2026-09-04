@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import torch
 
@@ -86,11 +86,6 @@ class SelfTuningAffinity(LogAffinity):
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
-    _n_neighbors_search : int, optional
-        Number of non-self neighbors to retrieve in sparse mode. This internal
-        override is used by :class:`~torchdr.UMAP` because its public
-        ``n_neighbors`` follows umap-learn's convention and includes self,
-        while TorchDR's distance backends remove self before returning results.
     """
 
     def __init__(
@@ -350,8 +345,11 @@ class UMAPAffinity(SparseAffinity):
 
     Parameters
     ----------
-    n_neighbors : float, optional
-        Number of effective nearest neighbors to consider. Similar to the perplexity.
+    n_neighbors : int, optional
+        UMAP neighbor count, including the sample itself during fit. TorchDR's
+        distance backends remove self-neighbors, so sparse mode retrieves
+        ``n_neighbors - 1`` other samples while retaining ``log2(n_neighbors)``
+        as the bandwidth target, matching umap-learn.
     max_iter : int, optional
         Maximum number of iterations for the root search.
     sparsity : bool, optional
@@ -390,7 +388,7 @@ class UMAPAffinity(SparseAffinity):
 
     def __init__(
         self,
-        n_neighbors: float = 30,
+        n_neighbors: int = 30,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -402,10 +400,8 @@ class UMAPAffinity(SparseAffinity):
         symmetrize: bool = True,
         distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
-        _n_neighbors_search: Optional[int] = None,
     ):
         self.n_neighbors = n_neighbors
-        self._n_neighbors_search = _n_neighbors_search
         self.max_iter = max_iter
         self.symmetrize = symmetrize
 
@@ -439,14 +435,12 @@ class UMAPAffinity(SparseAffinity):
         """
         n_samples_in = self._get_n_samples(X)
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
-        n_neighbors_search = check_neighbor_param(
-            self._n_neighbors_search
-            if self._n_neighbors_search is not None
-            else n_neighbors,
-            n_samples_in,
-        )
 
         if self.sparsity:
+            # umap-learn's fit-time k-NN array contains self in its first column
+            # and skips that column when constructing memberships. TorchDR's
+            # distance backends already remove self, so request one fewer row.
+            n_neighbors_search = n_neighbors - 1
             if self.verbose:
                 self.logger.info(
                     f"Sparsity mode enabled, computing {n_neighbors_search} nearest "
