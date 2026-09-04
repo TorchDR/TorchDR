@@ -17,7 +17,12 @@ import torch
 import torch.distributed as dist
 
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
+from torchdr.distance import base as distance_base
 from torchdr.distance.faiss import sharded_pairwise_distances_faiss
+from torchdr.distance.faiss_plan import (
+    _AUTO_MEMORY_SAFETY,
+    _estimate_search_peak_bytes,
+)
 from torchdr.distributed import (
     DistributedContext,
     init_distributed,
@@ -154,3 +159,138 @@ class TestShardedSearch:
         start, end = context.compute_chunk_bounds(N_SAMPLES)
         assert torch.equal(sh_I, ref_I[start:end])
         assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
+
+
+def _budget_forcing(target, world_size, n_samples=N_SAMPLES, n_features=N_FEATURES):
+    """Per-GPU 'available' bytes that drives ``auto`` into ``target``.
+
+    Computed from the peak-memory model the selector uses so the tests track the
+    model rather than a hard-coded byte count.
+    """
+    replicate_peak = _estimate_search_peak_bytes(n_samples, n_features, n_samples)
+    shard_rows = (n_samples + world_size - 1) // world_size
+    shard_peak = _estimate_search_peak_bytes(n_samples, n_features, shard_rows)
+    if target == "replicate":
+        return int(replicate_peak / _AUTO_MEMORY_SAFETY) + 10**9
+    if target == "shard":
+        return int((shard_peak + replicate_peak) / 2 / _AUTO_MEMORY_SAFETY)
+    if target == "refuse":
+        return int(shard_peak / _AUTO_MEMORY_SAFETY) - 10**6
+    raise ValueError(target)
+
+
+def _auto(data, context, exclude_diag=False):
+    return pairwise_distances(
+        data,
+        k=K,
+        metric="sqeuclidean",
+        backend=FaissPlanConfig(distribution="auto"),
+        exclude_diag=exclude_diag,
+        return_indices=True,
+        distributed_ctx=context,
+    )
+
+
+def _spy_on_shard(monkeypatch):
+    """Count how often this rank routes through the sharded search."""
+    calls = {"n": 0}
+    real = distance_base.sharded_pairwise_distances_faiss
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(distance_base, "sharded_pairwise_distances_faiss", counting)
+    return calls
+
+
+def _all_gather_int(value, world_size):
+    local = torch.tensor([int(value)], dtype=torch.int64)
+    gathered = [torch.zeros(1, dtype=torch.int64) for _ in range(world_size)]
+    dist.all_gather(gathered, local)
+    return [int(t.item()) for t in gathered]
+
+
+class TestAutoDistribution:
+    """End-to-end memory-aware ``distribution='auto'`` selection (issue #301).
+
+    The per-GPU memory read is replaced by an injected budget so the selection
+    logic -- which normally only fires on a real multi-GPU node -- is exercised
+    on CPU/Gloo CI. Every case still runs the real process group and the real
+    exact-search paths, and compares against single-process Flat neighbors.
+    """
+
+    def test_auto_replicates_when_memory_is_ample(self, data, context, monkeypatch):
+        # A budget that fits a full index keeps the fast replicated path: no rank
+        # enters the sharded search, and every chunk still matches the reference.
+        monkeypatch.setattr(
+            distance_base,
+            "_available_gpu_memory_bytes",
+            lambda ctx: _budget_forcing("replicate", context.world_size),
+        )
+        calls = _spy_on_shard(monkeypatch)
+        ref_D, ref_I = _reference(data, K, "sqeuclidean")
+        au_D, au_I = _auto(data, context)
+        start, end = context.compute_chunk_bounds(N_SAMPLES)
+        assert torch.equal(au_I, ref_I[start:end])
+        assert torch.allclose(au_D, ref_D[start:end])
+        assert (
+            _all_gather_int(calls["n"], context.world_size) == [0] * context.world_size
+        )
+
+    def test_auto_shards_when_replication_exceeds_memory(
+        self, data, context, monkeypatch
+    ):
+        # A budget too small for a full index but large enough sharded routes every
+        # rank through the sharded search and still reproduces the exact neighbors.
+        monkeypatch.setattr(
+            distance_base,
+            "_available_gpu_memory_bytes",
+            lambda ctx: _budget_forcing("shard", context.world_size),
+        )
+        calls = _spy_on_shard(monkeypatch)
+        ref_D, ref_I = _reference(data, K, "sqeuclidean")
+        au_D, au_I = _auto(data, context)
+        start, end = context.compute_chunk_bounds(N_SAMPLES)
+        assert torch.equal(au_I, ref_I[start:end])
+        assert torch.allclose(au_D, ref_D[start:end])
+        assert (
+            _all_gather_int(calls["n"], context.world_size) == [1] * context.world_size
+        )
+
+    def test_auto_decision_is_consistent_across_divergent_budgets(
+        self, data, context, monkeypatch
+    ):
+        # Rank 0 alone would replicate (ample budget); the others would shard. The
+        # cross-rank MIN reduce forces one shared decision -- had the ranks decided
+        # locally, some would launch the sharded collectives while others would not
+        # and the run would deadlock. Reaching the assertions at all proves the
+        # decision was uniform; the spy confirms every rank took the sharded path.
+        def divergent(ctx):
+            target = "replicate" if ctx.rank == 0 else "shard"
+            return _budget_forcing(target, context.world_size)
+
+        monkeypatch.setattr(distance_base, "_available_gpu_memory_bytes", divergent)
+        calls = _spy_on_shard(monkeypatch)
+        ref_D, ref_I = _reference(data, K, "sqeuclidean")
+        au_D, au_I = _auto(data, context)
+        start, end = context.compute_chunk_bounds(N_SAMPLES)
+        assert torch.equal(au_I, ref_I[start:end])
+        assert torch.allclose(au_D, ref_D[start:end])
+        assert (
+            _all_gather_int(calls["n"], context.world_size) == [1] * context.world_size
+        )
+
+    def test_auto_refuses_consistently_when_nothing_fits(
+        self, data, context, monkeypatch
+    ):
+        # When even a sharded index is over budget, every rank must raise -- not
+        # hang -- so the failure surfaces in lockstep after the shared reduce.
+        monkeypatch.setattr(
+            distance_base,
+            "_available_gpu_memory_bytes",
+            lambda ctx: _budget_forcing("refuse", context.world_size),
+        )
+        with pytest.raises(RuntimeError, match="run out of memory"):
+            _auto(data, context)
+        dist.barrier()

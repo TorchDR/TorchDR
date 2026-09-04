@@ -5,6 +5,7 @@
 # License: BSD 3-Clause License
 
 import torch
+import torch.distributed as dist
 from typing import Optional, Union
 
 from torch.utils.data import DataLoader
@@ -17,9 +18,51 @@ from .faiss import (
     sharded_pairwise_distances_faiss,
     FaissConfig,
 )
-from .faiss_plan import FaissPlanConfig, _resolve_faiss_plan
+from .faiss_plan import (
+    FaissPlanConfig,
+    _resolve_faiss_plan,
+    _estimate_search_peak_bytes,
+)
 from torchdr.distributed import DistributedContext
-from torchdr.distributed.input_contract import validate_distributed_input
+from torchdr.distributed.input_contract import (
+    validate_distributed_input,
+    collective_device,
+)
+
+
+def _available_gpu_memory_bytes(distributed_ctx) -> Optional[int]:
+    """Total memory of this rank's GPU in bytes, or ``None`` when unmeasurable.
+
+    Isolated as a seam so multi-process tests can inject a per-rank budget
+    without a real GPU. Reports total (not free) device memory because the
+    peak-memory model in ``faiss_plan`` is an absolute footprint calibrated
+    against total HBM.
+    """
+    if not torch.cuda.is_available():
+        return None
+    local_rank = getattr(distributed_ctx, "local_rank", 0) or 0
+    return int(torch.cuda.mem_get_info(local_rank)[1])
+
+
+def _min_available_memory_across_ranks(distributed_ctx) -> Optional[int]:
+    """Smallest per-GPU memory across ranks, so every rank decides identically.
+
+    Reducing with ``MIN`` both guarantees a single cross-rank budget -- ranks
+    must agree on the topology or they deadlock on mismatched collectives -- and
+    is safe on a heterogeneous cluster, where the tightest GPU sets the budget.
+    A rank that cannot measure its memory contributes ``+inf`` so it never lowers
+    the minimum; if no rank can measure, the result is ``None`` and ``auto``
+    stays on the replicated path.
+    """
+    local = _available_gpu_memory_bytes(distributed_ctx)
+    value = float("inf") if local is None else float(local)
+    device = collective_device(distributed_ctx)
+    reduced = torch.tensor([value], dtype=torch.float64, device=device)
+    dist.all_reduce(reduced, op=dist.ReduceOp.MIN)
+    result = reduced.item()
+    if result == float("inf"):
+        return None
+    return int(result)
 
 
 def pairwise_distances(
@@ -135,15 +178,59 @@ def pairwise_distances(
     # layer and expose it as ``faiss_plan_``; direct callers just get the result.
     distribution = "replicate"
     if isinstance(backend, FaissPlanConfig):
-        _n = None if isinstance(X, DataLoader) else X.shape[0]
-        _dim = None if isinstance(X, DataLoader) else X.shape[1]
+        is_tensor = not isinstance(X, DataLoader)
+        _n = X.shape[0] if is_tensor else None
+        _dim = X.shape[1] if is_tensor else None
+        requested_distribution = backend.distribution
+
+        # For 'auto' on tensor input across a real process group, measure the
+        # per-GPU memory and reduce it to one cross-rank budget so the resolver
+        # (a pure function of that budget) picks the same topology on every rank
+        # -- or refuses in lockstep. Other cases pass no budget, which keeps
+        # 'auto' on the replicated fast path.
+        _budget = None
+        if (
+            is_tensor
+            and requested_distribution == "auto"
+            and distributed_ctx is not None
+            and distributed_ctx.is_initialized
+            and dist.is_initialized()
+            and distributed_ctx.world_size > 1
+        ):
+            _budget = _min_available_memory_across_ranks(distributed_ctx)
+
         _plan, backend = _resolve_faiss_plan(
             backend,
             n_samples=_n,
             n_features=_dim,
             distributed_ctx=distributed_ctx,
+            available_memory_bytes=_budget,
         )
         distribution = _plan.distribution
+
+        if (
+            requested_distribution == "auto"
+            and distribution == "shard"
+            and _budget is not None
+            and distributed_ctx is not None
+            and distributed_ctx.rank == 0
+        ):
+            from torchdr.utils import set_logger
+
+            replicate_gb = _estimate_search_peak_bytes(_n, _dim, _n) / 1e9
+            shard_rows = (_n + distributed_ctx.world_size - 1) // (
+                distributed_ctx.world_size
+            )
+            shard_gb = _estimate_search_peak_bytes(_n, _dim, shard_rows) / 1e9
+            set_logger("torchdr").warning(
+                "distribution='auto' selected 'shard' across "
+                f"{distributed_ctx.world_size} ranks: a replicated index needs "
+                f"~{replicate_gb:.1f} GB per GPU (over the ~"
+                f"{_budget / 1e9:.1f} GB measured budget), so the exact Flat "
+                f"index is sharded to ~{shard_gb:.1f} GB per GPU. Set "
+                "distribution='replicate' or 'shard' to select the topology "
+                "explicitly and silence this notice."
+            )
 
     # The current distributed contract requires the same full input on every
     # rank, whether the FAISS index is replicated or sharded.
