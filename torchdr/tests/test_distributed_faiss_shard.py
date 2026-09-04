@@ -154,3 +154,42 @@ class TestShardedSearch:
         start, end = context.compute_chunk_bounds(N_SAMPLES)
         assert torch.equal(sh_I, ref_I[start:end])
         assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
+
+
+class TestShardedSearchFailurePropagation:
+    """A local search failure stops every rank before result gathering."""
+
+    def test_local_search_failure_raises_everywhere(self, data, context, monkeypatch):
+        import torchdr.distance.faiss as faiss_mod
+
+        failing_rank = context.world_size - 1
+        real_create_index = faiss_mod._create_index
+
+        class _FailingSearchIndex:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def add(self, x):
+                return self._inner.add(x)
+
+            def search(self, *args, **kwargs):
+                raise RuntimeError("injected local FAISS search failure")
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+        def faulty_create_index(*args, **kwargs):
+            index = real_create_index(*args, **kwargs)
+            if context.rank == failing_rank:
+                return _FailingSearchIndex(index)
+            return index
+
+        monkeypatch.setattr(faiss_mod, "_create_index", faulty_create_index)
+
+        with pytest.raises(RuntimeError, match="a rank failed its local FAISS search"):
+            sharded_pairwise_distances_faiss(
+                data, k=K, metric="sqeuclidean", distributed_ctx=context
+            )
+
+        # The process group remains usable after the symmetric failure.
+        dist.barrier()
