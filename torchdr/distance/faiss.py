@@ -18,7 +18,7 @@ from torch.utils.data import (
     BatchSampler,
 )
 
-from torchdr.distributed.input_contract import collective_device
+from torchdr.distributed.input_contract import collective_device, gather_shard_layout
 from torchdr.utils.faiss import faiss, faiss_torch_interop
 from torchdr.utils.faiss_runtime import (
     faiss_device_scope,
@@ -522,6 +522,160 @@ def pairwise_distances_faiss(
     return distances, indices
 
 
+def _resolve_query_batch_rows(
+    config: FaissConfig, query_batch_size: Optional[int]
+) -> int:
+    """Rows of queries to broadcast and merge per collective round."""
+    if query_batch_size is not None:
+        batch_rows = int(query_batch_size)
+    elif config.stream_batch_size != "auto":
+        batch_rows = int(config.stream_batch_size)
+    else:
+        batch_rows = _AUTO_STREAM_ROWS
+    if batch_rows < 1:
+        raise ValueError(
+            f"[TorchDR] query_batch_size must be a positive number of rows, "
+            f"got {batch_rows}."
+        )
+    return batch_rows
+
+
+def _concat_shard_results(
+    result_D: List[torch.Tensor],
+    result_I: List[torch.Tensor],
+    k_search: int,
+    comm_device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Concatenate this rank's merged query batches, or an empty (0, k) pair."""
+    if result_D:
+        return torch.cat(result_D, dim=0), torch.cat(result_I, dim=0)
+    D = torch.empty((0, k_search), dtype=torch.float32, device=comm_device)
+    Ind = torch.empty((0, k_search), dtype=torch.long, device=comm_device)
+    return D, Ind
+
+
+def _sharded_topk_merge(
+    index,
+    source_rows: Callable[[int, int], torch.Tensor],
+    source_counts: List[int],
+    *,
+    rank: int,
+    world_size: int,
+    d: int,
+    k_search: int,
+    db_offset: int,
+    largest: bool,
+    batch_rows: int,
+    comm_device: torch.device,
+    index_device: torch.device,
+    faiss_device: Optional[torch.device],
+) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
+    """Broadcast each source's queries, search every local shard, merge the top-k.
+
+    Shared by the replicated-input and sharded-input exact-Flat paths. The two
+    paths differ only in where a rank's queries come from (``source_rows``) and
+    how many rows each rank contributes (``source_counts``); the collective
+    sequence is identical, so keeping it in one place keeps a single understandable
+    path for the delicate failure handling.
+
+    A fixed source order ``0..world_size-1`` and a shared ``batch_rows`` make every
+    rank issue the same broadcast/all_gather sequence, so the collectives never
+    deadlock even though only the source rank keeps each merged result. Before the
+    ``all_gather`` an ``all_reduce`` votes on a per-batch success flag: a rank whose
+    local search raises still reaches the vote carrying the failure, so every rank
+    raises together instead of the survivors hanging.
+
+    ``source_rows(offset, m)`` returns this rank's own ``m`` query rows starting at
+    ``offset``; it is called only when this rank is the current source. Local FAISS
+    ids are mapped to global ids with ``db_offset`` (this rank's first global row),
+    and ``-1`` padding for a missing neighbor is preserved.
+    """
+    result_D: List[torch.Tensor] = []
+    result_I: List[torch.Tensor] = []
+    search_ok = torch.ones(1, dtype=torch.int64, device=comm_device)
+
+    for source in range(world_size):
+        n_src = int(source_counts[source])
+        for offset in range(0, n_src, batch_rows):
+            m = min(batch_rows, n_src - offset)
+            buf = torch.empty((m, d), dtype=torch.float32, device=comm_device)
+            if rank == source:
+                rows = source_rows(offset, m)
+                buf.copy_(rows.detach().to(device=comm_device, dtype=torch.float32))
+            dist.broadcast(buf, src=source)
+
+            searched = True
+            reason = ""
+            try:
+                if getattr(index, "ntotal", 0) == 0:
+                    # An empty local shard holds no candidates. FAISS leaves the
+                    # search output uninitialized on an empty index rather than
+                    # filling the +inf / -1 sentinels, so a missing neighbor would
+                    # otherwise win the merge with garbage distances near zero.
+                    # Emit the sentinels explicitly: a losing distance (+inf for
+                    # the L2 top-k, -inf for the inner-product top-k) and id -1.
+                    sentinel = float("-inf") if largest else float("inf")
+                    local_D = torch.full(
+                        (m, k_search), sentinel, dtype=torch.float32, device=comm_device
+                    )
+                    global_I = torch.full(
+                        (m, k_search), -1, dtype=torch.long, device=comm_device
+                    )
+                else:
+                    queries = buf.to(
+                        device=index_device, dtype=torch.float32
+                    ).contiguous()
+                    queries_faiss = (
+                        queries if faiss_torch_interop else queries.cpu().numpy()
+                    )
+                    with faiss_device_scope(faiss_device):
+                        local_D, local_I = index.search(queries_faiss, k_search)
+                    if not isinstance(local_D, torch.Tensor):
+                        local_D = torch.from_numpy(local_D)
+                        local_I = torch.from_numpy(local_I)
+                    local_D = local_D.to(device=comm_device, dtype=torch.float32)
+                    local_I = local_I.to(device=comm_device, dtype=torch.long)
+                    # -1 marks a missing neighbor (k_search larger than this shard)
+                    # and stays -1; real ids shift by this rank's global offset.
+                    global_I = torch.where(local_I >= 0, local_I + db_offset, local_I)
+            except Exception as error:  # reported on every rank, not just this one
+                searched = False
+                reason = f"{type(error).__name__}: {error}"
+
+            # MIN drops to 0 as soon as any rank failed; every rank runs this
+            # reduce regardless, so the failure is seen everywhere before the
+            # all_gather that a failed rank could not join.
+            search_ok.fill_(searched)
+            dist.all_reduce(search_ok, op=dist.ReduceOp.MIN)
+            if not search_ok.item():
+                raise RuntimeError(
+                    "[TorchDR] ERROR : a rank failed its local FAISS search; "
+                    "all ranks stopped before gathering incomplete results."
+                    + (f" This rank's error was {reason}." if reason else "")
+                )
+
+            D_parts = [torch.empty_like(local_D) for _ in range(world_size)]
+            I_parts = [torch.empty_like(global_I) for _ in range(world_size)]
+            dist.all_gather(D_parts, local_D.contiguous())
+            dist.all_gather(I_parts, global_I.contiguous())
+
+            if rank == source:
+                # Concatenate every shard's candidates per query row, then take
+                # the exact global top-k. Missing entries carry FAISS's sentinel
+                # distance (+inf for L2, -inf for inner product), so they lose the
+                # selection unless fewer than k neighbors exist globally.
+                D_all = torch.stack(D_parts, dim=1).reshape(m, world_size * k_search)
+                I_all = torch.stack(I_parts, dim=1).reshape(m, world_size * k_search)
+                merged_D, selection = torch.topk(
+                    D_all, k_search, dim=1, largest=largest, sorted=True
+                )
+                merged_I = torch.gather(I_all, 1, selection)
+                result_D.append(merged_D)
+                result_I.append(merged_I)
+
+    return result_D, result_I
+
+
 @torch.compiler.disable
 def sharded_pairwise_distances_faiss(
     X: torch.Tensor,
@@ -652,102 +806,32 @@ def sharded_pairwise_distances_faiss(
     with faiss_device_scope(faiss_device):
         index.add(shard_faiss)
 
-    if query_batch_size is not None:
-        batch_rows = int(query_batch_size)
-    elif config.stream_batch_size != "auto":
-        batch_rows = int(config.stream_batch_size)
-    else:
-        batch_rows = _AUTO_STREAM_ROWS
-    if batch_rows < 1:
-        raise ValueError(
-            f"[TorchDR] query_batch_size must be a positive number of rows, "
-            f"got {batch_rows}."
-        )
-
+    batch_rows = _resolve_query_batch_rows(config, query_batch_size)
     largest = metric == "angular"
-    result_D: List[torch.Tensor] = []
-    result_I: List[torch.Tensor] = []
-    search_ok = torch.ones(1, dtype=torch.int64, device=comm_device)
 
-    # Fixed source order 0..world_size-1 and a shared batch size make every rank
-    # issue the same broadcast/all_gather sequence, so the collectives never
-    # deadlock even though only the source rank keeps each merged result.
+    # Every rank owns the contiguous chunk it also queries, so the per-source
+    # counts are the balanced chunk sizes and a rank's own queries are its chunk.
+    source_counts = []
     for source in range(world_size):
         src_start, src_end = distributed_ctx.chunk_bounds(n_samples, source, world_size)
-        n_src = src_end - src_start
-        for offset in range(0, n_src, batch_rows):
-            m = min(batch_rows, n_src - offset)
-            buf = torch.empty((m, d), dtype=torch.float32, device=comm_device)
-            if rank == source:
-                rows = X[src_start + offset : src_start + offset + m]
-                buf.copy_(rows.detach().to(device=comm_device, dtype=torch.float32))
-            dist.broadcast(buf, src=source)
+        source_counts.append(src_end - src_start)
 
-            # A local search (or the copy of its result to the comm device) that
-            # raises on one rank would otherwise drop that rank out of the
-            # all_gather below while the others block on it forever. Guard the
-            # local work and vote on a shared success flag first, mirroring the
-            # trained-index broadcast in ``_train_index``: a rank that fails still
-            # reaches the collective carrying the failure, so every rank raises
-            # together instead of the survivors hanging.
-            searched = True
-            reason = ""
-            try:
-                queries = buf.to(device=index_device, dtype=torch.float32).contiguous()
-                queries_faiss = (
-                    queries if faiss_torch_interop else queries.cpu().numpy()
-                )
-                with faiss_device_scope(faiss_device):
-                    local_D, local_I = index.search(queries_faiss, k_search)
-                if not isinstance(local_D, torch.Tensor):
-                    local_D = torch.from_numpy(local_D)
-                    local_I = torch.from_numpy(local_I)
-                local_D = local_D.to(device=comm_device, dtype=torch.float32)
-                local_I = local_I.to(device=comm_device, dtype=torch.long)
-                # Map local FAISS ids to global database ids; -1 marks a missing
-                # neighbor (k_search larger than this shard) and stays -1.
-                global_I = torch.where(local_I >= 0, local_I + db_offset, local_I)
-            except Exception as error:  # reported on every rank, not just this one
-                searched = False
-                reason = f"{type(error).__name__}: {error}"
-
-            # MIN drops to 0 as soon as any rank failed; every rank runs this
-            # reduce regardless, so the failure is seen everywhere before the
-            # all_gather that a failed rank could not join.
-            search_ok.fill_(searched)
-            dist.all_reduce(search_ok, op=dist.ReduceOp.MIN)
-            if not search_ok.item():
-                raise RuntimeError(
-                    "[TorchDR] ERROR : a rank failed its local FAISS search; "
-                    "all ranks stopped before gathering incomplete results."
-                    + (f" This rank's error was {reason}." if reason else "")
-                )
-
-            D_parts = [torch.empty_like(local_D) for _ in range(world_size)]
-            I_parts = [torch.empty_like(global_I) for _ in range(world_size)]
-            dist.all_gather(D_parts, local_D.contiguous())
-            dist.all_gather(I_parts, global_I.contiguous())
-
-            if rank == source:
-                # Concatenate every shard's candidates per query row, then take
-                # the exact global top-k. Missing entries carry FAISS's sentinel
-                # distance (+inf for L2, -inf for inner product), so they lose the
-                # selection unless fewer than k neighbors exist globally.
-                D_all = torch.stack(D_parts, dim=1).reshape(m, world_size * k_search)
-                I_all = torch.stack(I_parts, dim=1).reshape(m, world_size * k_search)
-                merged_D, selection = torch.topk(
-                    D_all, k_search, dim=1, largest=largest, sorted=True
-                )
-                merged_I = torch.gather(I_all, 1, selection)
-                result_D.append(merged_D)
-                result_I.append(merged_I)
-
-    if result_D:
-        D = torch.cat(result_D, dim=0)
-        Ind = torch.cat(result_I, dim=0)
-    else:
-        D = torch.empty((0, k_search), dtype=torch.float32, device=comm_device)
-        Ind = torch.empty((0, k_search), dtype=torch.long, device=comm_device)
+    result_D, result_I = _sharded_topk_merge(
+        index,
+        lambda offset, m: X[shard_start + offset : shard_start + offset + m],
+        source_counts,
+        rank=rank,
+        world_size=world_size,
+        d=d,
+        k_search=k_search,
+        db_offset=db_offset,
+        largest=largest,
+        batch_rows=batch_rows,
+        comm_device=comm_device,
+        index_device=index_device,
+        faiss_device=faiss_device,
+    )
+    D, Ind = _concat_shard_results(result_D, result_I, k_search, comm_device)
 
     if metric == "euclidean":
         D = torch.sqrt(D)
@@ -756,6 +840,206 @@ def sharded_pairwise_distances_faiss(
 
     if exclude_diag:
         query_ids = torch.arange(shard_start, shard_end, device=Ind.device)
+        D, Ind = remove_self_neighbors(D, Ind, query_ids)
+
+    distances = D.to(device=compute_device, dtype=dtype)
+    indices = Ind.to(device=compute_device, dtype=torch.long)
+
+    return distances, indices
+
+
+@torch.compiler.disable
+def input_sharded_pairwise_distances_faiss(
+    X_local: torch.Tensor,
+    k: Union[int, torch.Tensor],
+    metric: str = "sqeuclidean",
+    exclude_diag: bool = False,
+    config: Optional[FaissConfig] = None,
+    device: str = "auto",
+    distributed_ctx: Optional[Any] = None,
+    query_batch_size: Optional[int] = None,
+):
+    r"""Exact k-NN over an input whose *rows* are split across the ranks.
+
+    Unlike :func:`sharded_pairwise_distances_faiss`, which keeps the full input
+    on every rank and only shards the FAISS index, here each rank holds a
+    distinct contiguous shard ``X_local`` and concatenating the shards in rank
+    order reconstructs the global dataset. This is the layout that actually
+    lowers the O(n\,d) input footprint: no rank ever materializes the whole
+    input. Row counts are collected once to derive the global sample count,
+    rank-major prefix offsets, and global ids; every rank indexes *all* of its
+    own rows and answers the queries drawn from those same rows.
+
+    For each source rank in turn its query sub-batch is broadcast, every rank
+    searches its local shard, and the source merges the gathered candidates into
+    the exact global top-k. The result equals single-process Flat search over the
+    reconstructed global dataset, restricted to this rank's rows. Only
+    ``broadcast``, ``all_reduce``, and ``all_gather`` are used, so the same path
+    runs on Gloo (CPU) and NCCL (GPU).
+
+    Both the index build (create/add) and each search are guarded by an
+    ``all_reduce`` vote: a rank that fails still reaches the vote carrying the
+    failure, so every rank raises together instead of the survivors hanging on a
+    later collective. Ranks that own zero rows are supported -- an empty shard
+    still takes part in every collective and simply contributes no candidates.
+
+    Only exact ``Flat`` search is supported; an approximate sharded index needs a
+    shared trained quantizer and is a separate follow-up.
+
+    Parameters
+    ----------
+    X_local : torch.Tensor of shape (n_local, d)
+        This rank's contiguous shard of the global input. Row counts may differ
+        between ranks; features and dtype must agree, which is checked
+        collectively.
+    k : int or torch.Tensor
+        Number of nearest neighbors to return.
+    metric : str, default "sqeuclidean"
+        One of "euclidean", "sqeuclidean", or "angular".
+    exclude_diag : bool, default False
+        When True, each query's own global row is removed from its results.
+    config : FaissConfig, optional
+        Low-level FAISS configuration. Must resolve to ``index_type="Flat"``.
+    device : str, default "auto"
+        Compute device. If "auto", uses the input device.
+    distributed_ctx : DistributedContext, optional
+        The group whose ranks hold the shards. When ``None``, not initialized, or
+        single-rank, ``X_local`` is treated as the whole dataset and the
+        replicated Flat path is used with no collective.
+    query_batch_size : int, optional
+        Rows of queries broadcast and merged at a time. Defaults to the config's
+        ``stream_batch_size`` when set, otherwise a built-in cap.
+
+    Returns
+    -------
+    distances : torch.Tensor of shape (n_local, k)
+        Neighbor distances for this rank's rows, in the same convention as
+        :func:`pairwise_distances_faiss`.
+    indices : torch.Tensor of shape (n_local, k)
+        Global database indices of those neighbors.
+    """
+    if metric not in LIST_METRICS_FAISS:
+        raise ValueError(
+            "[TorchDR] Only 'euclidean', 'sqeuclidean', and 'angular' metrics "
+            "are supported for FAISS."
+        )
+
+    config = FaissConfig() if config is None else config
+    if config.index_type != "Flat":
+        raise NotImplementedError(
+            "[TorchDR] a sharded input currently supports only exact 'Flat' "
+            "search; approximate sharded indexes are a separate follow-up."
+        )
+
+    k = int(k.item()) if isinstance(k, torch.Tensor) else int(k)
+    dtype = X_local.dtype
+
+    # Collect each rank's row count once and derive this rank's rank-major global
+    # range. This also validates that features and dtype agree across ranks.
+    layout = gather_shard_layout(X_local, distributed_ctx)
+    d = int(X_local.shape[1])
+
+    if X_local.dtype != torch.float32:
+        warnings.warn(
+            "[TorchDR] FAISS computes distances in float32; input values will "
+            "be converted and results cast back to the input dtype.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    # Single process (no group or a one-rank group): the whole input is one
+    # shard, global ids equal local ids, and no collective is needed. Reuse the
+    # replicated Flat path so there is a single implementation of the search.
+    if layout.world_size < 2:
+        local_config = (
+            distributed_ctx.get_faiss_config(config)
+            if distributed_ctx is not None and distributed_ctx.is_initialized
+            else config
+        )
+        return pairwise_distances_faiss(
+            X_local,
+            k,
+            metric=metric,
+            exclude_diag=exclude_diag,
+            config=local_config,
+            device=device,
+        )
+
+    # A default config names GPU 0; each rank must build on its own local rank.
+    config = distributed_ctx.get_faiss_config(config)
+
+    compute_device = X_local.device if device == "auto" else torch.device(device)
+    index_device, use_gpu_index = _index_input_device(config, compute_device)
+    if compute_device.type == "cuda" and not use_gpu_index:
+        warnings.warn(
+            "[TorchDR] WARNING: `faiss-gpu` not installed, using CPU for Faiss computations. "
+            "This may be slow. For faster performance, install `faiss-gpu`."
+        )
+    faiss_device = (
+        torch.device("cuda", _index_device_id(config)) if use_gpu_index else None
+    )
+    # Collectives run on cuda:local_rank for NCCL and on the host for Gloo.
+    comm_device = collective_device(distributed_ctx)
+
+    k_search = k + 1 if exclude_diag else k
+
+    # Index ALL of this rank's rows -- the shard is the input, not a re-slice of a
+    # replicated copy -- so a local FAISS row i is global database id
+    # ``local_offset + i``.
+    db_offset = layout.local_offset
+    shard = X_local.detach().to(device=index_device, dtype=torch.float32).contiguous()
+    shard_faiss = shard if faiss_torch_interop else shard.cpu().numpy()
+
+    # Guard the index build under the same symmetric vote as the search: a rank
+    # that fails to create or fill its index still reaches the reduce, so every
+    # rank raises together instead of the survivors hanging in the merge.
+    build_ok = torch.ones(1, dtype=torch.int64, device=comm_device)
+    reason = ""
+    index = None
+    try:
+        index = _create_index(metric, config, d, shard.shape[0], use_gpu_index)
+        with faiss_device_scope(faiss_device):
+            index.add(shard_faiss)
+    except Exception as error:  # reported on every rank, not just this one
+        build_ok.fill_(0)
+        reason = f"{type(error).__name__}: {error}"
+    dist.all_reduce(build_ok, op=dist.ReduceOp.MIN)
+    if not build_ok.item():
+        raise RuntimeError(
+            "[TorchDR] ERROR : a rank failed to build its local FAISS index; "
+            "all ranks stopped before searching."
+            + (f" This rank's error was {reason}." if reason else "")
+        )
+
+    batch_rows = _resolve_query_batch_rows(config, query_batch_size)
+    largest = metric == "angular"
+
+    # A rank's queries are its own local rows; per-source counts come straight
+    # from the gathered layout, so every rank drives the same source order.
+    result_D, result_I = _sharded_topk_merge(
+        index,
+        lambda offset, m: X_local[offset : offset + m],
+        list(layout.counts),
+        rank=layout.rank,
+        world_size=layout.world_size,
+        d=d,
+        k_search=k_search,
+        db_offset=db_offset,
+        largest=largest,
+        batch_rows=batch_rows,
+        comm_device=comm_device,
+        index_device=index_device,
+        faiss_device=faiss_device,
+    )
+    D, Ind = _concat_shard_results(result_D, result_I, k_search, comm_device)
+
+    if metric == "euclidean":
+        D = torch.sqrt(D)
+    elif metric == "angular":
+        D = -D
+
+    if exclude_diag:
+        query_ids = layout.query_ids(Ind.device)
         D, Ind = remove_self_neighbors(D, Ind, query_ids)
 
     distances = D.to(device=compute_device, dtype=dtype)
