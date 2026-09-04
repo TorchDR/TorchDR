@@ -179,3 +179,33 @@ def test_autograd_training_step_reduces_gradients_across_ranks():
 
     assert model.embedding_.grad is not None
     torch.testing.assert_close(model.embedding_.grad, expected)
+
+
+def test_init_embedding_broadcasts_from_rank_zero():
+    """Every rank starts optimization from rank zero's initialization."""
+    context = DistributedContext()
+    n_samples, n_components = 12, 3
+
+    # Keep this transport-level test on CPU while exercising the real
+    # multi-process branch.
+    model = UMAP(n_components=n_components, init="normal", distributed=False)
+    model.rank = context.rank
+    model.world_size = context.world_size
+    model.encoder = None
+    model.device_ = torch.device("cpu")
+
+    # Distinct seeds make the test fail if the broadcast is removed.
+    torch.manual_seed(1000 + context.rank)
+
+    model._init_embedding(torch.randn(n_samples, 4))
+
+    local = model.embedding_.detach().contiguous()
+    assert local.shape == (n_samples, n_components)
+
+    gathered = [torch.empty_like(local) for _ in range(context.world_size)]
+    dist.all_gather(gathered, local)
+
+    for rank, other in enumerate(gathered):
+        torch.testing.assert_close(
+            other, gathered[0], msg=f"rank {rank} diverged from rank 0's init"
+        )
