@@ -179,3 +179,51 @@ def test_autograd_training_step_reduces_gradients_across_ranks():
 
     assert model.embedding_.grad is not None
     torch.testing.assert_close(model.embedding_.grad, expected)
+
+
+def test_init_embedding_broadcasts_from_rank_zero():
+    """``_init_embedding`` hands every rank rank 0's initialization.
+
+    Distributed neighbor embedding relies on all ranks starting the descent
+    from the *same* embedding: the per-step gradient ``all_reduce`` sums
+    disjoint chunks under the assumption that every rank holds an identical
+    ``embedding_``. With a non-PCA ``init`` each rank draws its own random
+    tensor, so :meth:`NeighborEmbedding._init_embedding` broadcasts rank 0's
+    copy to the others. That broadcast only runs when ``world_size > 1`` and is
+    therefore invisible to the single-process ``test_affinity_matcher`` suite,
+    which never crosses a rank boundary.
+    """
+    context = DistributedContext()
+    n_samples, n_components = 12, 3
+
+    # distributed=False keeps the constructor from forcing a CUDA device while a
+    # Gloo group is live; world_size>1 is set by hand to take the broadcast
+    # branch of _init_embedding, mirroring the training-step tests above.
+    model = UMAP(n_components=n_components, init="normal", distributed=False)
+    model.rank = context.rank
+    model.world_size = context.world_size
+    model.encoder = None
+    model.device_ = torch.device("cpu")
+
+    # torchrun does not synchronize RNG across ranks, and the divergence this
+    # test guards against is precisely independent per-rank draws. Seed each
+    # rank differently so the pre-broadcast embeddings genuinely differ;
+    # conftest's shared session seed would otherwise make every rank draw the
+    # same tensor and let a dropped broadcast pass unnoticed.
+    torch.manual_seed(1000 + context.rank)
+
+    model._init_embedding(torch.randn(n_samples, 4))
+
+    local = model.embedding_.detach().contiguous()
+    assert local.shape == (n_samples, n_components)
+
+    gathered = [torch.empty_like(local) for _ in range(context.world_size)]
+    dist.all_gather(gathered, local)
+
+    # Every rank must hold exactly rank 0's embedding, and its own copy must be
+    # that same tensor -- not merely agree pairwise.
+    for rank, other in enumerate(gathered):
+        torch.testing.assert_close(
+            other, gathered[0], msg=f"rank {rank} diverged from rank 0's init"
+        )
+    torch.testing.assert_close(local, gathered[0])
