@@ -61,8 +61,11 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
     Parameters
     ----------
-    n_neighbors : float, optional
-        Number of nearest neighbors.
+    n_neighbors : int, optional
+        UMAP neighbor count. During fit this includes the sample itself, so the
+        fuzzy graph uses ``n_neighbors - 1`` other samples, matching umap-learn.
+        Transform is bipartite and therefore uses ``n_neighbors`` training
+        samples because a new query has no self-neighbor in the training set.
     n_components : int, optional
         Dimension of the embedding space.
     min_dist : float, optional
@@ -142,7 +145,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
     def __init__(
         self,
-        n_neighbors: float = 30,
+        n_neighbors: int = 30,
         n_components: int = 2,
         min_dist: float = 0.1,
         spread: float = 1.0,

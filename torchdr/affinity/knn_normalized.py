@@ -345,8 +345,11 @@ class UMAPAffinity(SparseAffinity):
 
     Parameters
     ----------
-    n_neighbors : float, optional
-        Number of effective nearest neighbors to consider. Similar to the perplexity.
+    n_neighbors : int, optional
+        UMAP neighbor count, including the sample itself during fit. TorchDR's
+        distance backends remove self-neighbors, so sparse mode retrieves
+        ``n_neighbors - 1`` other samples while retaining ``log2(n_neighbors)``
+        as the bandwidth target, matching umap-learn.
     max_iter : int, optional
         Maximum number of iterations for the root search.
     sparsity : bool, optional
@@ -385,7 +388,7 @@ class UMAPAffinity(SparseAffinity):
 
     def __init__(
         self,
-        n_neighbors: float = 30,
+        n_neighbors: int = 30,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -434,11 +437,18 @@ class UMAPAffinity(SparseAffinity):
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
+            # umap-learn's fit-time k-NN array contains self in its first column
+            # and skips that column when constructing memberships. TorchDR's
+            # distance backends already remove self, so request one fewer row.
+            n_neighbors_search = n_neighbors - 1
             if self.verbose:
                 self.logger.info(
-                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
+                    f"Sparsity mode enabled, computing {n_neighbors_search} nearest "
+                    "neighbors..."
                 )
-            C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
+            C_, indices = self._distance_matrix(
+                X, k=n_neighbors_search, return_indices=True
+            )
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 

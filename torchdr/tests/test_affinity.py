@@ -356,6 +356,26 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     check_nonnegativity(P)
 
 
+@pytest.mark.parametrize("n_neighbors", [2, 15])
+def test_umap_affinity_uses_self_inclusive_neighbor_count(n_neighbors):
+    """Fit searches k - 1 non-self rows but keeps log2(k) as its target."""
+    X, _ = toy_dataset(32, "float32")
+    affinity = UMAPAffinity(
+        n_neighbors=n_neighbors,
+        symmetrize=False,
+        device="cpu",
+        backend=None,
+        sparsity=True,
+    )
+
+    P, indices = affinity(X, return_indices=True)
+
+    assert indices.shape == (32, n_neighbors - 1)
+    assert torch.all(indices != torch.arange(32).unsqueeze(1))
+    expected_mass = torch.full((32,), torch.log2(torch.tensor(float(n_neighbors))))
+    torch.testing.assert_close(P.sum(dim=1), expected_mass, rtol=1e-3, atol=1e-3)
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)
