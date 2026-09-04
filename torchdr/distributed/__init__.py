@@ -392,6 +392,47 @@ class DistributedContext:
         # Clamp to valid rank range
         return torch.clamp(ranks, 0, world_size - 1)
 
+    @staticmethod
+    def get_rank_for_indices_from_boundaries(
+        indices: torch.Tensor, boundaries: torch.Tensor
+    ) -> torch.Tensor:
+        """Owner rank of each global index for an arbitrary rank-major layout.
+
+        Generalizes :meth:`get_rank_for_indices` to contiguous rank-major shards
+        of arbitrary, possibly uneven, sizes. ``boundaries`` are the rank-major
+        prefix offsets (length ``world_size + 1``); rank ``r`` owns the half-open
+        global range ``[boundaries[r], boundaries[r + 1])``. On a balanced layout
+        the two methods agree exactly, so this is a strict generalization.
+
+        Parameters
+        ----------
+        indices : torch.Tensor
+            Global indices to look up (any shape).
+        boundaries : torch.Tensor
+            Rank-major prefix offsets of length ``world_size + 1``. Must be
+            non-decreasing with ``boundaries[0] == 0``.
+
+        Returns
+        -------
+        ranks : torch.Tensor
+            Rank ownership for each index (same shape as ``indices``).
+
+        Examples
+        --------
+        >>> indices = torch.tensor([0, 4, 5, 11, 12, 14])
+        >>> boundaries = torch.tensor([0, 5, 12, 15])  # uneven shards [5, 7, 3]
+        >>> DistributedContext.get_rank_for_indices_from_boundaries(
+        ...     indices, boundaries
+        ... )
+        tensor([0, 0, 1, 1, 2, 2])
+        """
+        # Interior cut points; rank r owns [boundaries[r], boundaries[r + 1]).
+        # ``right=True`` maps an index falling exactly on a boundary to the later
+        # rank, matching the left-closed convention of ``get_rank_for_indices``
+        # and the ``i_sym >= chunk_start`` ownership mask.
+        interior = boundaries[1:-1].to(device=indices.device)
+        return torch.bucketize(indices, interior, right=True)
+
     def get_faiss_config(self, base_config=None):
         """Create FaissConfig for this rank's GPU device.
 
