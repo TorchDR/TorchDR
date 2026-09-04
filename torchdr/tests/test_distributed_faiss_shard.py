@@ -165,24 +165,24 @@ class TestShardedSearch:
         # divisible by neither two nor four) are exactly where a per-rank shortcut
         # would desynchronize the counts, so they are the sharpest guard.
         uneven = _dataset(4003)
-        with (
-            mock.patch.object(
-                faiss_mod.dist, "broadcast", side_effect=faiss_mod.dist.broadcast
-            ) as bcast,
-            mock.patch.object(
+        # Nested ``with`` blocks rather than a parenthesized multi-context form,
+        # which is Python 3.10+ syntax while TorchDR still supports 3.8.
+        with mock.patch.object(
+            faiss_mod.dist, "broadcast", side_effect=faiss_mod.dist.broadcast
+        ) as bcast:
+            with mock.patch.object(
                 faiss_mod.dist, "all_gather", side_effect=faiss_mod.dist.all_gather
-            ) as gather,
-        ):
-            sharded_pairwise_distances_faiss(
-                uneven,
-                k=K,
-                metric="sqeuclidean",
-                distributed_ctx=context,
-                query_batch_size=500,
-            )
-            local = torch.tensor(
-                [bcast.call_count, gather.call_count], dtype=torch.long
-            )
+            ) as gather:
+                sharded_pairwise_distances_faiss(
+                    uneven,
+                    k=K,
+                    metric="sqeuclidean",
+                    distributed_ctx=context,
+                    query_batch_size=500,
+                )
+                local = torch.tensor(
+                    [bcast.call_count, gather.call_count], dtype=torch.long
+                )
         # Distances and indices are gathered once each per broadcast round, and
         # every source rank contributes at least one round.
         assert local[1].item() == 2 * local[0].item()
