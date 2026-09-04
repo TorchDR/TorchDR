@@ -81,19 +81,23 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     A subset of edges is left unsampled (schedule) and one edge is degenerate
     (zero distance) so both masking branches are exercised.
     """
-    n, dim, a, b = 6, 2, 1.577, 0.895
+    n, dim, a, b = 9, 2, 1.577, 0.895
     gen = torch.Generator().manual_seed(0)
     emb = torch.randn(n, dim, dtype=torch.float64, generator=gen)
-    emb[4] = emb[0]  # a zero-distance edge (4 -> 0) must contribute nothing
+    chunk_indices = torch.arange(2, 8)
+    emb[6] = emb[2]  # a zero-distance edge (6 -> 2) must contribute nothing
 
+    # The six local rows represent global rows 2..7. A non-zero chunk offset
+    # ensures the test catches confusion between local edge sources and global
+    # embedding rows, which only affects distributed fits.
     nn = torch.tensor(
         [
-            [1, 2, -1],
-            [0, 3, 4],
+            [3, 4, -1],
+            [2, 5, 6],
             [-1, -1, -1],
-            [5, -1, -1],
-            [0, -1, -1],
-            [1, 2, 3],
+            [7, -1, -1],
+            [2, -1, -1],
+            [3, 4, 5],
         ]
     )
     source, target, _ = UMAP._flatten_padded_edges(nn)
@@ -106,10 +110,12 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     model = UMAP(n_components=dim, n_neighbors=2, optimizer="SGD")
     model._a, model._b, model.n_iter_ = a, b, 0
     model.embedding_ = emb.to(device)
-    model.chunk_indices_ = torch.arange(n, device=device)
+    model.chunk_indices_ = chunk_indices.to(device)
     model.attractive_source_ = source.to(device)
     model.attractive_target_ = target.to(device)
-    model.attractive_counts_ = torch.bincount(source, minlength=n).to(device)
+    model.attractive_counts_ = torch.bincount(source, minlength=len(chunk_indices)).to(
+        device
+    )
     # epoch_of_next_sample <= n_iter_ + 1 selects an edge this step; push the
     # unsampled edges just past the threshold.
     epoch_next = torch.where(
@@ -122,13 +128,49 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
 
     grad_ref = _reference_attractive_grad(
         emb.to(device),
-        torch.arange(n, device=device),
+        chunk_indices.to(device),
         source.to(device),
         target.to(device),
         a,
         b,
         sampled.to(device),
     )
+    torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_repulsive_gradient_matches_bruteforce_reference(device):
+    """Repulsive gradients use global query rows for a non-zero chunk."""
+    a, b, eps = 1.577, 0.895, 1e-3
+    gen = torch.Generator().manual_seed(1)
+    emb = torch.randn(8, 2, dtype=torch.float64, generator=gen).to(device)
+    chunk_indices = torch.tensor([3, 4, 5], device=device)
+    neg_indices = torch.tensor([[0, 7, 2], [6, 1, 3], [1, 7, 0]], device=device)
+
+    model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
+    model._a, model._b, model._eps = a, b, eps
+    model.embedding_ = emb
+    model.chunk_indices_ = chunk_indices
+    model.neg_indices_ = neg_indices
+    model.n_negatives = neg_indices.shape[1]
+    model.negative_sample_rate = 1
+    model.attractive_counts_ = torch.tensor([2, 1, 3], device=device)
+    model.mask_affinity_in_ = torch.tensor(
+        [True, False, True, True, False, True], device=device
+    )
+
+    grad = model._compute_repulsive_gradients()
+
+    # The active positive-edge counts retain 1, 1, and 2 negative samples.
+    grad_ref = torch.zeros_like(grad)
+    for local_row, n_negatives in enumerate([1, 1, 2]):
+        for negative in neg_indices[local_row, :n_negatives]:
+            diff = emb[chunk_indices[local_row]] - emb[negative]
+            dist2 = (diff * diff).sum()
+            coefficient = -2 * b / ((dist2 + eps) * (1 + a * dist2**b))
+            grad_ref[local_row] += coefficient * diff
+    grad_ref.clamp_(-4, 4)
+
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
 
