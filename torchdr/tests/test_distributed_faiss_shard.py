@@ -11,11 +11,13 @@ query chunk.
 # License: BSD 3-Clause License
 
 import os
+from unittest import mock
 
 import pytest
 import torch
 import torch.distributed as dist
 
+import torchdr.distance.faiss as faiss_mod
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
 from torchdr.distance.faiss import sharded_pairwise_distances_faiss
 from torchdr.distributed import (
@@ -154,3 +156,42 @@ class TestShardedSearch:
         start, end = context.compute_chunk_bounds(N_SAMPLES)
         assert torch.equal(sh_I, ref_I[start:end])
         assert torch.allclose(sh_D, ref_D[start:end], rtol=1e-4, atol=1e-4)
+
+    def test_collectives_stay_in_lockstep_across_ranks(self, context):
+        # #301 requires the sharded collectives never deadlock. The loop walks a
+        # fixed source order 0..world_size-1 with a shared batch size, so every
+        # rank must issue the identical broadcast/all_gather sequence and no rank
+        # can wait on a collective a peer never posts. Uneven partitions (a count
+        # divisible by neither two nor four) are exactly where a per-rank shortcut
+        # would desynchronize the counts, so they are the sharpest guard.
+        uneven = _dataset(4003)
+        with (
+            mock.patch.object(
+                faiss_mod.dist, "broadcast", side_effect=faiss_mod.dist.broadcast
+            ) as bcast,
+            mock.patch.object(
+                faiss_mod.dist, "all_gather", side_effect=faiss_mod.dist.all_gather
+            ) as gather,
+        ):
+            sharded_pairwise_distances_faiss(
+                uneven,
+                k=K,
+                metric="sqeuclidean",
+                distributed_ctx=context,
+                query_batch_size=500,
+            )
+            local = torch.tensor(
+                [bcast.call_count, gather.call_count], dtype=torch.long
+            )
+        # Distances and indices are gathered once each per broadcast round, and
+        # every source rank contributes at least one round.
+        assert local[1].item() == 2 * local[0].item()
+        assert local[0].item() >= context.world_size
+        # The real all_gather (restored on exit) confirms the counts agree; a
+        # mismatch here is the signature of a latent deadlock.
+        gathered = [torch.empty_like(local) for _ in range(context.world_size)]
+        dist.all_gather(gathered, local)
+        per_rank = [tuple(t.tolist()) for t in gathered]
+        assert len(set(per_rank)) == 1, (
+            f"ranks issued different collective counts and would deadlock: {per_rank}"
+        )
