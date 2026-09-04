@@ -16,9 +16,11 @@ on:
       - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
+      - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
+      - "torchdr/tests/test_distributed_incremental_pca_collectives.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_pca_collectives.py"
@@ -36,9 +38,11 @@ on:
       - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
+      - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
+      - "torchdr/tests/test_distributed_incremental_pca_collectives.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_pca_collectives.py"
@@ -86,6 +90,13 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_pca_collectives.py -q
+      - name: Run two-process IncrementalPCA collective test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_incremental_pca_collectives.py -q
 
   test-distributed-faiss-cpu:
     runs-on: ubuntu-latest
