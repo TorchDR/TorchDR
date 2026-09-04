@@ -15,6 +15,7 @@ from torchdr.distributed import (
     init_distributed,
     shutdown_distributed,
 )
+from torchdr.distributed.input_contract import validate_distributed_input
 from torchdr.spectral_embedding import PCA
 
 
@@ -90,3 +91,15 @@ def test_real_distributed_collectives():
     distributed_projector = distributed_pca.components_.T @ distributed_pca.components_
     reference_projector = reference_pca.components_.T @ reference_pca.components_
     torch.testing.assert_close(distributed_projector, reference_projector)
+
+
+def test_input_metadata_mismatch_is_rejected_on_every_rank():
+    """The real metadata gather exposes a disagreement to every rank."""
+    context = DistributedContext()
+
+    replicated = torch.zeros(8, 4)
+    assert validate_distributed_input(replicated, context) is None
+
+    n_features = 4 if context.rank == 0 else 3
+    with pytest.raises(ValueError, match="n_features"):
+        validate_distributed_input(torch.zeros(8, n_features), context)
