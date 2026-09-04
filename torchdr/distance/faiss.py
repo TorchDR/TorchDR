@@ -543,9 +543,12 @@ def sharded_pairwise_distances_faiss(
     global top-k. The result matches replicated Flat search for that rank's
     query chunk.
 
-    Only ``broadcast`` and ``all_gather`` collectives are used, so the same code
-    path runs on the Gloo (CPU) and NCCL (GPU) backends. Peak memory for the
-    merge is bounded by one query sub-batch, not by the dataset.
+    Only ``broadcast``, ``all_reduce``, and ``all_gather`` collectives are used,
+    so the same code path runs on the Gloo (CPU) and NCCL (GPU) backends. The
+    ``all_reduce`` votes on a per-batch success flag so that a local search
+    failing on one rank stops every rank together instead of leaving the
+    survivors to hang on the ``all_gather``. Peak memory for the merge is bounded
+    by one query sub-batch, not by the dataset.
 
     Only exact ``Flat`` search is supported here; approximate sharded indexes,
     which need a shared trained quantizer, are a separate follow-up.
@@ -681,16 +684,44 @@ def sharded_pairwise_distances_faiss(
 
             queries = buf.to(device=index_device, dtype=torch.float32).contiguous()
             queries_faiss = queries if faiss_torch_interop else queries.cpu().numpy()
-            with faiss_device_scope(faiss_device):
-                local_D, local_I = index.search(queries_faiss, k_search)
-            if not isinstance(local_D, torch.Tensor):
-                local_D = torch.from_numpy(local_D)
-                local_I = torch.from_numpy(local_I)
-            local_D = local_D.to(device=comm_device, dtype=torch.float32)
-            local_I = local_I.to(device=comm_device, dtype=torch.long)
-            # Map local FAISS ids to global database ids; -1 marks a missing
-            # neighbor (k_search larger than this shard) and stays -1.
-            global_I = torch.where(local_I >= 0, local_I + db_offset, local_I)
+            # A local search (or the copy of its result to the comm device) that
+            # raises on one rank would otherwise drop that rank out of the
+            # all_gather below while the others block on it forever. Guard the
+            # local work and vote on a shared success flag first, mirroring the
+            # trained-index broadcast in ``_train_index``: a rank that fails still
+            # reaches the collective carrying the failure, so every rank raises
+            # together instead of the survivors hanging.
+            searched = True
+            reason = ""
+            try:
+                with faiss_device_scope(faiss_device):
+                    local_D, local_I = index.search(queries_faiss, k_search)
+                if not isinstance(local_D, torch.Tensor):
+                    local_D = torch.from_numpy(local_D)
+                    local_I = torch.from_numpy(local_I)
+                local_D = local_D.to(device=comm_device, dtype=torch.float32)
+                local_I = local_I.to(device=comm_device, dtype=torch.long)
+                # Map local FAISS ids to global database ids; -1 marks a missing
+                # neighbor (k_search larger than this shard) and stays -1.
+                global_I = torch.where(local_I >= 0, local_I + db_offset, local_I)
+            except Exception as error:  # reported on every rank, not just this one
+                searched = False
+                reason = f"{type(error).__name__}: {error}"
+
+            # MIN drops to 0 as soon as any rank failed; every rank runs this
+            # reduce regardless, so the failure is seen everywhere before the
+            # all_gather that a failed rank could not join.
+            ok = torch.tensor(
+                [1 if searched else 0], dtype=torch.int64, device=comm_device
+            )
+            dist.all_reduce(ok, op=dist.ReduceOp.MIN)
+            if int(ok.item()) == 0:
+                raise RuntimeError(
+                    "[TorchDR] ERROR : a rank failed its local FAISS search over "
+                    "its database shard; every rank stops together so the "
+                    "survivors do not hang on the following all_gather."
+                    + (f" This rank's error was {reason}." if reason else "")
+                )
 
             D_parts = [torch.empty_like(local_D) for _ in range(world_size)]
             I_parts = [torch.empty_like(global_I) for _ in range(world_size)]
