@@ -271,6 +271,45 @@ class DistributedContext:
             self.world_size = 1
             self.local_rank = 0
 
+    @staticmethod
+    def chunk_bounds(n_samples: int, rank: int, world_size: int) -> Tuple[int, int]:
+        """Compute start and end indices for an arbitrary rank's chunk.
+
+        Divides n_samples as evenly as possible across all ranks.
+        If n_samples is not evenly divisible, the first (n_samples % world_size)
+        ranks get one extra sample. This is the partitioner behind
+        :meth:`compute_chunk_bounds`; it takes an explicit rank so a process can
+        also locate another rank's chunk, as sharded search does when it walks
+        every source rank in turn.
+
+        Parameters
+        ----------
+        n_samples : int
+            Total number of samples to divide.
+        rank : int
+            Rank whose chunk bounds to compute.
+        world_size : int
+            Number of ranks the samples are divided across.
+
+        Returns
+        -------
+        chunk_start : int
+            Starting index (inclusive) for the rank.
+        chunk_end : int
+            Ending index (exclusive) for the rank.
+        """
+        chunk_size = n_samples // world_size
+        remainder = n_samples % world_size
+
+        if rank < remainder:
+            chunk_start = rank * (chunk_size + 1)
+            chunk_end = chunk_start + chunk_size + 1
+        else:
+            chunk_start = rank * chunk_size + remainder
+            chunk_end = chunk_start + chunk_size
+
+        return chunk_start, chunk_end
+
     def compute_chunk_bounds(self, n_samples: int) -> Tuple[int, int]:
         """Compute start and end indices for this rank's chunk.
 
@@ -297,17 +336,7 @@ class DistributedContext:
         >>> # Rank 0: [0:25], Rank 1: [25:50], Rank 2: [50:75], Rank 3: [75:100]
         >>> start, end = dist_ctx.compute_chunk_bounds(100)
         """
-        chunk_size = n_samples // self.world_size
-        remainder = n_samples % self.world_size
-
-        if self.rank < remainder:
-            chunk_start = self.rank * (chunk_size + 1)
-            chunk_end = chunk_start + chunk_size + 1
-        else:
-            chunk_start = self.rank * chunk_size + remainder
-            chunk_end = chunk_start + chunk_size
-
-        return chunk_start, chunk_end
+        return self.chunk_bounds(n_samples, self.rank, self.world_size)
 
     @staticmethod
     def get_rank_for_indices(

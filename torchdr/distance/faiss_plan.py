@@ -19,9 +19,8 @@ class FaissPlanConfig:
 
     This is the small, user-facing alternative to :class:`FaissConfig`. The
     default always resolves to exact, full-precision Flat search. Approximate
-    presets and sharded indexes are represented now so their eventual behavior
-    has a stable home, but fail explicitly until their benchmarked
-    implementations land.
+    presets are represented now so their eventual behavior has a stable home,
+    but fail explicitly until their benchmarked implementations land.
 
     Parameters
     ----------
@@ -29,9 +28,11 @@ class FaissPlanConfig:
         Accuracy/speed intent. Only ``"exact"`` is currently implemented;
         ``"balanced"`` and ``"fast"`` raise :class:`NotImplementedError`.
     distribution : {"auto", "replicate", "shard"}, default="auto"
-        Multi-GPU topology. ``"auto"`` currently resolves to the existing
-        replicated-index strategy in distributed runs. ``"shard"`` is not yet
-        implemented and raises :class:`NotImplementedError`.
+        Multi-GPU topology. ``"replicate"`` builds the full index on every rank.
+        ``"shard"`` splits an exact ``Flat`` index across ranks. The input tensor
+        remains replicated under TorchDR's current distributed-input contract.
+        ``"auto"`` currently preserves the existing replicated-index strategy;
+        automatic memory-aware selection is not yet implemented.
     expert : FaissConfig, optional
         Explicit low-level override for advanced users. It cannot be combined
         with a non-default mode. The object is copied during resolution.
@@ -120,11 +121,6 @@ def _resolve_faiss_plan(
     distributed_ctx=None,
 ) -> Tuple[_FaissPlan, FaissConfig]:
     """Resolve user intent into diagnostics and a fresh low-level config."""
-    if config.distribution == "shard":
-        raise NotImplementedError(
-            "[TorchDR] distribution='shard' is not yet supported; see issue #301."
-        )
-
     if config.expert is not None:
         resolved = _copy_config(config.expert)
         mode = "expert"
@@ -139,11 +135,29 @@ def _resolve_faiss_plan(
     is_distributed = bool(
         distributed_ctx is not None and distributed_ctx.is_initialized
     )
-    distribution = "replicate" if is_distributed else "single"
+    world_size = int(getattr(distributed_ctx, "world_size", 1)) if is_distributed else 1
     training_size = 0 if resolved.index_type == "Flat" else None
+    if not is_distributed or world_size <= 1:
+        distribution = "single"
+    elif config.distribution == "shard":
+        if resolved.index_type != "Flat":
+            raise NotImplementedError(
+                "[TorchDR] distribution='shard' currently supports only exact "
+                "Flat indexes. Use distribution='replicate' for an expert "
+                "approximate index."
+            )
+        distribution = "shard"
+    else:
+        # Automatic memory-aware selection needs a trustworthy total peak-memory
+        # estimate. Until that exists, preserve the established fast path.
+        distribution = "replicate"
+
     index_memory_bytes = None
     if training_size == 0 and n_samples is not None and n_features is not None:
-        index_memory_bytes = int(n_samples) * int(n_features) * 4
+        indexed_rows = int(n_samples)
+        if distribution == "shard":
+            indexed_rows = (indexed_rows + world_size - 1) // world_size
+        index_memory_bytes = indexed_rows * int(n_features) * 4
 
     return (
         _FaissPlan(
