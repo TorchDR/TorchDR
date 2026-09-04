@@ -137,7 +137,11 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     ``learning_rate`` and ``initial_alpha`` schedule, but the resulting updates
     are not step-for-step equivalent. ``umap-learn`` applies sampled-edge
     updates sequentially with its own optimizer, whereas TorchDR accumulates
-    vectorized gradients and applies them simultaneously with PyTorch SGD.
+    vectorized gradients and applies them simultaneously with PyTorch SGD. For
+    fit-time attractive updates, the symmetric graph lets TorchDR recover the
+    contribution of moving both endpoints by scaling the reduced gradient;
+    this is intentionally disabled during transform because training points
+    are frozen.
     """  # noqa: E501
 
     def __init__(
@@ -309,13 +313,22 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         ]
         D.masked_fill_(~self.mask_affinity_in_, 0)
 
+        # Clip each edge before reduction, matching umap-learn's component-wise
+        # clipping while preserving a vectorized implementation.
+        edge_gradients = diff.mul_(D.unsqueeze(1)).clamp_(-4, 4)
+
         # The edges are ordered by source row, so a segmented reduction avoids
         # CUDA atomics and remains deterministic without giving up the flat
         # representation's performance and memory savings.
         grad = torch.segment_reduce(
-            diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
+            edge_gradients, "sum", lengths=self.attractive_counts_
         )
-        grad.clamp_(-4, 4)  # clamp as in umap repo
+        if not getattr(self, "_is_transforming", False):
+            # Fit-time UMAP moves both endpoints of every positive edge. The
+            # symmetric graph already contains the reverse edge, so scaling
+            # the source reduction recovers that contribution without a target
+            # scatter or a sequential update loop.
+            grad.mul_(2)
         return grad
 
     def _compute_repulsive_gradients(self):
@@ -347,9 +360,9 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             self.embedding_[self.chunk_indices_].unsqueeze(1)
             - self.embedding_[self.neg_indices_]
         )
-        grad = torch.einsum("ijk,ij->ik", diff, D)
-        grad.clamp_(-4, 4)  # clamp as in umap repo
-        return grad
+        # umap-learn clips each negative-edge contribution before applying it;
+        # reducing first and clipping afterward changes high-degree rows.
+        return diff.mul_(D.unsqueeze(2)).clamp_(-4, 4).sum(dim=1)
 
     # --- Non-parametric transform ---
 
@@ -450,6 +463,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             affinity, self._get_max_iter_transform()
         )
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+
+        saved["_is_transforming"] = (
+            hasattr(self, "_is_transforming"),
+            getattr(self, "_is_transforming", None),
+        )
+        self._is_transforming = True
 
         # Save UMAP-specific state
         for attr in (

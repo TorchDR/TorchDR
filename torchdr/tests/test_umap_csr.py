@@ -116,6 +116,9 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     model.attractive_counts_ = torch.bincount(source, minlength=len(chunk_indices)).to(
         device
     )
+    # This test isolates the source-only vectorized reduction. Fit-time UMAP
+    # additionally accounts for the frozen/reverse endpoint contribution.
+    model._is_transforming = True
     # epoch_of_next_sample <= n_iter_ + 1 selects an edge this step; push the
     # unsampled edges just past the threshold.
     epoch_next = torch.where(
@@ -136,6 +139,28 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
         sampled.to(device),
     )
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
+
+
+def test_fit_attractive_gradient_includes_both_endpoints():
+    """Fit attraction includes the reverse endpoint, unlike transform."""
+    model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
+    model._a, model._b, model._eps = 1.577, 0.895, 1e-3
+    model.embedding_ = torch.tensor([[0.0, 0.0], [1.0, 0.0]])
+    model.chunk_indices_ = torch.tensor([0])
+    model.attractive_source_ = torch.tensor([0])
+    model.attractive_target_ = torch.tensor([1])
+    model.attractive_counts_ = torch.tensor([1])
+    model.epoch_of_next_sample = torch.tensor([1.0])
+    model.epochs_per_sample = torch.tensor([1.0])
+    model.n_iter_ = torch.tensor(0)
+
+    model._is_transforming = True
+    transform_grad = model._compute_attractive_gradients()
+    model.epoch_of_next_sample = torch.tensor([1.0])
+    model._is_transforming = False
+    fit_grad = model._compute_attractive_gradients()
+
+    torch.testing.assert_close(fit_grad, transform_grad * 2)
 
 
 @pytest.mark.parametrize("device", DEVICES)
@@ -169,7 +194,7 @@ def test_repulsive_gradient_matches_bruteforce_reference(device):
             dist2 = (diff * diff).sum()
             coefficient = -2 * b / ((dist2 + eps) * (1 + a * dist2**b))
             grad_ref[local_row] += coefficient * diff
-    grad_ref.clamp_(-4, 4)
+    # All reference contributions are below the component-wise clipping bound.
 
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
