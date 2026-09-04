@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from torchdr import EntropicAffinity, TSNE
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
-from torchdr.distance.faiss_plan import _choose_distribution, _resolve_faiss_plan
+from torchdr.distance.faiss_plan import _resolve_faiss_plan
 from torchdr.utils import faiss
 
 
@@ -93,6 +93,7 @@ def test_shard_and_replicate_resolve_across_a_group():
     )
     assert plan.distribution == "shard"
     assert plan.index_type == resolved.index_type == "Flat"
+    assert plan.index_memory_bytes == 250 * 8 * 4
 
     plan, _ = _resolve_faiss_plan(
         FaissPlanConfig(distribution="replicate"),
@@ -115,66 +116,23 @@ def test_shard_without_a_group_resolves_to_single():
     assert plan.distribution == "single"
 
 
-def test_auto_shards_only_when_the_index_will_not_fit():
+def test_auto_preserves_replication_until_memory_selection_is_implemented():
     ctx = _FakeContext(world_size=2)
-    common = dict(n_samples=1_000, n_features=8, distributed_ctx=ctx)
-
-    fits, _ = _resolve_faiss_plan(
+    plan, _ = _resolve_faiss_plan(
         FaissPlanConfig(distribution="auto"),
-        available_memory_bytes=10**9,
-        **common,
+        n_samples=1_000,
+        n_features=8,
+        distributed_ctx=ctx,
     )
-    assert fits.distribution == "replicate"
-
-    too_big, _ = _resolve_faiss_plan(
-        FaissPlanConfig(distribution="auto"),
-        available_memory_bytes=1_000,
-        **common,
-    )
-    assert too_big.distribution == "shard"
-
-    # Without a per-rank budget the safe default is replication.
-    unknown, _ = _resolve_faiss_plan(FaissPlanConfig(distribution="auto"), **common)
-    assert unknown.distribution == "replicate"
+    assert plan.distribution == "replicate"
 
 
-def test_choose_distribution_never_replicates_an_index_that_will_not_fit():
-    assert (
-        _choose_distribution(
-            index_memory_bytes=100, available_memory_bytes=1_000, world_size=2
+def test_explicit_shard_rejects_unsupported_expert_index():
+    with pytest.raises(NotImplementedError, match="supports only exact Flat"):
+        _resolve_faiss_plan(
+            FaissPlanConfig(distribution="shard", expert=FaissConfig(index_type="IVF")),
+            distributed_ctx=_FakeContext(world_size=2),
         )
-        == "replicate"
-    )
-    assert (
-        _choose_distribution(
-            index_memory_bytes=2_000, available_memory_bytes=1_000, world_size=2
-        )
-        == "shard"
-    )
-    # A missing budget or a single rank falls back to replication rather than
-    # silently sharding, and never claims a giant index fits.
-    assert (
-        _choose_distribution(
-            index_memory_bytes=10**12, available_memory_bytes=None, world_size=8
-        )
-        == "replicate"
-    )
-    assert (
-        _choose_distribution(
-            index_memory_bytes=10**12, available_memory_bytes=1, world_size=1
-        )
-        == "replicate"
-    )
-    # The safety margin tips a just-barely-fitting index into sharding.
-    assert (
-        _choose_distribution(
-            index_memory_bytes=1_000,
-            available_memory_bytes=1_000,
-            world_size=2,
-            safety_fraction=0.2,
-        )
-        == "shard"
-    )
 
 
 def test_exact_plan_reports_resolved_execution():
@@ -231,6 +189,17 @@ def test_plan_accepts_dataloader_input(data):
         loader, k=5, backend=FaissPlanConfig(), return_indices=True
     )
     assert distances.shape == indices.shape == (len(data), 5)
+
+
+def test_shard_plan_rejects_dataloader_instead_of_silently_replicating(data):
+    loader = DataLoader(TensorDataset(data), batch_size=32, shuffle=False)
+    with pytest.raises(NotImplementedError, match="does not yet support DataLoader"):
+        pairwise_distances(
+            loader,
+            k=5,
+            backend=FaissPlanConfig(distribution="shard"),
+            distributed_ctx=_FakeContext(world_size=2),
+        )
 
 
 @requires_faiss

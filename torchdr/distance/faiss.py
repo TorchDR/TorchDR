@@ -535,15 +535,13 @@ def sharded_pairwise_distances_faiss(
 ):
     r"""Exact k-NN over a database sharded across the ranks of a group.
 
-    Every rank holds the full dataset ``X`` (the TorchDR distributed contract)
-    but indexes only its own contiguous shard, so the stored database vectors are
-    divided across the group instead of replicated on every rank. Each rank
-    answers the queries in its own chunk. For each source rank in turn, its query
-    sub-batch is broadcast, every rank searches its local shard, the per-shard
-    candidates are gathered, and the source merges them into the exact global
-    top-k. The result on each rank is identical to the single-process Flat search
-    restricted to that rank's chunk, which is the same contract the replicated
-    path satisfies.
+    Every rank holds the full input ``X`` under TorchDR's current distributed
+    contract, but the additional FAISS index stores only that rank's contiguous
+    database shard. Each rank answers the queries in its own chunk. For each
+    source rank in turn, its query sub-batch is broadcast, every rank searches
+    its local shard, and the source merges the gathered candidates into the exact
+    global top-k. The result matches replicated Flat search for that rank's
+    query chunk.
 
     Only ``broadcast`` and ``all_gather`` collectives are used, so the same code
     path runs on the Gloo (CPU) and NCCL (GPU) backends. Peak memory for the
@@ -555,8 +553,9 @@ def sharded_pairwise_distances_faiss(
     Parameters
     ----------
     X : torch.Tensor of shape (n, d)
-        The full dataset, identical on every rank. Rank ``r`` indexes and answers
-        the contiguous chunk given by ``distributed_ctx.compute_chunk_bounds``.
+        The full input, identical on every rank. Rank ``r`` adds only its
+        contiguous chunk to the FAISS index. Sharding therefore reduces index
+        memory, not the memory occupied by this input tensor.
     k : int or torch.Tensor
         Number of nearest neighbors to return.
     metric : str, default "sqeuclidean"

@@ -10,8 +10,10 @@ on:
     paths:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
+      - "torchdr/affinity/base.py"
       - "torchdr/distance/base.py"
       - "torchdr/distance/faiss.py"
+      - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"
@@ -27,8 +29,10 @@ on:
     paths:
       - ".github/workflows/distributed-integration.yml"
       - "torchdr/affinity_matcher.py"
+      - "torchdr/affinity/base.py"
       - "torchdr/distance/base.py"
       - "torchdr/distance/faiss.py"
+      - "torchdr/distance/faiss_plan.py"
       - "torchdr/distributed/**"
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/pca.py"

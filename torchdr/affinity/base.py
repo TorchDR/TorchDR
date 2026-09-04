@@ -110,22 +110,19 @@ class Affinity(nn.Module, ABC):
     # --- Distance computation ---
 
     def _resolve_plan_backend(self, X):
-        r"""Resolve a ``FaissPlanConfig`` backend into a low-level ``FaissConfig``.
+        r"""Resolve and expose diagnostics for a ``FaissPlanConfig`` backend.
 
         If ``self.backend`` is a :class:`~torchdr.distance.FaissPlanConfig`,
         resolve it into an immutable execution plan (stored as
         ``self.faiss_plan_`` and printed on rank 0 when ``verbose=True``) and
-        return the corresponding low-level
-        :class:`~torchdr.distance.FaissConfig` to hand to ``pairwise_distances``.
-        Otherwise return ``self.backend`` unchanged. This keeps user-intent
-        configuration at the estimator boundary while the expert configuration
-        flows internally.
+        return the original high-level configuration for ``pairwise_distances``
+        to dispatch. Otherwise return ``self.backend`` unchanged.
         """
         backend = self.backend
         if not isinstance(backend, FaissPlanConfig):
             return backend
 
-        plan, config = _resolve_faiss_plan(
+        plan, _ = _resolve_faiss_plan(
             backend,
             n_samples=self._get_n_samples(X),
             n_features=self._get_n_features(X),
@@ -134,7 +131,7 @@ class Affinity(nn.Module, ABC):
         self.faiss_plan_ = plan
         if self.verbose and getattr(self, "rank", 0) == 0:
             self.logger.info(f"Resolved FAISS execution plan: {plan}")
-        return config
+        return backend
 
     def _distance_matrix(
         self, X: torch.Tensor, k: int = None, return_indices: bool = False
@@ -509,24 +506,16 @@ class SparseAffinity(Affinity):
         indices : torch.Tensor, optional
             Indices if ``return_indices=True``.
         """
-        resolved_backend = self._resolve_plan_backend(X)
-        # A resolved plan also decides the multi-GPU topology; forward it so the
-        # distributed search shards or replicates as the plan determined.
-        distribution = (
-            self.faiss_plan_.distribution
-            if isinstance(self.backend, FaissPlanConfig)
-            else None
-        )
+        backend = self._resolve_plan_backend(X)
         result = pairwise_distances(
             X=X,
             metric=self.metric,
-            backend=resolved_backend,
+            backend=backend,
             exclude_diag=self.zero_diag,
             k=k,
             return_indices=return_indices,
             device=self.device,
             distributed_ctx=self.dist_ctx if self.distributed else None,
-            distribution=distribution,
         )
 
         # Store chunk bounds for downstream use (e.g. distributed symmetrization)

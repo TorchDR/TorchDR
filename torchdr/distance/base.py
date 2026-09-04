@@ -32,7 +32,6 @@ def pairwise_distances(
     return_indices: bool = False,
     device: str = "auto",
     distributed_ctx: Optional[DistributedContext] = None,
-    distribution: Optional[str] = None,
 ):
     r"""Compute pairwise distances between two tensors or from a DataLoader.
 
@@ -92,14 +91,6 @@ def pairwise_distances(
         - Every rank must pass the same full dataset; detectable metadata
           mismatches and sharded DataLoaders are rejected before indexing
         Default is None (single GPU computation).
-    distribution : str, optional
-        Resolved multi-GPU topology for the distributed FAISS search, one of
-        ``"replicate"`` or ``"shard"``. Normally left as None: it is set from a
-        ``FaissPlanConfig`` passed as ``backend`` here, or by an affinity that
-        resolved the plan and forwards its decision. ``"shard"`` indexes only
-        each rank's chunk and merges the exact global neighbors; anything else
-        replicates the full index on every rank.
-
     Returns
     -------
     C : torch.Tensor
@@ -142,6 +133,7 @@ def pairwise_distances(
     # resolved here into its low-level FaissConfig so the dispatch below can treat
     # it like any other FAISS backend. Estimators resolve the plan at the affinity
     # layer and expose it as ``faiss_plan_``; direct callers just get the result.
+    distribution = "replicate"
     if isinstance(backend, FaissPlanConfig):
         _n = None if isinstance(X, DataLoader) else X.shape[0]
         _dim = None if isinstance(X, DataLoader) else X.shape[1]
@@ -151,8 +143,6 @@ def pairwise_distances(
             n_features=_dim,
             distributed_ctx=distributed_ctx,
         )
-        # The plan carries the resolved multi-GPU topology; the distributed
-        # branch below routes on it, so a direct caller need not pass it.
         distribution = _plan.distribution
 
     # Every rank must hold the same full dataset: each builds a complete index
@@ -162,6 +152,11 @@ def pairwise_distances(
 
     # Handle DataLoader input
     if isinstance(X, DataLoader):
+        if distribution == "shard":
+            raise NotImplementedError(
+                "[TorchDR] distribution='shard' does not yet support DataLoader "
+                "input. Use distribution='replicate'."
+            )
         if k is None:
             raise ValueError(
                 "[TorchDR] DataLoader input requires k-NN computation. "
