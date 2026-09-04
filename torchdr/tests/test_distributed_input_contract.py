@@ -12,7 +12,10 @@ from torch.utils.data.distributed import DistributedSampler
 
 import torchdr.distributed.input_contract as contract
 from torchdr.distributed import DistributedContext
-from torchdr.distributed.input_contract import validate_distributed_input
+from torchdr.distributed.input_contract import (
+    gather_shard_layout,
+    validate_distributed_input,
+)
 
 
 def _context(rank, world_size):
@@ -48,6 +51,41 @@ def simulate_world(monkeypatch):
 
         monkeypatch.setattr(contract.dist, "all_gather_into_tensor", fake_all_gather)
         return validate_distributed_input(inputs[rank], _context(rank, len(inputs)))
+
+    return simulate
+
+
+@pytest.fixture
+def simulate_shard_world(monkeypatch):
+    """Substitute the shard-metadata collective with scripted per-rank shards.
+
+    Mirrors ``simulate_world`` but for ``gather_shard_layout``: every rank
+    contributes only its own contiguous shard, and the row counts differ between
+    ranks, so the layer sums them into a global count and derives a rank-major
+    prefix offset instead of comparing counts.
+    """
+
+    def simulate(shards, rank=0):
+        monkeypatch.setattr(contract.dist, "is_initialized", lambda: True)
+        monkeypatch.setattr(contract.dist, "get_backend", lambda: "gloo")
+
+        def fake_all_gather(output, local):
+            rows = output.view(len(shards), -1)
+            for peer_rank, peer in enumerate(shards):
+                if peer_rank == rank:
+                    rows[peer_rank] = local
+                else:
+                    rows[peer_rank] = torch.tensor(
+                        [
+                            int(peer.shape[0]),
+                            int(peer.shape[1]),
+                            contract._dtype_code(peer.dtype),
+                        ],
+                        dtype=torch.int64,
+                    )
+
+        monkeypatch.setattr(contract.dist, "all_gather_into_tensor", fake_all_gather)
+        return gather_shard_layout(shards[rank], _context(rank, len(shards)))
 
     return simulate
 
@@ -148,3 +186,58 @@ class TestRejectedInputs:
         )
         with pytest.raises(ValueError, match="DistributedSampler"):
             validate_distributed_input(loader, _context(0, 1))
+
+
+class TestShardLayout:
+    """The explicit sharded-input layout derived by ``gather_shard_layout``."""
+
+    @pytest.mark.parametrize("ctx", [None, DistributedContext()])
+    def test_single_process_treats_shard_as_whole_dataset(self, ctx):
+        """With no process group the only shard is the entire dataset."""
+        X = torch.randn(20, 4)
+        layout = gather_shard_layout(X, ctx)
+        assert layout.rank == 0
+        assert layout.world_size == 1
+        assert layout.local_count == 20
+        assert layout.global_count == 20
+        assert layout.local_offset == 0
+        assert layout.counts == (20,)
+        assert torch.equal(layout.query_ids(), torch.arange(20))
+
+    def test_rejects_non_2d_shard(self):
+        with pytest.raises(ValueError, match="2-D"):
+            gather_shard_layout(torch.randn(20), None)
+
+    def test_rank_major_offsets_for_uneven_shards(self, simulate_shard_world):
+        shards = [torch.randn(5, 4), torch.randn(7, 4), torch.randn(3, 4)]
+        # Rank 1 owns the contiguous global rows [5, 12).
+        layout = simulate_shard_world(shards, rank=1)
+        assert layout.rank == 1
+        assert layout.world_size == 3
+        assert layout.local_count == 7
+        assert layout.global_count == 15
+        assert layout.local_offset == 5
+        assert layout.counts == (5, 7, 3)
+        assert torch.equal(layout.query_ids(), torch.arange(5, 12))
+
+    def test_supports_empty_rank(self, simulate_shard_world):
+        shards = [torch.randn(0, 4), torch.randn(6, 4)]
+        layout = simulate_shard_world(shards, rank=0)
+        assert layout.local_count == 0
+        assert layout.global_count == 6
+        assert layout.local_offset == 0
+        assert layout.counts == (0, 6)
+        assert layout.query_ids().numel() == 0
+
+    @pytest.mark.parametrize(
+        ("shards", "field"),
+        [
+            ([torch.randn(4, 4), torch.randn(4, 5)], "n_features"),
+            ([torch.randn(4, 4), torch.randn(4, 4).double()], "dtype"),
+        ],
+    )
+    def test_rejects_shard_metadata_mismatch(self, simulate_shard_world, shards, field):
+        # A sharded input must split rows only; disagreeing features or dtype
+        # means the shards are not slices of one dataset, so every rank raises.
+        with pytest.raises(ValueError, match=field):
+            simulate_shard_world(shards, rank=0)

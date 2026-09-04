@@ -5,6 +5,8 @@
 # License: BSD 3-Clause License
 
 import zlib
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -166,3 +168,145 @@ def validate_distributed_input(X, dist_ctx) -> None:
             f"world_size={dist_ctx.world_size}. Launch with at most n_samples "
             f"ranks. {_CONTRACT}"
         )
+
+
+# Metadata exchanged for an explicitly sharded input: (n_local, n_features,
+# dtype-code). Unlike the replicated contract above, the row count is expected to
+# differ between ranks, so it is summed into a global count rather than compared.
+_SHARD_META_LEN = 3
+
+
+@dataclass(frozen=True)
+class ShardLayout:
+    """Rank-major layout of an input whose rows are split across ranks.
+
+    Each rank holds a distinct contiguous shard ``X_local`` of a global dataset;
+    concatenating the shards in rank order reconstructs the full input. This
+    describes where this rank's rows sit in that global ordering, which is what
+    lets a distributed search return *global* neighbor indices and lets sparse
+    affinity find the owner of an arbitrary global row.
+
+    Attributes
+    ----------
+    rank : int
+        Rank of the current process.
+    world_size : int
+        Number of ranks the input is split across.
+    local_count : int
+        Rows held by this rank (may be zero).
+    global_count : int
+        Total rows across all ranks.
+    local_offset : int
+        Global index of this rank's first row (rank-major prefix sum). Local row
+        ``i`` is therefore global row ``local_offset + i``.
+    counts : tuple of int
+        Row count of every rank, in rank order. ``counts[r]`` and the running
+        prefix give the half-open global range each rank owns.
+    """
+
+    rank: int
+    world_size: int
+    local_count: int
+    global_count: int
+    local_offset: int
+    counts: Tuple[int, ...]
+
+    def query_ids(self, device: Optional[torch.device] = None) -> torch.Tensor:
+        """Global row indices of this rank's local rows."""
+        return torch.arange(
+            self.local_offset,
+            self.local_offset + self.local_count,
+            device=device,
+        )
+
+
+def gather_shard_layout(X_local, dist_ctx) -> ShardLayout:
+    """Exchange local row counts and derive a rank-major shard layout.
+
+    Every rank passes only its own contiguous shard ``X_local``; this collects
+    each rank's row count once with a single ``all_gather``, sums them into the
+    global sample count, and derives this rank's rank-major prefix offset. The
+    feature count and dtype are validated collectively so a mismatched shard
+    fails loudly instead of silently returning wrong neighbors.
+
+    Empty ranks (zero local rows) are supported at this layer: a ``(0, d)`` shard
+    still reports ``d`` features, still takes part in the exchange, and receives a
+    well-defined offset. Callers that cannot give meaning to an empty shard (an
+    affinity that would divide by a zero-sized block) should reject it themselves.
+
+    Parameters
+    ----------
+    X_local : torch.Tensor of shape (n_local, n_features)
+        This rank's contiguous shard of the global input.
+    dist_ctx : DistributedContext or None
+        The group across which the input is sharded. When ``None``, not
+        initialized, or single-rank, the shard is treated as the whole dataset
+        and no collective is issued.
+
+    Returns
+    -------
+    ShardLayout
+        The rank-major layout described above.
+    """
+    if X_local.ndim != 2:
+        raise ValueError(
+            f"[TorchDR] a sharded input must be a 2-D (n_local, n_features) "
+            f"tensor, got shape {tuple(X_local.shape)}."
+        )
+    local_count = int(X_local.shape[0])
+    n_features = int(X_local.shape[1])
+
+    single_process = (
+        dist_ctx is None
+        or not dist_ctx.is_initialized
+        or dist_ctx.world_size < 2
+        or not dist.is_initialized()
+    )
+    if single_process:
+        return ShardLayout(
+            rank=0,
+            world_size=1,
+            local_count=local_count,
+            global_count=local_count,
+            local_offset=0,
+            counts=(local_count,),
+        )
+
+    device = collective_device(dist_ctx)
+    local = torch.tensor(
+        [local_count, n_features, _dtype_code(X_local.dtype)],
+        dtype=torch.int64,
+        device=device,
+    )
+    gathered = torch.empty(
+        dist_ctx.world_size * _SHARD_META_LEN, dtype=torch.int64, device=device
+    )
+    dist.all_gather_into_tensor(gathered, local)
+    gathered = gathered.view(dist_ctx.world_size, _SHARD_META_LEN).cpu()
+
+    counts = [int(c) for c in gathered[:, 0].tolist()]
+    for column_idx, field, describe in (
+        (1, "n_features", str),
+        (2, "dtype", lambda v: f"dtype-code {v}"),
+    ):
+        column = gathered[:, column_idx]
+        reference = int(column[0])
+        mismatches = torch.nonzero(column != reference).flatten()
+        if mismatches.numel():
+            bad = int(mismatches[0])
+            raise ValueError(
+                f"[TorchDR] ranks disagree on {field}: rank 0 reports "
+                f"{describe(reference)}, while rank {bad} reports "
+                f"{describe(int(column[bad]))}. A sharded input must split rows "
+                f"only; every rank must share the same features and dtype."
+            )
+
+    rank = dist_ctx.rank
+    return ShardLayout(
+        rank=rank,
+        world_size=dist_ctx.world_size,
+        local_count=local_count,
+        global_count=int(sum(counts)),
+        local_offset=int(sum(counts[:rank])),
+        counts=tuple(counts),
+    )
