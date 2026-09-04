@@ -19,6 +19,7 @@ on:
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
+      - "torchdr/tests/test_distributed_input_contract_collective.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_pca_collectives.py"
@@ -39,6 +40,7 @@ on:
       - "torchdr/spectral_embedding/pca.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
+      - "torchdr/tests/test_distributed_input_contract_collective.py"
       - "torchdr/tests/test_distributed_integration.py"
       - "torchdr/tests/test_distributed_neighbor_embedding.py"
       - "torchdr/tests/test_distributed_pca_collectives.py"
@@ -86,6 +88,13 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=2 -m pytest
           torchdr/tests/test_distributed_pca_collectives.py -q
+      - name: Run two-process input-contract collective test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_input_contract_collective.py -q
 
   test-distributed-faiss-cpu:
     runs-on: ubuntu-latest
