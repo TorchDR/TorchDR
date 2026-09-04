@@ -667,6 +667,7 @@ def sharded_pairwise_distances_faiss(
     largest = metric == "angular"
     result_D: List[torch.Tensor] = []
     result_I: List[torch.Tensor] = []
+    search_ok = torch.ones(1, dtype=torch.int64, device=comm_device)
 
     # Fixed source order 0..world_size-1 and a shared batch size make every rank
     # issue the same broadcast/all_gather sequence, so the collectives never
@@ -682,8 +683,6 @@ def sharded_pairwise_distances_faiss(
                 buf.copy_(rows.detach().to(device=comm_device, dtype=torch.float32))
             dist.broadcast(buf, src=source)
 
-            queries = buf.to(device=index_device, dtype=torch.float32).contiguous()
-            queries_faiss = queries if faiss_torch_interop else queries.cpu().numpy()
             # A local search (or the copy of its result to the comm device) that
             # raises on one rank would otherwise drop that rank out of the
             # all_gather below while the others block on it forever. Guard the
@@ -694,6 +693,10 @@ def sharded_pairwise_distances_faiss(
             searched = True
             reason = ""
             try:
+                queries = buf.to(device=index_device, dtype=torch.float32).contiguous()
+                queries_faiss = (
+                    queries if faiss_torch_interop else queries.cpu().numpy()
+                )
                 with faiss_device_scope(faiss_device):
                     local_D, local_I = index.search(queries_faiss, k_search)
                 if not isinstance(local_D, torch.Tensor):
@@ -711,15 +714,12 @@ def sharded_pairwise_distances_faiss(
             # MIN drops to 0 as soon as any rank failed; every rank runs this
             # reduce regardless, so the failure is seen everywhere before the
             # all_gather that a failed rank could not join.
-            ok = torch.tensor(
-                [1 if searched else 0], dtype=torch.int64, device=comm_device
-            )
-            dist.all_reduce(ok, op=dist.ReduceOp.MIN)
-            if int(ok.item()) == 0:
+            search_ok.fill_(searched)
+            dist.all_reduce(search_ok, op=dist.ReduceOp.MIN)
+            if not search_ok.item():
                 raise RuntimeError(
-                    "[TorchDR] ERROR : a rank failed its local FAISS search over "
-                    "its database shard; every rank stops together so the "
-                    "survivors do not hang on the following all_gather."
+                    "[TorchDR] ERROR : a rank failed its local FAISS search; "
+                    "all ranks stopped before gathering incomplete results."
                     + (f" This rank's error was {reason}." if reason else "")
                 )
 

@@ -157,17 +157,7 @@ class TestShardedSearch:
 
 
 class TestShardedSearchFailurePropagation:
-    """A local search that fails on one rank must stop every rank, not hang.
-
-    This exercises real TorchDR-level failure propagation. One rank's FAISS
-    index is wrapped so ``search`` raises a genuine exception inside the guarded
-    region, exactly as a GPU out-of-memory or an internal FAISS error would.
-    Every collective still runs for real: no collective is mocked and no process
-    group is torn down. Without the shared success flag the surviving ranks would
-    block forever on the following ``all_gather``; with it, all ranks raise
-    together. The workflow's wall-clock timeout fails the run if any rank hangs
-    instead.
-    """
+    """A local search failure stops every rank before result gathering."""
 
     def test_local_search_failure_raises_everywhere(self, data, context, monkeypatch):
         import torchdr.distance.faiss as faiss_mod
@@ -176,8 +166,6 @@ class TestShardedSearchFailurePropagation:
         real_create_index = faiss_mod._create_index
 
         class _FailingSearchIndex:
-            """Delegates to a real FAISS index but raises inside ``search``."""
-
             def __init__(self, inner):
                 self._inner = inner
 
@@ -198,13 +186,10 @@ class TestShardedSearchFailurePropagation:
 
         monkeypatch.setattr(faiss_mod, "_create_index", faulty_create_index)
 
-        # Every rank -- the one whose search raises and the ones whose search
-        # succeeds -- must surface the failure rather than block on all_gather.
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match="a rank failed its local FAISS search"):
             sharded_pairwise_distances_faiss(
                 data, k=K, metric="sqeuclidean", distributed_ctx=context
             )
 
-        # Reaching the barrier on every rank proves the group is still lockstep:
-        # no rank was left waiting on a collective the failed rank never issued.
+        # The process group remains usable after the symmetric failure.
         dist.barrier()
