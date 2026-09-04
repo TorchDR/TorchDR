@@ -356,6 +356,25 @@ def test_umap_data_affinity(dtype, metric, sparsity, backend, compile=False):
     check_nonnegativity(P)
 
 
+def test_umap_affinity_can_separate_target_and_search_neighbor_counts():
+    """UMAP can include self in its public count while searching non-self rows."""
+    X, _ = toy_dataset(32, "float32")
+    affinity = UMAPAffinity(
+        n_neighbors=15,
+        _n_neighbors_search=14,
+        symmetrize=False,
+        device="cpu",
+        backend=None,
+        sparsity=True,
+    )
+
+    _, indices = affinity(X, return_indices=True)
+
+    assert affinity.n_neighbors == 15
+    assert indices.shape == (32, 14)
+    assert torch.all(indices != torch.arange(32).unsqueeze(1))
+
+
 @pytest.mark.parametrize("dtype", lst_types)
 @pytest.mark.parametrize("metric", LIST_METRICS_TEST)
 @pytest.mark.parametrize("backend", lst_backend)

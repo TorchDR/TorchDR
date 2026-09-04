@@ -201,6 +201,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             sparsity=self.sparsity,
             compile=compile,
             distributed=distributed,
+            _n_neighbors_search=int(n_neighbors) - 1,
         )
 
         super().__init__(

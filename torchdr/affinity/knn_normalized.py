@@ -5,7 +5,7 @@
 #
 # License: BSD 3-Clause License
 
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -86,6 +86,11 @@ class SelfTuningAffinity(LogAffinity):
     _pre_processed : bool, optional
         If True, assumes inputs are already torch tensors on the correct device
         and skips the `to_torch` conversion. Default is False.
+    _n_neighbors_search : int, optional
+        Number of non-self neighbors to retrieve in sparse mode. This internal
+        override is used by :class:`~torchdr.UMAP` because its public
+        ``n_neighbors`` follows umap-learn's convention and includes self,
+        while TorchDR's distance backends remove self before returning results.
     """
 
     def __init__(
@@ -397,8 +402,10 @@ class UMAPAffinity(SparseAffinity):
         symmetrize: bool = True,
         distributed: Union[bool, str] = "auto",
         _pre_processed: bool = False,
+        _n_neighbors_search: Optional[int] = None,
     ):
         self.n_neighbors = n_neighbors
+        self._n_neighbors_search = _n_neighbors_search
         self.max_iter = max_iter
         self.symmetrize = symmetrize
 
@@ -432,13 +439,22 @@ class UMAPAffinity(SparseAffinity):
         """
         n_samples_in = self._get_n_samples(X)
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
+        n_neighbors_search = check_neighbor_param(
+            self._n_neighbors_search
+            if self._n_neighbors_search is not None
+            else n_neighbors,
+            n_samples_in,
+        )
 
         if self.sparsity:
             if self.verbose:
                 self.logger.info(
-                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
+                    f"Sparsity mode enabled, computing {n_neighbors_search} nearest "
+                    "neighbors..."
                 )
-            C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
+            C_, indices = self._distance_matrix(
+                X, k=n_neighbors_search, return_indices=True
+            )
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
