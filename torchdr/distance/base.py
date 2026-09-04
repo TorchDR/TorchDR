@@ -145,8 +145,8 @@ def pairwise_distances(
         )
         distribution = _plan.distribution
 
-    # Every rank must hold the same full dataset: each builds a complete index
-    # and returns global sample ids. Check before any index is built.
+    # The current distributed contract requires the same full input on every
+    # rank, whether the FAISS index is replicated or sharded.
     if distributed_ctx is not None and distributed_ctx.is_initialized:
         validate_distributed_input(X, distributed_ctx)
 
