@@ -21,6 +21,14 @@ from torchdr.tests.utils import toy_dataset
 DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 
 
+def test_umap_uses_umap_learn_neighbor_count_convention():
+    """UMAP's public count includes self while its search excludes self."""
+    model = UMAP(n_neighbors=15, backend=None, device="cpu")
+
+    assert model.n_neighbors == 15
+    assert model.affinity_in._n_neighbors_search == 14
+
+
 def test_flatten_padded_edges_row_major():
     """Padded grid flattens to row-major real edges with a sorted source."""
     # max_degree 4; rows with 2, 4, 0 and 1 real edges (-1 is padding).
