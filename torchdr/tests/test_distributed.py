@@ -151,6 +151,28 @@ class TestShutdownDistributed:
         mock_destroy.assert_called_once()
 
 
+class TestAutoSetupDistributed:
+    """The import-time auto-setup is GPU-only by policy.
+
+    Unlike the explicit :func:`init_distributed`, which still builds a Gloo group
+    on a CPU launcher, the setup run automatically on import refuses to create a
+    process group when no GPU is present and tells the user why. That asymmetry
+    is deliberate, so lock it down.
+    """
+
+    def test_cpu_launcher_warns_and_skips_process_group(self, monkeypatch):
+        """LOCAL_RANK without a GPU must warn and create no process group."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+
+        with patch("torch.distributed.is_initialized", return_value=False):
+            with patch("torch.cuda.is_available", return_value=False):
+                with patch("torch.distributed.init_process_group") as mock_init:
+                    with pytest.warns(UserWarning, match="no GPU is available"):
+                        torchdr_distributed._auto_setup_distributed()
+
+        mock_init.assert_not_called()
+
+
 class TestDistributedContext:
     """Tests for DistributedContext class."""
 
