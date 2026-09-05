@@ -334,7 +334,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         grad = torch.segment_reduce(
             diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
         )
-        grad.clamp_(-4, 4)
+        grad.clamp_(-4, 4)  # clamp as in umap repo
         if not getattr(self, "_is_transforming", False):
             # Fit-time UMAP moves both endpoints of every positive edge. The
             # symmetric graph already contains the reverse edge, so scaling
@@ -373,7 +373,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             - self.embedding_[self.neg_indices_]
         )
         grad = torch.einsum("ijk,ij->ik", diff, D)
-        grad.clamp_(-4, 4)
+        grad.clamp_(-4, 4)  # clamp as in umap repo
         return grad
 
     # --- Non-parametric transform ---
