@@ -129,6 +129,48 @@ def test_sharded_rejects_non_flat_faiss_config():
         )
 
 
+def test_sharded_accepts_explicit_flat_faiss_config():
+    """An explicit exact-Flat ``FaissConfig`` is the one accepted backend override.
+
+    The non-Flat and ``FaissPlanConfig`` rejections above only prove the guard
+    fires; this pins the positive branch so a user who passes ``FaissConfig()``
+    (whose ``index_type`` defaults to ``"Flat"``) keeps their own config object
+    rather than having it silently replaced.
+    """
+    config = FaissConfig()
+    aff = UMAPAffinity(
+        n_neighbors=10,
+        backend=config,
+        device="cpu",
+        input_layout="sharded",
+        distributed=False,
+    )
+    assert aff._sharded_faiss_config_ is config
+
+
+def test_sharded_rejects_dataloader():
+    """A DataLoader has no addressable row shard, so the layout is rejected."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    loader = DataLoader(TensorDataset(torch.as_tensor(_blobs(40, 8))), batch_size=8)
+    model = UMAP(input_layout="sharded", backend="faiss", device="cpu", n_neighbors=10)
+    with pytest.raises(NotImplementedError, match="DataLoader"):
+        model.fit_transform(loader)
+
+
+def test_sharded_rejects_encoder():
+    """An encoder maps rows to a learned space, breaking the raw-row shard contract."""
+    model = AffinityMatcher(
+        affinity_in=UMAPAffinity(n_neighbors=10, backend="faiss", device="cpu"),
+        init="random",
+        input_layout="sharded",
+        device="cpu",
+        encoder=torch.nn.Linear(8, 4),
+    )
+    with pytest.raises(NotImplementedError, match="encoder"):
+        model.fit_transform(_blobs(60, 8))
+
+
 def test_sharded_forces_process_duplicates_off():
     model = UMAP(input_layout="sharded", process_duplicates=True, device="cpu")
     assert model.process_duplicates is False
