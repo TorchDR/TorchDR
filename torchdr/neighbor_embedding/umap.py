@@ -139,8 +139,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         - "sharded": each rank holds a distinct contiguous shard whose rows
           concatenate, in rank order, into the global dataset, so no rank ever
           materializes the whole input. Requires an exact Flat FAISS backend and
-          ``init`` in {"random", "normal", "hyperbolic"}; the embedding stays
-          replicated (one coordinate per global point on every rank).
+          ``init`` in {"random", "normal", "hyperbolic", "pca"}; the embedding
+          stays replicated (one coordinate per global point on every rank).
         Default is "replicated".
 
     Notes

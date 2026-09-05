@@ -230,7 +230,7 @@ class AffinityMatcher(DRModule):
         Input-sharding splits the *rows* of a raw feature tensor across ranks and
         keeps the embedding replicated. Layouts that would make a row's global
         identity ambiguous -- a DataLoader, a precomputed affinity, an encoder,
-        or a PCA/tensor initialization that assumes the whole input is locally
+        or a tensor initialization that assumes the whole input is locally
         available -- are rejected with an actionable message rather than silently
         producing a wrong global embedding.
         """
@@ -251,13 +251,12 @@ class AffinityMatcher(DRModule):
             )
         if not (
             isinstance(self.init, str)
-            and self.init in ("random", "normal", "hyperbolic")
+            and self.init in ("random", "normal", "hyperbolic", "pca")
         ):
             raise NotImplementedError(
                 "[TorchDR] input_layout='sharded' currently supports only "
-                "init='random', 'normal', or 'hyperbolic'; a distributed "
-                f"gather-based initialization for {self.init!r} is a follow-up. "
-                "Pass init='random'."
+                "init='random', 'normal', 'hyperbolic', or 'pca'; "
+                f"got {self.init!r}."
             )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
