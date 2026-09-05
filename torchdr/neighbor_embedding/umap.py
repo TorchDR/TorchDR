@@ -149,7 +149,11 @@ class UMAP(NegativeSamplingNeighborEmbedding):
     ``learning_rate`` and ``initial_alpha`` schedule, but the resulting updates
     are not step-for-step equivalent. ``umap-learn`` applies sampled-edge
     updates sequentially with its own optimizer, whereas TorchDR accumulates
-    vectorized gradients and applies them simultaneously with PyTorch SGD.
+    vectorized gradients and applies them simultaneously with PyTorch SGD. For
+    fit-time attractive updates, the symmetric graph lets TorchDR recover the
+    contribution of moving both endpoints by scaling the reduced gradient;
+    this is intentionally disabled during transform because training points
+    are frozen.
     """  # noqa: E501
 
     def __init__(
@@ -331,6 +335,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
         )
         grad.clamp_(-4, 4)  # clamp as in umap repo
+        if not getattr(self, "_is_transforming", False):
+            # Fit-time UMAP moves both endpoints of every positive edge. The
+            # symmetric graph already contains the reverse edge, so scaling
+            # the source reduction recovers that contribution without a target
+            # scatter or a sequential update loop.
+            grad.mul_(2)
         return grad
 
     def _compute_repulsive_gradients(self):
@@ -465,6 +475,12 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             affinity, self._get_max_iter_transform()
         )
         saved = super()._enter_transform(embedding_new, train_emb, affinity, nn_indices)
+
+        saved["_is_transforming"] = (
+            hasattr(self, "_is_transforming"),
+            getattr(self, "_is_transforming", None),
+        )
+        self._is_transforming = True
 
         # Save UMAP-specific state
         for attr in (

@@ -54,7 +54,9 @@ def test_flatten_padded_edges_all_padded_row_is_dropped():
     assert mask.sum().item() == 2
 
 
-def _reference_attractive_grad(emb, chunk_indices, source, target, a, b, sampled):
+def _reference_attractive_grad(
+    emb, chunk_indices, source, target, a, b, sampled, move_other=False
+):
     """Brute-force per-edge accumulation of the UMAP attractive gradient.
 
     Mirrors the closed-form coefficient in ``_compute_attractive_gradients`` but
@@ -70,8 +72,11 @@ def _reference_attractive_grad(emb, chunk_indices, source, target, a, b, sampled
             coef = (2 * a * b * dist2 ** (b - 1)) / (1 + a * dist2**b)
         else:
             coef = 0.0
-        grad[s_local] += d * coef
-    return grad.clamp_(-4, 4)
+        edge_gradient = (d * coef).clamp(-4, 4)
+        grad[s_local] += edge_gradient
+        if move_other:
+            grad[int(target[e])] -= edge_gradient
+    return grad
 
 
 @pytest.mark.parametrize("device", DEVICES)
@@ -116,6 +121,9 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     model.attractive_counts_ = torch.bincount(source, minlength=len(chunk_indices)).to(
         device
     )
+    # This test isolates the source-only vectorized reduction. Fit-time UMAP
+    # additionally accounts for the frozen/reverse endpoint contribution.
+    model._is_transforming = True
     # epoch_of_next_sample <= n_iter_ + 1 selects an edge this step; push the
     # unsampled edges just past the threshold.
     epoch_next = torch.where(
@@ -136,6 +144,34 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
         sampled.to(device),
     )
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
+
+
+def test_fit_attractive_gradient_matches_two_endpoint_reference():
+    """A symmetric fit graph matches explicit source-and-target updates."""
+    model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
+    model._a, model._b, model._eps = 1.577, 0.895, 1e-3
+    model.embedding_ = torch.tensor([[-3.0, 0.0], [0.0, 1.0], [2.0, -1.0]])
+    model.chunk_indices_ = torch.arange(3)
+    model.attractive_source_ = torch.tensor([0, 1, 1, 2])
+    model.attractive_target_ = torch.tensor([1, 0, 2, 1])
+    model.attractive_counts_ = torch.tensor([1, 2, 1])
+    model.epoch_of_next_sample = torch.ones(4)
+    model.epochs_per_sample = torch.ones(4)
+    model.n_iter_ = torch.tensor(0)
+
+    fit_grad = model._compute_attractive_gradients()
+    reference = _reference_attractive_grad(
+        model.embedding_,
+        model.chunk_indices_,
+        model.attractive_source_,
+        model.attractive_target_,
+        model._a,
+        model._b,
+        torch.ones(4, dtype=torch.bool),
+        move_other=True,
+    )
+
+    torch.testing.assert_close(fit_grad, reference)
 
 
 @pytest.mark.parametrize("device", DEVICES)
