@@ -151,6 +151,28 @@ class TestShutdownDistributed:
         mock_destroy.assert_called_once()
 
 
+class TestAutoSetupDistributed:
+    """The import-time auto-setup is GPU-only by policy.
+
+    Unlike the explicit :func:`init_distributed`, which still builds a Gloo group
+    on a CPU launcher, the setup run automatically on import refuses to create a
+    process group when no GPU is present and tells the user why. That asymmetry
+    is deliberate, so lock it down.
+    """
+
+    def test_cpu_launcher_warns_and_skips_process_group(self, monkeypatch):
+        """LOCAL_RANK without a GPU must warn and create no process group."""
+        monkeypatch.setenv("LOCAL_RANK", "0")
+
+        with patch("torch.distributed.is_initialized", return_value=False):
+            with patch("torch.cuda.is_available", return_value=False):
+                with patch("torch.distributed.init_process_group") as mock_init:
+                    with pytest.warns(UserWarning, match="no GPU is available"):
+                        torchdr_distributed._auto_setup_distributed()
+
+        mock_init.assert_not_called()
+
+
 class TestDistributedContext:
     """Tests for DistributedContext class."""
 
@@ -383,6 +405,18 @@ class TestChunkStartOffset:
         model.on_affinity_computation_end()
         return model
 
+    @staticmethod
+    def _umap_with_chunk(n_samples, chunk_start, chunk_size):
+        """Build the minimal UMAP state needed for a distributed training step."""
+        model = UMAP(n_components=2, optimizer="SGD", lr=0.0)
+        model.world_size = 2
+        model.scheduler_ = None
+        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, 2))
+        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
+        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
+        model.chunk_start_ = chunk_start
+        return model
+
     @pytest.mark.parametrize("n_samples,world_size", [(10, 1), (97, 4)])
     def test_matches_chunk_indices_on_every_rank(self, n_samples, world_size):
         """Single-process and uneven distributed chunks retain a host offset."""
@@ -407,16 +441,7 @@ class TestChunkStartOffset:
         n_samples, n_components = 7, 2
         chunk_start, chunk_size = 3, 4
 
-        model = UMAP(n_components=n_components, optimizer="SGD", lr=0.0)
-        model.rank = 1
-        model.world_size = 2
-        model.encoder = None
-        model.scheduler_ = None
-        model.device_ = torch.device("cpu")
-        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, n_components))
-        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
-        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
-        model.chunk_start_ = chunk_start
+        model = self._umap_with_chunk(n_samples, chunk_start, chunk_size)
 
         gradients = torch.arange(1.0, chunk_size * n_components + 1).reshape(
             chunk_size, n_components
@@ -431,6 +456,18 @@ class TestChunkStartOffset:
         expected = torch.zeros(n_samples, n_components)
         expected[chunk_start : chunk_start + chunk_size] = gradients
         assert torch.equal(model.embedding_.grad, expected)
+
+    def test_training_step_rejects_mismatched_gradient_size(self):
+        """Reject a gradient that PyTorch would silently broadcast over a chunk."""
+        n_samples = 7
+        chunk_start, chunk_size = 3, 4
+        model = self._umap_with_chunk(n_samples, chunk_start, chunk_size)
+        model._compute_gradients = lambda: torch.ones(1, 2)
+
+        with patch("torch.distributed.all_reduce") as mock_all_reduce:
+            with pytest.raises(RuntimeError, match="Gradient size mismatch"):
+                model._training_step()
+            mock_all_reduce.assert_not_called()
 
     def test_transform_resets_then_restores_the_offset(self):
         """Transform re-bases the embedding at 0 and must put the offset back."""

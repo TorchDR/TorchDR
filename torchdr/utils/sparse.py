@@ -1,6 +1,6 @@
 import torch
 import torch.distributed as dist
-from typing import Tuple, Literal
+from typing import Optional, Tuple, Literal
 from torchdr.distributed import DistributedContext
 
 
@@ -225,6 +225,7 @@ def distributed_symmetrize_sparse(
     n_total: int,
     mode: Literal["sum", "sum_minus_prod"] = "sum_minus_prod",
     coalesce_device: Literal["auto", "cpu", "gpu"] = "auto",
+    owner_boundaries: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.LongTensor]:
     """Symmetrize sparse affinity matrix in distributed multi-GPU setting.
 
@@ -256,6 +257,15 @@ def distributed_symmetrize_sparse(
         - "cpu": always coalesce on CPU, minimizing accelerator memory for a
           standalone affinity build on a constrained device at a wall-time cost.
         - "gpu": always coalesce on the input device with no CPU fallback.
+    owner_boundaries : torch.Tensor, optional
+        Rank-major prefix offsets of length ``world_size + 1`` describing which
+        rank owns each global column: rank ``r`` owns the half-open range
+        ``[owner_boundaries[r], owner_boundaries[r + 1])``. Required when the
+        rows are split into contiguous but *uneven* shards, for which the
+        balanced arithmetic of :meth:`DistributedContext.get_rank_for_indices`
+        would route transpose edges to the wrong owner. When ``None`` (default)
+        the balanced split is assumed, preserving the replicated/even-chunk
+        behavior exactly.
 
     Returns
     -------
@@ -292,8 +302,15 @@ def distributed_symmetrize_sparse(
     i.add_(chunk_start)
     keys = i * n_total + j
 
-    # Step 2: Sort encoded edges by the rank that owns their target row.
-    target_ranks = DistributedContext.get_rank_for_indices(j, n_total, world_size)
+    # Step 2: Sort encoded edges by the rank that owns their target row. An
+    # explicit rank-major boundary table handles arbitrary uneven shards; the
+    # balanced arithmetic is the default when the rows are evenly chunked.
+    if owner_boundaries is not None:
+        target_ranks = DistributedContext.get_rank_for_indices_from_boundaries(
+            j, owner_boundaries
+        )
+    else:
+        target_ranks = DistributedContext.get_rank_for_indices(j, n_total, world_size)
     sorted_idx = torch.argsort(target_ranks)
     keys_sorted = keys[sorted_idx]
     values_sorted = v[sorted_idx]

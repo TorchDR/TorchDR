@@ -345,8 +345,11 @@ class UMAPAffinity(SparseAffinity):
 
     Parameters
     ----------
-    n_neighbors : float, optional
-        Number of effective nearest neighbors to consider. Similar to the perplexity.
+    n_neighbors : int, optional
+        UMAP neighbor count, including the sample itself during fit. TorchDR's
+        distance backends remove self-neighbors, so sparse mode retrieves
+        ``n_neighbors - 1`` other samples while retaining ``log2(n_neighbors)``
+        as the bandwidth target, matching umap-learn.
     max_iter : int, optional
         Maximum number of iterations for the root search.
     sparsity : bool, optional
@@ -385,7 +388,7 @@ class UMAPAffinity(SparseAffinity):
 
     def __init__(
         self,
-        n_neighbors: float = 30,
+        n_neighbors: int = 30,
         max_iter: int = 1000,
         sparsity: bool = True,
         metric: str = "sqeuclidean",
@@ -396,6 +399,7 @@ class UMAPAffinity(SparseAffinity):
         compile: bool = False,
         symmetrize: bool = True,
         distributed: Union[bool, str] = "auto",
+        input_layout: str = "replicated",
         _pre_processed: bool = False,
     ):
         self.n_neighbors = n_neighbors
@@ -411,6 +415,7 @@ class UMAPAffinity(SparseAffinity):
             sparsity=sparsity,
             compile=compile,
             distributed=distributed,
+            input_layout=input_layout,
             _pre_processed=_pre_processed,
         )
 
@@ -430,15 +435,29 @@ class UMAPAffinity(SparseAffinity):
         self : UMAPAffinityIn
             The fitted instance.
         """
-        n_samples_in = self._get_n_samples(X)
+        if self.input_layout == "sharded":
+            # Rows are split across ranks; validate the neighbor count against the
+            # global sample total, gathering (and caching) the shard layout here so
+            # the distance and symmetrization steps below reuse it.
+            layout = self._resolve_shard_layout(X)
+            n_samples_in = layout.global_count
+        else:
+            n_samples_in = self._get_n_samples(X)
         n_neighbors = check_neighbor_param(self.n_neighbors, n_samples_in)
 
         if self.sparsity:
+            # umap-learn's fit-time k-NN array contains self in its first column
+            # and skips that column when constructing memberships. TorchDR's
+            # distance backends already remove self, so request one fewer row.
+            n_neighbors_search = n_neighbors - 1
             if self.verbose:
                 self.logger.info(
-                    f"Sparsity mode enabled, computing {n_neighbors} nearest neighbors..."
+                    f"Sparsity mode enabled, computing {n_neighbors_search} nearest "
+                    "neighbors..."
                 )
-            C_, indices = self._distance_matrix(X, k=n_neighbors, return_indices=True)
+            C_, indices = self._distance_matrix(
+                X, k=n_neighbors_search, return_indices=True
+            )
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
@@ -472,13 +491,25 @@ class UMAPAffinity(SparseAffinity):
             self.logger.info("Symmetrizing affinity matrix...")
             if self.sparsity:
                 if self.is_multi_gpu:
-                    # Use distributed symmetrization for multi-GPU
+                    # Use distributed symmetrization for multi-GPU. With a sharded
+                    # input the global column owner follows the true (possibly
+                    # uneven) shard boundaries rather than the balanced split, and
+                    # the global row total is the summed shard counts.
+                    if self.input_layout == "sharded":
+                        n_total = self.n_global_
+                        owner_boundaries = self._shard_layout_.owner_boundaries(
+                            device=indices.device
+                        )
+                    else:
+                        n_total = self._get_n_samples(X)
+                        owner_boundaries = None
                     affinity_matrix, indices = distributed_symmetrize_sparse(
                         values=affinity_matrix,
                         indices=indices,
                         chunk_start=self.chunk_start_,
                         chunk_size=self.chunk_size_,
-                        n_total=self._get_n_samples(X),
+                        n_total=n_total,
+                        owner_boundaries=owner_boundaries,
                         mode="sum_minus_prod",
                     )
                 else:

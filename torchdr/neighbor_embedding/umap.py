@@ -61,8 +61,11 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
     Parameters
     ----------
-    n_neighbors : float, optional
-        Number of nearest neighbors.
+    n_neighbors : int, optional
+        UMAP neighbor count. During fit this includes the sample itself, so the
+        fuzzy graph uses ``n_neighbors - 1`` other samples, matching umap-learn.
+        Transform is bipartite and therefore uses ``n_neighbors`` training
+        samples because a new query has no self-neighbor in the training set.
     n_components : int, optional
         Dimension of the embedding space.
     min_dist : float, optional
@@ -130,6 +133,15 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    input_layout : {'replicated', 'sharded'}, optional
+        How the input rows are laid out across distributed ranks.
+        - "replicated" (default): every rank holds the full input.
+        - "sharded": each rank holds a distinct contiguous shard whose rows
+          concatenate, in rank order, into the global dataset, so no rank ever
+          materializes the whole input. Requires an exact Flat FAISS backend and
+          ``init`` in {"random", "normal", "hyperbolic"}; the embedding stays
+          replicated (one coordinate per global point on every rank).
+        Default is "replicated".
 
     Notes
     -----
@@ -146,7 +158,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
 
     def __init__(
         self,
-        n_neighbors: float = 30,
+        n_neighbors: int = 30,
         n_components: int = 2,
         min_dist: float = 0.1,
         spread: float = 1.0,
@@ -175,6 +187,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        input_layout: str = "replicated",
         **kwargs,
     ):
         self.n_neighbors = n_neighbors
@@ -205,6 +218,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             sparsity=self.sparsity,
             compile=compile,
             distributed=distributed,
+            input_layout=input_layout,
         )
 
         super().__init__(
@@ -229,6 +243,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
+            input_layout=input_layout,
             **kwargs,
         )
 

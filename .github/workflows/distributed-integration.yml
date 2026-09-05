@@ -18,6 +18,7 @@ on:
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_affinity_shard.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
       - "torchdr/tests/test_distributed_integration.py"
@@ -39,6 +40,7 @@ on:
       - "torchdr/neighbor_embedding/**"
       - "torchdr/spectral_embedding/incremental_pca.py"
       - "torchdr/spectral_embedding/pca.py"
+      - "torchdr/tests/test_distributed_affinity_shard.py"
       - "torchdr/tests/test_distributed_faiss_training.py"
       - "torchdr/tests/test_distributed_faiss_shard.py"
       - "torchdr/tests/test_distributed_integration.py"
@@ -130,3 +132,17 @@ jobs:
           python -m torch.distributed.run --standalone --nnodes=1
           --nproc-per-node=4 -m pytest
           torchdr/tests/test_distributed_faiss_shard.py -q
+      - name: Run two-process sharded-input affinity oracle test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=2 -m pytest
+          torchdr/tests/test_distributed_affinity_shard.py -q
+      - name: Run four-process sharded-input affinity oracle test
+        env:
+          TORCHDR_DISTRIBUTED_TEST: "1"
+        run: >-
+          python -m torch.distributed.run --standalone --nnodes=1
+          --nproc-per-node=4 -m pytest
+          torchdr/tests/test_distributed_affinity_shard.py -q
