@@ -402,6 +402,20 @@ class TestChunkStartOffset:
 
         assert covered == n_samples
 
+    def test_distributed_model_requires_distributed_affinity(self):
+        """A distributed model paired with a non-distributed affinity fails fast."""
+        model = SNE(n_components=2)
+        model.rank = 0
+        model.world_size = 2
+        model.device_ = torch.device("cpu")
+        model.n_samples_in_ = 8
+        # affinity_in was not set up with distributed=True, so it carries no
+        # chunk bounds; the estimator must reject this instead of silently
+        # letting every rank process all rows.
+        assert not hasattr(model.affinity_in, "chunk_start_")
+        with pytest.raises(ValueError, match="chunk bounds"):
+            model.on_affinity_computation_end()
+
     def test_training_step_scatters_gradients_at_the_offset(self):
         """The gradient must land on this rank's rows and nowhere else."""
         n_samples, n_components = 7, 2
