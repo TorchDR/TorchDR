@@ -31,6 +31,7 @@ import torch.distributed as dist
 from torchdr import UMAP
 from torchdr.affinity import UMAPAffinity
 from torchdr.distributed import init_distributed, shutdown_distributed
+from torchdr.spectral_embedding import PCA
 
 
 pytestmark = pytest.mark.skipif(
@@ -179,4 +180,44 @@ def test_input_sharded_umap_fit_spans_global(uneven):
     assert model.chunk_indices_.numel() == counts[rank]
     if model.lr == "auto":
         assert model.lr_ == max(n_samples / model.early_exaggeration_coeff_ / 4, 50)
+    _assert_replicated(embedding, n_samples, n_components)
+
+
+def test_input_sharded_pca_init_matches_global_pca():
+    """The default initializer uses all shards without gathering raw features."""
+    n_samples, n_features, n_components = 161, 24, 2
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+
+    X_global = _global_data(n_samples, n_features, torch.float32, seed=2).cuda()
+    counts = _shard_counts(n_samples, world_size, uneven=True)
+    X_local = _local_shard(X_global, counts, rank)
+
+    model = UMAP(
+        n_neighbors=15,
+        n_components=n_components,
+        max_iter=0,
+        scheduler=None,
+        distributed=True,
+        input_layout="sharded",
+        backend="faiss",
+    )
+    embedding = model.fit_transform(X_local)
+
+    reference = PCA(
+        n_components=n_components,
+        distributed=False,
+        process_duplicates=False,
+    ).fit_transform(X_global)
+    reference = model.init_scaling * reference / reference[:, 0].std()
+
+    # PCA axes are defined up to sign. Align each coordinate before comparison.
+    signs = torch.sign((embedding * reference).sum(dim=0))
+    signs.masked_fill_(signs == 0, 1)
+    torch.testing.assert_close(
+        embedding * signs,
+        reference,
+        rtol=2e-4,
+        atol=2e-5,
+    )
     _assert_replicated(embedding, n_samples, n_components)

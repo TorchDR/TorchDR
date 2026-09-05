@@ -80,7 +80,7 @@ def test_invalid_input_layout_rejected():
         UMAP(input_layout="partitioned")
 
 
-def test_sharded_rejects_pca_init():
+def test_sharded_accepts_pca_init():
     X = _blobs(60, 8)
     model = UMAP(
         input_layout="sharded",
@@ -88,9 +88,11 @@ def test_sharded_rejects_pca_init():
         backend="faiss",
         device="cpu",
         n_neighbors=10,
+        max_iter=5,
     )
-    with pytest.raises(NotImplementedError, match="init="):
-        model.fit_transform(X)
+    embedding = model.fit_transform(X)
+    assert embedding.shape == (60, 2)
+    assert np.isfinite(embedding).all()
 
 
 def test_sharded_rejects_tensor_init():

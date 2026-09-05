@@ -289,6 +289,7 @@ class NeighborEmbedding(AffinityMatcher):
             self._validate_sharded_input(X)
             dist_ctx = getattr(self.affinity_in, "dist_ctx", None)
             layout = gather_shard_layout(X, dist_ctx if self.distributed else None)
+            self._shard_layout_ = layout
             self.n_global_ = layout.global_count
             n_samples = layout.global_count
         else:
@@ -434,6 +435,38 @@ class NeighborEmbedding(AffinityMatcher):
 
     def _init_embedding(self, X: torch.Tensor):
         """Initialize embedding across ranks (broadcast from rank 0)."""
+        if (
+            getattr(self, "input_layout", "replicated") == "sharded"
+            and self.init == "pca"
+            and self.world_size > 1
+        ):
+            from torchdr.spectral_embedding.pca import PCA
+
+            # Distributed PCA aggregates only the feature covariance and returns
+            # this rank's projected rows. Gathering those small projections is
+            # enough to build the replicated embedding without ever gathering X.
+            local_embedding = PCA(
+                n_components=self.n_components,
+                device=self.device,
+                distributed=True,
+                process_duplicates=False,
+            ).fit_transform(X)
+            local_embedding = local_embedding.to(self.device_)
+
+            layout = self._shard_layout_
+            max_count = max(layout.counts)
+            padded = local_embedding.new_zeros((max_count, self.n_components))
+            padded[: layout.local_count] = local_embedding
+            gathered = [torch.empty_like(padded) for _ in layout.counts]
+            dist.all_gather(gathered, padded)
+            embedding = torch.cat(
+                [rows[:count] for rows, count in zip(gathered, layout.counts)]
+            )
+            self.embedding_ = (
+                self.init_scaling * embedding / embedding[:, 0].std()
+            ).requires_grad_()
+            return self.embedding_
+
         # All ranks must run _init_embedding to avoid NCCL deadlocks
         # (e.g., PCA init may trigger distributed ops internally).
         super()._init_embedding(X)
