@@ -17,7 +17,7 @@ peak is reported alongside as a cross-check.
 Launch (not a pytest; a torchrun entrypoint)::
 
     torchrun --standalone --nnodes=1 --nproc-per-node=2 \\
-        torchdr/tests/bench_input_shard_hbm.py \\
+        benchmarks/faiss/input_shard_hbm.py \\
         --samples 50000 --dim 768 --neighbors 15 --iters 100
 """
 
