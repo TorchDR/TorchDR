@@ -383,6 +383,18 @@ class TestChunkStartOffset:
         model.on_affinity_computation_end()
         return model
 
+    @staticmethod
+    def _umap_with_chunk(n_samples, chunk_start, chunk_size):
+        """Build the minimal UMAP state needed for a distributed training step."""
+        model = UMAP(n_components=2, optimizer="SGD", lr=0.0)
+        model.world_size = 2
+        model.scheduler_ = None
+        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, 2))
+        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
+        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
+        model.chunk_start_ = chunk_start
+        return model
+
     @pytest.mark.parametrize("n_samples,world_size", [(10, 1), (97, 4)])
     def test_matches_chunk_indices_on_every_rank(self, n_samples, world_size):
         """Single-process and uneven distributed chunks retain a host offset."""
@@ -407,16 +419,7 @@ class TestChunkStartOffset:
         n_samples, n_components = 7, 2
         chunk_start, chunk_size = 3, 4
 
-        model = UMAP(n_components=n_components, optimizer="SGD", lr=0.0)
-        model.rank = 1
-        model.world_size = 2
-        model.encoder = None
-        model.scheduler_ = None
-        model.device_ = torch.device("cpu")
-        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, n_components))
-        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
-        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
-        model.chunk_start_ = chunk_start
+        model = self._umap_with_chunk(n_samples, chunk_start, chunk_size)
 
         gradients = torch.arange(1.0, chunk_size * n_components + 1).reshape(
             chunk_size, n_components
@@ -433,27 +436,11 @@ class TestChunkStartOffset:
         assert torch.equal(model.embedding_.grad, expected)
 
     def test_training_step_rejects_mismatched_gradient_size(self):
-        """A wrong-sized closed-form gradient must raise before the all-reduce.
-
-        Without the size guard a single-row gradient would broadcast across the
-        whole chunk and corrupt the result silently instead of erroring.
-        """
-        n_samples, n_components = 7, 2
+        """Reject a gradient that PyTorch would silently broadcast over a chunk."""
+        n_samples = 7
         chunk_start, chunk_size = 3, 4
-
-        model = UMAP(n_components=n_components, optimizer="SGD", lr=0.0)
-        model.rank = 1
-        model.world_size = 2
-        model.encoder = None
-        model.scheduler_ = None
-        model.device_ = torch.device("cpu")
-        model.embedding_ = torch.nn.Parameter(torch.zeros(n_samples, n_components))
-        model.optimizer_ = torch.optim.SGD([model.embedding_], lr=0.0)
-        model.chunk_indices_ = torch.arange(chunk_start, chunk_start + chunk_size)
-        model.chunk_start_ = chunk_start
-
-        # One row instead of the chunk's four rows: a silent broadcast if unguarded.
-        model._compute_gradients = lambda: torch.ones(1, n_components)
+        model = self._umap_with_chunk(n_samples, chunk_start, chunk_size)
+        model._compute_gradients = lambda: torch.ones(1, 2)
 
         with patch("torch.distributed.all_reduce") as mock_all_reduce:
             with pytest.raises(RuntimeError, match="Gradient size mismatch"):
