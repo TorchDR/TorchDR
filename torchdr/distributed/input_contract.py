@@ -219,6 +219,23 @@ class ShardLayout:
             device=device,
         )
 
+    def owner_boundaries(self, device: Optional[torch.device] = None) -> torch.Tensor:
+        """Rank-major prefix offsets ``[0, c0, c0 + c1, ..., global_count]``.
+
+        A length ``world_size + 1`` table where ``boundaries[r]`` is the global
+        index of rank ``r``'s first row and ``boundaries[r + 1]`` is one past its
+        last, so a global row ``g`` is owned by the rank ``r`` for which
+        ``boundaries[r] <= g < boundaries[r + 1]``. This is the exact table
+        :func:`torchdr.utils.sparse.distributed_symmetrize_sparse` consumes to
+        route an arbitrary global column to its owner when the shards are uneven;
+        with the balanced split it reduces to that function's default arithmetic.
+        """
+        boundaries = torch.zeros(self.world_size + 1, dtype=torch.long, device=device)
+        boundaries[1:] = torch.as_tensor(
+            self.counts, dtype=torch.long, device=device
+        ).cumsum(0)
+        return boundaries
+
 
 def gather_shard_layout(X_local, dist_ctx) -> ShardLayout:
     """Exchange local row counts and derive a rank-major shard layout.
