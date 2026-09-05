@@ -111,6 +111,10 @@ class AffinityMatcher(DRModule):
         Neural network mapping input data to the embedding space.
         Output dimension must match :attr:`n_components`.
         Default is None (optimize a raw embedding matrix).
+    input_layout : {'replicated', 'sharded'}, optional
+        Whether every distributed rank receives the full input or one
+        contiguous row shard. The layout must match ``affinity_in``. Default is
+        "replicated".
     """
 
     def __init__(
@@ -202,6 +206,14 @@ class AffinityMatcher(DRModule):
                 f"{input_layout!r}."
             )
         self.input_layout = input_layout
+        if isinstance(self.affinity_in, Affinity):
+            affinity_layout = getattr(self.affinity_in, "input_layout", "replicated")
+            if input_layout != affinity_layout:
+                raise ValueError(
+                    "[TorchDR] input_layout must match affinity_in.input_layout; "
+                    f"the estimator uses {input_layout!r} while its affinity uses "
+                    f"{affinity_layout!r}."
+                )
         if input_layout == "sharded":
             # Each rank holds a distinct shard, so the default per-rank
             # torch.unique would deduplicate within a shard and corrupt the

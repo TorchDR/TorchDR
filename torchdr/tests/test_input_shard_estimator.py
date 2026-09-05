@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 import torch
 
-from torchdr import UMAP
+from torchdr import SNE, UMAP
 from torchdr.affinity import UMAPAffinity
 from torchdr.affinity_matcher import AffinityMatcher
 from torchdr.distance import FaissConfig, FaissPlanConfig
@@ -129,6 +129,16 @@ def test_sharded_rejects_non_flat_faiss_config():
         )
 
 
+def test_sharded_rejects_explicit_non_faiss_backend():
+    with pytest.raises(ValueError, match="requires backend='faiss'"):
+        UMAPAffinity(input_layout="sharded", backend="keops", distributed=False)
+
+
+def test_estimator_and_affinity_layouts_must_match():
+    with pytest.raises(ValueError, match="must match affinity_in.input_layout"):
+        SNE(input_layout="sharded")
+
+
 def test_sharded_accepts_explicit_flat_faiss_config():
     """An explicit exact-Flat ``FaissConfig`` is the one accepted backend override.
 
@@ -161,7 +171,12 @@ def test_sharded_rejects_dataloader():
 def test_sharded_rejects_encoder():
     """An encoder maps rows to a learned space, breaking the raw-row shard contract."""
     model = AffinityMatcher(
-        affinity_in=UMAPAffinity(n_neighbors=10, backend="faiss", device="cpu"),
+        affinity_in=UMAPAffinity(
+            n_neighbors=10,
+            backend="faiss",
+            device="cpu",
+            input_layout="sharded",
+        ),
         init="random",
         input_layout="sharded",
         device="cpu",

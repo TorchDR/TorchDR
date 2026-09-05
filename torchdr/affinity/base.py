@@ -348,6 +348,10 @@ class SparseAffinity(Affinity):
     distributed : bool or 'auto', optional
         Whether to use distributed multi-GPU computation.
         ``"auto"`` detects ``torchrun`` automatically. Default is "auto".
+    input_layout : {'replicated', 'sharded'}, optional
+        Whether every rank receives the full input or one contiguous row shard.
+        Sharded input currently requires exact Flat FAISS search. Default is
+        "replicated".
     _pre_processed : bool, optional
         If True, skips ``to_torch`` conversion. Default is False.
     """
@@ -473,9 +477,14 @@ class SparseAffinity(Affinity):
                     " An approximate sharded index is a separate follow-up."
                 )
             self._sharded_faiss_config_ = backend
-        else:
-            # "faiss", None, or a forced backend string -> exact Flat default.
+        elif backend in ("faiss", None):
             self._sharded_faiss_config_ = FaissConfig()
+        else:
+            raise ValueError(
+                "[TorchDR] input_layout='sharded' requires backend='faiss' or "
+                "an exact-Flat FaissConfig; an explicitly selected non-FAISS "
+                f"backend cannot be used, got {backend!r}."
+            )
 
     def _resolve_shard_layout(self, X):
         """Gather (once per call) and cache this input's rank-major shard layout.
