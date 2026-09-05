@@ -16,6 +16,7 @@ from torchdr.affinity import Affinity
 from torchdr.affinity.entropic import _log_Pe
 from torchdr.distance import FaissConfig, FaissPlanConfig, pairwise_distances
 from torchdr.affinity_matcher import AffinityMatcher
+from torchdr.distributed.input_contract import gather_shard_layout
 from torchdr.utils import (
     binary_search,
     entropy,
@@ -279,7 +280,19 @@ class NeighborEmbedding(AffinityMatcher):
         return self
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
-        n_samples = len(X.dataset) if isinstance(X, DataLoader) else X.shape[0]
+        if getattr(self, "input_layout", "replicated") == "sharded":
+            # Rows are split across ranks: reject unsupported layouts first (for a
+            # clean message on DataLoader/precomputed/etc.), then gather the global
+            # row count up front so the neighbor-count check -- and all downstream
+            # global-N sizing -- use the whole dataset, not this rank's shard. The
+            # affinity re-derives the same layout when it searches.
+            self._validate_sharded_input(X)
+            dist_ctx = getattr(self.affinity_in, "dist_ctx", None)
+            layout = gather_shard_layout(X, dist_ctx if self.distributed else None)
+            self.n_global_ = layout.global_count
+            n_samples = layout.global_count
+        else:
+            n_samples = len(X.dataset) if isinstance(X, DataLoader) else X.shape[0]
         self._check_n_neighbors(n_samples)
         # Initialize the mutable exaggeration coefficient (may be reset to 1 during
         # optimization when the early exaggeration phase ends).

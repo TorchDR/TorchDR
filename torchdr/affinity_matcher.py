@@ -139,6 +139,7 @@ class AffinityMatcher(DRModule):
         check_interval: int = 50,
         compile: bool = False,
         encoder: Optional[torch.nn.Module] = None,
+        input_layout: str = "replicated",
         **kwargs,
     ):
         super().__init__(
@@ -194,9 +195,58 @@ class AffinityMatcher(DRModule):
 
         self.encoder = encoder
 
+        # --- Input layout (replicated vs row-sharded) ---
+        if input_layout not in ("replicated", "sharded"):
+            raise ValueError(
+                f"[TorchDR] input_layout must be 'replicated' or 'sharded', got "
+                f"{input_layout!r}."
+            )
+        self.input_layout = input_layout
+        if input_layout == "sharded":
+            # Each rank holds a distinct shard, so the default per-rank
+            # torch.unique would deduplicate within a shard and corrupt the
+            # global row layout. Cross-rank duplicates are the caller's contract.
+            self.process_duplicates = False
+
         self.n_iter_ = torch.tensor(-1, dtype=torch.long)
 
     # --- Fitting and optimization loop ---
+
+    def _validate_sharded_input(self, X):
+        """Reject configurations the first sharded-input slice does not support.
+
+        Input-sharding splits the *rows* of a raw feature tensor across ranks and
+        keeps the embedding replicated. Layouts that would make a row's global
+        identity ambiguous -- a DataLoader, a precomputed affinity, an encoder,
+        or a PCA/tensor initialization that assumes the whole input is locally
+        available -- are rejected with an actionable message rather than silently
+        producing a wrong global embedding.
+        """
+        if isinstance(X, DataLoader):
+            raise NotImplementedError(
+                "[TorchDR] input_layout='sharded' requires a raw 2-D feature "
+                "tensor shard per rank; DataLoader input is not supported."
+            )
+        if self.affinity_in == "precomputed":
+            raise NotImplementedError(
+                "[TorchDR] input_layout='sharded' cannot be combined with "
+                "affinity_in='precomputed'; sharding partitions raw feature "
+                "rows, not a precomputed affinity."
+            )
+        if self.encoder is not None:
+            raise NotImplementedError(
+                "[TorchDR] input_layout='sharded' does not support an encoder."
+            )
+        if not (
+            isinstance(self.init, str)
+            and self.init in ("random", "normal", "hyperbolic")
+        ):
+            raise NotImplementedError(
+                "[TorchDR] input_layout='sharded' currently supports only "
+                "init='random', 'normal', or 'hyperbolic'; a distributed "
+                f"gather-based initialization for {self.init!r} is a follow-up. "
+                "Pass init='random'."
+            )
 
     def _fit_transform(self, X: torch.Tensor, y: Optional[Any] = None) -> torch.Tensor:
         """Compute the input affinity and optimize the embedding.
@@ -214,6 +264,10 @@ class AffinityMatcher(DRModule):
         embedding_ : torch.Tensor of shape (n_samples, n_components)
             The optimized embedding.
         """
+        # --- Reject inputs incompatible with a sharded layout ---
+        if getattr(self, "input_layout", "replicated") == "sharded":
+            self._validate_sharded_input(X)
+
         # --- Resolve metadata and device ---
         if isinstance(X, DataLoader):
             self.n_samples_in_ = len(X.dataset)
@@ -235,6 +289,11 @@ class AffinityMatcher(DRModule):
         else:
             self.n_samples_in_, self.n_features_in_ = X.shape
             self.device_ = X.device if self.device == "auto" else self.device
+            # Under a sharded input X.shape[0] is this rank's local count; adopt
+            # the global total (gathered early by the estimator) so all downstream
+            # sizing -- embedding, learning rate, negatives -- spans every rank.
+            if getattr(self, "n_global_", None) is not None:
+                self.n_samples_in_ = int(self.n_global_)
 
         # --- Validate encoder ---
         if self.encoder is not None:
@@ -284,6 +343,18 @@ class AffinityMatcher(DRModule):
                 self.affinity_in_ = affinity_matrix
             else:
                 self.register_buffer("affinity_in_", affinity_matrix, persistent=False)
+
+        # A sharded affinity records the global sample total; adopt it so the
+        # embedding size, learning rate, and negative pool span all rows. The
+        # estimator (NeighborEmbedding) usually sets ``n_global_`` earlier; this
+        # also covers a bare AffinityMatcher driven by a sharded affinity.
+        if (
+            getattr(self, "n_global_", None) is None
+            and getattr(self.affinity_in, "n_global_", None) is not None
+        ):
+            self.n_global_ = int(self.affinity_in.n_global_)
+        if getattr(self, "n_global_", None) is not None:
+            self.n_samples_in_ = int(self.n_global_)
 
         self.on_affinity_computation_end()
 
@@ -518,7 +589,12 @@ class AffinityMatcher(DRModule):
             n = self.n_samples_in_
             X_dtype = self._dataloader_dtype_
         else:
-            n = X.shape[0]
+            # Under a sharded input X holds only this rank's rows; the replicated
+            # embedding is sized to the global sample total so every rank builds
+            # (and rank 0 broadcasts) one coordinate per global point.
+            n = getattr(self, "n_global_", None)
+            if n is None:
+                n = X.shape[0]
             X_dtype = X.dtype
 
         if isinstance(self.init, (torch.Tensor, np.ndarray)):

@@ -133,6 +133,15 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         - True: Force distributed mode (requires torchrun)
         - False: Disable distributed mode
         Default is "auto".
+    input_layout : {'replicated', 'sharded'}, optional
+        How the input rows are laid out across distributed ranks.
+        - "replicated" (default): every rank holds the full input.
+        - "sharded": each rank holds a distinct contiguous shard whose rows
+          concatenate, in rank order, into the global dataset, so no rank ever
+          materializes the whole input. Requires an exact Flat FAISS backend and
+          ``init`` in {"random", "normal", "hyperbolic"}; the embedding stays
+          replicated (one coordinate per global point on every rank).
+        Default is "replicated".
 
     Notes
     -----
@@ -174,6 +183,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         discard_NNs: Optional[bool] = None,
         compile: bool = False,
         distributed: Union[bool, str] = "auto",
+        input_layout: str = "replicated",
         **kwargs,
     ):
         self.n_neighbors = n_neighbors
@@ -204,6 +214,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             sparsity=self.sparsity,
             compile=compile,
             distributed=distributed,
+            input_layout=input_layout,
         )
 
         super().__init__(
@@ -228,6 +239,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             compile=compile,
             n_negatives=self.n_negatives,
             distributed=distributed,
+            input_layout=input_layout,
             **kwargs,
         )
 

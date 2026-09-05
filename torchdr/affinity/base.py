@@ -24,7 +24,9 @@ from torchdr.distance import (
     FaissConfig,
     FaissPlanConfig,
 )
+from torchdr.distance.faiss import input_sharded_pairwise_distances_faiss
 from torchdr.distance.faiss_plan import _resolve_faiss_plan
+from torchdr.distributed.input_contract import gather_shard_layout
 
 import torch.distributed as dist
 
@@ -361,6 +363,7 @@ class SparseAffinity(Affinity):
         sparsity: bool = True,
         distributed: Union[bool, str] = "auto",
         random_state: float = None,
+        input_layout: str = "replicated",
         _pre_processed: bool = False,
     ):
         # --- Distributed setup ---
@@ -433,6 +436,65 @@ class SparseAffinity(Affinity):
                     f"Distributed mode enabled: rank {self.rank}/{self.world_size}"
                 )
 
+        # --- Input layout (replicated vs row-sharded) ---
+        if input_layout not in ("replicated", "sharded"):
+            raise ValueError(
+                f"[TorchDR] input_layout must be 'replicated' or 'sharded', got "
+                f"{input_layout!r}."
+            )
+        self.input_layout = input_layout
+        self._shard_layout_ = None
+        if input_layout == "sharded":
+            self._resolve_sharded_faiss_config()
+
+    def _resolve_sharded_faiss_config(self):
+        """Validate and cache the exact Flat config used by the sharded path.
+
+        Input-sharding builds a per-rank Flat index over each shard and merges
+        the global top-k, so it composes only with exact ``Flat`` search. A
+        :class:`FaissPlanConfig` selects the orthogonal *index*-sharding strategy
+        (full input replicated on every rank, index split), which is mutually
+        exclusive with splitting the rows themselves.
+        """
+        backend = self.backend
+        if isinstance(backend, FaissPlanConfig):
+            raise ValueError(
+                "[TorchDR] input_layout='sharded' cannot be combined with a "
+                "FaissPlanConfig: input-sharding (rows split across ranks) and "
+                "the FaissPlanConfig index-sharding strategy (input replicated, "
+                "index split) are mutually exclusive. Pass a plain FaissConfig "
+                "or backend='faiss'."
+            )
+        if isinstance(backend, FaissConfig):
+            if backend.index_type != "Flat":
+                raise NotImplementedError(
+                    "[TorchDR] input_layout='sharded' currently supports only "
+                    f"exact 'Flat' search, got index_type={backend.index_type!r}."
+                    " An approximate sharded index is a separate follow-up."
+                )
+            self._sharded_faiss_config_ = backend
+        else:
+            # "faiss", None, or a forced backend string -> exact Flat default.
+            self._sharded_faiss_config_ = FaissConfig()
+
+    def _resolve_shard_layout(self, X):
+        """Gather (once per call) and cache this input's rank-major shard layout.
+
+        Also records the chunk bounds that the distributed sparse symmetrization
+        and the estimator's gradient partition read back, derived here from the
+        true shard offsets rather than the balanced split. Single-process (no
+        group or one rank) short-circuits to the whole input as a single shard.
+        """
+        layout = self._shard_layout_
+        if layout is None:
+            layout = gather_shard_layout(X, self.dist_ctx if self.distributed else None)
+            self._shard_layout_ = layout
+            self.n_global_ = layout.global_count
+            self.chunk_start_ = layout.local_offset
+            self.chunk_end_ = layout.local_offset + layout.local_count
+            self.chunk_size_ = layout.local_count
+        return layout
+
     # --- Sparsity property ---
 
     @property
@@ -471,6 +533,10 @@ class SparseAffinity(Affinity):
         """
         if not self._pre_processed:
             X = to_torch(X)
+        if self.input_layout == "sharded":
+            # Drop any layout cached by a previous call so this fit re-derives it
+            # from the shards actually passed here.
+            self._shard_layout_ = None
         return self._compute_sparse_affinity(X, return_indices, **kwargs)
 
     # --- Core computation (must be implemented by subclasses) ---
@@ -506,6 +572,24 @@ class SparseAffinity(Affinity):
         indices : torch.Tensor, optional
             Indices if ``return_indices=True``.
         """
+        # Row-sharded input: each rank holds a distinct contiguous shard and the
+        # search returns *global* neighbor ids over the reconstructed dataset.
+        # The dispatcher's replicated-input contract does not apply here, so this
+        # path calls the input-sharded kernel directly and records the chunk
+        # bounds from the true shard offsets.
+        if self.input_layout == "sharded":
+            self._resolve_shard_layout(X)
+            distances, indices = input_sharded_pairwise_distances_faiss(
+                X,
+                k=k,
+                metric=self.metric,
+                exclude_diag=self.zero_diag,
+                config=self._sharded_faiss_config_,
+                device=self.device,
+                distributed_ctx=self.dist_ctx if self.distributed else None,
+            )
+            return (distances, indices) if return_indices else distances
+
         backend = self._resolve_plan_backend(X)
         result = pairwise_distances(
             X=X,
