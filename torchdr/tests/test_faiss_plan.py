@@ -46,7 +46,7 @@ def test_config_defaults_are_exact_and_immutable():
     config = FaissPlanConfig()
     assert (config.mode, config.distribution, config.expert) == (
         "exact",
-        "auto",
+        "replicate",
         None,
     )
     with pytest.raises(FrozenInstanceError):
@@ -58,6 +58,7 @@ def test_config_defaults_are_exact_and_immutable():
     ("kwargs", "error"),
     [
         ({"mode": "turbo"}, ValueError),
+        ({"distribution": "auto"}, ValueError),
         ({"distribution": "single"}, ValueError),
         ({"expert": "not-a-config"}, TypeError),
         (
@@ -114,17 +115,6 @@ def test_shard_without_a_group_resolves_to_single():
         distributed_ctx=_FakeContext(world_size=1),
     )
     assert plan.distribution == "single"
-
-
-def test_auto_preserves_replication_until_memory_selection_is_implemented():
-    ctx = _FakeContext(world_size=2)
-    plan, _ = _resolve_faiss_plan(
-        FaissPlanConfig(distribution="auto"),
-        n_samples=1_000,
-        n_features=8,
-        distributed_ctx=ctx,
-    )
-    assert plan.distribution == "replicate"
 
 
 def test_explicit_shard_rejects_unsupported_expert_index():
