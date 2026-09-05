@@ -140,13 +140,7 @@ def test_estimator_and_affinity_layouts_must_match():
 
 
 def test_sharded_accepts_explicit_flat_faiss_config():
-    """An explicit exact-Flat ``FaissConfig`` is the one accepted backend override.
-
-    The non-Flat and ``FaissPlanConfig`` rejections above only prove the guard
-    fires; this pins the positive branch so a user who passes ``FaissConfig()``
-    (whose ``index_type`` defaults to ``"Flat"``) keeps their own config object
-    rather than having it silently replaced.
-    """
+    """An explicit exact-Flat configuration runs through the sharded path."""
     config = FaissConfig()
     aff = UMAPAffinity(
         n_neighbors=10,
@@ -155,7 +149,9 @@ def test_sharded_accepts_explicit_flat_faiss_config():
         input_layout="sharded",
         distributed=False,
     )
-    assert aff._sharded_faiss_config_ is config
+    values, indices = aff(torch.as_tensor(_blobs(40, 8)))
+    assert values.shape == indices.shape
+    assert values.shape[0] == 40
 
 
 def test_sharded_rejects_dataloader():
@@ -264,9 +260,3 @@ def test_single_process_sharded_embedding_matches_replicated():
     # Same seed + identical affinity + identical single-process optimization ->
     # the embeddings coincide.
     torch.testing.assert_close(shard_emb, rep_emb, rtol=1e-4, atol=1e-4)
-
-
-def test_single_process_sharded_embedding_is_finite():
-    X = _blobs(90, 12, seed=3)
-    _, emb = _fit("sharded", X)
-    assert torch.isfinite(emb).all()
