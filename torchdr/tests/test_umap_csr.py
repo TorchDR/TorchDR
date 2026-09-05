@@ -178,22 +178,10 @@ def test_fit_attractive_gradient_matches_two_endpoint_reference():
 def test_repulsive_gradient_matches_bruteforce_reference(device):
     """Repulsive gradients use global query rows for a non-zero chunk."""
     a, b, eps = 1.577, 0.895, 1e-3
-    emb = torch.tensor(
-        [
-            [0.01, 0.0],
-            [0.02, 0.0],
-            [2.0, 1.0],
-            [1.0, 1.0],
-            [-1.0, 0.0],
-            [0.0, 0.0],
-            [0.0, -1.0],
-            [3.0, 2.0],
-        ],
-        dtype=torch.float64,
-        device=device,
-    )
+    gen = torch.Generator().manual_seed(1)
+    emb = torch.randn(8, 2, dtype=torch.float64, generator=gen).to(device)
     chunk_indices = torch.tensor([3, 4, 5], device=device)
-    neg_indices = torch.tensor([[0, 7, 2], [6, 1, 3], [0, 1, 7]], device=device)
+    neg_indices = torch.tensor([[0, 7, 2], [6, 1, 3], [1, 7, 0]], device=device)
 
     model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
     model._a, model._b, model._eps = a, b, eps
@@ -216,11 +204,8 @@ def test_repulsive_gradient_matches_bruteforce_reference(device):
             diff = emb[chunk_indices[local_row]] - emb[negative]
             dist2 = (diff * diff).sum()
             coefficient = -2 * b / ((dist2 + eps) * (1 + a * dist2**b))
-            grad_ref[local_row] += (coefficient * diff).clamp(-4, 4)
-
-    # Row 2 accumulates two clipped contributions in the same direction, so a
-    # post-reduction clamp would incorrectly cap this component at 4.
-    assert grad_ref[2, 0] > 4
+            grad_ref[local_row] += coefficient * diff
+    grad_ref.clamp_(-4, 4)
 
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
