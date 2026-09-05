@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Union
 from .faiss import FaissConfig
 
 _VALID_MODES = ("exact", "balanced", "fast")
-_VALID_DISTRIBUTIONS = ("auto", "replicate", "shard")
+_VALID_DISTRIBUTIONS = ("replicate", "shard")
 
 
 @dataclass(frozen=True)
@@ -27,12 +27,17 @@ class FaissPlanConfig:
     mode : {"exact", "balanced", "fast"}, default="exact"
         Accuracy/speed intent. Only ``"exact"`` is currently implemented;
         ``"balanced"`` and ``"fast"`` raise :class:`NotImplementedError`.
-    distribution : {"auto", "replicate", "shard"}, default="auto"
+    distribution : {"replicate", "shard"}, default="replicate"
         Multi-GPU topology. ``"replicate"`` builds the full index on every rank.
         ``"shard"`` splits an exact ``Flat`` index across ranks. The input tensor
-        remains replicated under TorchDR's current distributed-input contract.
-        ``"auto"`` currently preserves the existing replicated-index strategy;
-        automatic memory-aware selection is not yet implemented.
+        remains replicated under this index-sharding contract. Select
+        ``input_layout="sharded"`` on a supported estimator or affinity instead
+        when the input rows themselves are already partitioned across ranks.
+
+        Topology selection is explicit because a portable pre-search memory
+        estimate cannot account reliably for FAISS's device- and version-specific
+        resource pool, search scratch, and other live allocations. Replication is
+        the default throughput path; sharding is the opt-in aggregate-memory path.
     expert : FaissConfig, optional
         Explicit low-level override for advanced users. It cannot be combined
         with a non-default mode. The object is copied during resolution.
@@ -46,7 +51,7 @@ class FaissPlanConfig:
     """
 
     mode: str = "exact"
-    distribution: str = "auto"
+    distribution: str = "replicate"
     expert: Optional[FaissConfig] = None
 
     def __post_init__(self):
@@ -148,8 +153,6 @@ def _resolve_faiss_plan(
             )
         distribution = "shard"
     else:
-        # Automatic memory-aware selection needs a trustworthy total peak-memory
-        # estimate. Until that exists, preserve the established fast path.
         distribution = "replicate"
 
     index_memory_bytes = None
