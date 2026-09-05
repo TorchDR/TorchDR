@@ -452,3 +452,23 @@ class TestChunkStartOffset:
         model._exit_transform(saved)
         assert model.chunk_start_ == 2
         assert model.chunk_start_ == model.chunk_indices_[0].item()
+
+
+class TestEncoderDistributedGuard:
+    """A parametric encoder is unsupported alongside distributed closed-form gradients."""
+
+    def test_training_step_rejects_encoder_in_distributed(self):
+        """The closed-form encoder path must raise instead of misapplying gradients."""
+        n_samples, n_components = 5, 2
+
+        model = UMAP(n_components=n_components, optimizer="SGD", lr=0.0)
+        model.world_size = 2
+        model.scheduler_ = None
+        # The encoder produces the embedding, so its parameters carry the grads.
+        model.encoder = torch.nn.Linear(n_components, n_components)
+        model.X_train_ = torch.zeros(n_samples, n_components)
+        model.optimizer_ = torch.optim.SGD(model.encoder.parameters(), lr=0.0)
+        model._compute_gradients = lambda: torch.ones(n_samples, n_components)
+
+        with pytest.raises(NotImplementedError, match="encoder with distributed"):
+            model._training_step()
