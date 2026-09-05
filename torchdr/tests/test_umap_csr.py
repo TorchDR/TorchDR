@@ -54,7 +54,9 @@ def test_flatten_padded_edges_all_padded_row_is_dropped():
     assert mask.sum().item() == 2
 
 
-def _reference_attractive_grad(emb, chunk_indices, source, target, a, b, sampled):
+def _reference_attractive_grad(
+    emb, chunk_indices, source, target, a, b, sampled, move_other=False
+):
     """Brute-force per-edge accumulation of the UMAP attractive gradient.
 
     Mirrors the closed-form coefficient in ``_compute_attractive_gradients`` but
@@ -70,8 +72,11 @@ def _reference_attractive_grad(emb, chunk_indices, source, target, a, b, sampled
             coef = (2 * a * b * dist2 ** (b - 1)) / (1 + a * dist2**b)
         else:
             coef = 0.0
-        grad[s_local] += d * coef
-    return grad.clamp_(-4, 4)
+        edge_gradient = (d * coef).clamp(-4, 4)
+        grad[s_local] += edge_gradient
+        if move_other:
+            grad[int(target[e])] -= edge_gradient
+    return grad
 
 
 @pytest.mark.parametrize("device", DEVICES)
@@ -141,36 +146,54 @@ def test_attractive_gradient_matches_bruteforce_reference(device):
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
 
-def test_fit_attractive_gradient_includes_both_endpoints():
-    """Fit attraction includes the reverse endpoint, unlike transform."""
+def test_fit_attractive_gradient_matches_two_endpoint_reference():
+    """A symmetric fit graph matches explicit source-and-target updates."""
     model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
     model._a, model._b, model._eps = 1.577, 0.895, 1e-3
-    model.embedding_ = torch.tensor([[0.0, 0.0], [1.0, 0.0]])
-    model.chunk_indices_ = torch.tensor([0])
-    model.attractive_source_ = torch.tensor([0])
-    model.attractive_target_ = torch.tensor([1])
-    model.attractive_counts_ = torch.tensor([1])
-    model.epoch_of_next_sample = torch.tensor([1.0])
-    model.epochs_per_sample = torch.tensor([1.0])
+    model.embedding_ = torch.tensor([[-3.0, 0.0], [0.0, 1.0], [2.0, -1.0]])
+    model.chunk_indices_ = torch.arange(3)
+    model.attractive_source_ = torch.tensor([0, 1, 1, 2])
+    model.attractive_target_ = torch.tensor([1, 0, 2, 1])
+    model.attractive_counts_ = torch.tensor([1, 2, 1])
+    model.epoch_of_next_sample = torch.ones(4)
+    model.epochs_per_sample = torch.ones(4)
     model.n_iter_ = torch.tensor(0)
 
-    model._is_transforming = True
-    transform_grad = model._compute_attractive_gradients()
-    model.epoch_of_next_sample = torch.tensor([1.0])
-    model._is_transforming = False
     fit_grad = model._compute_attractive_gradients()
+    reference = _reference_attractive_grad(
+        model.embedding_,
+        model.chunk_indices_,
+        model.attractive_source_,
+        model.attractive_target_,
+        model._a,
+        model._b,
+        torch.ones(4, dtype=torch.bool),
+        move_other=True,
+    )
 
-    torch.testing.assert_close(fit_grad, transform_grad * 2)
+    torch.testing.assert_close(fit_grad, reference)
 
 
 @pytest.mark.parametrize("device", DEVICES)
 def test_repulsive_gradient_matches_bruteforce_reference(device):
     """Repulsive gradients use global query rows for a non-zero chunk."""
     a, b, eps = 1.577, 0.895, 1e-3
-    gen = torch.Generator().manual_seed(1)
-    emb = torch.randn(8, 2, dtype=torch.float64, generator=gen).to(device)
+    emb = torch.tensor(
+        [
+            [0.01, 0.0],
+            [0.02, 0.0],
+            [2.0, 1.0],
+            [1.0, 1.0],
+            [-1.0, 0.0],
+            [0.0, 0.0],
+            [0.0, -1.0],
+            [3.0, 2.0],
+        ],
+        dtype=torch.float64,
+        device=device,
+    )
     chunk_indices = torch.tensor([3, 4, 5], device=device)
-    neg_indices = torch.tensor([[0, 7, 2], [6, 1, 3], [1, 7, 0]], device=device)
+    neg_indices = torch.tensor([[0, 7, 2], [6, 1, 3], [0, 1, 7]], device=device)
 
     model = UMAP(n_components=2, n_neighbors=2, optimizer="SGD")
     model._a, model._b, model._eps = a, b, eps
@@ -193,8 +216,11 @@ def test_repulsive_gradient_matches_bruteforce_reference(device):
             diff = emb[chunk_indices[local_row]] - emb[negative]
             dist2 = (diff * diff).sum()
             coefficient = -2 * b / ((dist2 + eps) * (1 + a * dist2**b))
-            grad_ref[local_row] += coefficient * diff
-    # All reference contributions are below the component-wise clipping bound.
+            grad_ref[local_row] += (coefficient * diff).clamp(-4, 4)
+
+    # Row 2 accumulates two clipped contributions in the same direction, so a
+    # post-reduction clamp would incorrectly cap this component at 4.
+    assert grad_ref[2, 0] > 4
 
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 
