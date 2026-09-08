@@ -455,36 +455,36 @@ class SparseAffinity(Affinity):
         """Validate and cache the exact Flat config used by the sharded path.
 
         Input-sharding builds a per-rank Flat index over each shard and merges
-        the global top-k, so it composes only with exact ``Flat`` search. A
-        :class:`FaissPlanConfig` selects the orthogonal *index*-sharding strategy
-        (full input replicated on every rank, index split), which is mutually
-        exclusive with splitting the rows themselves.
+        the global top-k, so it composes only with exact ``Flat`` search. A high-
+        level plan must explicitly request the matching sharded index topology;
+        replicated intent is contradictory when the caller supplies row shards.
         """
         backend = self.backend
         if isinstance(backend, FaissPlanConfig):
-            raise ValueError(
-                "[TorchDR] input_layout='sharded' cannot be combined with a "
-                "FaissPlanConfig: input-sharding (rows split across ranks) and "
-                "the FaissPlanConfig index-sharding strategy (input replicated, "
-                "index split) are mutually exclusive. Pass a plain FaissConfig "
-                "or backend='faiss'."
-            )
-        if isinstance(backend, FaissConfig):
-            if backend.index_type != "Flat":
-                raise NotImplementedError(
-                    "[TorchDR] input_layout='sharded' currently supports only "
-                    f"exact 'Flat' search, got index_type={backend.index_type!r}."
-                    " An approximate sharded index is a separate follow-up."
+            if backend.distribution != "shard":
+                raise ValueError(
+                    "[TorchDR] input_layout='sharded' requires "
+                    "FaissPlanConfig(distribution='shard'); replicated index "
+                    "intent contradicts a row-sharded input."
                 )
-            self._sharded_faiss_config_ = backend
+            _, resolved = _resolve_faiss_plan(backend)
+        elif isinstance(backend, FaissConfig):
+            resolved = backend
         elif backend in ("faiss", None):
-            self._sharded_faiss_config_ = FaissConfig()
+            resolved = FaissConfig()
         else:
             raise ValueError(
                 "[TorchDR] input_layout='sharded' requires backend='faiss' or "
                 "an exact-Flat FaissConfig; an explicitly selected non-FAISS "
                 f"backend cannot be used, got {backend!r}."
             )
+        if resolved.index_type != "Flat":
+            raise NotImplementedError(
+                "[TorchDR] input_layout='sharded' currently supports only "
+                f"exact 'Flat' search, got index_type={resolved.index_type!r}."
+                " An approximate sharded index is a separate follow-up."
+            )
+        self._sharded_faiss_config_ = resolved
 
     def _resolve_shard_layout(self, X):
         """Gather (once per call) and cache this input's rank-major shard layout.
@@ -587,7 +587,19 @@ class SparseAffinity(Affinity):
         # path calls the input-sharded kernel directly and records the chunk
         # bounds from the true shard offsets.
         if self.input_layout == "sharded":
-            self._resolve_shard_layout(X)
+            layout = self._resolve_shard_layout(X)
+            if isinstance(self.backend, FaissPlanConfig):
+                self.faiss_plan_, _ = _resolve_faiss_plan(
+                    self.backend,
+                    n_samples=layout.global_count,
+                    n_features=X.shape[1],
+                    distributed_ctx=self.dist_ctx if self.distributed else None,
+                    max_indexed_rows=max(layout.counts),
+                )
+                if self.verbose and self.rank == 0:
+                    self.logger.info(
+                        f"Resolved FAISS execution plan: {self.faiss_plan_}"
+                    )
             distances, indices = input_sharded_pairwise_distances_faiss(
                 X,
                 k=k,

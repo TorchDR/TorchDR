@@ -30,6 +30,7 @@ import torch.distributed as dist
 
 from torchdr import UMAP
 from torchdr.affinity import UMAPAffinity
+from torchdr.distance import FaissPlanConfig
 from torchdr.distributed import init_distributed, shutdown_distributed
 from torchdr.spectral_embedding import PCA
 
@@ -126,12 +127,19 @@ def test_input_sharded_affinity_matches_single_process(uneven):
     assert sum(counts) == n_samples
     X_local = _local_shard(X_global, counts, rank).cuda()
 
+    backend = FaissPlanConfig(distribution="shard") if uneven else "faiss"
     sharded = UMAPAffinity(
-        n_neighbors=15, distributed=True, backend="faiss", input_layout="sharded"
+        n_neighbors=15,
+        distributed=True,
+        backend=backend,
+        input_layout="sharded",
     )
     local_values, local_indices = sharded(X_local)
     assert sharded.n_global_ == n_samples
     assert local_values.shape[0] == counts[rank]
+    if isinstance(backend, FaissPlanConfig):
+        assert sharded.faiss_plan_.distribution == "shard"
+        assert sharded.faiss_plan_.index_memory_bytes == max(counts) * n_features * 4
     local_dense = _rowwise_to_dense(local_values.cpu(), local_indices.cpu(), n_samples)
     full = _gather_rows(local_dense)
 

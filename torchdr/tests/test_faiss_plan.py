@@ -141,6 +141,17 @@ def test_exact_plan_reports_resolved_execution():
     assert "index_memory_bytes=32000" in repr(restored)
 
 
+def test_sharded_plan_reports_busiest_observed_rank():
+    plan, _ = _resolve_faiss_plan(
+        FaissPlanConfig(distribution="shard"),
+        n_samples=120,
+        n_features=8,
+        distributed_ctx=_FakeContext(world_size=4),
+        max_indexed_rows=55,
+    )
+    assert plan.index_memory_bytes == 55 * 8 * 4
+
+
 def test_expert_resolution_is_non_mutating():
     expert = FaissConfig(
         index_type="IVFPQ", nlist=50, M=8, nbits=8, nprobe=4, custom_option=1

@@ -29,10 +29,10 @@ class FaissPlanConfig:
         ``"balanced"`` and ``"fast"`` raise :class:`NotImplementedError`.
     distribution : {"replicate", "shard"}, default="replicate"
         Multi-GPU topology. ``"replicate"`` builds the full index on every rank.
-        ``"shard"`` splits an exact ``Flat`` index across ranks. The input tensor
-        remains replicated under this index-sharding contract. Select
-        ``input_layout="sharded"`` on a supported estimator or affinity instead
-        when the input rows themselves are already partitioned across ranks.
+        ``"shard"`` splits an exact ``Flat`` index across ranks. With the default
+        input layout, the input tensor remains replicated. When the caller has
+        already partitioned the input rows, combine ``distribution="shard"`` with
+        ``input_layout="sharded"`` on a supported estimator or affinity.
 
         Topology selection is explicit because a portable pre-search memory
         estimate cannot account reliably for FAISS's device- and version-specific
@@ -81,8 +81,8 @@ class _FaissPlan:
     """Resolved, immutable diagnostics exposed as ``faiss_plan_``.
 
     ``index_memory_bytes`` estimates only FAISS's stored database vectors on
-    each rank. It deliberately excludes inputs, outputs, and temporary scratch
-    rather than presenting a partial estimate as total peak memory.
+    the busiest rank. It deliberately excludes inputs, outputs, and temporary
+    scratch rather than presenting a partial estimate as total peak memory.
     """
 
     mode: str
@@ -124,6 +124,7 @@ def _resolve_faiss_plan(
     n_samples: Optional[int] = None,
     n_features: Optional[int] = None,
     distributed_ctx=None,
+    max_indexed_rows: Optional[int] = None,
 ) -> Tuple[_FaissPlan, FaissConfig]:
     """Resolve user intent into diagnostics and a fresh low-level config."""
     if config.expert is not None:
@@ -156,10 +157,17 @@ def _resolve_faiss_plan(
         distribution = "replicate"
 
     index_memory_bytes = None
-    if training_size == 0 and n_samples is not None and n_features is not None:
-        indexed_rows = int(n_samples)
-        if distribution == "shard":
-            indexed_rows = (indexed_rows + world_size - 1) // world_size
+    if (
+        training_size == 0
+        and n_features is not None
+        and (n_samples is not None or max_indexed_rows is not None)
+    ):
+        if max_indexed_rows is not None:
+            indexed_rows = int(max_indexed_rows)
+        else:
+            indexed_rows = int(n_samples)
+            if distribution == "shard":
+                indexed_rows = (indexed_rows + world_size - 1) // world_size
         index_memory_bytes = indexed_rows * int(n_features) * 4
 
     return (

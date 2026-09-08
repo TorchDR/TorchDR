@@ -115,18 +115,42 @@ def test_sharded_rejects_precomputed_affinity():
         model.fit_transform(P)
 
 
-def test_sharded_rejects_faiss_plan_config():
-    with pytest.raises(ValueError, match="FaissPlanConfig"):
+def test_sharded_rejects_replicated_faiss_plan():
+    with pytest.raises(ValueError, match="distribution='shard'"):
         UMAPAffinity(
             input_layout="sharded", backend=FaissPlanConfig(), distributed=False
         )
 
 
-def test_sharded_rejects_non_flat_faiss_config():
+def test_sharded_accepts_sharded_faiss_plan():
+    aff = UMAPAffinity(
+        n_neighbors=10,
+        input_layout="sharded",
+        backend=FaissPlanConfig(distribution="shard"),
+        device="cpu",
+        distributed=False,
+    )
+    values, indices = aff(torch.as_tensor(_blobs(40, 8)))
+    assert values.shape == indices.shape
+    assert aff.faiss_plan_.distribution == "single"
+    assert aff.faiss_plan_.index_type == "Flat"
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        FaissConfig(index_type="IVF", nlist=16),
+        FaissPlanConfig(
+            distribution="shard",
+            expert=FaissConfig(index_type="IVF", nlist=16),
+        ),
+    ],
+)
+def test_sharded_rejects_non_flat_faiss_config(backend):
     with pytest.raises(NotImplementedError, match="Flat"):
         UMAPAffinity(
             input_layout="sharded",
-            backend=FaissConfig(index_type="IVF", nlist=16),
+            backend=backend,
             distributed=False,
         )
 

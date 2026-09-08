@@ -140,7 +140,8 @@ class UMAP(NegativeSamplingNeighborEmbedding):
           concatenate, in rank order, into the global dataset, so no rank ever
           materializes the whole input. Requires an exact Flat FAISS backend and
           ``init`` in {"random", "normal", "hyperbolic", "pca"}; the embedding
-          stays replicated (one coordinate per global point on every rank).
+          stays replicated (one coordinate per global point on every rank). A
+          high-level FAISS plan must set ``distribution="shard"``.
         Default is "replicated".
 
     Notes
