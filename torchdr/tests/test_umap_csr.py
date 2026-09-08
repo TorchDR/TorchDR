@@ -198,14 +198,16 @@ def test_repulsive_gradient_matches_bruteforce_reference(device):
     grad = model._compute_repulsive_gradients()
 
     # The active positive-edge counts retain 1, 1, and 2 negative samples.
+    # UMAP clips each negative edge before accumulating the point gradient.
+    # This differs from clipping the final aggregate when several edges are
+    # active for one query point.
     grad_ref = torch.zeros_like(grad)
     for local_row, n_negatives in enumerate([1, 1, 2]):
         for negative in neg_indices[local_row, :n_negatives]:
             diff = emb[chunk_indices[local_row]] - emb[negative]
             dist2 = (diff * diff).sum()
             coefficient = -2 * b / ((dist2 + eps) * (1 + a * dist2**b))
-            grad_ref[local_row] += coefficient * diff
-    grad_ref.clamp_(-4, 4)
+            grad_ref[local_row] += (coefficient * diff).clamp(-4, 4)
 
     torch.testing.assert_close(grad, grad_ref, rtol=1e-9, atol=1e-9)
 

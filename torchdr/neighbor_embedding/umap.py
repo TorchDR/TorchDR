@@ -332,10 +332,10 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         # The edges are ordered by source row, so a segmented reduction avoids
         # CUDA atomics and remains deterministic without giving up the flat
         # representation's performance and memory savings.
-        grad = torch.segment_reduce(
-            diff.mul_(D.unsqueeze(1)), "sum", lengths=self.attractive_counts_
-        )
-        grad.clamp_(-4, 4)  # clamp as in umap repo
+        # Clip each edge contribution before aggregation, as in UMAP. Keeping
+        # the edge contributions flat preserves the vectorized GPU update.
+        edge_grad = diff.mul_(D.unsqueeze(1)).clamp_(-4, 4)
+        grad = torch.segment_reduce(edge_grad, "sum", lengths=self.attractive_counts_)
         if not getattr(self, "_is_transforming", False):
             # Fit-time UMAP moves both endpoints of every positive edge. The
             # symmetric graph already contains the reverse edge, so scaling
@@ -373,8 +373,9 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             self.embedding_[self.chunk_indices_].unsqueeze(1)
             - self.embedding_[self.neg_indices_]
         )
-        grad = torch.einsum("ijk,ij->ik", diff, D)
-        grad.clamp_(-4, 4)  # clamp as in umap repo
+        # Apply UMAP's clipping to each negative edge before summing the
+        # repulsive contributions for a query point.
+        grad = diff.mul_(D.unsqueeze(2)).clamp_(-4, 4).sum(dim=1)
         return grad
 
     # --- Non-parametric transform ---
