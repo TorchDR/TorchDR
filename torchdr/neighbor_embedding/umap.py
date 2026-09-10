@@ -300,12 +300,42 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         self.register_buffer(
             "epoch_of_next_sample", epochs_per_sample.clone(), persistent=False
         )
+        self._negative_sampling_offset_ = 0
 
         # The padded grid is no longer needed: UMAP uses closed-form gradients
         # (no loss reads ``affinity_in_``) and both gradient terms now index the
         # flat edge buffers. Free it to reclaim the max-degree padding overhead.
         del self.affinity_in_
         del self.NN_indices_
+
+    def on_training_step_start(self):
+        """Defer negative sampling until the current positive mask is known."""
+
+    @staticmethod
+    def _draw_flat_with_exclusions(source, adjusted_exclusion, n_available, offset=0):
+        """Draw one flat target per source while bounding exclusion temporaries."""
+        target = torch.empty_like(source)
+        exclusion_width = adjusted_exclusion.shape[1]
+        # Indexing a row-wise exclusion table materializes ``draws * width``
+        # entries. Bound that temporary to roughly 64 MiB of int64 values.
+        max_chunk = max(1, 8_388_608 // max(exclusion_width, 1))
+
+        for start in range(0, source.numel(), max_chunk):
+            stop = min(start + max_chunk, source.numel())
+            chunk_source = source[start:stop]
+            compressed = (
+                torch.rand(stop - start, device=source.device)
+                * n_available[chunk_source]
+            ).long()
+            if exclusion_width:
+                shifts = torch.searchsorted(
+                    adjusted_exclusion[chunk_source],
+                    compressed.unsqueeze(1),
+                    right=True,
+                ).squeeze(1)
+                compressed.add_(shifts)
+            target[start:stop] = compressed.add(offset)
+        return target
 
     def _compute_attractive_gradients(self):
         source = self.attractive_source_
@@ -345,38 +375,77 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         return grad
 
     def _compute_repulsive_gradients(self):
-        D = pairwise_distances_indexed(
-            self.embedding_,
-            query_indices=self.chunk_indices_,
-            key_indices=self.neg_indices_,
-            metric="sqeuclidean",
-        )
-        D_ = 1 + self._a * D**self._b
-        D.add_(self._eps)
-        D.mul_(D_)
-        D.reciprocal_().mul_(-2 * self._b)
+        # Preserve the direct internal-call contract used by small mathematical
+        # fixtures that provide rectangular negative indices without affinity setup.
+        if not hasattr(self, "negative_adjusted_exclusion_"):
+            D = pairwise_distances_indexed(
+                self.embedding_,
+                query_indices=self.chunk_indices_,
+                key_indices=self.neg_indices_,
+                metric="sqeuclidean",
+            )
+            D_ = 1 + self._a * D**self._b
+            D.add_(self._eps)
+            D.mul_(D_)
+            D.reciprocal_().mul_(-2 * self._b)
 
-        # Filter to keep 'negative_sample_rate' negative edges per positive edge.
-        # mask_affinity_in_ is a flat per-edge mask, so the per-row count of
-        # active positive edges is a segment sum over their source rows.
+            active_positive = torch.segment_reduce(
+                self.mask_affinity_in_.to(self.embedding_.dtype),
+                "sum",
+                lengths=self.attractive_counts_,
+            )
+            negative_counts = (active_positive * self.negative_sample_rate).long()
+            columns = torch.arange(self.n_negatives, device=self.embedding_.device)
+            D.masked_fill_(columns[None, :] >= negative_counts[:, None], 0)
+            diff = (
+                self.embedding_[self.chunk_indices_].unsqueeze(1)
+                - self.embedding_[self.neg_indices_]
+            )
+            return diff.mul_(D.unsqueeze(2)).clamp_(-4, 4).sum(dim=1)
+
+        # Keep the baseline cadence: each currently active positive edge asks
+        # for exactly ``negative_sample_rate`` draws from its source row.
         active_positive = torch.segment_reduce(
             self.mask_affinity_in_.to(self.embedding_.dtype),
             "sum",
             lengths=self.attractive_counts_,
         )
-        neg_counts = (active_positive * self.negative_sample_rate).long()
-        col_idx = torch.arange(self.n_negatives, device=self.embedding_.device)
-        filtered_edges = col_idx[None, :].ge(neg_counts[:, None])
-        D.masked_fill_(filtered_edges, 0)
+        negative_counts = (active_positive * self.negative_sample_rate).long()
+        negative_sources = torch.repeat_interleave(
+            torch.arange(negative_counts.numel(), device=self.embedding_.device),
+            negative_counts,
+        )
+        negative_targets = self._draw_flat_with_exclusions(
+            negative_sources,
+            self.negative_adjusted_exclusion_,
+            self.negative_available_counts_,
+            self._negative_sampling_offset_,
+        )
+        self.register_buffer("negative_sources_", negative_sources, persistent=False)
+        if hasattr(self, "neg_indices_"):
+            self.neg_indices_ = negative_targets
+        else:
+            self.register_buffer("neg_indices_", negative_targets, persistent=False)
+
+        if negative_sources.numel() == 0:
+            return self.embedding_.new_zeros(
+                (negative_counts.numel(), self.embedding_.shape[1])
+            )
 
         diff = (
-            self.embedding_[self.chunk_indices_].unsqueeze(1)
-            - self.embedding_[self.neg_indices_]
+            self.embedding_[self.chunk_indices_[negative_sources]]
+            - self.embedding_[negative_targets]
         )
+        D = diff.pow(2).sum(dim=1)
+        D_ = 1 + self._a * D**self._b
+        D.add_(self._eps)
+        D.mul_(D_)
+        D.reciprocal_().mul_(-2 * self._b)
+
         # Apply UMAP's clipping to each negative edge before summing the
         # repulsive contributions for a query point.
-        grad = diff.mul_(D.unsqueeze(2)).clamp_(-4, 4).sum(dim=1)
-        return grad
+        edge_grad = diff.mul_(D.unsqueeze(1)).clamp_(-4, 4)
+        return torch.segment_reduce(edge_grad, "sum", lengths=negative_counts)
 
     # --- Non-parametric transform ---
 
@@ -492,6 +561,10 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             "attractive_source_",
             "attractive_target_",
             "attractive_counts_",
+            "negative_adjusted_exclusion_",
+            "negative_available_counts_",
+            "negative_sources_",
+            "_negative_sampling_offset_",
         ):
             saved[attr] = (hasattr(self, attr), getattr(self, attr, None))
 
@@ -506,4 +579,27 @@ class UMAP(NegativeSamplingNeighborEmbedding):
         self.epochs_per_sample = epochs_per_sample[edge_mask]
         self.epoch_of_next_sample = self.epochs_per_sample.clone()
 
+        n_new = embedding_new.shape[0]
+        n_train = train_emb.shape[0]
+        if self.exclude_neighbors_from_negative_sampling:
+            adjusted_exclusion, n_available = self._prepare_exclusion_sampling(
+                nn_indices, n_train
+            )
+        else:
+            adjusted_exclusion = torch.empty(
+                (n_new, 0), dtype=torch.long, device=embedding_new.device
+            )
+            n_available = torch.full(
+                (n_new,), n_train, dtype=torch.long, device=embedding_new.device
+            )
+        self.negative_adjusted_exclusion_ = adjusted_exclusion
+        self.negative_available_counts_ = n_available
+        self._negative_sampling_offset_ = n_new
+
         return saved
+
+    def _sample_transform_neg_indices(self, n_new, n_train, nn_indices):
+        """Return a placeholder; flat targets are drawn after edge scheduling."""
+        if getattr(self, "_is_transforming", False):
+            return torch.empty(0, dtype=torch.long, device=self.device_)
+        return super()._sample_transform_neg_indices(n_new, n_train, nn_indices)
