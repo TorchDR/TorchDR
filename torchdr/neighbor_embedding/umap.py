@@ -286,7 +286,7 @@ class UMAP(NegativeSamplingNeighborEmbedding):
             kept_pct = (~small_affinity_edges).float().mean().item() * 100
             self.logger.info(f"Keeping {kept_pct:.1f}% of affinity edges.")
 
-        epochs_per_sample = edge_affinity.add(1e-3).reciprocal_().mul_(A_max)
+        epochs_per_sample = edge_affinity.reciprocal().mul_(A_max)
         epochs_per_sample.masked_fill_(
             small_affinity_edges, float("inf")
         )  # avoid updating these edges
