@@ -4,6 +4,102 @@
 Release Notes
 =============
 
+Version 0.5 (2026-09-14)
+------------------------
+
+Parametric and out-of-sample neighbor embeddings, memory-scalable multi-GPU
+FAISS, and more faithful and efficient UMAP optimization.
+
+Added
+~~~~~
+
+- Add neural-network encoder support for parametric neighbor embeddings and
+  out-of-sample transforms `PR #263 <https://github.com/TorchDR/TorchDR/pull/263>`_.
+- Add non-parametric transforms for UMAP, LargeVis, and InfoTSNE
+  `PR #276 <https://github.com/TorchDR/TorchDR/pull/276>`_.
+- Add immutable exact FAISS execution plans and expose the resolved plan through
+  ``faiss_plan_`` `PR #333 <https://github.com/TorchDR/TorchDR/pull/333>`_.
+- Add an explicit exact-Flat index-sharding topology for multi-GPU search
+  `PR #338 <https://github.com/TorchDR/TorchDR/pull/338>`_.
+- Add true rank-local sharded inputs for exact-Flat UMAP, including uneven
+  shards, distributed PCA initialization, and explicit FAISS plan composition
+  `PR #360 <https://github.com/TorchDR/TorchDR/pull/360>`_,
+  `PR #364 <https://github.com/TorchDR/TorchDR/pull/364>`_,
+  `PR #365 <https://github.com/TorchDR/TorchDR/pull/365>`_,
+  `PR #375 <https://github.com/TorchDR/TorchDR/pull/375>`_, and
+  `PR #376 <https://github.com/TorchDR/TorchDR/pull/376>`_.
+
+Changed
+~~~~~~~
+
+- Flatten UMAP's attractive graph so optimization processes only real edges,
+  substantially reducing fit time and peak GPU memory
+  `PR #320 <https://github.com/TorchDR/TorchDR/pull/320>`_.
+- Reuse FAISS GPU resources with correct CUDA stream ownership
+  `PR #310 <https://github.com/TorchDR/TorchDR/pull/310>`_.
+- Stream DataLoader tensors directly into FAISS with automatic internal
+  batching `PR #311 <https://github.com/TorchDR/TorchDR/pull/311>`_.
+- Keep FAISS tensor inputs and FAISS K-means data on-device instead of routing
+  them through host NumPy
+  `PR #291 <https://github.com/TorchDR/TorchDR/pull/291>`_ and
+  `PR #292 <https://github.com/TorchDR/TorchDR/pull/292>`_.
+- Train distributed IVF and IVFPQ indexes once and broadcast the trained
+  template to all ranks
+  `PR #326 <https://github.com/TorchDR/TorchDR/pull/326>`_.
+- Make replicated and sharded FAISS distribution explicit; replication remains
+  the default and sharding is an opt-in capacity strategy
+  `PR #374 <https://github.com/TorchDR/TorchDR/pull/374>`_.
+- Rework distributed sparse symmetrization to reduce peak GPU memory, exchange
+  flat buffers, and accelerate the default device-coalescing path
+  `PR #254 <https://github.com/TorchDR/TorchDR/pull/254>`_,
+  `PR #298 <https://github.com/TorchDR/TorchDR/pull/298>`_, and
+  `PR #316 <https://github.com/TorchDR/TorchDR/pull/316>`_.
+- Require Python 3.8 or newer
+  `PR #284 <https://github.com/TorchDR/TorchDR/pull/284>`_.
+
+Fixed
+~~~~~
+
+- Align UMAP fit-time neighbor counts with umap-learn semantics
+  `PR #361 <https://github.com/TorchDR/TorchDR/pull/361>`_.
+- Account for both endpoints of each UMAP attractive edge
+  `PR #362 <https://github.com/TorchDR/TorchDR/pull/362>`_.
+- Clip UMAP attractive and repulsive contributions per edge before aggregation
+  `PR #378 <https://github.com/TorchDR/TorchDR/pull/378>`_.
+- Remove UMAP's fixed per-row negative-sampling cap with a flat representation
+  that realizes every scheduled draw
+  `PR #379 <https://github.com/TorchDR/TorchDR/pull/379>`_.
+- Match UMAP negative edge sampling periods to umap-learn
+  `PR #381 <https://github.com/TorchDR/TorchDR/pull/381>`_.
+- Stabilize PHATE potential-distance computation to prevent NaNs
+  `PR #274 <https://github.com/TorchDR/TorchDR/pull/274>`_.
+- Correct PACMAP mid-near pair selection to use global sample indices
+  `PR #277 <https://github.com/TorchDR/TorchDR/pull/277>`_.
+- Preserve expert IVFPQ settings and tuple outputs through distributed and
+  contiguous wrappers
+  `PR #278 <https://github.com/TorchDR/TorchDR/pull/278>`_ and
+  `PR #279 <https://github.com/TorchDR/TorchDR/pull/279>`_.
+- Release DataLoader metadata and compiled-function cache entries when their
+  owning objects are destroyed
+  `PR #281 <https://github.com/TorchDR/TorchDR/pull/281>`_ and
+  `PR #290 <https://github.com/TorchDR/TorchDR/pull/290>`_.
+- Preserve NumPy random state and prevent integer overflow in ``kmeans_ari``
+  `PR #283 <https://github.com/TorchDR/TorchDR/pull/283>`_ and
+  `PR #332 <https://github.com/TorchDR/TorchDR/pull/332>`_.
+- Preserve distributed sparse index and value dtypes
+  `PR #288 <https://github.com/TorchDR/TorchDR/pull/288>`_.
+- Remove FAISS self-neighbors by global identity rather than result position
+  `PR #295 <https://github.com/TorchDR/TorchDR/pull/295>`_.
+- Validate distributed launch and input contracts early, and propagate
+  rank-local sharded-search failures without deadlocks
+  `PR #296 <https://github.com/TorchDR/TorchDR/pull/296>`_,
+  `PR #300 <https://github.com/TorchDR/TorchDR/pull/300>`_,
+  `PR #324 <https://github.com/TorchDR/TorchDR/pull/324>`_, and
+  `PR #349 <https://github.com/TorchDR/TorchDR/pull/349>`_.
+- Include every TorchDR subpackage in built distributions
+  `PR #287 <https://github.com/TorchDR/TorchDR/pull/287>`_.
+
+
 Version 0.4 (2026-02-03)
 ------------------------
 
@@ -30,7 +126,6 @@ Added
 - Add automatic releases via GitHub Actions `PR #226 <https://github.com/TorchDR/TorchDR/pull/226>`_.
 - Add cross-platform CI testing for macOS and Windows `PR #258 <https://github.com/TorchDR/TorchDR/pull/258>`_.
 - Add tests for CLI, distributed, and sparse modules `PR #246 <https://github.com/TorchDR/TorchDR/pull/246>`_.
-- Add PHATE NaN regression test on deterministic synthetic data to cover `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
 
 Changed
 ~~~~~~~
@@ -44,7 +139,6 @@ Changed
 Fixed
 ~~~~~
 
-- Correct PACMAP mid-near pair selection to use global sample indices `PR #277 <https://github.com/TorchDR/TorchDR/pull/277>`_.
 - Fix memory leak in AffinityMatcher by freeing input data after initialization `PR #223 <https://github.com/TorchDR/TorchDR/pull/223>`_.
 - Fix PACMAP device handling `PR #215 <https://github.com/TorchDR/TorchDR/pull/215>`_.
 - Fix AffinityMatcher kwargs mutation `PR #240 <https://github.com/TorchDR/TorchDR/pull/240>`_.
@@ -52,7 +146,6 @@ Fixed
 - Fix TSNEkhorn docstring parameter name `PR #237 <https://github.com/TorchDR/TorchDR/pull/237>`_.
 - Fix UMAP spectral init docstring `PR #207 <https://github.com/TorchDR/TorchDR/pull/207>`_.
 - Add warning when distributed launch detected without GPU `PR #238 <https://github.com/TorchDR/TorchDR/pull/238>`_.
-- Fix PHATE diffusion-potential distance numerical instability to address NaNs at iter 0 from `Issue #270 <https://github.com/TorchDR/TorchDR/issues/270>`_.
 
 Removed
 ~~~~~~~
