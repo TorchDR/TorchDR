@@ -32,7 +32,7 @@
 
 ## Benchmarks
 
-**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs on Tahoe-100M, with one-GPU cuML and 64-core umap-learn as references.
+**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs on Tahoe-100M, with one-GPU cuML and 64-core umap-learn as references using the same PCA initialization.
 
 <p align="center">
   <img src="docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
