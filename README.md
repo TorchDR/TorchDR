@@ -120,7 +120,7 @@ TorchDR also provides **orders-of-magnitude faster runtimes** than CPU-based imp
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
 
 
-**Tahoe-100M.** TorchDR UMAP embedding of 80 million single cells across 50 cell lines. Every cell contributes to the density-rasterized display.
+**Tahoe-100M.** TorchDR UMAP embedding of 80 million single cells across 50 cell lines.
 
 <p align="center">
   <img src="docs/source/figures/tahoe_80m_umap.png" width="1024" alt="TorchDR UMAP embedding of 80 million cells from the Tahoe single-cell dataset">
