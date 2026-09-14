@@ -108,12 +108,6 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
   <img src="docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
 </p>
 
-TorchDR also provides **orders-of-magnitude faster runtimes** than CPU-based implementations on standard single-cell benchmarks. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
-
-<p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark_single_cell.png" width="1024" alt="UMAP benchmark on single cell data">
-</p>
-
 
 ## Examples
 
