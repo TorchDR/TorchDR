@@ -102,7 +102,7 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
 
 ## Benchmarks
 
-**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs to tens of millions of samples. On the Tahoe-100M single-cell dataset, 8 GPUs fit 40 million cells in 143 seconds, versus 391 seconds for one-GPU cuML. Runs use the same precomputed PCA initialization and matched UMAP settings; fit time excludes initialization and data loading. Quality-matched comparisons extend through 40M, while 80M shows the scaling frontier.
+**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs on Tahoe-100M, with one-GPU cuML and 64-core umap-learn as references.
 
 <p align="center">
   <img src="docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
