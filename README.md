@@ -102,7 +102,13 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
 
 ## Benchmarks
 
-Relying on **TorchDR** enables an **orders-of-magnitude improvement in runtime performance** compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
+**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs to tens of millions of samples. On the Tahoe-100M single-cell dataset, 8 GPUs fit 40 million cells in 143 seconds, versus 391 seconds for one-GPU cuML. Runs use the same precomputed PCA initialization and matched UMAP settings; fit time excludes initialization and data loading. Quality-matched comparisons extend through 40M, while 80M shows the scaling frontier.
+
+<p align="center">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
+</p>
+
+TorchDR also provides **orders-of-magnitude faster runtimes** than CPU-based implementations on standard single-cell benchmarks. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
 
 <p align="center">
   <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark_single_cell.png" width="1024" alt="UMAP benchmark on single cell data">
@@ -114,11 +120,10 @@ Relying on **TorchDR** enables an **orders-of-magnitude improvement in runtime p
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
 
 
-**MNIST.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py))
-A comparison of various neighbor embedding methods on the MNIST digits dataset.
+**Tahoe-100M.** TorchDR UMAP embedding of 80 million single cells across 50 cell lines. A deterministic sample of 500,000 embedded cells is displayed for rendering.
 
 <p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png" width="800" alt="various neighbor embedding methods on MNIST">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_80m_umap.png" width="1024" alt="TorchDR UMAP embedding of 80 million cells from the Tahoe single-cell dataset">
 </p>
 
 
