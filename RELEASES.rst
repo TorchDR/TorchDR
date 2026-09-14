@@ -4,7 +4,7 @@
 Release Notes
 =============
 
-Version 0.5 (2026-XX-XX)
+Version 0.5 (2026-09-14)
 ------------------------
 
 Parametric and out-of-sample neighbor embeddings, memory-scalable multi-GPU
@@ -69,6 +69,8 @@ Fixed
 - Remove UMAP's fixed per-row negative-sampling cap with a flat representation
   that realizes every scheduled draw
   `PR #379 <https://github.com/TorchDR/TorchDR/pull/379>`_.
+- Match UMAP negative edge sampling periods to umap-learn
+  `PR #381 <https://github.com/TorchDR/TorchDR/pull/381>`_.
 - Stabilize PHATE potential-distance computation to prevent NaNs
   `PR #274 <https://github.com/TorchDR/TorchDR/pull/274>`_.
 - Correct PACMAP mid-near pair selection to use global sample indices
