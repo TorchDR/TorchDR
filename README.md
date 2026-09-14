@@ -30,6 +30,15 @@
 | **Minimal Dependencies** | Requires only PyTorch, NumPy, and scikit‑learn; optionally add Faiss for fast k‑NN or KeOps for symbolic computation. |
 
 
+## Benchmarks
+
+**TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs on Tahoe-100M, with one-GPU cuML and 64-core umap-learn as references using the same PCA initialization.
+
+<p align="center">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
+</p>
+
+
 ## Getting Started
 
 **TorchDR** offers a **user-friendly API similar to scikit-learn** where dimensionality reduction modules can be called with the `fit_transform` method. It seamlessly accepts both NumPy arrays and PyTorch tensors as input, ensuring that the output matches the type and backend of the input.
@@ -100,25 +109,15 @@ z = UMAP(backend="faiss").fit_transform(dataloader)
 **TorchDR** provides various **spectral embedding** methods: [`PCA`](https://torchdr.github.io/dev/gen_modules/torchdr.PCA.html), [`IncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.IncrementalPCA.html), [`ExactIncrementalPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.ExactIncrementalPCA.html), [`KernelPCA`](https://torchdr.github.io/dev/gen_modules/torchdr.KernelPCA.html), [`PHATE`](https://torchdr.github.io/dev/gen_modules/torchdr.PHATE.html). `PCA` and `ExactIncrementalPCA` support multi-GPU distributed training via the `distributed="auto"` parameter.
 
 
-## Benchmarks
-
-Relying on **TorchDR** enables an **orders-of-magnitude improvement in runtime performance** compared to CPU-based implementations. [See the code](https://github.com/TorchDR/TorchDR/blob/main/benchmarks/benchmark_umap_single_cell.py).
-
-<p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/umap_benchmark_single_cell.png" width="1024" alt="UMAP benchmark on single cell data">
-</p>
-
-
 ## Examples
 
 See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folder for all examples.
 
 
-**MNIST.** ([Code](https://github.com/TorchDR/TorchDR/tree/main/examples/images/panorama_readme.py))
-A comparison of various neighbor embedding methods on the MNIST digits dataset.
+**Tahoe-100M.** TorchDR UMAP embedding of 80 million single cells across 50 cell lines.
 
 <p align="center">
-  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/mnist_readme.png" width="800" alt="various neighbor embedding methods on MNIST">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_80m_umap.png" width="1024" alt="TorchDR UMAP embedding of 80 million cells from the Tahoe single-cell dataset">
 </p>
 
 
