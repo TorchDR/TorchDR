@@ -35,7 +35,7 @@
 **TorchDR** scales UMAP across 1–8 NVIDIA B200 GPUs on Tahoe-100M, with one-GPU cuML and 64-core umap-learn as references using the same PCA initialization.
 
 <p align="center">
-  <img src="docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_scaling_runtime.png" width="1024" alt="TorchDR UMAP runtime scaling from one to eight GPUs on the Tahoe single-cell dataset">
 </p>
 
 
@@ -117,7 +117,7 @@ See the [examples](https://github.com/TorchDR/TorchDR/tree/main/examples/) folde
 **Tahoe-100M.** TorchDR UMAP embedding of 80 million single cells across 50 cell lines.
 
 <p align="center">
-  <img src="docs/source/figures/tahoe_80m_umap.png" width="1024" alt="TorchDR UMAP embedding of 80 million cells from the Tahoe single-cell dataset">
+  <img src="https://github.com/torchdr/torchdr/raw/main/docs/source/figures/tahoe_80m_umap.png" width="1024" alt="TorchDR UMAP embedding of 80 million cells from the Tahoe single-cell dataset">
 </p>
 
 
