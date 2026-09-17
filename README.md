@@ -191,7 +191,8 @@ If you have any questions or suggestions, feel free to open an issue on the [iss
 ## Governance and Contributing
 
 TorchDR is maintained as a community open source project. See
-[GOVERNANCE.md](GOVERNANCE.md) for project roles, decision making, maintainer
+[GOVERNANCE.md](https://github.com/TorchDR/TorchDR/blob/main/GOVERNANCE.md) for
+project roles, decision making, maintainer
 succession, and conflict resolution. Contributions of code, documentation,
 examples, testing, and issue reports are welcome; the development workflow is
 described in the [contribution guide](https://torchdr.github.io/dev/torchdr.contributing.html).
@@ -212,5 +213,6 @@ based on readiness rather than a fixed date. A release requires:
 Breaking changes are reserved for major releases. Before version 1.0,
 unavoidable compatibility changes are documented prominently in the release
 notes. The detailed maintainer workflow is documented in
-[RELEASING.md](RELEASING.md), and published changes are listed in
-[RELEASES.rst](RELEASES.rst).
+[RELEASING.md](https://github.com/TorchDR/TorchDR/blob/main/RELEASING.md), and
+published changes are listed in
+[RELEASES.rst](https://github.com/TorchDR/TorchDR/blob/main/RELEASES.rst).
