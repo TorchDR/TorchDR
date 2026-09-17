@@ -78,14 +78,14 @@ if faiss is None and _error_message:
     _install_instructions = """
 Please install FAISS via conda (recommended):
 
-  For GPU support:
-    conda install -c pytorch -c nvidia faiss-gpu=1.11.0
-
   For CPU only:
-    conda install -c pytorch faiss-cpu=1.11.0
+    conda install -c conda-forge faiss-cpu
 
-IMPORTANT: Do NOT use 'pip install faiss' - the package on PyPI (version 1.12.0)
-is broken and incomplete. Always install via conda from the pytorch channel.
+  For GPU support (CUDA 12.9 example validated on Linux with NVIDIA B200):
+    conda install -c conda-forge faiss-gpu pytorch-gpu cuda-version=12.9
+
+Choose a CUDA version supported by your driver and hardware. Do NOT use
+'pip install faiss'; that PyPI package is not the official Faiss distribution.
 
 See: https://github.com/TorchDR/TorchDR#installation
 """
