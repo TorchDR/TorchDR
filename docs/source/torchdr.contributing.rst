@@ -2,11 +2,27 @@ Contributing
 ============
 
 Thank you for your interest in contributing to ``TorchDR``!
-This library is a community-driven project, and we greatly appreciate contributions of all kinds.
+This library is a community-driven project, and we greatly appreciate contributions
+of all kinds, including bug reports, feature proposals, documentation, examples,
+tests, performance investigations, code review, and implementation work.
 
-If you encounter any issues or have suggestions, please open an issue on our `issue tracker <https://github.com/TorchDR/TorchDR/issues>`_. This allows us to address problems and gather feedback from the community.
+All participants must follow the
+`Code of Conduct <https://github.com/TorchDR/TorchDR/blob/main/CODE_OF_CONDUCT.md>`_.
+Project roles and decision making are described in the
+`governance document <https://github.com/TorchDR/TorchDR/blob/main/GOVERNANCE.md>`_.
 
-For those who want to contribute code or documentation, you can submit a pull request. Below, you will find details on how to prepare and submit your pull request effectively.
+If you encounter any issues or have suggestions, please open an issue on our
+`issue tracker <https://github.com/TorchDR/TorchDR/issues>`_. This allows us to
+address problems and gather feedback from the community.
+
+Before starting a substantial feature, public API change, or architectural change,
+search for related work and open an issue so the approach can be discussed early.
+A focused bug fix, documentation correction, or small maintenance change may be
+submitted directly as a pull request.
+
+For those who want to contribute code or documentation, you can submit a pull
+request. Below, you will find details on how to prepare and submit your pull request
+effectively.
 
 
 PR Tutorial
@@ -72,6 +88,15 @@ Draft PRs are useful to:
 - Seek collaborators to assist with development.
 
 When your work is ready for review, click **Ready for review** to convert the draft into a regular PR.
+
+
+Review and acceptance
+---------------------
+
+Maintainers evaluate correctness, compatibility, scope, tests, documentation, and
+long-term maintenance cost. At least one maintainer other than the author should
+approve a change before merge, when practical. Larger or user-visible changes may
+require broader discussion under the governance decision process.
 
 
 New contributor tips

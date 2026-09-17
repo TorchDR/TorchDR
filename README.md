@@ -186,3 +186,14 @@ pip install git+https://github.com/torchdr/torchdr
 ## Finding Help
 
 If you have any questions or suggestions, feel free to open an issue on the [issue tracker](https://github.com/torchdr/torchdr/issues) or contact [Hugues Van Assel](https://huguesva.github.io/) directly.
+
+
+## Governance and Releases
+
+TorchDR is community-maintained; see the [governance policy](https://github.com/TorchDR/TorchDR/blob/main/GOVERNANCE.md)
+and [contribution guide](https://torchdr.github.io/dev/torchdr.contributing.html).
+Releases follow [Semantic Versioning](https://semver.org/), generally target two
+feature releases per year, and ship when tests—including the latest two stable
+PyTorch releases—pass, documentation and release notes are complete, packages
+build, and maintainers approve. See the [release process](https://github.com/TorchDR/TorchDR/blob/main/RELEASING.md)
+and [release notes](https://github.com/TorchDR/TorchDR/blob/main/RELEASES.rst).
