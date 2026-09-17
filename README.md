@@ -186,3 +186,31 @@ pip install git+https://github.com/torchdr/torchdr
 ## Finding Help
 
 If you have any questions or suggestions, feel free to open an issue on the [issue tracker](https://github.com/torchdr/torchdr/issues) or contact [Hugues Van Assel](https://huguesva.github.io/) directly.
+
+
+## Governance and Contributing
+
+TorchDR is maintained as a community open source project. See
+[GOVERNANCE.md](GOVERNANCE.md) for project roles, decision making, maintainer
+succession, and conflict resolution. Contributions of code, documentation,
+examples, testing, and issue reports are welcome; the development workflow is
+described in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+
+## Release Policy
+
+TorchDR follows [Semantic Versioning](https://semver.org/) and normally targets
+two feature releases per year, with patch releases made as needed. Releases are
+based on readiness rather than a fixed date. A release requires:
+
+- passing tests on supported platforms and the latest two stable PyTorch
+  releases;
+- completed release notes for user-visible changes;
+- successful source-distribution and wheel builds; and
+- maintainer approval.
+
+Breaking changes are reserved for major releases. Before version 1.0,
+unavoidable compatibility changes are documented prominently in the release
+notes. The detailed maintainer workflow is documented in
+[RELEASING.md](RELEASING.md), and published changes are listed in
+[RELEASES.rst](RELEASES.rst).
