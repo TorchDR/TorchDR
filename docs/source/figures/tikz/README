@@ -11,3 +11,15 @@ this directory with Tectonic and Poppler installed::
     tectonic multi_gpu_dr_extended.tex
     pdftoppm -png -singlefile -scale-to-x 1692 -scale-to-y -1 \
       multi_gpu_dr_extended.pdf ../multi_gpu_dr_extended
+
+To regenerate the LaTeX-style ``tahoe_scaling_runtime.png`` used in the README::
+
+    tectonic tahoe_scaling_runtime.tex
+    pdftoppm -png -singlefile -r 300 \
+      tahoe_scaling_runtime.pdf ../tahoe_scaling_runtime
+
+The source records the fit times in seconds and uses logarithmic axes.
+It preserves the displayed benchmark points: TorchDR on 1/2/4 GPUs and cuML
+through 40M samples, TorchDR on 8 GPUs through 80M, and ``umap-learn`` through
+10M. The 80M TorchDR point uses the same solid line and filled marker as
+the other eight-GPU measurements.
