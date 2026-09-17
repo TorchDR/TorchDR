@@ -194,7 +194,7 @@ TorchDR is maintained as a community open source project. See
 [GOVERNANCE.md](GOVERNANCE.md) for project roles, decision making, maintainer
 succession, and conflict resolution. Contributions of code, documentation,
 examples, testing, and issue reports are welcome; the development workflow is
-described in [CONTRIBUTING.md](CONTRIBUTING.md).
+described in the [contribution guide](https://torchdr.github.io/dev/torchdr.contributing.html).
 
 
 ## Release Policy
