@@ -104,6 +104,36 @@ jobs:
           flags: unittests
           files: coverage.xml
 
+  Test-pytorch-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+        pytorch-version: ["2.13.0", "2.14.0"]
+    name: Python ${{ matrix.python-version }} / PyTorch ${{ matrix.pytorch-version }}
+    steps:
+      - name: Checking Out Repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install the selected PyTorch release
+        run: |
+          python -m pip install --upgrade --progress-bar off pip
+          python -m pip install \
+            "torch==${{ matrix.pytorch-version }}" \
+            --index-url https://download.pytorch.org/whl/cpu
+      - name: Install 'torchdr' package
+        run: python -m pip install -e ".[test]"
+      - name: Verify the PyTorch version
+        run: |
+          python -c "import torch; assert torch.__version__.split('+')[0] == '${{ matrix.pytorch-version }}', torch.__version__"
+      - name: Run Tests
+        run: python -m pytest torchdr/ --verbose
+
   Test-minimal-crossplatform:
     runs-on: ${{ matrix.os }}
     strategy:
