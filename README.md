@@ -188,31 +188,12 @@ pip install git+https://github.com/torchdr/torchdr
 If you have any questions or suggestions, feel free to open an issue on the [issue tracker](https://github.com/torchdr/torchdr/issues) or contact [Hugues Van Assel](https://huguesva.github.io/) directly.
 
 
-## Governance and Contributing
+## Governance and Releases
 
-TorchDR is maintained as a community open source project. See
-[GOVERNANCE.md](https://github.com/TorchDR/TorchDR/blob/main/GOVERNANCE.md) for
-project roles, decision making, maintainer
-succession, and conflict resolution. Contributions of code, documentation,
-examples, testing, and issue reports are welcome; the development workflow is
-described in the [contribution guide](https://torchdr.github.io/dev/torchdr.contributing.html).
-
-
-## Release Policy
-
-TorchDR follows [Semantic Versioning](https://semver.org/) and normally targets
-two feature releases per year, with patch releases made as needed. Releases are
-based on readiness rather than a fixed date. A release requires:
-
-- passing tests on supported platforms and the latest two stable PyTorch
-  releases;
-- completed release notes for user-visible changes;
-- successful source-distribution and wheel builds; and
-- maintainer approval.
-
-Breaking changes are reserved for major releases. Before version 1.0,
-unavoidable compatibility changes are documented prominently in the release
-notes. The detailed maintainer workflow is documented in
-[RELEASING.md](https://github.com/TorchDR/TorchDR/blob/main/RELEASING.md), and
-published changes are listed in
-[RELEASES.rst](https://github.com/TorchDR/TorchDR/blob/main/RELEASES.rst).
+TorchDR is community-maintained; see the [governance policy](https://github.com/TorchDR/TorchDR/blob/main/GOVERNANCE.md)
+and [contribution guide](https://torchdr.github.io/dev/torchdr.contributing.html).
+Releases follow [Semantic Versioning](https://semver.org/), generally target two
+feature releases per year, and ship when tests—including the latest two stable
+PyTorch releases—pass, documentation and release notes are complete, packages
+build, and maintainers approve. See the [release process](https://github.com/TorchDR/TorchDR/blob/main/RELEASING.md)
+and [release notes](https://github.com/TorchDR/TorchDR/blob/main/RELEASES.rst).
