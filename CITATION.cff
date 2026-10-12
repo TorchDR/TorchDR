@@ -4,8 +4,9 @@
 cff-version: 1.2.0
 title: TorchDR
 message: >-
-  If you use this software, please cite it using the
-  metadata from this file.
+  If you use TorchDR in your research, please cite the software using the
+  metadata from this file and report the version or commit used. Please
+  also cite the original papers for the algorithms you use.
 type: software
 authors:
   - given-names: Hugues
