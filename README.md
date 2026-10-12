@@ -204,13 +204,6 @@ export a citation.
 }
 ```
 
-For reproducibility, report the TorchDR version used in your experiments (or
-the commit hash for an unreleased version). Please also cite the original
-papers for the algorithms you use; links are provided in the
-[Methods](#methods) section and the
-[documentation bibliography](https://torchdr.github.io/torchdr.bibliography.html).
-
-
 ## Finding Help
 
 If you have any questions or suggestions, feel free to open an issue on the [issue tracker](https://github.com/torchdr/torchdr/issues) or contact [Hugues Van Assel](https://huguesva.github.io/) directly.
