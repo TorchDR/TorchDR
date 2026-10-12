@@ -5,6 +5,7 @@
 </p>
 
 [![Documentation](https://img.shields.io/badge/Documentation-blue.svg)](https://torchdr.github.io/)
+[![Citation](https://img.shields.io/badge/Cite-TorchDR-blue.svg)](#citation)
 [![Benchmark](https://img.shields.io/badge/Benchmarks-blue.svg)](https://github.com/TorchDR/TorchDR/tree/main/benchmarks)
 [![Version](https://img.shields.io/github/v/release/TorchDR/TorchDR.svg?color=blue&cacheSeconds=3600)](https://github.com/TorchDR/TorchDR/releases)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -182,6 +183,26 @@ If you want to use the latest, unreleased version of `torchdr`, you can install 
 pip install git+https://github.com/torchdr/torchdr
 ```
 
+
+## Citation
+
+If you use TorchDR in your research, please cite the software using the BibTeX
+entry below. The author metadata is maintained in
+[`CITATION.cff`](https://github.com/TorchDR/TorchDR/blob/main/CITATION.cff).
+You can also use **Cite this repository** on the GitHub repository page to
+export a citation.
+
+```bibtex
+@misc{torchdr,
+  author = {Van Assel, Hugues and Courty, Nicolas and Flamary, R{\'e}mi and
+            Garivier, Aur{\'e}lien and Massias, Mathurin and Vayer, Titouan and
+            Vincent-Cuaz, C{\'e}dric},
+  title = {{TorchDR}},
+  howpublished = {\url{https://github.com/TorchDR/TorchDR}},
+  url = {https://github.com/TorchDR/TorchDR},
+  note = {Python library for dimensionality reduction}
+}
+```
 
 ## Finding Help
 
