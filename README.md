@@ -163,12 +163,29 @@ Install the core `torchdr` library from PyPI:
 pip install torchdr  # or: uv pip install torchdr
 ```
 
-**Note:** `torchdr` does not install `faiss-gpu` or `pykeops` by default. You need to install them separately to use the corresponding backends.
+Alternatively, install it from conda-forge:
 
-*   **Faiss (Recommended)**: For the fastest k-NN computations, install [Faiss](https://github.com/facebookresearch/faiss). Please follow their [official installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md). A common method is using `conda`:
+```bash
+conda install -c conda-forge torchdr
+```
+
+**Note:** The core package does not install Faiss or PyKeOps. Install the
+corresponding optional dependency to use each backend.
+
+*   **Faiss (Recommended)**: For the fastest k-NN computations, install the CPU build from conda-forge:
     ```bash
-    conda install -c pytorch -c nvidia faiss-gpu
+    conda install -c conda-forge torchdr faiss-cpu
     ```
+
+    For GPU acceleration, choose CUDA-enabled PyTorch and Faiss builds that
+    target a CUDA version supported by your driver and hardware. For example,
+    this configuration was validated on Linux x86-64 with an NVIDIA B200 and
+    CUDA 12.9:
+    ```bash
+    conda install -c conda-forge torchdr faiss-gpu pytorch-gpu cuda-version=12.9
+    ```
+
+    See the [official Faiss installation guide](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md) for other configurations.
 
 *   **KeOps**: For memory-efficient symbolic computations, install [PyKeOps](https://www.kernel-operations.io/keops/index.html).
     ```bash
