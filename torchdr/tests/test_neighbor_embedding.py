@@ -40,6 +40,37 @@ DEVICE = "cpu"
 param_optim = {"lr": 1.0, "optimizer": "Adam", "optimizer_kwargs": None}
 
 
+@pytest.mark.parametrize("lr, expected_lr", [("auto", 60.0), (17.0, 17.0)])
+def test_early_exaggeration_resets_optimizer(lr, expected_lr, monkeypatch):
+    model = TSNE(
+        lr=lr,
+        early_exaggeration_iter=1,
+        max_iter=3,
+        min_grad_norm=0,
+        init="normal",
+        random_state=0,
+        device=DEVICE,
+    )
+    optimizer_states = []
+    on_training_step_end = model.on_training_step_end
+
+    def record_optimizer_state():
+        on_training_step_end()
+        group = model.optimizer_.param_groups[0]
+        optimizer_states.append((group["lr"], group["momentum"]))
+
+    monkeypatch.setattr(model, "on_training_step_end", record_optimizer_state)
+    X, _ = toy_dataset(240, "float32")
+    Z = model.fit_transform(X)
+
+    assert optimizer_states == [
+        (50.0 if lr == "auto" else lr, 0.5),
+        (expected_lr, 0.8),
+        (expected_lr, 0.8),
+    ]
+    assert np.isfinite(Z).all()
+
+
 def test_pacmap_mid_near_indices_are_global(monkeypatch):
     """PACMAP should map selected candidate positions to sample indices."""
     n_samples = 10

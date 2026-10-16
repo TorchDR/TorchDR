@@ -4,6 +4,17 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+Fixed
+~~~~~
+
+- Rebuild optimizer parameter groups after early exaggeration so the updated
+  learning rate and SGD momentum take effect, while preserving explicit settings
+  (`issue #388 <https://github.com/TorchDR/TorchDR/issues/388>`_).
+
+
 Version 0.5 (2026-09-14)
 ------------------------
 
