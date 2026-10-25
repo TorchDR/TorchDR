@@ -68,6 +68,7 @@ Affinities that adapt bandwidth based on local neighborhood structure.
    :template: myclass_template.rst
 
    EntropicAffinity
+   MultiscaleEntropicAffinity
    SymmetricEntropicAffinity
    UMAPAffinity
    PACMAPAffinity

@@ -4,6 +4,17 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+Added
+~~~~~
+
+- Add ``MultiscaleEntropicAffinity`` to average directed Gaussian affinities at
+  explicit perplexities, with one shared sparse neighbor search and log-domain
+  accumulation. Tensor distances (PyTorch/FAISS) are supported; KeOps mixtures
+  and compilation are not implemented.
+
 Version 0.5 (2026-09-14)
 ------------------------
 

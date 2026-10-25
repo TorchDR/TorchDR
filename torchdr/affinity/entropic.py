@@ -269,6 +269,16 @@ class EntropicAffinity(SparseLogAffinity):
         else:
             C_, indices = self._distance_matrix(X, return_indices=True)
 
+        log_affinity_matrix = self._solve_entropic_affinity(
+            C_, perplexity, n_samples_in, target_device, self._get_dtype(X)
+        )
+
+        return (log_affinity_matrix, indices) if return_indices else log_affinity_matrix
+
+    def _solve_entropic_affinity(
+        self, C_, perplexity, n_samples_in, target_device, dtype
+    ):
+        """Solve one scale on a supplied distance matrix without repeating search."""
         target_entropy = torch.log(perplexity) + 1
 
         def entropy_gap(eps):  # function to find the root of
@@ -282,7 +292,7 @@ class EntropicAffinity(SparseLogAffinity):
             end = None
         else:
             begin, end = _bounds_entropic_affinity(
-                C_, perplexity, device=target_device, dtype=self._get_dtype(X)
+                C_, perplexity, device=target_device, dtype=dtype
             )
             begin = begin + 1e-6  # avoid numerical issues
 
@@ -292,7 +302,7 @@ class EntropicAffinity(SparseLogAffinity):
             begin=begin,
             end=end,
             max_iter=self.max_iter,
-            dtype=self._get_dtype(X),
+            dtype=dtype,
             device=target_device,
         )
 
@@ -306,10 +316,10 @@ class EntropicAffinity(SparseLogAffinity):
 
         # Final normalization: sum of each row is 1/n so that total sum is 1
         log_affinity_matrix -= torch.log(
-            torch.tensor(n_samples_in, dtype=self._get_dtype(X), device=target_device)
+            torch.tensor(n_samples_in, dtype=dtype, device=target_device)
         )
 
-        return (log_affinity_matrix, indices) if return_indices else log_affinity_matrix
+        return log_affinity_matrix
 
 
 class SymmetricEntropicAffinity(LogAffinity):
