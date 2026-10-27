@@ -68,7 +68,9 @@ def test_single_scale_and_sparse_support(sparse, scales):
         else:
             expected += P / len(scales)
     actual = (
-        torch.zeros_like(expected).scatter_(1, ids, combined) if sparse else combined
+        torch.zeros_like(expected).scatter_(1, ids.to(dtype=torch.long), combined)
+        if sparse
+        else combined
     )
     torch.testing.assert_close(actual, expected, atol=1e-7, rtol=1e-4)
 
