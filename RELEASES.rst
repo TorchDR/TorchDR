@@ -10,8 +10,8 @@ Unreleased
 Added
 ~~~~~
 
-- Add standard Locally Linear Embedding with local reconstruction diagnostics
-  and an S-curve example `PR #392 <https://github.com/TorchDR/TorchDR/pull/392>`_.
+- Add dense Laplacian Eigenmaps with configurable affinities and an Iris example
+  `PR #391 <https://github.com/TorchDR/TorchDR/pull/391>`_.
 
 Version 0.5 (2026-09-14)
 ------------------------

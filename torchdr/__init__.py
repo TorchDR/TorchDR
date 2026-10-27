@@ -56,6 +56,7 @@ from .neighbor_embedding import (
 )
 from .spectral_embedding import (
     LocallyLinearEmbedding,
+    LaplacianEigenmaps,
     IncrementalPCA,
     ExactIncrementalPCA,
     KernelPCA,
@@ -92,6 +93,7 @@ __all__ = [
     "PCA",
     "KernelPCA",
     "LocallyLinearEmbedding",
+    "LaplacianEigenmaps",
     "IncrementalPCA",
     "ExactIncrementalPCA",
     "NeighborEmbedding",
