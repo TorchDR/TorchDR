@@ -47,13 +47,14 @@ def test_dense_independent_reference(dtype):
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-def test_single_scale_and_sparse_support(sparse):
+@pytest.mark.parametrize("scales", [(4, 9), (4, 9, 4)])
+def test_single_scale_and_sparse_support(sparse, scales):
     X = data()
     combined, ids = MultiscaleEntropicAffinity(
-        (4, 9), sparsity=sparse, device="cpu", distributed=False
+        scales, sparsity=sparse, device="cpu", distributed=False
     )(X)
     expected = torch.zeros((40, 40), dtype=X.dtype)
-    for p in (4, 9):
+    for p in scales:
         P, idx = EntropicAffinity(p, sparsity=sparse, device="cpu", distributed=False)(
             X
         )
@@ -63,9 +64,9 @@ def test_single_scale_and_sparse_support(sparse):
         torch.testing.assert_close(single, P)
         if sparse:
             torch.testing.assert_close(single_ids, idx)
-            expected.scatter_add_(1, idx, P / 2)
+            expected.scatter_add_(1, idx, P / len(scales))
         else:
-            expected += P / 2
+            expected += P / len(scales)
     actual = (
         torch.zeros_like(expected).scatter_(1, ids, combined) if sparse else combined
     )
@@ -102,7 +103,8 @@ def test_invalid_scales(scales):
         MultiscaleEntropicAffinity(scales)
 
 
-def test_dense_embedding_workflow():
+@pytest.mark.parametrize("compile_affinity", [False, True])
+def test_dense_embedding_workflow(compile_affinity):
     from torchdr import AffinityMatcher
     from torchdr.affinity import NormalizedStudentAffinity
 
@@ -114,12 +116,17 @@ def test_dense_embedding_workflow():
         affinity_out=NormalizedStudentAffinity(device="cpu"),
         loss_fn="cross_entropy_loss",
         n_components=2,
-        max_iter=20,
+        max_iter=0 if compile_affinity else 20,
+        compile=compile_affinity,
         device="cpu",
         random_state=13,
         lr=0.1,
         check_interval=5,
     )
+    if compile_affinity:
+        with pytest.raises(ValueError, match="does not support compile=True"):
+            model.fit_transform(X)
+        return
     embedding = model.fit_transform(X)
     assert embedding.shape == (40, 2)
     assert torch.isfinite(embedding).all()

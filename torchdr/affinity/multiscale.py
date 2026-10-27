@@ -123,6 +123,8 @@ class MultiscaleEntropicAffinity(EntropicAffinity):
         )
 
     def _compute_sparse_log_affinity(self, X, return_indices=True, **kwargs):
+        if self.compile:
+            raise ValueError("MultiscaleEntropicAffinity does not support compile=True")
         n = self._get_n_samples(X)
         if n < 4:
             raise ValueError("MultiscaleEntropicAffinity requires at least 4 samples")
