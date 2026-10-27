@@ -17,6 +17,7 @@ from .entropic import (
     SinkhornAffinity,
     SymmetricEntropicAffinity,
 )
+from .multiscale import MultiscaleEntropicAffinity
 from .knn_normalized import (
     MAGICAffinity,
     SelfTuningAffinity,
@@ -36,6 +37,7 @@ __all__ = [
     "SelfTuningAffinity",
     "MAGICAffinity",
     "EntropicAffinity",
+    "MultiscaleEntropicAffinity",
     "SymmetricEntropicAffinity",
     "SinkhornAffinity",
     "DoublyStochasticQuadraticAffinity",

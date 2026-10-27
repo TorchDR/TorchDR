@@ -291,12 +291,64 @@ The following table outlines the aspects controlled by different formulations of
      - ✅
      - ✅
      - ✅
+   * - :class:`MultiscaleEntropicAffinity <MultiscaleEntropicAffinity>`
+     - ✅
+     - ❌
+     - ❌
 
 More details on these affinities can be found in the `SNEkhorn paper <https://proceedings.neurips.cc/paper_files/paper/2023/file/8b54ecd9823fff6d37e61ece8f87e534-Paper-Conference.pdf>`_ :cite:`van2024snekhorn`.
 
 
 .. minigallery:: torchdr.EntropicAffinity
     :add-heading: Examples using ``EntropicAffinity``:
+
+
+Multi-perplexity affinities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:class:`MultiscaleEntropicAffinity <torchdr.MultiscaleEntropicAffinity>` implements
+an arithmetic average of directed Gaussian affinities at explicit perplexities,
+motivated by :cite:`lee2015multiscale`. It averages the probabilities after
+normalizing each scale. It does not average perplexity parameters, prescribe a
+single entropy to the mixture, select scales automatically, or symmetrize it.
+The PyTorch tensor backend supports ``torch.compile``; the per-scale
+data-dependent root searches remain eager. FAISS compilation and KeOps mixtures
+are not supported.
+
+.. code-block:: python
+
+    import torch
+    from torchdr import AffinityMatcher, MultiscaleEntropicAffinity
+    from torchdr.affinity import NormalizedStudentAffinity
+
+    X = torch.randn(40, 4, generator=torch.Generator().manual_seed(31))
+    affinity = MultiscaleEntropicAffinity(
+        perplexities=(4, 9), sparsity=False, device="cpu"
+    )
+    P = affinity(X, return_indices=False)  # shape (40, 40), total mass 1
+    model = AffinityMatcher(
+        affinity_in=affinity,
+        affinity_out=NormalizedStudentAffinity(device="cpu"),
+        loss_fn="cross_entropy_loss", device="cpu", max_iter=20,
+        random_state=13, lr=0.1,
+    )
+    embedding = model.fit_transform(X)  # shape (40, 2)
+
+This is an affinity-matching example, not the complete multi-scale SNE algorithm
+from the paper. The existing ``TSNE(perplexity=...)`` constructor continues to
+accept its existing scalar parameter.
+
+With ``sparsity=True`` (the default), only one maximum-k neighbor search is run.
+Each scale uses its own first ``3 * perplexity`` neighbors, and absent entries
+contribute zero probability. The result and indices share the maximum-k shape;
+cutoff ties follow this shared search's ordering. Perplexities and neighbor counts
+use the same input-size clamping as ``EntropicAffinity``. Inputs need at least
+four samples. Duplicate scales keep their multiplicity in the average.
+
+PyTorch tensor distances and sparse FAISS searches are supported. KeOps mixtures and
+``compile=True`` are currently unsupported and raise ``ValueError`` rather than
+silently selecting a different implementation. Existing single-scale affinities
+retain their backend and compilation behavior.
 
 
 Other various affinities
