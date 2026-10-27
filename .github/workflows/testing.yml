@@ -64,7 +64,8 @@ jobs:
           files: coverage.xml
 
   Test-minimal:
-    runs-on: ubuntu-latest
+    # Python 3.8 binaries are available on 24.04, but not Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
     defaults:
