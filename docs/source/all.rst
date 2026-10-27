@@ -48,6 +48,8 @@ Spectral Methods
    IncrementalPCA
    ExactIncrementalPCA
    KernelPCA
+   LocallyLinearEmbedding
+   LaplacianEigenmaps
    PHATE
 
 
