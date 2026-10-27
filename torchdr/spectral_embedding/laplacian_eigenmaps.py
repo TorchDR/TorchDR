@@ -1,6 +1,7 @@
 """Laplacian Eigenmaps using a dense normalized graph Laplacian."""
 
 import warnings
+from numbers import Integral
 from typing import Optional
 
 import torch
@@ -11,9 +12,9 @@ from torchdr.utils import svd_flip
 
 
 class LaplacianEigenmaps(DRModule):
-    r"""Embed data using the eigenvectors of a normalized graph Laplacian [1]_.
+    r"""Embed data using the eigenvectors of a normalized graph Laplacian.
 
-    Solves :math:`(D-W)y = \lambda D y`, where ``W`` is the symmetric
+    Solves :math:`(D-W)y = \lambda D y` [1]_, where ``W`` is the symmetric
     affinity and ``D`` its degree matrix. The first, constant eigenvector is
     discarded. Like ``sklearn.manifold.SpectralEmbedding(affinity="rbf")``,
     the default uses a dense Gaussian graph, not a nearest-neighbor graph.
@@ -89,7 +90,7 @@ class LaplacianEigenmaps(DRModule):
         n = X.shape[0]
         if (
             isinstance(self.n_components, bool)
-            or not isinstance(self.n_components, int)
+            or not isinstance(self.n_components, Integral)
             or not 1 <= self.n_components < n
         ):
             raise ValueError("n_components must be an integer in [1, n_samples - 1].")
@@ -99,6 +100,8 @@ class LaplacianEigenmaps(DRModule):
                 normalization_dim=None, device=self.device
             )
         W = affinity(X)
+        if isinstance(W, tuple) and len(W) == 2 and W[1] is None:
+            W = W[0]
         if not isinstance(W, torch.Tensor) or W.layout != torch.strided:
             raise NotImplementedError("LaplacianEigenmaps requires a dense affinity.")
         if W.shape != (n, n) or not torch.isfinite(W).all() or (W < 0).any():

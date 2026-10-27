@@ -8,7 +8,12 @@ from sklearn.base import clone
 from sklearn.datasets import load_iris
 from sklearn.manifold import spectral_embedding
 
-from torchdr import Affinity, LaplacianEigenmaps, NormalizedGaussianAffinity
+from torchdr import (
+    Affinity,
+    EntropicAffinity,
+    LaplacianEigenmaps,
+    NormalizedGaussianAffinity,
+)
 
 
 class FixedAffinity(Affinity):
@@ -23,7 +28,7 @@ class FixedAffinity(Affinity):
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
-@pytest.mark.parametrize("n_components", [1, 2, 4])
+@pytest.mark.parametrize("n_components", [1, 2, 4, np.int64(2)])
 def test_laplacian_reference(dtype, n_components):
     """Match SciPy's generalized eigenproblem and sklearn's embedding."""
     X = torch.randn(35, 4, generator=torch.Generator().manual_seed(12), dtype=dtype)
@@ -109,3 +114,21 @@ def test_laplacian_dense_backend():
     """Reject lazy backends before starting an unsupported eigensolve."""
     with pytest.raises(NotImplementedError, match="dense backend"):
         LaplacianEigenmaps(backend="keops")
+
+
+def test_laplacian_dense_entropic_affinity():
+    """Accept the built-in dense affinity's matrix-and-None return convention."""
+    X = torch.randn(
+        35, 4, generator=torch.Generator().manual_seed(12), dtype=torch.float64
+    )
+    affinity = EntropicAffinity(perplexity=5, sparsity=False, distributed=False)
+    W, indices = affinity(X)
+    assert indices is None
+    actual = LaplacianEigenmaps(affinity=affinity).fit_transform(X)
+    expected = spectral_embedding(
+        ((W + W.T) / 2).numpy(), n_components=2, random_state=0
+    )
+    np.testing.assert_allclose(
+        actual.numpy() @ actual.numpy().T, expected @ expected.T, atol=1e-7
+    )
+    assert affinity(X)[1] is None
