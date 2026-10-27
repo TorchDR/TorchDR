@@ -55,6 +55,7 @@ from .neighbor_embedding import (
     PACMAP,
 )
 from .spectral_embedding import (
+    LaplacianEigenmaps,
     IncrementalPCA,
     ExactIncrementalPCA,
     KernelPCA,
@@ -90,6 +91,7 @@ __all__ = [
     "AffinityMatcher",
     "PCA",
     "KernelPCA",
+    "LaplacianEigenmaps",
     "IncrementalPCA",
     "ExactIncrementalPCA",
     "NeighborEmbedding",
