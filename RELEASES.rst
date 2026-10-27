@@ -10,11 +10,6 @@ Unreleased
 Added
 ~~~~~
 
-- Add ``MultiscaleEntropicAffinity`` to average directed Gaussian affinities at
-  explicit perplexities, with one shared sparse neighbor search and log-domain
-  accumulation. Tensor distances (PyTorch/FAISS) are supported; KeOps mixtures
-  are not implemented. The PyTorch tensor path supports ``torch.compile``,
-  while its data-dependent root searches remain eager.
 - Add dense Laplacian Eigenmaps with configurable affinities and an Iris example
   `PR #391 <https://github.com/TorchDR/TorchDR/pull/391>`_.
 

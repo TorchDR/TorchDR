@@ -53,7 +53,8 @@ class NeighborEmbedding(AffinityMatcher):
       :attr:`early_exaggeration_coeff` (:math:`\lambda`) for the first
       :attr:`early_exaggeration_iter` iterations to encourage cluster formation.
     - **Auto learning rate**: When ``lr='auto'``, the learning rate is set
-      adaptively based on the number of samples.
+      adaptively based on the number of samples and the current exaggeration
+      coefficient, and recomputed when early exaggeration ends.
     - **Auto optimizer tuning**: When ``optimizer_kwargs='auto'`` with SGD,
       momentum is adjusted between the early exaggeration and normal phases.
     - **Distributed multi-GPU training**: When launched with ``torchrun``,
@@ -310,8 +311,9 @@ class NeighborEmbedding(AffinityMatcher):
             and self.n_iter_ == self.early_exaggeration_iter
         ):
             self.early_exaggeration_coeff_ = 1
-            # Reinitialize optimizer with post-exaggeration hyperparameters
-            # (higher momentum, adjusted learning rate).
+            # Rebuild parameter groups so the previous optimizer's lr/momentum
+            # defaults do not override the post-exaggeration values.
+            self._set_params()
             self._set_learning_rate()
             self._configure_optimizer()
             self._configure_scheduler()

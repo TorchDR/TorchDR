@@ -110,10 +110,8 @@ def pairwise_distances_torch(
     # If requested, exclude self–neighbors by setting the diagonal to a large number.
     if do_exclude_diag:
         n = C.shape[0]
-        diag_idx = torch.arange(n, device=C.device)
-        diag_mask = torch.zeros_like(C)
-        diag_mask[diag_idx, diag_idx] = 1e12
-        C = C + diag_mask
+        # Avoid indexed assignment: older Inductor versions can drop this mask.
+        C = C + torch.eye(n, device=C.device, dtype=C.dtype) * 1e12
 
     # If k is provided, select the k smallest distances per row.
     if k is not None:

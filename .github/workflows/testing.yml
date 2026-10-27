@@ -112,6 +112,10 @@ jobs:
       matrix:
         python-version: ["3.10", "3.12"]
         pytorch-version: ["2.13.0", "2.14.0"]
+        include:
+          # Retain coverage of the older Inductor diagonal-mask regression.
+          - python-version: "3.10"
+            pytorch-version: "2.8.0"
     name: Python ${{ matrix.python-version }} / PyTorch ${{ matrix.pytorch-version }}
     steps:
       - name: Checking Out Repository

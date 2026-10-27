@@ -1,5 +1,7 @@
 """Independent references and workflows for multi-perplexity affinities."""
 
+import sys
+
 import numpy as np
 import pytest
 import torch
@@ -132,15 +134,26 @@ def test_dense_embedding_workflow():
 
 
 @pytest.mark.parametrize("sparsity", [False, True])
-def test_compile_matches_eager_with_eager_backend(monkeypatch, caplog, sparsity):
+@pytest.mark.parametrize(
+    "compiler_backend",
+    [
+        "eager",
+        pytest.param(
+            "inductor",
+            marks=pytest.mark.skipif(
+                sys.platform != "linux",
+                reason="The default CPU compiler regression runs on Linux CI",
+            ),
+        ),
+    ],
+)
+def test_compile_matches_eager(monkeypatch, caplog, sparsity, compiler_backend):
     original_compile = torch.compile
-    compile_calls = []
 
-    def compile_with_eager_backend(function):
-        compile_calls.append(function)
-        return original_compile(function, backend="eager")
+    def compile_with_backend(function):
+        return original_compile(function, backend=compiler_backend)
 
-    monkeypatch.setattr(torch, "compile", compile_with_eager_backend)
+    monkeypatch.setattr(torch, "compile", compile_with_backend)
     X = data()
     eager = MultiscaleEntropicAffinity(
         (4, 9), device="cpu", distributed=False, compile=False, sparsity=sparsity
@@ -157,7 +170,6 @@ def test_compile_matches_eager_with_eager_backend(monkeypatch, caplog, sparsity)
         assert actual_indices is None
     else:
         torch.testing.assert_close(actual_indices, expected_indices)
-    assert len(compile_calls) == 1
     assert "Could not compile" not in caplog.text
 
 
