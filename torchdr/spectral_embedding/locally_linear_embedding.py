@@ -1,5 +1,6 @@
 """Standard Locally Linear Embedding with a dense PyTorch eigensolver."""
 
+from numbers import Integral, Real
 from typing import Optional
 
 import torch
@@ -10,10 +11,10 @@ from torchdr.utils import svd_flip
 
 
 class LocallyLinearEmbedding(DRModule):
-    r"""Preserve local barycentric reconstruction weights in an embedding [1]_.
+    r"""Preserve local barycentric reconstruction weights in an embedding.
 
-    For each sample, find Euclidean nearest neighbors and solve a regularized
-    least-squares reconstruction constrained to weights summing to one. The
+    Following [1]_, find Euclidean nearest neighbors for each sample and solve a
+    regularized least-squares reconstruction constrained to weights summing to one. The
     embedding uses the smallest nontrivial eigenvectors of
     :math:`(I-W)^T(I-W)`, where ``W`` contains those weights.
 
@@ -56,7 +57,8 @@ class LocallyLinearEmbedding(DRModule):
     eigensolver. Local solves and the eigendecomposition use float64 to
     resolve the smallest eigenvalues; embeddings retain the input dtype.
     Lazy/FAISS backends and out-of-sample transforms are not
-    supported. It is intended for small datasets.
+    supported. It is intended for small datasets. Disconnected neighborhoods can
+    yield multiple zero eigenvalues and an ambiguous embedding.
 
     References
     ----------
@@ -97,11 +99,11 @@ class LocallyLinearEmbedding(DRModule):
             value = getattr(self, name)
             if (
                 isinstance(value, bool)
-                or not isinstance(value, int)
+                or not isinstance(value, Integral)
                 or not 1 <= value < n
             ):
                 raise ValueError(f"{name} must be an integer in [1, n_samples - 1].")
-        if not isinstance(self.reg, (int, float)) or not 0 <= self.reg < float("inf"):
+        if not isinstance(self.reg, Real) or not 0 <= self.reg < float("inf"):
             raise ValueError("reg must be finite and nonnegative.")
         if self.device != "auto":
             X = X.to(self.device)

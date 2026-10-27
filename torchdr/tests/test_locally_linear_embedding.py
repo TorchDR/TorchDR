@@ -13,13 +13,24 @@ from torchdr import LocallyLinearEmbedding
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
-@pytest.mark.parametrize("n_neighbors", [6, 10])
-@pytest.mark.parametrize("n_components", [1, 2])
-def test_lle_reference(dtype, n_neighbors, n_components):
+@pytest.mark.parametrize(
+    "n_neighbors,n_components,reg",
+    [
+        (6, 1, 1e-3),
+        (6, 2, 1e-3),
+        (10, 1, 1e-3),
+        (10, 2, 1e-3),
+        (np.int64(6), np.int64(2), np.float32(1e-3)),
+    ],
+)
+def test_lle_reference(dtype, n_neighbors, n_components, reg):
     """Compare independent local solves, embedding subspaces and energy."""
     X = torch.randn(40, 5, dtype=dtype, generator=torch.Generator().manual_seed(4))
     model = LocallyLinearEmbedding(
-        n_neighbors=n_neighbors, n_components=n_components, process_duplicates=False
+        n_neighbors=n_neighbors,
+        n_components=n_components,
+        reg=reg,
+        process_duplicates=False,
     )
     Y = model.fit_transform(X)
     data = X.double().numpy()
