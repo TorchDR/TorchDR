@@ -125,7 +125,7 @@ class LocallyLinearEmbedding(DRModule):
         ).squeeze(-1)
         weights = weights / weights.sum(-1, keepdim=True)
         W = torch.zeros(n, n, dtype=X.dtype, device=X.device).scatter(
-            1, neighbors, weights
+            1, neighbors.long(), weights
         )
         residual = torch.eye(n, dtype=X.dtype, device=X.device) - W
         eigenvalues, eigenvectors = torch.linalg.eigh(residual.T @ residual)
