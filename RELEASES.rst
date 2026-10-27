@@ -13,6 +13,11 @@ Added
 - Add dense Laplacian Eigenmaps with configurable affinities and an Iris example
   `PR #391 <https://github.com/TorchDR/TorchDR/pull/391>`_.
 
+Fixed
+~~~~~
+
+- Allow IncrementalPCA to consume short final batches after the first update.
+
 Version 0.5 (2026-09-14)
 ------------------------
 
