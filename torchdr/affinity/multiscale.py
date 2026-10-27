@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 
 from torchdr.affinity.entropic import EntropicAffinity
-from torchdr.utils import check_neighbor_param
+from torchdr.utils import check_neighbor_param, compile_if_requested
 
 
 class MultiscaleEntropicAffinity(EntropicAffinity):
@@ -52,7 +52,9 @@ class MultiscaleEntropicAffinity(EntropicAffinity):
     verbose : bool, optional
         Enable logging. Default is False.
     compile : bool, optional
-        Must be False. Compiled mixtures are not implemented.
+        Compile the affinity computation with ``torch.compile``. Supported
+        only with the PyTorch tensor backend. The data-dependent root searches
+        remain eager, as in :class:`torchdr.EntropicAffinity`.
     distributed : bool or 'auto', optional
         Forwarded to the sparse distance backend. Default is ``"auto"``.
     _pre_processed : bool, optional
@@ -101,8 +103,10 @@ class MultiscaleEntropicAffinity(EntropicAffinity):
             for p in scales
         ):
             raise ValueError("perplexities must contain finite integers >= 2")
-        if compile:
-            raise ValueError("MultiscaleEntropicAffinity does not support compile=True")
+        if compile and backend is not None:
+            raise ValueError(
+                "MultiscaleEntropicAffinity supports compile=True only with backend=None"
+            )
         if backend == "keops":
             raise ValueError(
                 "MultiscaleEntropicAffinity does not support the KeOps backend"
@@ -117,14 +121,13 @@ class MultiscaleEntropicAffinity(EntropicAffinity):
             device=device,
             backend=backend,
             verbose=verbose,
-            compile=False,
+            compile=compile,
             distributed=distributed,
             _pre_processed=_pre_processed,
         )
 
+    @compile_if_requested
     def _compute_sparse_log_affinity(self, X, return_indices=True, **kwargs):
-        if self.compile:
-            raise ValueError("MultiscaleEntropicAffinity does not support compile=True")
         n = self._get_n_samples(X)
         if n < 4:
             raise ValueError("MultiscaleEntropicAffinity requires at least 4 samples")

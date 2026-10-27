@@ -7,8 +7,8 @@ from scipy.optimize import brentq
 from scipy.special import logsumexp
 from scipy.spatial.distance import cdist
 
-from torchdr.affinity import EntropicAffinity
 from torchdr import MultiscaleEntropicAffinity
+from torchdr.affinity import EntropicAffinity
 
 
 def data(dtype=torch.float64):
@@ -22,8 +22,8 @@ def reference(X, p):
     for i in range(len(X)):
         ids = np.flatnonzero(np.isfinite(D[i]))
 
-        def lp(beta):
-            q = -np.exp(beta) * D[i, ids]
+        def lp(beta, row=i, valid_ids=ids):
+            q = -np.exp(beta) * D[row, valid_ids]
             return q - logsumexp(q)
 
         beta = brentq(lambda b: -np.dot(np.exp(lp(b)), lp(b)) - np.log(p), -25, 25)
@@ -103,8 +103,7 @@ def test_invalid_scales(scales):
         MultiscaleEntropicAffinity(scales)
 
 
-@pytest.mark.parametrize("compile_affinity", [False, True])
-def test_dense_embedding_workflow(compile_affinity):
+def test_dense_embedding_workflow():
     from torchdr import AffinityMatcher
     from torchdr.affinity import NormalizedStudentAffinity
 
@@ -116,22 +115,84 @@ def test_dense_embedding_workflow(compile_affinity):
         affinity_out=NormalizedStudentAffinity(device="cpu"),
         loss_fn="cross_entropy_loss",
         n_components=2,
-        max_iter=0 if compile_affinity else 20,
-        compile=compile_affinity,
+        max_iter=20,
+        compile=False,
         device="cpu",
         random_state=13,
         lr=0.1,
         check_interval=5,
     )
-    if compile_affinity:
-        with pytest.raises(ValueError, match="does not support compile=True"):
-            model.fit_transform(X)
-        return
     embedding = model.fit_transform(X)
     assert embedding.shape == (40, 2)
     assert torch.isfinite(embedding).all()
     P = model.affinity_in(X, return_indices=False)
     torch.testing.assert_close(P.sum(), torch.tensor(1.0, dtype=X.dtype))
+
+
+@pytest.mark.parametrize("sparsity", [False, True])
+def test_compile_matches_eager_with_eager_backend(monkeypatch, caplog, sparsity):
+    original_compile = torch.compile
+    compile_calls = []
+
+    def compile_with_eager_backend(function):
+        compile_calls.append(function)
+        return original_compile(function, backend="eager")
+
+    monkeypatch.setattr(torch, "compile", compile_with_eager_backend)
+    X = data()
+    eager = MultiscaleEntropicAffinity(
+        (4, 9), device="cpu", distributed=False, compile=False, sparsity=sparsity
+    )
+    compiled = MultiscaleEntropicAffinity(
+        (4, 9), device="cpu", distributed=False, compile=True, sparsity=sparsity
+    )
+
+    expected, expected_indices = eager(X)
+    actual, actual_indices = compiled(X)
+
+    torch.testing.assert_close(actual, expected)
+    if expected_indices is None:
+        assert actual_indices is None
+    else:
+        torch.testing.assert_close(actual_indices, expected_indices)
+    assert len(compile_calls) == 1
+    assert "Could not compile" not in caplog.text
+
+
+def test_affinity_matcher_compile_enables_multiscale_affinity(monkeypatch, caplog):
+    from torchdr import AffinityMatcher
+    from torchdr.affinity import NormalizedStudentAffinity
+
+    original_compile = torch.compile
+    compile_calls = []
+
+    def compile_with_eager_backend(function):
+        compile_calls.append(function)
+        return original_compile(function, backend="eager")
+
+    monkeypatch.setattr(torch, "compile", compile_with_eager_backend)
+    X = data()
+    affinity_in = MultiscaleEntropicAffinity(
+        (4, 9), sparsity=False, device="cpu", distributed=False
+    )
+    model = AffinityMatcher(
+        affinity_in=affinity_in,
+        affinity_out=NormalizedStudentAffinity(device="cpu"),
+        loss_fn="cross_entropy_loss",
+        n_components=2,
+        max_iter=0,
+        compile=True,
+        device="cpu",
+        random_state=13,
+    )
+
+    assert affinity_in.compile
+    embedding = model.fit_transform(X)
+
+    assert embedding.shape == (40, 2)
+    assert torch.isfinite(embedding).all()
+    assert len(compile_calls) == 1
+    assert "Could not compile" not in caplog.text
 
 
 def test_log_domain_keeps_small_probabilities_finite():
@@ -157,7 +218,13 @@ def test_sparse_faiss_matches_exact_tensor_workflow():
     torch.testing.assert_close(full_indexed.sum(1), torch.full((40,), 1 / 40))
 
 
-@pytest.mark.parametrize("keyword", [{"backend": "keops"}, {"compile": True}])
+@pytest.mark.parametrize(
+    "keyword",
+    [
+        {"backend": "keops"},
+        {"backend": "faiss", "compile": True},
+    ],
+)
 def test_unsupported_paths_fail_explicitly(keyword):
     with pytest.raises(ValueError):
         MultiscaleEntropicAffinity((4, 9), **keyword)

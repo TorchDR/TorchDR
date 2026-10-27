@@ -311,6 +311,9 @@ an arithmetic average of directed Gaussian affinities at explicit perplexities,
 motivated by :cite:`lee2015multiscale`. It averages the probabilities after
 normalizing each scale. It does not average perplexity parameters, prescribe a
 single entropy to the mixture, select scales automatically, or symmetrize it.
+The PyTorch tensor backend supports ``torch.compile``; the per-scale
+data-dependent root searches remain eager. FAISS compilation and KeOps mixtures
+are not supported.
 
 .. code-block:: python
 
