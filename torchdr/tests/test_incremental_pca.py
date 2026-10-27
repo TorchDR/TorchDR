@@ -24,6 +24,59 @@ torch.manual_seed(1999)
 iris = datasets.load_iris()
 
 
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("n_components", [3, None])
+@pytest.mark.parametrize("input_mode", ["partial_fit", "dataloader"])
+def test_incremental_pca_short_final_batch(dtype, n_components, input_mode):
+    """A final one-row batch contributes to the existing decomposition."""
+    generator = torch.Generator().manual_seed(17)
+    X = torch.randn(11, 6, generator=generator, dtype=dtype)
+    batches = list(X.split(5))
+    reference = SkIncrementalPCA(n_components=n_components)
+    for batch in batches:
+        reference.partial_fit(batch.numpy())
+
+    ipca = IncrementalPCA(
+        n_components=n_components, device="cpu", process_duplicates=False
+    )
+    if input_mode == "partial_fit":
+        for batch in batches:
+            ipca.partial_fit(batch)
+    else:
+        loader = torch.utils.data.DataLoader(X, batch_size=5, shuffle=False)
+        ipca.fit(loader)
+
+    assert ipca.n_samples_seen_.item() == len(X)
+    assert ipca.components_.shape == reference.components_.shape
+    for name in (
+        "mean_",
+        "var_",
+        "components_",
+        "singular_values_",
+        "explained_variance_",
+        "explained_variance_ratio_",
+    ):
+        expected = torch.from_numpy(getattr(reference, name))
+        assert_close(
+            getattr(ipca, name).to(expected.dtype), expected, rtol=1e-5, atol=1e-6
+        )
+    assert_close(
+        ipca.transform(X).to(torch.float64),
+        torch.from_numpy(reference.transform(X.numpy())).to(torch.float64),
+        rtol=1e-5,
+        atol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("check_input", [True, False])
+def test_incremental_pca_rejects_short_first_batch(check_input):
+    """The initial decomposition still needs at least n_components rows."""
+    ipca = IncrementalPCA(n_components=3, device="cpu")
+    with pytest.raises(ValueError, match="first batch number of samples 2"):
+        ipca.partial_fit(torch.ones(2, 6), check_input=check_input)
+    assert not hasattr(ipca, "components_")
+
+
 def test_incremental_pca():
     # Incremental PCA on dense arrays.
     n_components = 2
