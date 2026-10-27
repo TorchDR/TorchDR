@@ -30,11 +30,12 @@ iris = datasets.load_iris()
 def test_incremental_pca_short_final_batch(dtype, n_components, input_mode):
     """A final one-row batch contributes to the existing decomposition."""
     generator = torch.Generator().manual_seed(17)
-    X = torch.randn(11, 6, generator=generator, dtype=dtype)
+    X = torch.randn(11, 3, generator=generator, dtype=dtype)
     batches = list(X.split(5))
+    # Retain the full basis so a one-batch PCA is an exact independent reference.
+    # Older sklearn versions reject short partial_fit batches themselves.
     reference = SkIncrementalPCA(n_components=n_components)
-    for batch in batches:
-        reference.partial_fit(batch.numpy())
+    reference.partial_fit(X.numpy())
 
     ipca = IncrementalPCA(
         n_components=n_components, device="cpu", process_duplicates=False
