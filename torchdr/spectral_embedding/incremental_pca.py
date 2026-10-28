@@ -34,6 +34,10 @@ class IncrementalPCA(DRModule):
     This class provides methods to fit the model on data incrementally in batches,
     and to transform new data based on the principal components learned during the fitting process.
 
+    Calling ``fit`` or ``fit_transform`` starts a new decomposition from its
+    input data. Use ``partial_fit`` to accumulate additional batches into an
+    existing decomposition.
+
     The algorithm uses incremental SVD updates based on :cite:p:`ross2008incremental`,
     which allows maintaining a low-rank approximation of the data covariance matrix
     without storing all data or recomputing from scratch.
@@ -510,6 +514,23 @@ class IncrementalPCA(DRModule):
         ArrayLike of shape (n_samples, n_components)
             Projected data. Will be on the same device/backend as input.
         """
+        # A whole-data fit starts a new decomposition; partial_fit remains cumulative.
+        for name in (
+            "components_",
+            "mean_",
+            "var_",
+            "singular_values_",
+            "explained_variance_",
+            "explained_variance_ratio_",
+            "noise_variance_",
+            "n_samples_seen_",
+        ):
+            if hasattr(self, name):
+                delattr(self, name)
+        self.n_features_ = None
+        self.embedding_ = None
+        self.is_fitted_ = False
+
         # Handle DataLoader input
         if isinstance(X, DataLoader):
             # Single pass: fit incrementally
