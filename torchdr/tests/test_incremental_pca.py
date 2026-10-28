@@ -716,3 +716,47 @@ def test_exact_incremental_pca_distributed_reconstruction_quality():
     assert relative_error < 0.1, (
         f"Relative reconstruction error {relative_error} too high"
     )
+
+
+@pytest.mark.parametrize("prior_fit", ["fit", "partial_fit"])
+@pytest.mark.parametrize("input_mode", ["tensor", "dataloader"])
+@pytest.mark.parametrize("n_features", [4, 6])
+def test_incremental_pca_refit_discards_previous_data(
+    prior_fit, input_mode, n_features
+):
+    """A new fit uses only its data, while later partial_fit still accumulates."""
+    generator = torch.Generator().manual_seed(18)
+    old = torch.randn(20, 6, generator=generator, dtype=torch.float64)
+    new = torch.randn(30, n_features, generator=generator, dtype=torch.float64) + 10
+    extra = torch.randn(10, n_features, generator=generator, dtype=torch.float64) - 5
+    kwargs = dict(n_components=3, batch_size=10, device="cpu", process_duplicates=False)
+    reused = IncrementalPCA(**kwargs)
+    getattr(reused, prior_fit)(old)
+    data = (
+        torch.utils.data.DataLoader(new, batch_size=10, shuffle=False)
+        if input_mode == "dataloader"
+        else new
+    )
+    assert reused.fit(data) is reused
+    fresh = IncrementalPCA(**kwargs).fit(new)
+
+    def assert_same_state():
+        assert reused.n_samples_seen_.item() == fresh.n_samples_seen_.item()
+        for name in (
+            "mean_",
+            "var_",
+            "components_",
+            "singular_values_",
+            "explained_variance_",
+            "explained_variance_ratio_",
+            "noise_variance_",
+        ):
+            assert_close(getattr(reused, name), getattr(fresh, name))
+        assert_close(reused.transform(new), fresh.transform(new))
+
+    assert reused.n_samples_seen_.item() == len(new)
+    assert_same_state()
+    reused.partial_fit(extra)
+    fresh.partial_fit(extra)
+    assert reused.n_samples_seen_.item() == len(new) + len(extra)
+    assert_same_state()

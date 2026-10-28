@@ -7,6 +7,11 @@ Release Notes
 Unreleased
 ----------
 
+Changed
+~~~~~~~
+
+- Reset IncrementalPCA statistics on each new fit while keeping partial_fit cumulative.
+
 Added
 ~~~~~
 
