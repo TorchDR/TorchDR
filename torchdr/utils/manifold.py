@@ -175,7 +175,7 @@ class EuclideanManifold(Manifold):
 
 
 class Artanh(torch.autograd.Function):
-    """The inverse of the tanh function.
+    r"""The inverse of the tanh function.
 
     It is defined as:
 
