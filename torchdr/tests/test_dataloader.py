@@ -13,10 +13,12 @@ import torch
 from torch.testing import assert_close
 from torch.utils.data import DataLoader, TensorDataset
 
+from torchdr.affinity import EntropicAffinity, MultiscaleEntropicAffinity
 from torchdr.distance import (
     pairwise_distances,
     pairwise_distances_faiss_from_dataloader,
     FaissConfig,
+    FaissPlanConfig,
 )
 from torchdr.distance.faiss import (
     _DATALOADER_METADATA_CACHE,
@@ -39,6 +41,27 @@ pytestmark = pytest.mark.skipif(
 # ``|x|^2 + |y|^2 - 2<x, y>``, and the cancellation leaves about 1e-5 on a
 # squared self-distance; the square root of that residual is a few 1e-3.
 EUCLIDEAN_ATOL = 1e-2
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("multiscale", [False, True])
+def test_entropic_affinity_matches_tensor_input_with_dataloader(dtype, multiscale):
+    """Affinity-generated tensor neighbor counts work through streaming search."""
+    X = torch.randn(40, 4, generator=torch.Generator().manual_seed(31), dtype=dtype)
+    loader = DataLoader(TensorDataset(X), batch_size=13, shuffle=False)
+    kwargs = dict(
+        backend=FaissPlanConfig(mode="exact"), device="cpu", distributed=False
+    )
+    if multiscale:
+        affinity = MultiscaleEntropicAffinity((4, 9), **kwargs)
+    else:
+        affinity = EntropicAffinity(perplexity=4, **kwargs)
+
+    expected, expected_indices = affinity(X)
+    actual, actual_indices = affinity(loader)
+
+    assert torch.equal(actual_indices, expected_indices)
+    assert_close(actual, expected, rtol=1e-4, atol=1e-6)
 
 
 class TestDataLoaderDistances:

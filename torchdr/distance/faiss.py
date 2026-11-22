@@ -1119,7 +1119,7 @@ def _setup_gpu_index(index, config: FaissConfig, d: int):
 @torch.compiler.disable
 def pairwise_distances_faiss_from_dataloader(
     dataloader: DataLoader,
-    k: int,
+    k: Union[int, torch.Tensor],
     metric: str = "sqeuclidean",
     exclude_diag: bool = False,
     config: Optional[FaissConfig] = None,
@@ -1139,8 +1139,9 @@ def pairwise_distances_faiss_from_dataloader(
         (shuffle=False) and yield tensors of shape (batch_size, n_features).
         In distributed mode, all ranks must iterate through the same data
         in the same order.
-    k : int
-        Number of nearest neighbors to return.
+    k : int or scalar torch.Tensor
+        Number of nearest neighbors to return, converted to a Python integer
+        before calling FAISS, as for tensor input.
     metric : str, default "sqeuclidean"
         Distance metric. One of "euclidean", "sqeuclidean", or "angular".
     exclude_diag : bool, default False
@@ -1192,6 +1193,8 @@ def pairwise_distances_faiss_from_dataloader(
 
     # Validate DataLoader configuration
     _validate_dataloader(dataloader)
+
+    k = int(k.item()) if isinstance(k, torch.Tensor) else int(k)
 
     if config is None:
         config = FaissConfig()
