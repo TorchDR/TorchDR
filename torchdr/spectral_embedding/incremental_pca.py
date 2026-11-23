@@ -514,22 +514,11 @@ class IncrementalPCA(DRModule):
         ArrayLike of shape (n_samples, n_components)
             Projected data. Will be on the same device/backend as input.
         """
-        # A whole-data fit starts a new decomposition; partial_fit remains cumulative.
-        for name in (
-            "components_",
-            "mean_",
-            "var_",
-            "singular_values_",
-            "explained_variance_",
-            "explained_variance_ratio_",
-            "noise_variance_",
-            "n_samples_seen_",
-        ):
-            if hasattr(self, name):
-                delattr(self, name)
-        self.n_features_ = None
-        self.embedding_ = None
-        self.is_fitted_ = False
+        # partial_fit starts a new decomposition, reinitializing every fitted
+        # statistic, whenever components_ is absent. Dropping it makes a
+        # whole-data fit start fresh while partial_fit stays cumulative.
+        if hasattr(self, "components_"):
+            del self.components_
 
         # Handle DataLoader input
         if isinstance(X, DataLoader):
