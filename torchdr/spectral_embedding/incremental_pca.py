@@ -101,7 +101,7 @@ class IncrementalPCA(DRModule):
     ----------
     n_components : int, optional
         Number of components to keep. If `None`, it's set to the minimum of the
-        number of samples and features. Defaults to None.
+        number of samples and features in the first batch. Defaults to None.
     copy : bool
         If False, input data will be overwritten. Defaults to True.
     batch_size : int, optional
@@ -212,14 +212,6 @@ class IncrementalPCA(DRModule):
             max_components=self.n_components,
         )
 
-        # IncrementalPCA-specific validation for batch size
-        n_samples = X.shape[0]
-        if self.n_components is not None and self.n_components > n_samples:
-            raise ValueError(
-                f"n_components={self.n_components} must be less or equal "
-                f"to the batch number of samples {n_samples}."
-            )
-
         # Ensure float dtype (validate_tensor doesn't handle dtype conversion)
         if X.dtype not in [torch.float32, torch.float64]:
             X = X.to(torch.float32)
@@ -328,7 +320,9 @@ class IncrementalPCA(DRModule):
         ----------
         X : torch.Tensor
             The batch input data tensor with shape (n_samples, n_features).
-            Should fit in memory/GPU memory.
+            Should fit in memory/GPU memory. The first batch must contain at
+            least n_components samples; subsequent batches may be smaller,
+            including a single sample.
         check_input : bool, optional
             If True, validates the input. Defaults to True.
 
@@ -371,6 +365,15 @@ class IncrementalPCA(DRModule):
         if check_input:
             X = self._validate_data(X)
         n_samples, n_features = X.shape
+        if (
+            first_pass
+            and self.n_components is not None
+            and self.n_components > n_samples
+        ):
+            raise ValueError(
+                f"n_components={self.n_components} must be less or equal "
+                f"to the first batch number of samples {n_samples}."
+            )
 
         # Initialize attributes to avoid errors during the first call to partial_fit
         if first_pass:
